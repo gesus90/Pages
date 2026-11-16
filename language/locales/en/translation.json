@@ -855,6 +855,7 @@
         "catalog_unsupported": "This provider has no documented token-free catalog endpoint. Enter a model ID manually.",
         "catalog_interval_invalid": "Choose a supported catalog refresh interval.",
         "catalog_limit_exceeded": "The catalog exceeded its safety limits. The last successful catalog was retained.",
+        "catalog_incomplete": "The provider listed no models. The last valid catalog was retained and is marked as outdated.",
         "reasoning_effort_invalid": "The reasoning effort has an invalid format.",
         "reasoning_effort_unsupported": "The model list does not name this reasoning effort for the selected model.",
         "function_invalid": "Choose a predefined agent function.",
@@ -957,6 +958,7 @@
         "plan_definition_changed": "The AGENT.md of the agent is missing or does not match the started revision.",
         "plan_placeholder_unresolved": "The prompt still contains a parameter placeholder; nothing was sent.",
         "plan_runner_lost": "The remote process was lost without an exit record. No automatic restart.",
+        "plan_paused_before_launch": "The run was paused before this step launched. Nothing was started; resume the run to continue.",
         "plan_runner_update_required": "Runner 1.11 or newer is required: remote execution needs its communication contract. Update the runner explicitly.",
         "plan_runner_payload_update_required": "Runner 1.13.0 or newer is required to separate remote CLI results from transport metadata. Update the selected runner before starting.",
         "plan_runner_admission_failed": "The runner could not reserve an execution slot on its host; the job did not start.",
@@ -1219,6 +1221,7 @@
       "copyCode": "Copy code",
       "validUntil": "Valid until {{time}}",
       "anthropicCode": "Code from the Anthropic page",
+      "antigravityCode": "Code or full address from Google's Antigravity page",
       "finishLogin": "Complete sign-in",
       "pollFailed": "Sign-in status could not be loaded. Polling will retry. If your role changed, administrator mode is required again.",
       "copied": "Copied.",
@@ -1686,6 +1689,36 @@
         }
       },
       "runner": {
+        "updates": {
+          "address": "Pages address for runners (defaults to the public Pages address)",
+          "lan": "Use unencrypted WS on the trusted LAN explicitly",
+          "warning": "Warning: Runner tokens, provider keys and job contents are transmitted without encryption over WS. Use WSS outside a trusted LAN.",
+          "automatic": "Automatically update idle runners",
+          "save": "Save runner settings",
+          "saved": "Settings saved; connected runners adopt the address at the next heartbeat.",
+          "saveFailed": "The request failed. Check address, administrator access and runner registration.",
+          "required": "Runner update required; new work is disabled for unsupported versions.",
+          "bootstrap": "No update receipt yet. Runners installed before the update contract need the current setup once, preserving their pairing.",
+          "requested": "Update requested; waiting for the authenticated channel and a safe boundary.",
+          "update": "Request update / retry",
+          "status": {
+            "idle": "Ready",
+            "deferred": "Update deferred",
+            "restarting": "Restarting candidate",
+            "failed": "Update failed; installed runner retained",
+            "verified": "Running version verified",
+            "rolled-back": "Previous runner restored"
+          },
+          "reason": {
+            "active_jobs": "Active, queued or unconfirmed jobs must finish first",
+            "pending_receipt": "Waiting for a durable event acknowledgement",
+            "package_invalid": "Package digest, manifest or version invalid",
+            "exchange_failed": "Release could not be activated",
+            "restart_failed": "Candidate failed before authenticated reconciliation",
+            "restart_unavailable": "Start the runner through its installed supervisor"
+          }
+        },
+        "thisServer": "This server",
         "title": "Remote",
         "description": "Registered SSH connections and their Pages runner.",
         "offline": "GitHub key management: offline, Pages metadata only. Explicit SSH access checks run separately from the remote workspace.",
@@ -6057,7 +6090,7 @@
         "remoteToolMissing": "The required CLI tool is missing or the runner does not support CLI jobs yet. Update the runner and refresh its inventory.",
         "remoteLogin": "The CLI tool has no subscription login on the remote host. Sign in there yourself, then refresh the inventory.",
         "remoteLoginUnknown": "The runner has not confirmed CLI login. Check it on the remote host and refresh the inventory.",
-        "remoteOptions": "This remote CLI supports Read only and explicitly selected YOLO. Workspace write mode and browser MCP are unavailable here.",
+        "remoteOptions": "This remote CLI supports Read Only and explicitly selected YOLO. Browser access requires YOLO and a runner with browser support configured.",
         "remoteTicketUnavailable": "Ticket unavailable: archived, deleted or currently not visible. No other ticket is substituted.",
         "remoteWikiUnavailable": "Wiki page unavailable: archived, deleted or currently not visible. No other page is substituted.",
         "remoteWorkspaceParameter": "This parameter requires an accessible remote workspace on the same host. Local paths are never transferred.",
@@ -7109,6 +7142,13 @@
       "failed": "Failed"
     },
     "communication": {
+      "control": {
+        "frozen": "Runner confirmed: execution frozen.",
+        "thawed": "Runner confirmed: execution thawed.",
+        "terminated": "Runner confirmed: execution terminated.",
+        "unavailable": "In-turn pause unavailable. The runner pauses queued steps only.",
+        "failed": "The runner could not confirm the pause state."
+      },
       "title": "Remote execution",
       "confirmed": "Last confirmed state",
       "connection": "Runner connection",
@@ -7500,7 +7540,8 @@
         "main": "Main model",
         "workers": "Helpers",
         "execution": "Execution",
-        "run": "Run"
+        "run": "Run",
+        "memory": "Memory"
       },
       "taskSource": "Source of the task",
       "taskText": "Text",
@@ -7552,7 +7593,61 @@
       "runLabel": "Run view of the swarm",
       "nodeFailed": "Swarm failed: {{reason}}",
       "empty": "The main model plans the split …",
-      "result": "Result"
+      "result": "Result",
+      "memorySetting": {
+        "enabled": "Shared memory",
+        "cost": "Helpers share findings without going through the main model. More context per turn costs more tokens.",
+        "workersPublish": "Helpers may publish",
+        "keepAfterEnd": "Keep after the run ends",
+        "singleWorker": "With one helper the memory is off by default; the options are locked."
+      },
+      "memory": {
+        "tabs": "View of the swarm run",
+        "tab": {
+          "workers": "Helpers",
+          "memory": "Memory",
+          "activity": "Activity"
+        },
+        "revision": "Revision r{{revision}}",
+        "export": "Export",
+        "snapshot": "Snapshot v{{version}} · up to r{{revision}}",
+        "sections": {
+          "decisions": "Decisions",
+          "interfaces": "Interfaces",
+          "blockers": "Open blockers",
+          "findings": "Findings"
+        },
+        "kind": {
+          "finding": "Finding",
+          "blocker": "Blocker",
+          "handoff": "Handoff",
+          "proposal": "Proposal",
+          "decision": "Decision",
+          "interface": "Interface",
+          "status": "Status"
+        },
+        "readUpTo": "Read up to",
+        "dataNote": "Entries are quoted data with author and revision, not instructions.",
+        "empty": "No entries yet.",
+        "loading": "Loading memory",
+        "failed": "The memory could not be loaded.",
+        "retry": "Try again",
+        "redacted": "[redacted]",
+        "superseded": "superseded",
+        "refused": "refused",
+        "refusedReason": "Refused: {{reason}}",
+        "contradictions_one": "{{count}} open contradiction",
+        "contradictions_other": "{{count}} open contradictions",
+        "reasons": {
+          "swarm_memory_publish_disabled": "Helpers may not publish",
+          "swarm_memory_kind_forbidden": "Kind reserved for the main model",
+          "swarm_memory_text_missing": "No text",
+          "swarm_memory_entry_too_long": "More than 2,000 characters",
+          "swarm_memory_event_conflict": "Event id already holds another entry",
+          "swarm_memory_node_full": "Run reached 300 entries",
+          "swarm_memory_worker_full": "Helper reached 60 entries"
+        }
+      }
     },
     "fullEnvironment": {
       "access": "Full environment – full access with the rights of {{owner}}",
@@ -7658,26 +7753,26 @@
   "agentTools": {
     "title": "Agent tools & runtimes",
     "back": "Back to Agents",
-    "description": "Manage approved tools, check readiness and inspect active sessions. Enabled connections are checked at startup and before a run.",
-    "hostHint": "Host dependencies require operator provisioning. Browser artifacts are saved in the workspace under .pages-artifacts/<session>. Use a separate test instance for browser tests.",
+    "description": "Manage approved tools, check readiness and inspect active sessions. Flow: search for updates, update CLI and adapter, re-bind connections and refresh models. Running sessions keep their version.",
+    "hostHint": "Every action affects only this Pages host and its own managed installations. Operators provide system dependencies. Browser artifacts are stored in the workspace below .pages-artifacts/<session>. Use a separate test instance for browser tests.",
     "browserPermission": "Allow Playwright browser tools (administrator activation required; use a test instance)",
     "installation": "Installation",
     "installed": "Installed",
     "missing": "Missing",
-    "version": "Effective version (last check)",
+    "version": "Installed version (last check)",
     "executable": "Executable of new calls",
     "rollback": "Rollback generation",
     "terminalEntry": "Terminal entry",
     "terminalEntryCurrent": "Points to the executable of new calls. A terminal that starts this path uses the same approved installation as Pages.",
     "terminalEntryStale": "Does not point to the active generation yet. The next verified activation or a rollback sets it; until then a terminal using this path does not run the installation of Pages.",
     "supported": "Supported versions",
-    "approved": "Approved target",
+    "approved": "Update target",
     "enabled": "Enabled",
     "yes": "Yes",
     "no": "No",
     "lastCheck": "Last check",
     "processes": "Active processes / sessions",
-    "updateAvailable": "An approved update is available.",
+    "updateAvailable": "An update is available. “Update” installs it as a checked candidate.",
     "working": "Operation running…",
     "success": "Operation completed.",
     "activity": "Instance {{instance}} · PID {{pid}} · session {{session}}",
@@ -7690,11 +7785,11 @@
       "claude": "Claude Code CLI",
       "opencode": "OpenCode CLI / native ACP",
       "codex_acp": "Codex ACP",
-      "claude_acp": "Claude ACP (external)",
+      "claude_acp": "Claude ACP",
       "playwright_mcp": "Playwright MCP",
       "chromium": "Chromium",
       "firefox": "Firefox (optional)",
-      "antigravity_acp": "Google Antigravity ACP"
+      "antigravity_acp": "Google Antigravity CLI (agy acp)"
     },
     "kind": {
       "runtime": "Runtime",
@@ -7729,13 +7824,15 @@
       "remove": "Remove managed installation",
       "rollback": "Roll back",
       "enable": "Enable integration",
-      "disable": "Disable integration"
+      "disable": "Disable integration",
+      "rebind": "Re-bind",
+      "installManaged": "Install managed"
     },
     "diagnostic": {
       "not_checked": "Not checked yet. Disabled tools are checked when explicitly requested.",
       "ready": "The local functionality check passed.",
       "not_installed": "The executable or bundle is missing. Install the managed tool or provision the host dependency.",
-      "version_unsupported": "The detected version is outside the approved allowlist.",
+      "version_unsupported": "The detected version is not a supported stable release or does not match the chosen target.",
       "execution_failed": "The executable could not complete its check. Check permissions and the host environment.",
       "handshake_failed": "The protocol initialization failed or returned an incompatible contract.",
       "browser_failed": "The browser failed to start. Check browser libraries, sandbox support and the managed download.",
@@ -7752,12 +7849,70 @@
       "workspace_unavailable": "The authorized workspace is unavailable or lacks the required permissions.",
       "root_not_allowed": "Managed tools require an unprivileged Pages service account.",
       "rollback_failed": "No healthy previous managed release could be activated.",
-      "browser_permission_required": "Browser tools require an explicit agent opt-in in YOLO mode."
+      "browser_permission_required": "Browser tools require an explicit agent opt-in in YOLO mode.",
+      "update_not_checked": "Run “Search for updates” first; only then is a checked update target known.",
+      "release_incompatible": "The official source offers no compatible stable release. The previous version stays active.",
+      "release_unavailable": "The official source did not confirm the chosen release or was unreachable. Try again later.",
+      "adapter_incompatible": "CLI and adapter do not work together in this combination. Nothing was activated; the previous combination stays usable."
     },
     "unknown": "Not checked yet",
     "browserVersion": "Browser version",
     "browserRevision": "Playwright version",
-    "browserTarget": "Approved Playwright version"
+    "browserTarget": "Approved Playwright version",
+    "activeVersion": "Active version for new sessions",
+    "lastSuccessfulCheck": "Last successful check",
+    "pairedAdapter": "Required adapter",
+    "pairedCli": "Belongs to CLI",
+    "integratedAdapter": "ACP is built into the CLI",
+    "checkUpdates": "Search for updates",
+    "checkUpdatesHint": "Reads only version data of the fixed official sources; installs and activates nothing.",
+    "externalHint": "Managed externally: Pages does not change this installation. “Install managed” creates Pages' own checked installation that new sessions use afterwards.",
+    "release": {
+      "title": "Newest stable version",
+      "target": "Update target",
+      "source": "Official source",
+      "checkedAt": "Version search",
+      "state": {
+        "not_checked": "Not searched yet",
+        "current": "Current",
+        "update_available": "Update available",
+        "check_failed": "Check failed",
+        "source_unreachable": "Source unreachable",
+        "external": "Managed externally",
+        "incompatible": "Incompatible"
+      }
+    },
+    "operation": {
+      "title": "Last action",
+      "running": "{{action}} running: {{phase}}",
+      "succeeded": "{{action}} completed",
+      "failed": "{{action}} failed in phase “{{phase}}”. The previous version stays usable.",
+      "retry": "Try again: {{action}}",
+      "phase": {
+        "resolving": "Resolve version",
+        "installing_cli": "Install CLI",
+        "verifying_cli": "Check CLI",
+        "installing_adapter": "Install adapter",
+        "verifying_adapter": "Check adapter with CLI",
+        "activating": "Activate",
+        "rolling_back": "Roll back",
+        "rebinding": "Re-bind connections"
+      }
+    },
+    "connections": {
+      "title": "Connections after re-binding",
+      "empty": "No connection uses this tool.",
+      "status": {
+        "ready": "Connected",
+        "login_required": "The provider asks for a new sign-in – sign in at the connection under Agents; existing data is kept",
+        "failed": "Check failed"
+      },
+      "models": "{{count}} models, catalog from {{date}}",
+      "stale": "Catalog outdated: the last valid catalog is kept ({{reason}}).",
+      "missingModel": "The saved model “{{model}}” is no longer available. Pages does not replace it; choose a model deliberately.",
+      "missingEffort": "The saved reasoning level “{{effort}}” is no longer offered by the model. Pages does not change it.",
+      "accountHint": "New models depend on the account and the provider; a version number alone does not guarantee them."
+    }
   },
   "agentExecution": {
     "error": {

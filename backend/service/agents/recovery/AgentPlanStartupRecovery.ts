@@ -125,7 +125,8 @@ export class AgentPlanStartupRecovery {
     retained: ReadonlySet<string>,
     endSession: typeof endInterruptedSession,
   ): Promise<boolean> {
-    await this.dependencies.sessions?.revoke(previous.id, null);
+    if (!previous.runnerJobs?.some((job) => job.closeout !== "confirmed"))
+      await this.dependencies.sessions?.revoke(previous.id, null);
     const endNode = async (
       step: AgentPlanStepResult,
     ): Promise<AgentPlanStepResult> =>
@@ -281,7 +282,10 @@ function interruptionCode(step: AgentPlanStepResult): string {
 }
 
 function requiresLocalRecovery(run: AgentPlanRun): boolean {
-  return !run.steps.some((step) => step.execution?.target.kind === "remote");
+  return (
+    Boolean(run.runnerJobs?.length) ||
+    !run.steps.some((step) => step.execution?.target.kind === "remote")
+  );
 }
 
 /** Restores proven local owners before the legacy interruption and reservation cleanup paths. */

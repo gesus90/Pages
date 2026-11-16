@@ -47,6 +47,7 @@ export const PLAN_NODE_FIELDS = {
     "directory",
     "timeoutMinutes",
     "executionTarget",
+    "memory",
   ],
   asset: ["name", "file"],
   task: ["taskId"],

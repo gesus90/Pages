@@ -24,6 +24,7 @@ import {
 } from "@/definition/AgentPlanTarget";
 
 import { remoteWorkspaceKeys } from "./AgentPlanRemoteWorkspaceKey";
+import { remoteSessionSnapshot } from "./AgentPlanRemoteSession";
 import { validateGroupRuntimes } from "./AgentPlanGroupRuntime";
 import { AgentPlanPreparationFailures } from "./AgentPlanPreparationFailures";
 import { remoteReferenceIssues } from "./AgentPlanReferences";
@@ -127,16 +128,7 @@ export class AgentPlanPreparation {
     userId: string,
     plan: AgentPlan,
   ): Promise<AgentPlanSnapshot> {
-    if (
-      allPlanSteps(plan).some(
-        (step) =>
-          step.configuration?.template.run?.access === "full_environment",
-      )
-    ) {
-      if (!this.dependencies.access)
-        throw new AgentError("plan_full_environment_forbidden");
-      await this.dependencies.access.requireFullEnvironment(userId, plan);
-    }
+    await this.requireFullEnvironmentAccess(userId, plan);
     const issues = planStartIssues(plan);
     if (issues.length > 0) throw new AgentPlanValidationError(issues);
     plan = executablePlan(plan);
@@ -179,15 +171,27 @@ export class AgentPlanPreparation {
       issues: referenceIssues,
       failures,
     });
-    await failures.capture([], async () =>
-      validateRemoteWorkingCopies(plan, remoteSteps),
-    );
     const remoteTargets =
       (await this.dependencies.remoteTargets?.list(userId, plan.projectId)) ??
       [];
-    const scripts = await this.prepareScripts(userId, flat, tasks, failures);
+    const scripts = [
+      ...((await this.prepareScripts(userId, flat, tasks, failures)) ?? []),
+      ...remoteScriptSnapshots(remoteSteps, plan),
+    ];
     for (const step of steps) {
-      if (step.executionTarget?.kind === "remote") continue;
+      if (step.executionTarget?.kind === "remote") {
+        const remote = remoteSteps.find((entry) => entry.step.id === step.id);
+        if (remote)
+          snapshots.push(
+            remoteSessionSnapshot(remote, plan, {
+              groupId: groups.find((group) =>
+                planGroupAgents(group).some((member) => member.id === step.id),
+              )?.id,
+              ...loopMembership(loops, step),
+            }),
+          );
+        continue;
+      }
       const prepared = await failures.capture(step.id, () =>
         this.prepareStep(userId, step, {
           plan,
@@ -201,22 +205,62 @@ export class AgentPlanPreparation {
       );
       if (prepared) snapshots.push(prepared);
     }
-    for (const group of groups)
-      await failures.capture(group.id, async () =>
-        validateGroupRuntimes([group], snapshots),
+    return this.finish(
+      { plan, groups, steps: snapshots, remoteSteps, scripts },
+      {
+        flat,
+        failures,
+      },
+    );
+  }
+
+  private async requireFullEnvironmentAccess(
+    userId: string,
+    plan: AgentPlan,
+  ): Promise<void> {
+    const requiresFullEnvironment = allPlanSteps(plan).some(
+      (step) => step.configuration?.template.run?.access === "full_environment",
+    );
+    if (!requiresFullEnvironment) return;
+    if (!this.dependencies.access)
+      throw new AgentError("plan_full_environment_forbidden");
+    await this.dependencies.access.requireFullEnvironment(userId, plan);
+  }
+
+  private async finish(
+    snapshot: AgentPlanSnapshot,
+    context: {
+      readonly flat: AgentPlan;
+      readonly failures: AgentPlanPreparationFailures;
+    },
+  ): Promise<AgentPlanSnapshot> {
+    for (const group of snapshot.groups ?? [])
+      await context.failures.capture(group.id, async () =>
+        validateGroupRuntimes([group], snapshot.steps),
       );
-    await failures.capture([], async () =>
-      validatePlanWorkingCopies(flat, snapshots, scripts ?? []),
+    await context.failures.capture([], async () =>
+      validatePlanWorkingCopies(
+        context.flat,
+        snapshot.steps.filter((step) => !step.remoteTarget),
+        (snapshot.scripts ?? []).filter(
+          (script) => script.step.executionTarget?.kind !== "remote",
+        ),
+      ),
+    );
+    await context.failures.capture([], async () =>
+      validateRemoteWorkingCopies(
+        context.flat,
+        snapshot.remoteSteps ?? [],
+        snapshot.steps,
+      ),
     );
     return structuredClone({
-      plan,
-      groups,
-      steps: snapshots,
-      remoteSteps,
-      preparationFailures: failures.snapshot(),
-      ...(scripts?.length ? { scripts } : {}),
+      ...snapshot,
+      runnerProtocolVersion: 1,
+      preparationFailures: context.failures.snapshot(),
     });
   }
+
   private async requireRemoteSupport(
     userId: string,
     plan: AgentPlan,
@@ -279,7 +323,7 @@ export class AgentPlanPreparation {
   ): Promise<readonly RemotePlanStep[]> {
     const steps: RemotePlanStep[] = [];
     const issues = [...context.issues];
-    for (const node of plan.nodes) {
+    for (const node of expandPlanLoops(plan).nodes) {
       if (
         (node.type !== "agent" && node.type !== "script") ||
         (node.type === "script" && node.disabled) ||
@@ -289,7 +333,12 @@ export class AgentPlanPreparation {
         continue;
       const remoteExecution = this.dependencies.remoteExecution;
       const prepared = await context.failures.capture(node.id, () =>
-        remoteExecution.prepare(userId, plan, node, context.tasks),
+        remoteExecution.prepare(
+          userId,
+          { ...plan, nodes: expandPlanLoops(plan).nodes },
+          node,
+          context.tasks,
+        ),
       );
       if (prepared) steps.push(prepared);
     }
@@ -493,11 +542,13 @@ function stepOrigin(
 export function validateRemoteWorkingCopies(
   plan: AgentPlan,
   steps: readonly RemotePlanStep[],
+  agents: readonly AgentPlanStepSnapshot[] = [],
 ): void {
   for (const first of steps) {
     for (const second of steps) {
       if (
         first.step.id === second.step.id ||
+        sameRunnerGroup(first.step.id, second.step.id, agents) ||
         !remoteWorkspaceKeys(first.target).some((key) =>
           remoteWorkspaceKeys(second.target).includes(key),
         )
@@ -512,4 +563,45 @@ export function validateRemoteWorkingCopies(
         );
     }
   }
+}
+
+function sameRunnerGroup(
+  firstId: string,
+  secondId: string,
+  agents: readonly AgentPlanStepSnapshot[],
+): boolean {
+  const first = agents.find((entry) => entry.step.id === firstId)?.groupId;
+  return (
+    first !== undefined &&
+    first === agents.find((entry) => entry.step.id === secondId)?.groupId
+  );
+}
+
+function remoteScriptSnapshots(
+  remoteSteps: readonly RemotePlanStep[],
+  plan: AgentPlan,
+): AgentPlanScriptSnapshot[] {
+  const scripts: AgentPlanScriptSnapshot[] = [];
+  for (const remote of remoteSteps) {
+    if (
+      remote.step.type !== "script" ||
+      remote.command.program.kind !== "script"
+    )
+      continue;
+    scripts.push({
+      step: remote.step,
+      interpreter: remote.command.program.interpreter,
+      workspace: {
+        id: remote.target.workspaceId,
+        path: remote.target.path,
+        revision: remote.target.workspaceRevision,
+        directoryIdentity: `${remote.target.connectionId}:${remote.target.workspaceRevision}`,
+        projectId: plan.projectId,
+        github: null,
+      },
+      inputs: remote.inputs,
+      taskIds: [],
+    });
+  }
+  return scripts;
 }

@@ -122,9 +122,12 @@ export class AgentCatalogRefresh {
             signal,
           )
         : await this.dependencies.cli.listModels(connection, signal);
+      // An empty listing is no catalog: it must not replace the last valid one.
+      if (models.length === 0) throw new AgentError("catalog_incomplete");
     } catch (error: unknown) {
       logCaughtError("AgentCatalogRefresh", error);
 
+      models = null;
       errorCode =
         error instanceof AgentError ? error.code : "provider_unreachable";
     }

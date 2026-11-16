@@ -14,6 +14,8 @@ export function RunnerMaintenance({
   const fetcher = useFetcher<{
     readonly ok: boolean;
     readonly grant?: string;
+    readonly endpoint?: string;
+    readonly allowInsecureLan?: boolean;
   }>();
   const isPending = fetcher.state !== "idle";
   return (
@@ -32,57 +34,21 @@ export function RunnerMaintenance({
           value={connection.connectionId}
         />
         <input type="hidden" name="provider" value="openrouter" />
-        {connection.runnerId ? (
-          <Button
-            size="sm"
-            variant="outline"
-            type="submit"
-            name="intent"
-            value="revoke"
-            disabled={isPending}
-          >
-            {t("settings.agents.runner.revoke")}
-          </Button>
-        ) : null}
-        {!connection.runnerId && connection.isStable ? (
-          <Button
-            size="sm"
-            variant="outline"
-            type="submit"
-            name="intent"
-            value="authorize"
-            disabled={isPending}
-          >
-            {t("settings.agents.runner.authorize")}
-          </Button>
-        ) : null}
-        {connection.isOnline ? (
-          <>
-            <Button
-              size="sm"
-              variant="outline"
-              type="submit"
-              name="intent"
-              value="refresh-tools"
-              disabled={isPending}
-            >
-              {t("settings.agents.runner.refreshTools")}
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              type="submit"
-              name="intent"
-              value="sync-provider"
-              disabled={isPending}
-            >
-              {t("settings.agents.runner.syncCatalog")}
-            </Button>
-          </>
-        ) : null}
+        <RunnerMaintenanceActions
+          connection={connection}
+          isPending={isPending}
+        />
       </fetcher.Form>
       {connection.isOnline ? (
         <RunnerProviderKey connectionId={connection.connectionId} />
+      ) : null}
+      {fetcher.data?.endpoint ? (
+        <p className="break-all">{fetcher.data.endpoint}</p>
+      ) : null}
+      {fetcher.data?.allowInsecureLan ? (
+        <p role="alert" className="text-warning">
+          {t("settings.agents.runner.updates.warning")}
+        </p>
       ) : null}
       {fetcher.data?.grant ? (
         <label className="block space-y-1">
@@ -99,6 +65,68 @@ export function RunnerMaintenance({
         <p role="status">{t("settings.agents.runner.catalogRecovery")}</p>
       ) : null}
     </div>
+  );
+}
+
+function RunnerMaintenanceActions({
+  connection,
+  isPending,
+}: {
+  readonly connection: RunnerConnectionView;
+  readonly isPending: boolean;
+}): React.ReactElement {
+  const { t } = useTranslation();
+  return (
+    <>
+      {connection.runnerId ? (
+        <Button
+          size="sm"
+          variant="outline"
+          type="submit"
+          name="intent"
+          value="revoke"
+          disabled={isPending}
+        >
+          {t("settings.agents.runner.revoke")}
+        </Button>
+      ) : null}
+      {!connection.runnerId && connection.isStable ? (
+        <Button
+          size="sm"
+          variant="outline"
+          type="submit"
+          name="intent"
+          value="authorize"
+          disabled={isPending}
+        >
+          {t("settings.agents.runner.authorize")}
+        </Button>
+      ) : null}
+      {connection.isOnline ? (
+        <>
+          <Button
+            size="sm"
+            variant="outline"
+            type="submit"
+            name="intent"
+            value="refresh-tools"
+            disabled={isPending}
+          >
+            {t("settings.agents.runner.refreshTools")}
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            type="submit"
+            name="intent"
+            value="sync-provider"
+            disabled={isPending}
+          >
+            {t("settings.agents.runner.syncCatalog")}
+          </Button>
+        </>
+      ) : null}
+    </>
   );
 }
 

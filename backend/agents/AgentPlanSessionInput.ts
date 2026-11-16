@@ -1,3 +1,4 @@
+import { z } from "zod";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { ACP_PROVIDERS } from "@/definition/AgentConfiguration";
 import { readOwnedNamespace } from "@/definition/AcpNamespace";
@@ -412,6 +413,21 @@ export function readPlanSessionRecord(
     ...(record.effects === undefined
       ? {}
       : { effects: readSessionEffects(record.effects) }),
+    ...(record.runnerOwned === undefined
+      ? {}
+      : { runnerOwned: z.literal(true).parse(record.runnerOwned) }),
+    ...(record.runnerJob === undefined
+      ? {}
+      : {
+          runnerJob: z
+            .object({
+              connectionId: z.uuid(),
+              jobId: z.uuid(),
+              attemptId: z.uuid(),
+            })
+            .strict()
+            .parse(record.runnerJob),
+        }),
     sessionId: nullableText(record.sessionId),
     processId: nullableNumber(record.processId),
     ...readSupervisor(record),

@@ -8,6 +8,7 @@ import type { AgentPlanAgentTodo } from "@/definition/AgentPlanAgentTodos";
 import type { AgentPlanStepResult } from "@/definition/AgentPlan";
 import type { AgentPlanSwarm } from "@/definition/AgentPlanSwarm";
 import type { SwarmCoordinator, SwarmFinish } from "./SwarmCoordinator";
+import type { SwarmMemory } from "./SwarmMemory";
 import type { SwarmTurn } from "./SwarmPorts";
 import type { SwarmOpenedSession, SwarmSessionRequest } from "./SwarmSessions";
 
@@ -27,6 +28,8 @@ export interface SwarmMainLoopContext {
   readonly isResumed: boolean;
   readonly signal: AbortSignal;
   readonly todos: (todos: readonly AgentPlanAgentTodo[]) => Promise<void>;
+  /** The shared memory of the run; `null` without one. */
+  readonly memory?: SwarmMemory | null;
 }
 
 type TurnOrFinish =
@@ -86,6 +89,7 @@ export class SwarmMainLoop {
         instruction: node.main.instruction ?? null,
         view: this.coordinator.view(),
         isResumed: this.context.isResumed,
+        memory: await this.memoryBlock({ withSnapshot: true }),
       }),
       signal,
       todos: (todos) => {
@@ -126,11 +130,21 @@ export class SwarmMainLoop {
       await this.coordinator.waitForChange(IDLE_WAKE_MS, this.context.signal);
       const finish = await this.finishIfDone();
       if (finish) return this.finished(finish);
+      const memory = await this.memoryBlock({ withSnapshot: false });
       turn = opened.next(
-        swarmMainReminder(this.coordinator.view()),
+        swarmMainReminder(this.coordinator.view(), memory ?? ""),
         this.context.signal,
       );
     }
+  }
+
+  /** The memory block that opens a turn of the main model; `null` without memory. */
+  private async memoryBlock(options: {
+    readonly withSnapshot: boolean;
+  }): Promise<string | null> {
+    const memory = this.context.memory;
+    if (!memory) return null;
+    return memory.turnBlock("main", options);
   }
 
   private async race(turn: Promise<SwarmTurn>): Promise<TurnOrFinish> {

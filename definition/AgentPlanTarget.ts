@@ -174,6 +174,8 @@ export type AgentPlanTargetProblem =
 /** Secret-free, current runner facts for one registered workspace. */
 export interface AgentPlanRemoteStatus {
   readonly hasPagesAccess?: boolean;
+  readonly hasBrowserAccess?: boolean;
+  readonly hasAgentAccounts?: boolean;
   /** Whether the runner reports OpenCode's catalog and runs it over ACP (Runner 1.7.0). */
   readonly hasOpenCodeAccess?: boolean;
   /** Whether the connected runner separates provenance from CLI result payloads. */
@@ -181,6 +183,10 @@ export interface AgentPlanRemoteStatus {
   readonly workspaceId: string;
   readonly problem: AgentPlanRemoteStatusProblem | null;
   readonly tools: readonly ToolInventory[];
+  readonly accounts?: readonly {
+    readonly id: string;
+    readonly tools: readonly ToolInventory[];
+  }[];
   readonly hasModelCatalog: boolean;
   readonly isToolCatalogCurrent?: boolean;
   readonly interpreterIds?: readonly string[];
@@ -268,10 +274,32 @@ function cliTargetProblem(
 ): AgentPlanTargetProblem | null {
   if (status.isToolCatalogCurrent === false) return "remoteCatalogStale";
   const tool = configurationTool(configuration);
-  const installed = status.tools.find((entry) => entry.tool === tool);
+  const accountId = configuration.runnerRoute?.accountId;
+  if (accountId && !status.hasAgentAccounts) return "remoteRunnerUpdate";
+  const installed = installedTool(tool, accountId, status);
   if (!installed) return "remoteToolMissing";
   const availability = cliAvailabilityProblem(tool, installed, status);
   if (availability) return availability;
+  return cliModelProblem(configuration, installed, status);
+}
+
+function installedTool(
+  tool: ReturnType<typeof configurationTool>,
+  accountId: string | undefined,
+  status: AgentPlanRemoteStatus,
+): ToolInventory | undefined {
+  const tools = accountId
+    ? (status.accounts?.find((account) => account.id === accountId)?.tools ??
+      [])
+    : status.tools;
+  return tools.find((entry) => entry.tool === tool);
+}
+
+function cliModelProblem(
+  configuration: AgentPlanConfiguration,
+  installed: ToolInventory,
+  status: AgentPlanRemoteStatus,
+): AgentPlanTargetProblem | null {
   const models = installed.models ?? [];
   if (!models.length) return "remoteCatalog";
   const route = configuration.runnerRoute;
@@ -281,7 +309,11 @@ function cliTargetProblem(
   )
     return "remoteModel";
   const run = configuration.template.run;
-  if (run && (run.access === "workspace_write" || run.browser))
+  if (
+    run &&
+    (run.access === "workspace_write" ||
+      (run.browser && (!status.hasBrowserAccess || run.access !== "yolo")))
+  )
     return "remoteOptions";
   return null;
 }
@@ -307,25 +339,24 @@ function cliAvailabilityProblem(
  *
  * @remarks
  * A remote target runs only models of its runner's catalog and the
- * runner's interpreters, and never members of groups or loops. Such a node
+ * runner's interpreters, including members of groups and loops. An unavailable node
  * blocks the start; it is never moved to the Pages host instead.
  */
 export function planTargetIssues(
   plan: AgentPlanInput,
   statuses?: readonly AgentPlanRemoteStatus[],
 ): readonly AgentPlanTargetIssue[] {
-  return plan.nodes.flatMap((node): AgentPlanTargetIssue[] => {
+  return plan.nodes.flatMap((node): readonly AgentPlanTargetIssue[] => {
     if (node.type === "group" || node.type === "loop")
-      return planContainedNodes({ nodes: [node] })
-        .filter(
-          (member): member is AgentPlanStep | AgentPlanScript =>
-            member.type === "agent" || member.type === "script",
-        )
-        .filter((step) => effectivePlanTarget(step, plan).kind === "remote")
-        .map((step): AgentPlanTargetIssue => ({
-          nodeId: step.id,
-          problem: "remoteContainer",
-        }));
+      return planTargetIssues(
+        {
+          ...plan,
+          nodes: planContainedNodes({ nodes: [node] }).filter(
+            (member) => member.type === "agent" || member.type === "script",
+          ),
+        },
+        statuses,
+      );
     if (node.type !== "agent" && node.type !== "script") return [];
     const target = effectivePlanTarget(node, plan);
     const status =

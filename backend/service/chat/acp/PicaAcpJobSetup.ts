@@ -63,7 +63,7 @@ export function keptPicaSession(
   return {
     sessions: pool,
     session: {
-      chatSessionId: job.sessionId,
+      conversationId: job.sessionId,
       agentId: actor.id,
       agentName: actor.displayName,
       conversation: kept.conversation,

@@ -1,3 +1,4 @@
+import { AgentPlanSwarmMemoryRepository } from "@/backend/database/repositories/agent/AgentPlanSwarmMemoryRepository";
 import { AgentPlanTemplateRepository } from "@/backend/database/repositories/agent/AgentPlanTemplateRepository";
 import { AgentPlanActiveRunService } from "@/backend/service/agents/AgentPlanActiveRuns";
 import { AgentPlanOverviewService } from "@/backend/service/agents/AgentPlanOverview";
@@ -5,6 +6,7 @@ import { AgentPlanRunHistoryService } from "@/backend/service/agents/AgentPlanRu
 import { AgentPlanOwnerRunReader } from "@/backend/service/agents/AgentPlanOwnerRunReader";
 import { AgentPlanManagement } from "@/backend/service/agents/AgentPlanManagement";
 import { AgentPlanTemplateService } from "@/backend/service/agents/AgentPlanTemplateService";
+import { AgentPlanSwarmMemoryService } from "@/backend/service/agents/swarm/AgentPlanSwarmMemoryService";
 
 import { createPicaMobileNotificationServices } from "./pica-mobile-notification-services.server";
 
@@ -31,6 +33,7 @@ export async function createPlanViews(
     | "picaMobileAutomationPush"
     | "agentPlanManagement"
     | "agentPlanTemplateService"
+    | "agentPlanSwarmMemoryService"
   >
 > {
   return {
@@ -49,6 +52,10 @@ export async function createPlanViews(
       ownerRuns: new AgentPlanOwnerRunReader(dependencies),
     })),
     ...createPlanManagement(input.database, service),
+    agentPlanSwarmMemoryService: new AgentPlanSwarmMemoryService({
+      runs: service,
+      memories: new AgentPlanSwarmMemoryRepository(input.database),
+    }),
   };
 }
 

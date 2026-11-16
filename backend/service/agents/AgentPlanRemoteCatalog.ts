@@ -149,3 +149,25 @@ export function remoteCliModels(
     });
   });
 }
+
+/** Exposes each separately authenticated host account as an explicit model selection. */
+export function remoteAccountModels(
+  target: AgentPlanRemoteTarget,
+  accounts: readonly {
+    readonly id: string;
+    readonly tools: readonly ToolInventory[];
+  }[],
+  hasOpenCodeAccess: boolean,
+): readonly PageAgentModel[] {
+  return accounts.flatMap((account) =>
+    remoteCliModels(target, account.tools, hasOpenCodeAccess).map((model) => ({
+      ...model,
+      id: JSON.stringify([account.id, model.id]),
+      name: `${account.id} / ${model.name}`.slice(0, 200),
+      connectionName: `${account.id} / ${model.connectionName}`,
+      ...(model.runnerRoute
+        ? { runnerRoute: { ...model.runnerRoute, accountId: account.id } }
+        : {}),
+    })),
+  );
+}

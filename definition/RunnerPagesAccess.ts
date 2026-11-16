@@ -27,6 +27,22 @@ export const runnerPagesRequestSchema = z
     requestId: z.string().uuid(),
     jobId: z.string().uuid(),
     request: z.discriminatedUnion("kind", [
+      z.object({ kind: z.literal("turn-context") }).strict(),
+      z
+        .object({
+          kind: z.literal("provider-body"),
+          source: z.enum(["prompt", "body"]).optional(),
+          offset: z.number().int().min(0).max(33554432),
+        })
+        .strict(),
+      z
+        .object({
+          kind: z.literal("provider-response"),
+          status: z.number().int().min(100).max(599),
+          payload: z.unknown(),
+          headers: z.record(z.string(), z.string()),
+        })
+        .strict(),
       z.object({ kind: z.literal("prepare") }).strict(),
       z.object({ kind: z.literal("lease") }).strict(),
       z

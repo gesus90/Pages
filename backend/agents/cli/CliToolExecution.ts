@@ -1,3 +1,5 @@
+import { antigravityAcpArguments } from "@/backend/agents/acp/AntigravityAcpLaunch";
+
 import type { CliProviderId } from "@/definition/AgentConnection";
 import type { ProviderCheckOutcome } from "@/backend/agents/providers/ProviderContracts";
 import type {
@@ -31,7 +33,7 @@ export class CliToolExecution {
     this.provider = provider;
   }
 
-  /** Opens a bounded metadata/login ACP process in the connection's own context. */
+  /** Opens a bounded metadata/login `agy acp` process in the connection's own context. */
   public openProtocol(
     home: CliHome,
     options: {
@@ -66,9 +68,9 @@ export class CliToolExecution {
             home.work,
             "--",
             this.file,
-            "--uid=",
+            ...antigravityAcpArguments(home),
           ]
-        : ["--uid="],
+        : antigravityAcpArguments(home),
       provider: this.provider,
       home,
       workingDirectory: home.work,
@@ -171,7 +173,10 @@ export class CliToolExecution {
       home,
       arguments: options.arguments,
       timeoutMs: this.provider === "codex_cli" ? 930_000 : 600_000,
-      stdin: this.provider === "claude_code" ? "pipe" : "ignore",
+      stdin:
+        this.provider === "claude_code" || this.provider === "antigravity"
+          ? "pipe"
+          : "ignore",
       onOutput: (stdout, stderr) => {
         if (hasChallenge) return;
         const challenge = options.parse(`${stdout}\n${stderr}`);

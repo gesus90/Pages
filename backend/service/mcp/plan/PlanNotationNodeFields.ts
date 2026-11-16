@@ -284,6 +284,7 @@ function readSwarm(
     ...(attributes.has("executionTarget")
       ? { executionTarget: attributes.json("executionTarget") }
       : {}),
+    ...(attributes.has("memory") ? { memory: attributes.json("memory") } : {}),
   };
 }
 

@@ -1,4 +1,5 @@
 import { logCaughtError } from "@/backend/logging/Logger";
+import { PLAN_SWARM_MEMORY_WAKING_KINDS } from "@/definition/AgentPlanSwarmMemory";
 import {
   normalizePlanSwarmPath,
   readPlanSwarmScope,
@@ -17,6 +18,8 @@ import type {
   AgentPlanSwarmWorkerView,
 } from "@/definition/AgentPlanSwarmRun";
 import type { SwarmAssignOutcome } from "./SwarmBoard";
+import type { SwarmMemory } from "./SwarmMemory";
+import type { SwarmMemoryEffect } from "./SwarmMemoryCalls";
 import type { SwarmLock, SwarmLockOutcome } from "./SwarmLocks";
 import type {
   SwarmCoordinatorDependencies,
@@ -39,6 +42,14 @@ export interface SwarmCoordinatorInput {
   readonly stored: SwarmStoredBoard | null;
   /** Ends every helper when the node stops. */
   readonly signal: AbortSignal;
+  /** The shared memory of the run; `null` when the node runs without one. */
+  readonly memory?: {
+    readonly store: SwarmMemory;
+    /** The newest revision when the node starts, also of a resumed run. */
+    readonly revision: number;
+    /** Whether helpers publish entries or only read. */
+    readonly workersPublish: boolean;
+  } | null;
 }
 
 /** How the main model ended the node. */
@@ -94,6 +105,7 @@ export class SwarmCoordinator {
   private outcome: AgentPlanSwarmRun["outcome"] = "running";
   private saving: Promise<void> = Promise.resolve();
   private changes = 0;
+  private memoryRevision: number;
   private readonly finishing: { resolve: (finish: SwarmFinish) => void } = {
     resolve: () => undefined,
   };
@@ -119,6 +131,7 @@ export class SwarmCoordinator {
       activity: null,
       todos: [],
     };
+    this.memoryRevision = input.memory?.revision ?? 0;
     this.finished = new Promise((resolve) => {
       this.finishing.resolve = resolve;
     });
@@ -134,7 +147,35 @@ export class SwarmCoordinator {
       violations: [...state.violations],
       summary: this.summary,
       outcome: this.outcome,
+      ...(this.input.memory
+        ? { memory: { revision: this.memoryRevision } }
+        : {}),
     };
+  }
+
+  /** The shared memory of the run, `null` without one. */
+  public memory(): SwarmMemory | null {
+    return this.input.memory?.store ?? null;
+  }
+
+  /**
+   * Follows a memory call: the run view shows the newest revision, and a
+   * blocker or handoff counts as a change of the board, so a waiting
+   * `swarm_status` of the main model wakes up.
+   */
+  public memoryChanged(effect: SwarmMemoryEffect): void {
+    const isNewer =
+      effect.revision !== null && effect.revision > this.memoryRevision;
+    if (isNewer && effect.revision !== null)
+      this.memoryRevision = effect.revision;
+    if (
+      effect.publishedKind !== null &&
+      PLAN_SWARM_MEMORY_WAKING_KINDS.includes(effect.publishedKind)
+    ) {
+      this.changed();
+      return;
+    }
+    if (isNewer) this.persist();
   }
 
   /** Counts every change of the board, so a caller can tell whether anything happened since. */
@@ -405,6 +446,7 @@ export class SwarmCoordinator {
       workerId,
       task,
       instruction: this.input.instruction,
+      memory: await this.memoryPrompt(workerId),
     });
     const started = await this.startTurn(workerId, taskId, { prompt, signal });
     if (started === null) {
@@ -552,9 +594,33 @@ export class SwarmCoordinator {
     }
   }
 
+  /**
+   * The memory part of a subtask prompt: a session that opens gets the
+   * snapshot with the rules, an open one the entries since its revision.
+   */
+  private async memoryPrompt(workerId: string): Promise<{
+    readonly block: string;
+    readonly isFirst: boolean;
+    readonly canPublish: boolean;
+  } | null> {
+    const memory = this.input.memory;
+    if (!memory) return null;
+    const isFirst = !this.sessions.has(workerId);
+    return {
+      block: await memory.store.turnBlock(workerId, { withSnapshot: isFirst }),
+      isFirst,
+      canPublish: memory.workersPublish,
+    };
+  }
+
   private changed(): void {
     this.changes += 1;
     for (const waiter of [...this.waiters]) waiter();
+    this.persist();
+  }
+
+  /** Stores the board without counting a change, so nothing that waits wakes up. */
+  private persist(): void {
     const stored = this.stored();
     this.saving = this.saving
       .then(() => this.dependencies.save(stored))

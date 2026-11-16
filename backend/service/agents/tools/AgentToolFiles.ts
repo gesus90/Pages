@@ -90,8 +90,9 @@ export class AgentToolFiles implements AgentToolStorage {
   /** Every attempt gets a new generation, including a repair of the same version. */
   public async candidate(
     tool: AgentToolDefinition,
+    version: string | null,
   ): Promise<AgentToolLocation> {
-    const name = `${tool.version ?? "bundled"}-${randomUUID()}`;
+    const name = `${version ?? tool.version ?? "bundled"}-${randomUUID()}`;
     const location = this.location(tool, name);
     if (location.release) await this.directory(location.release);
     return location;
@@ -117,7 +118,7 @@ export class AgentToolFiles implements AgentToolStorage {
       current,
       previous:
         (isSameVersion ? previous?.previous : previous?.current) ?? null,
-      approvedTarget: tool.version,
+      approvedTarget: location.version ?? releaseVersion(current),
     });
     if (tool.hasTerminalEntry) await this.publishTerminalEntry(tool, location);
   }
@@ -200,13 +201,13 @@ export class AgentToolFiles implements AgentToolStorage {
     const release = path.join(this.root, tool.id, "releases", name);
     let file = path.join(release, "node_modules", ".bin", tool.binary);
     if (tool.kind === "browser") file = path.join(release, "browser");
-    if (tool.id === "antigravity_acp") file = path.join(release, tool.binary);
+    if (tool.release?.kind === "github") file = path.join(release, tool.binary);
+    const version = releaseVersion(name);
     return {
       file,
       source: "managed",
       release,
-      version:
-        tool.versions.find((version) => name.startsWith(`${version}-`)) ?? null,
+      version: version === name ? null : version,
     };
   }
 

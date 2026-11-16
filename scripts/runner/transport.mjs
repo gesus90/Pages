@@ -1,4 +1,3 @@
-import { pauseExecution } from "./processes.mjs";
 // Pages protocol v1 with durable execution claims and detached workers.
 import { chmod, lstat, mkdir, readFile } from "node:fs/promises";
 import { homedir } from "node:os";
@@ -6,8 +5,12 @@ import { join } from "node:path";
 import { randomUUID } from "node:crypto";
 import { createInterface } from "node:readline/promises";
 import { Writable } from "node:stream";
+import { localToolPath } from "./local-accounts.mjs";
 import { renewExecutionLease, hasExecutionLease } from "./revocation.mjs";
 import { readRecord, readOwnedLaunch } from "./journal.mjs";
+import { agentAccounts, prepareAgentHome } from "./accounts.mjs";
+import { browserCapabilities } from "./browser.mjs";
+import { cgroupCapabilities } from "./cgroups.mjs";
 import { pauseQueuedJob } from "./revocation.mjs";
 import { cancelJob, interpreterCatalog, store } from "./execution.mjs";
 import { githubAccess } from "./github.mjs";
@@ -18,7 +21,10 @@ import { RunnerSchedule } from "./schedule.mjs";
 import { handleProvider } from "./provider.mjs";
 import { sendRunnerPacket, MAXIMUM_RUNNER_PACKET_BYTES } from "./wire.mjs";
 
-const RUNNER_VERSION = "1.18.0";
+import { runnerEndpoint } from "./address.mjs";
+import { RunnerMaintenance } from "./maintenance.mjs";
+
+const RUNNER_VERSION = "1.22.0";
 if (process.argv.includes("--version")) {
   console.info(`pages-runner ${RUNNER_VERSION}`);
   process.exit(0);
@@ -37,8 +43,34 @@ function exitUnrecoverable(message) {
 const directory =
   process.env.PAGES_RUNNER_DIRECTORY ??
   join(homedir(), ".config", "pages-runner");
+const inheritedCliPath = process.env.PAGES_RUNNER_CLI_PATH ?? process.env.PATH;
 if (!directory.startsWith("/") || directory.includes("\0"))
   throw new Error("Runner directory must be absolute");
+
+async function refreshLocalPaths() {
+  if (process.env.PAGES_RUNNER_LOCAL !== "1") return;
+  const paths = JSON.parse(
+    await readFile(join(directory, "local-paths.json"), "utf8"),
+  );
+  if (typeof paths.agents !== "string" || !paths.agents.startsWith("/"))
+    throw new Error("Invalid local agent directory");
+  process.env.PAGES_RUNNER_LOCAL_AGENTS_DIRECTORY = paths.agents;
+  if (process.env.PAGES_ANTIGRAVITY_CONTEXT_ROOT)
+    process.env.PAGES_RUNNER_ANTIGRAVITY_CONTEXT_ROOT ??=
+      process.env.PAGES_ANTIGRAVITY_CONTEXT_ROOT;
+  process.env.PAGES_RUNNER_CLI_PATH = await localToolPath(
+    paths.tools,
+    inheritedCliPath,
+  );
+}
+await refreshLocalPaths();
+if (process.argv[2] === "--agent-home") {
+  const account = await prepareAgentHome(directory, {
+    agentAccount: { version: 1, id: process.argv[3] },
+  });
+  console.info(account.home);
+  process.exit(0);
+}
 const file = join(directory, "config.json");
 await mkdir(directory, { recursive: true, mode: 0o700 });
 if ((await lstat(directory)).isSymbolicLink())
@@ -48,14 +80,24 @@ await chmod(directory, 0o700);
 const INVENTORY_MAXIMUM_AGE_MILLISECONDS = 600000;
 // Half of Pages' ten-minute catalog age, so one lost refresh never makes a connected runner stale.
 const CATALOG_REFRESH_MILLISECONDS = 300000;
-let inventory = { checkedAt: 0, tools: [] };
+let inventory = { checkedAt: 0, tools: [], accounts: [] };
 
 /** What the tools themselves report; a version they do not print stays unknown. */
 async function toolInventory() {
-  if (Date.now() - inventory.checkedAt < INVENTORY_MAXIMUM_AGE_MILLISECONDS)
+  if (
+    process.env.PAGES_RUNNER_LOCAL !== "1" &&
+    Date.now() - inventory.checkedAt < INVENTORY_MAXIMUM_AGE_MILLISECONDS
+  )
     return inventory.tools;
+  await refreshLocalPaths();
   const tools = await cliInventory();
-  inventory = { checkedAt: Date.now(), tools };
+  const accounts = [];
+  for (const account of await agentAccounts(directory))
+    accounts.push({
+      id: account.id,
+      tools: await cliInventory({ home: account.home }),
+    });
+  inventory = { checkedAt: Date.now(), tools, accounts };
   return tools;
 }
 
@@ -94,12 +136,34 @@ if (!configuration) {
   const token = await terminal.question("");
   isHidden = false;
   process.stdout.write("\n");
+  let allowInsecureLan = false;
+  if (endpoint.startsWith("ws://")) {
+    console.warn(
+      "WARNUNG: Im LAN werden Runner-Token unverschlüsselt übertragen.",
+    );
+    allowInsecureLan =
+      (await terminal.question("LAN ausdrücklich erlauben (ja)? ")) === "ja";
+  }
   terminal.close();
-  configuration = { endpoint, token, sessionId: null, sequence: 0, jobs: [] };
+  configuration = {
+    endpoint,
+    token,
+    allowInsecureLan,
+    sessionId: null,
+    sequence: 0,
+    jobs: [],
+  };
 }
 let endpoint;
 try {
-  endpoint = new URL(configuration.endpoint);
+  endpoint = new URL(
+    runnerEndpoint(configuration.endpoint, {
+      isLocal: process.env.PAGES_RUNNER_LOCAL === "1",
+      allowInsecureLan: configuration.allowInsecureLan,
+    }),
+  );
+  if (process.env.NODE_TLS_REJECT_UNAUTHORIZED === "0")
+    throw new Error("Runner requires normal TLS certificate verification");
 } catch {
   exitUnrecoverable("Invalid runner endpoint.");
 }
@@ -114,6 +178,14 @@ if (
 ) {
   exitUnrecoverable("Invalid runner endpoint or credential.");
 }
+if (
+  process.env.PAGES_RUNNER_LOCAL === "1" &&
+  (endpoint.protocol !== "ws:" ||
+    endpoint.hostname !== "127.0.0.1" ||
+    endpoint.pathname !==
+      "/runner/v1/channel/00000000-0000-4000-8000-000000000001")
+)
+  exitUnrecoverable("Local runner requires IPv4 loopback.");
 const connectionId = endpoint.pathname.split("/").pop();
 let attempts = 0;
 let unrecoverable = null;
@@ -184,6 +256,24 @@ const stopPagesRelay = await startPagesRelay(
 );
 let isProviderBusy = false;
 let isGitHubBusy = false;
+const maintenance = new RunnerMaintenance({
+  directory,
+  configuration,
+  version: RUNNER_VERSION,
+  connectionId,
+  persist,
+  isLocal: process.env.PAGES_RUNNER_LOCAL === "1",
+  reconnect: (address) => {
+    endpoint = new URL(address);
+    socket?.close();
+  },
+  restart: () => {
+    stopped = true;
+    process.exitCode = 75;
+    socket?.close();
+    wake?.();
+  },
+});
 const jobs = new RunnerJobs({
   configuration,
   directory,
@@ -233,6 +323,7 @@ async function currentCatalog(refreshTools = false) {
     interpreters: probe.interpreters,
     tools,
     removedInterpreterIds: [],
+    accounts: inventory.accounts,
   };
   configuration.catalog = catalog;
   await persist();
@@ -261,6 +352,11 @@ async function receiveRegistration(message, channel) {
     outputJournalVersion: 2,
     resultPayloadVersion: 1,
     continuationVersion: 1,
+    managedExecutionVersion: 1,
+    ...(await cgroupCapabilities()),
+    ...(await browserCapabilities()),
+    agentAccountsVersion: 1,
+    progressVersion: 1,
     communicationVersion: 1,
     executionLeaseVersion: 1,
     planControlVersion: 1,
@@ -271,7 +367,7 @@ async function receiveRegistration(message, channel) {
   });
 }
 
-async function receiveReconciliation(message) {
+async function receiveReconciliation(message, channel) {
   if (
     message.outputJournalVersion !== 2 ||
     message.communicationVersion !== 1 ||
@@ -308,10 +404,13 @@ async function receiveReconciliation(message) {
   for (const job of configuration.jobs)
     if (job.pauseRequestedAt && !job.cancellation)
       await pauseQueuedJob(directory, job);
-  for (const job of configuration.jobs)
-    if (job.isPaused !== undefined && !job.cancellation)
-      await pauseExecution(join(directory, "jobs", job.jobId), job.isPaused);
+  // Fence expired work before a reconnect can thaw its previous scope.
   await fenceExpiredJobs();
+  for (const job of configuration.jobs) {
+    if (job.isPaused === undefined || job.cancellation) continue;
+    const reply = await jobs.receive({ type: "execution-pause", job });
+    if (reply) sendRunnerPacket(channel, reply);
+  }
   await persist();
   await renewExecutionLease(directory, configuration.sessionId);
   attempts = 0;
@@ -389,7 +488,7 @@ function createJobPolling(channel, state, enqueue) {
   return poll;
 }
 
-/** Interpreters are rechecked periodically; CLI tools only after registration or an explicit refresh. */
+/** Local account and tool changes are picked up periodically as well as on explicit refresh. */
 function createCatalogRefresh(channel, state) {
   return (refreshTools) => {
     if (
@@ -544,12 +643,18 @@ async function connect() {
           channel.close(),
         );
         deadline();
+        enqueue(async () =>
+          sendRunnerPacket(channel, await maintenance.receipt()),
+        );
         return;
       }
       if (state.isReconciled && control.type === "execution-pause") {
         void jobs
           .receive(control)
-          .then(() => poll())
+          .then((reply) => {
+            if (reply) sendRunnerPacket(channel, reply);
+            return poll();
+          })
           .catch(() => channel.close());
         return;
       }
@@ -598,7 +703,7 @@ async function connect() {
           return;
         }
         if (message.type === "reconcile") {
-          await receiveReconciliation(message);
+          await receiveReconciliation(message, channel);
           if (channel.readyState !== WebSocket.OPEN) return;
           state.isReconciled = true;
           state.stage = "synchronized";
@@ -618,14 +723,17 @@ async function connect() {
           const refreshCatalog = createCatalogRefresh(channel, state);
           refreshCatalog(true);
           state.catalogTimer = setInterval(
-            () => refreshCatalog(false),
+            () => refreshCatalog(process.env.PAGES_RUNNER_LOCAL === "1"),
             CATALOG_REFRESH_MILLISECONDS,
           );
           deadline();
+          sendRunnerPacket(channel, await maintenance.receipt());
           return;
         }
         if (!state.isReconciled) throw new Error("Reconciliation required");
-        if (message.type === "catalog-ack") {
+        if (message.type === "maintenance") {
+          await maintenance.receive(message);
+        } else if (message.type === "catalog-ack") {
           if (message.sessionId !== configuration.sessionId)
             throw new Error("Runner catalog session mismatch");
         } else if (message.type === "pages-result") {
@@ -673,11 +781,11 @@ async function connect() {
 }
 let isFenceBusy = false;
 async function fenceExpiredJobs() {
+  if (process.env.PAGES_RUNNER_LOCAL === "1") return;
   const active = configuration.jobs.filter(
     (job) =>
       job.plan &&
       job.execution &&
-      !job.isPaused &&
       ["queued", "accepted", "running"].includes(job.status),
   );
   const expired = [];

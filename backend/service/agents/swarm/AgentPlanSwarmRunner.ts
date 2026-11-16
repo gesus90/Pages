@@ -8,17 +8,21 @@ import {
   planSwarmIssues,
   planSwarmWorkerList,
 } from "@/definition/AgentPlanSwarm";
+import { planSwarmMemorySetting } from "@/definition/AgentPlanSwarmMemory";
 
 import { errorCode } from "../AgentPlanStepFailure";
 import { SwarmCoordinator } from "./SwarmCoordinator";
 import { SwarmGitProbe } from "./SwarmGitProbe";
 import { SwarmMainLoop } from "./SwarmMainLoop";
+import { SwarmMemory } from "./SwarmMemory";
 import { SwarmSessions } from "./SwarmSessions";
 
 import type { AgentPlanRun, AgentPlanStepResult } from "@/definition/AgentPlan";
 import type { AgentPlanSwarm } from "@/definition/AgentPlanSwarm";
 import type { AgentPlanSwarmRun } from "@/definition/AgentPlanSwarmRun";
 import type { AgentPlanSwarmRepository } from "@/backend/database/repositories/agent/AgentPlanSwarmRepository";
+import type { AgentPlanSwarmMemoryRepository } from "@/backend/database/repositories/agent/AgentPlanSwarmMemoryRepository";
+import type { SwarmMemoryStore } from "./SwarmMemory";
 import type { AgentPlanSnapshot } from "../AgentPlanSnapshot";
 import type { AgentPlanTasks } from "../AgentPlanTasks";
 import type { AgentWorkspaceService } from "../AgentWorkspaceService";
@@ -35,6 +39,16 @@ export interface AgentPlanSwarmRunnerDependencies extends SwarmSessionDependenci
     "find" | "save" | "saveTodos"
   >;
   readonly registry: Pick<AgentPlanSwarmRegistry, "register">;
+  /** The shared memory of the swarm runs; without it every swarm runs without memory. */
+  readonly memories?: SwarmMemoryStore &
+    Pick<AgentPlanSwarmMemoryRepository, "configure" | "adopt">;
+}
+
+/** The shared memory a swarm node runs with. */
+interface SwarmRunMemory {
+  readonly store: SwarmMemory;
+  readonly revision: number;
+  readonly workersPublish: boolean;
 }
 
 /** One activation of a swarm node. */
@@ -88,10 +102,12 @@ export class AgentPlanSwarmRunner {
       const directory = await this.directory(request);
       const task = await this.task(request);
       const stored = await this.stored(request.run, node.id);
+      const memory = await this.memory(request);
       return await this.execute(request, {
         directory,
         task,
         stored,
+        memory,
         signal,
         deadline,
       });
@@ -111,12 +127,14 @@ export class AgentPlanSwarmRunner {
       readonly directory: string;
       readonly task: string;
       readonly stored: SwarmStoredBoard | null;
+      readonly memory: SwarmRunMemory | null;
       readonly signal: AbortSignal;
       readonly deadline: number;
     },
   ): Promise<Partial<AgentPlanStepResult>> {
     const { run, node, snapshot } = request;
     const sessions = new SwarmSessions(this.dependencies, {
+      hasMemory: context.memory !== null,
       planId: run.planId,
       userId: run.userId,
       runId: run.id,
@@ -144,6 +162,7 @@ export class AgentPlanSwarmRunner {
       task: context.task,
       isResumed: context.stored !== null,
       signal: context.signal,
+      memory: context.memory?.store ?? null,
       todos: (todos) => this.saveTodos(request, "main", todos),
     });
     try {
@@ -164,6 +183,7 @@ export class AgentPlanSwarmRunner {
     context: {
       readonly directory: string;
       readonly stored: SwarmStoredBoard | null;
+      readonly memory: SwarmRunMemory | null;
       readonly signal: AbortSignal;
     },
   ): SwarmCoordinator {
@@ -206,6 +226,7 @@ export class AgentPlanSwarmRunner {
         instruction: node.workers.instruction ?? null,
         stored: context.stored,
         signal: context.signal,
+        memory: context.memory,
       },
       {
         launcher,
@@ -273,6 +294,40 @@ export class AgentPlanSwarmRunner {
       source.taskId,
     );
     return ticket.markdown;
+  }
+
+  /**
+   * The shared memory of the node, or `null` when it runs without one.
+   * @remarks
+   * A resumed run takes over the memory of the run it continues, with every
+   * entry and every revision read. A database that fails here leaves the
+   * memory in place: its tools then refuse, and the swarm runs on.
+   */
+  private async memory(
+    request: PlanSwarmRequest,
+  ): Promise<SwarmRunMemory | null> {
+    const store = this.dependencies.memories;
+    const setting = planSwarmMemorySetting(request.node);
+    if (!store || !setting.enabled) return null;
+    const { run, node } = request;
+    const key = { runId: run.id, nodeId: node.id };
+    let revision = 0;
+    try {
+      if (run.origin?.kind === "resume")
+        await store.adopt(run.origin.runId, run.id, node.id);
+      await store.configure(key, setting.keepAfterEnd);
+      revision = (await store.state(key)).revision;
+    } catch (error: unknown) {
+      logCaughtError("AgentPlanSwarmRunner", error);
+    }
+    return {
+      store: new SwarmMemory(store, key, {
+        workersPublish: setting.workersPublish,
+        now: Date.now,
+      }),
+      revision,
+      workersPublish: setting.workersPublish,
+    };
   }
 
   /** The board of this run, or of the run a resume continues. */

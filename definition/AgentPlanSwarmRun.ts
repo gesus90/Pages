@@ -150,6 +150,8 @@ export const planSwarmRunSchema = z.strictObject({
   violations: z.array(planSwarmViolationSchema).max(PLAN_SWARM_VIOLATION_LIMIT),
   summary: text(PLAN_SWARM_RUN_TEXT).nullable(),
   outcome: z.enum(["running", "succeeded", "failed"]),
+  /** Present when the node runs with a shared memory, with its newest revision. */
+  memory: z.strictObject({ revision: z.number().int().min(0) }).optional(),
 });
 
 /** Main model, helpers, board and summary of one swarm node in a run. */

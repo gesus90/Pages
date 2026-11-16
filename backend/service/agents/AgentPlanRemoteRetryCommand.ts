@@ -17,7 +17,12 @@ export function remoteRetryCommand(
   command: RunnerExecution,
   retry: RemoteRetryTerms | undefined,
 ): RunnerExecution {
-  if (!retry || command.program.kind === "script") return command;
+  if (
+    !retry ||
+    command.program.kind === "script" ||
+    command.program.kind === "api"
+  )
+    return command;
   const notice = retry.retry
     ? planRetryNotice(retry.retry, retry.resumeSessionId !== null)
     : "";

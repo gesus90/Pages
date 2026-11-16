@@ -140,6 +140,8 @@ export interface AcpDriver {
   readonly binary: string;
   /** Native runners have their own subcommand; external adapters need no arguments. */
   readonly arguments?: readonly string[];
+  /** Arguments that name the connection's own context, used instead of `arguments`. */
+  readonly launchArguments?: (home: CliHome) => readonly string[];
   /** The adapter versions Pages verified, as the run record names them. */
   readonly supportedVersions: string;
   readonly errors: AcpDriverErrors;

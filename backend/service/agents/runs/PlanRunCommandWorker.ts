@@ -75,7 +75,7 @@ export class PlanRunCommandWorker {
             start.data.resourceKeys,
           );
         const swarm = pagesRunsSwarmSchema.safeParse(input);
-        if (swarm.success) return Promise.resolve(answerSwarmCall(swarm.data));
+        if (swarm.success) return answerSwarmCall(swarm.data);
         const request = pagesRunsOwnershipSchema.parse(input);
         return Promise.resolve({ active: this.engine.isActive(request.runId) });
       },

@@ -19,6 +19,15 @@ const READ_TOOLS = [
 
 /** Resolves only the dedicated ACP context at this execution host. */
 export function antigravityEnvironment(base) {
+  if (
+    base.PAGES_RUNNER_AGENT_ACCOUNT === "1" ||
+    base.PAGES_RUNNER_FULL_ENVIRONMENT === "1"
+  )
+    return {
+      ...base,
+      GEMINI_HOME: base.GEMINI_HOME ?? join(base.HOME, ".pages-antigravity"),
+      BROWSER: "/bin/true",
+    };
   const bound = process.env.PAGES_RUNNER_ANTIGRAVITY_CONTEXT_ROOT;
   if (bound) {
     if (
@@ -303,7 +312,7 @@ export async function chooseAntigravity(client, sessionId, options, selection) {
 /** Probes the official ACP identity, actual auth context and per-model selectors without a prompt. */
 export async function antigravityInventory(base, context = {}) {
   const environment = antigravityEnvironment(base);
-  await validateBoundContext();
+  if (base.PAGES_RUNNER_AGENT_ACCOUNT !== "1") await validateBoundContext();
   const entry = {
     tool: "antigravity",
     version: null,
@@ -400,7 +409,7 @@ export function antigravityTurnFailure(text, hasMcp) {
 /** Executes one frozen remote assignment through the same bounded ACP transport as OpenCode. */
 export async function executeAntigravity(job, prompt, base = process.env) {
   const environment = antigravityEnvironment(base);
-  await validateBoundContext();
+  if (base.PAGES_RUNNER_AGENT_ACCOUNT !== "1") await validateBoundContext();
   await requireContext(environment, job.workspace);
   if (!["read_only", "yolo"].includes(job.access))
     throw new Error("Invalid Antigravity mode");
@@ -409,26 +418,45 @@ export async function executeAntigravity(job, prompt, base = process.env) {
     publish,
   });
   try {
-    await initialize(client);
-    // This adapter's resume is not verified on the runner, so a continuation is refused instead of opening a new conversation.
-    if (job.resumeSessionId)
+    const initialized = await initialize(client);
+    const canResume =
+      initialized.agentCapabilities?.sessionCapabilities?.resume !== undefined;
+    if (job.resumeSessionId && !canResume)
       throw Object.assign(new Error("Resume unsupported"), {
         pagesCode: "acp_session_resume_failed",
       });
-    const session = await client.call("session/new", {
-      cwd: job.workspace,
-      mcpServers: job.mcpServers,
-      _meta: {
-        antigravity: {
-          ...(job.access === "read_only" ? { enabledTools: READ_TOOLS } : {}),
-          eagerMcpServers: ["pages"],
+    let session;
+    try {
+      session = await client.call(
+        job.resumeSessionId ? "session/resume" : "session/new",
+        {
+          ...(job.resumeSessionId ? { sessionId: job.resumeSessionId } : {}),
+          cwd: job.workspace,
+          mcpServers: job.mcpServers,
+          _meta: {
+            antigravity: {
+              ...enabledTools(job),
+              eagerMcpServers: ["pages"],
+            },
+          },
         },
-      },
-    });
+      );
+    } catch (error) {
+      if (job.resumeSessionId)
+        throw Object.assign(error, { pagesCode: "acp_session_resume_failed" });
+      throw error;
+    }
+    if (job.resumeSessionId) {
+      if (session.sessionId && session.sessionId !== job.resumeSessionId)
+        throw Object.assign(new Error("Session changed"), {
+          pagesCode: "acp_session_resume_failed",
+        });
+      session = { ...session, sessionId: job.resumeSessionId };
+    }
     await publish({
       type: "pages.session",
       sessionId: session.sessionId,
-      canResume: false,
+      canResume,
     });
     let options = await chooseAntigravity(
       client,
@@ -494,6 +522,12 @@ export async function executeAntigravity(job, prompt, base = process.env) {
   } finally {
     await stop(child);
   }
+}
+
+function enabledTools(job) {
+  if (job.purpose) return { enabledTools: [] };
+  if (job.access === "read_only") return { enabledTools: READ_TOOLS };
+  return {};
 }
 
 async function main() {

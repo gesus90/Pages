@@ -1,4 +1,3 @@
-import type { StepRunnerDependencies } from "./AgentPlanStepRunnerDependencies";
 import { randomUUID } from "node:crypto";
 
 import { isAcpProvider } from "@/definition/AgentConfiguration";
@@ -8,10 +7,14 @@ import { AgentError } from "@/backend/error/AgentErrors";
 import { AgentPlanCancelledError } from "@/backend/error/AgentPlanCancelledError";
 import { logCaughtError } from "@/backend/logging/Logger";
 
+import { AgentPlanRunnerDetachedError } from "./AgentPlanRunnerDetach";
+import {
+  reattachRunnerStep,
+  restoreRunnerSessions,
+} from "./AgentPlanRunnerSessions";
 import { planTurnTimeout } from "./AgentPlanTimeout";
 import { planStepProgress } from "./AgentPlanTurnControl";
 import { planPauseGate } from "./AgentPlanPauseGate";
-import { runPausablePlanRequest } from "./AgentPlanPausedRequest";
 import { withGroupIterationInputs } from "./AgentPlanGroupParameters";
 import { cleanupFinishedStepTemporaryDirectory } from "./AgentPlanTemporaryCleanup";
 import {
@@ -81,6 +84,7 @@ import type {
   AgentPlanStepSnapshot,
 } from "./AgentPlanSnapshot";
 import type { PreparedPlanStep } from "./AgentPlanStepStart";
+import type { StepRunnerDependencies } from "./AgentPlanStepRunnerDependencies";
 import type { AgentPlanSessionTerms } from "./AgentPlanStepAssessment";
 import type { NodeRun, StepRunControl } from "./AgentPlanStepContext";
 import type { StepSessionCloseoutTarget } from "./AgentPlanStepSessionCloseout";
@@ -103,6 +107,7 @@ export class AgentPlanStepRunner {
   private readonly turnReports: AgentPlanTurnReports;
   private readonly retained = new Map<string, NodeRun[]>();
   private readonly groupInputs = new Map<string, Promise<AgentPlanSnapshot>>();
+  private readonly requests = new WeakSet<NodeRun>();
 
   public constructor(dependencies: StepRunnerDependencies) {
     this.dependencies = dependencies;
@@ -145,14 +150,31 @@ export class AgentPlanStepRunner {
       if (slot) await waitForTurn(slot.ready, control.signal);
       return await runPlanNodeAttempts(node, {
         execute: () => {
-          const reattached = shouldReattach
-            ? reattachLocalStep(node, {
-                local: this.dependencies.localSessions,
-                observer: (restored) => this.observer(restored),
-                finish: (restored, session, terms) =>
+          const runner = shouldReattach
+            ? reattachRunnerStep(
+                node,
+                {
+                  execution: this.dependencies.execution,
+                  start: this.dependencies.start,
+                  groups: this.groups,
+                  observer: (restored) => this.observer(restored),
+                },
+                (restored, session, terms) =>
                   this.finish(restored, session, terms),
-              })
+              )
             : null;
+          const reattached =
+            runner ??
+            (shouldReattach
+              ? reattachLocalStep(node, {
+                  local: this.dependencies.localSessions,
+                  execution: this.dependencies.execution,
+                  access: this.dependencies.access,
+                  observer: (restored) => this.observer(restored),
+                  finish: (restored, session, terms) =>
+                    this.finish(restored, session, terms),
+                })
+              : null);
           shouldReattach = false;
           return reattached ?? this.execute(node);
         },
@@ -161,6 +183,8 @@ export class AgentPlanStepRunner {
         save: (changes) => this.complete(node, changes),
       });
     } catch (error: unknown) {
+      if (control.signal.reason instanceof AgentPlanRunnerDetachedError)
+        throw control.signal.reason;
       logCaughtError("AgentPlanStepRunner", error);
       if (control.signal.reason instanceof AgentPlanPausedError)
         return this.pauseUnstarted(node);
@@ -184,8 +208,18 @@ export class AgentPlanStepRunner {
       ) => void;
     } = {},
   ): Promise<void> {
+    await restoreRunnerSessions(run, snapshot, {
+      execution: this.dependencies.execution,
+      start: this.dependencies.start,
+      groups: this.groups,
+      retained: this.retained,
+      save,
+      observer: (node) => this.observer(node),
+    });
     await restoreLocalStepSessions(run, snapshot, {
       local: this.dependencies.localSessions,
+      execution: this.dependencies.execution,
+      access: this.dependencies.access,
       groups: this.groups,
       retained: this.retained,
       groupInputs: this.groupInputs,
@@ -233,7 +267,8 @@ export class AgentPlanStepRunner {
     if (node.control.signal.aborted) throw new AgentPlanCancelledError();
     const timeout = planTurnTimeout(
       node.run.id,
-      prepared.input.agent.connection.provider === "codex_cli"
+      node.snapshot.runnerProtocolVersion === 1 ||
+        prepared.input.agent.connection.provider === "codex_cli"
         ? 0
         : prepared.options.timeoutMinutes * 60_000,
       node.control.signal,
@@ -242,7 +277,10 @@ export class AgentPlanStepRunner {
     try {
       await planPauseGate(node.run.id).wait(node.control.signal);
       const guarded = guardPlanStepStart(node, prepared);
-      if (!isAcpProvider(prepared.input.agent.connection.provider))
+      if (
+        prepared.input.runnerCommand?.program.kind === "model" ||
+        !isAcpProvider(prepared.input.agent.connection.provider)
+      )
         return await this.request(node, guarded);
       return await this.session(node, guarded);
     } finally {
@@ -294,17 +332,29 @@ export class AgentPlanStepRunner {
     node: NodeRun,
     prepared: PreparedPlanStep,
   ): Promise<Partial<AgentPlanStepResult>> {
-    const previous = node.run.steps.find(
+    const existing = node.run.steps.find(
       (step) => step.id === node.step.step.id,
-    )?.session;
+    );
+    const previous =
+      !this.requests.has(node) &&
+      existing?.status === "running" &&
+      existing.session?.endedAt === null
+        ? existing.session
+        : undefined;
+    this.requests.add(node);
+    const attemptId =
+      previous?.attemptId ?? initialStepAttemptId(node) ?? randomUUID();
     await this.save(node, {
       ...createSessionRecord({
-        attemptId: previous?.attemptId ?? initialStepAttemptId(node),
+        attemptId,
+        isRequest: true,
         instanceId: previous?.instanceId ?? randomUUID(),
         prepared,
         contract: null,
         usesMcp: false,
       }),
+      runnerOwned: true,
+      ...(previous?.runnerJob ? { runnerJob: previous.runnerJob } : {}),
       startedAt: new Date().toISOString(),
     });
     const input = {
@@ -319,9 +369,11 @@ export class AgentPlanStepRunner {
     };
     await this.pin(node, input.prompt);
     const output = sanitizePlanOutput(
-      await runPausablePlanRequest(node.run.id, node.control.signal, (signal) =>
-        this.dependencies.execution.run(input, signal),
-      ),
+      await this.dependencies.execution.run(input, node.control.signal, {
+        attemptId,
+        runnerJob: previous?.runnerJob,
+        dispatched: (runnerJob) => this.complete(node, { runnerJob }),
+      }),
     );
     const result = apiBusinessResult(output);
     await this.complete(node, {
@@ -357,6 +409,7 @@ export class AgentPlanStepRunner {
         contract,
         usesMcp: reach !== "tickets" || contract.tickets.length > 0,
       }),
+      runnerOwned: true,
       todoReturns: node.todoReturns ?? 0,
       ...planSharedSessionLink(node, prepared, {
         groups: this.groups,
@@ -546,10 +599,18 @@ export class AgentPlanStepRunner {
     };
   }
 
-  private failure(
+  private async failure(
     node: NodeRun,
     error: unknown,
   ): Promise<Partial<AgentPlanStepResult>> {
+    if (node.control.signal.reason instanceof AgentPlanRunnerDetachedError)
+      throw node.control.signal.reason;
+    if (
+      node.record?.runnerOwned &&
+      !node.record.runnerJob &&
+      node.record.startedAt === null
+    )
+      await this.complete(node, { closeout: "not_needed" });
     return failPlanStepNode(this.closeoutTarget(), node, error);
   }
 

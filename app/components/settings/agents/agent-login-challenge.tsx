@@ -105,12 +105,16 @@ function LoginCompletion({
     return null;
   if (connection.provider === "antigravity" && login.canSubmitRedirect)
     return <AgentLoginRedirect connection={connection} actions={actions} />;
-  if (connection.provider === "claude_code")
-    return <AnthropicCodeForm connection={connection} actions={actions} />;
+  // `agy acp --login` and Claude Code both wait for a code pasted from the provider's page.
+  if (
+    connection.provider === "claude_code" ||
+    connection.provider === "antigravity"
+  )
+    return <LoginCodeForm connection={connection} actions={actions} />;
   return null;
 }
 
-function AnthropicCodeForm({
+function LoginCodeForm({
   connection,
   actions,
 }: {
@@ -119,6 +123,7 @@ function AnthropicCodeForm({
 }): React.ReactElement {
   const { t } = useTranslation();
   const [code, setCode] = useState("");
+  const isAntigravity = connection.provider === "antigravity";
   useEffect(() => {
     if (actions.result?.ok && actions.result.intent === "submit-login-code")
       setCode("");
@@ -130,14 +135,18 @@ function AnthropicCodeForm({
   return (
     <form onSubmit={submitCode} className="space-y-2">
       <label className="text-sm font-medium" htmlFor="agent-login-code">
-        {t("settings.agents.anthropicCode")}
+        {t(
+          isAntigravity
+            ? "settings.agents.antigravityCode"
+            : "settings.agents.anthropicCode",
+        )}
       </label>
       <Input
         id="agent-login-code"
         value={code}
         onChange={(event) => setCode(event.target.value)}
         autoComplete="off"
-        maxLength={512}
+        maxLength={isAntigravity ? 4096 : 512}
         required
         aria-invalid={
           actions.error === "login_code_invalid" ||

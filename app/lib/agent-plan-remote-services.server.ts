@@ -1,3 +1,20 @@
+import path from "node:path";
+
+import { AgentCredentialStore } from "@/backend/agents/cli/AgentCredentialStore";
+import {
+  OpenCodeCredentialStore,
+  openCodeCredentials,
+} from "@/backend/agents/cli/OpenCodeCredentialStore";
+import { requireAgentFiles } from "@/backend/storage/AgentPayloadFileStore";
+import { RunnerManagedGitHub } from "@/backend/service/runner/RunnerManagedGitHub";
+import { RunnerManagedFiles } from "@/backend/service/runner/RunnerManagedFiles";
+import { RunnerManagedAccess } from "@/backend/service/runner/RunnerManagedAccess";
+import { RunnerPlanExecution } from "@/backend/service/runner/RunnerPlanExecution";
+import { RunnerPlanScripts } from "@/backend/service/runner/RunnerPlanScripts";
+import { AgentConnectionRepository } from "@/backend/database/repositories/AgentConnectionRepository";
+import { InstanceSecretCipher } from "@/backend/security/InstanceSecretCipher";
+import { resolveGitHubTokenKey } from "@/backend/github/GitHubTokenKey";
+import { authorizeLocalRunnerSource } from "@/backend/service/agents/AgentPlanLocalRunnerAuthorization";
 import { isLocalSessionOwner } from "@/backend/agents/local/LocalSessionMode";
 import { AuthorizationRepository } from "@/backend/database/repositories/AuthorizationRepository";
 import { AgentPlanRemoteAccessRepository } from "@/backend/database/repositories/agent/AgentPlanRemoteAccessRepository";
@@ -23,6 +40,8 @@ import { RunnerPagesAccessService } from "@/backend/service/runner/RunnerPagesAc
 
 import { createPlanTodoProgress } from "./agent-plan-todo-progress.server";
 
+import type { PlanBridgeGrants } from "@/backend/service/agents/bridge/PlanBridgeGrants";
+import type { AgentPlanScriptPreparation } from "@/backend/service/agents/AgentPlanScriptPreparation";
 import type { AgentPlanAccess } from "@/backend/service/agents/AgentPlanAccess";
 import type { AgentPlanSessionGrants } from "@/backend/service/agents/AgentPlanSessionAccess";
 import type { AgentPlanRunRepository } from "@/backend/database/repositories/agent/AgentPlanRunRepository";
@@ -48,26 +67,68 @@ export async function createPlanRemoteServices(
   input: PlanRemoteServiceInput,
   access: AgentPlanAccess,
   runs: AgentPlanRunRepository,
-  planAccess: AgentPlanSessionGrants,
+  local: {
+    readonly planAccess: AgentPlanSessionGrants;
+    readonly scripts: AgentPlanScriptPreparation;
+    readonly bridges: PlanBridgeGrants;
+  },
 ): Promise<{
   remoteTargets: AgentPlanRemoteTargets;
   remoteExecution: AgentPlanRemoteExecution;
   pages: RunnerPagesAccessService;
+  execution: RunnerPlanExecution;
+  scripts: RunnerPlanScripts;
 }> {
-  const remoteTargets = new AgentPlanRemoteTargets(
-    input.agents.remoteWorkspaceService,
-    input.agents.remoteConnectionService,
+  const { remoteTargets, parameters } = createRemoteTargetsAndParameters(input);
+  const runtime = await getPagesRuntime();
+  const cipher = new InstanceSecretCipher(
+    resolveGitHubTokenKey(runtime.getDatabasePath()),
   );
-  const parameters = new AgentPlanRemoteParameters({
-    targets: remoteTargets,
-    tickets: input.agents.agentTicketParameterService,
-    content: input.agents.agentContentAccess,
-    assets: input.agents.agentTicketAssetService,
-    snapshots: input.agents.agentTicketAssetSnapshots,
-    authorization: new AuthorizationRepository(input.database),
-    users: input.users,
+  const connections = new AgentConnectionRepository(input.database);
+  const managedFiles = new RunnerManagedFiles({
+    runs,
+    parameters,
+    readBody: (reference) => requireAgentFiles(input.database).read(reference),
+    local: input.agents.agentParameterService,
+    evidence: new AgentPlanRemoteAccessRepository(input.database),
   });
-  const pages = new RunnerPagesAccessService({
+  const managedGitHub = new RunnerManagedGitHub({
+    runs,
+    credentials: input.agents.agentCliGitHubCredentials,
+    projects: input.agents.agentPlanGitHubCredentials,
+  });
+  input.agents.runnerService.attachManagedCleanup(async (job) => {
+    await managedGitHub.close(job);
+    managedFiles.close(job.jobId);
+    pages.closeManaged(job);
+  });
+  const credentialHomes = new AgentCredentialStore(
+    path.dirname(runtime.getDatabasePath()),
+  );
+  const nativeCredentials = new OpenCodeCredentialStore(cipher);
+  const managed: RunnerManagedAccess = new RunnerManagedAccess({
+    nativeCredentials: async (connectionId) =>
+      openCodeCredentials(
+        await nativeCredentials.readOwn(
+          credentialHomes.paths(connectionId, "opencode"),
+        ),
+      ),
+    github: managedGitHub,
+    files: managedFiles,
+    readBody: (reference) => requireAgentFiles(input.database).read(reference),
+    binary: (job, token, request) => pages.managedBinary(job, token, request),
+    uploadTicket: (attemptId, requestParameters, result) =>
+      pages.managedUploadTicket(attemptId, requestParameters, result),
+    connections,
+    cipher,
+    runs,
+    plans: access,
+    bridges: local.bridges,
+    api: input.api,
+    access: input.agents.agentConnectionAccess,
+  });
+  const pages: RunnerPagesAccessService = new RunnerPagesAccessService({
+    managed,
     parameters,
     runs,
     plans: access,
@@ -78,13 +139,79 @@ export async function createPlanRemoteServices(
     evidence: new AgentPlanRemoteAccessRepository(input.database),
     api: input.api,
   });
+  const { remoteExecution, execution, scripts } =
+    await createRemoteExecutionParts(input, {
+      access,
+      runs,
+      local,
+      remoteTargets,
+      parameters,
+      pages,
+      cipher,
+    });
+  return { remoteTargets, remoteExecution, pages, execution, scripts };
+}
+
+function createRemoteTargetsAndParameters(input: PlanRemoteServiceInput): {
+  readonly remoteTargets: AgentPlanRemoteTargets;
+  readonly parameters: AgentPlanRemoteParameters;
+} {
+  const remoteTargets = new AgentPlanRemoteTargets(
+    input.agents.remoteWorkspaceService,
+    input.agents.remoteConnectionService,
+    input.agents.agentWorkspaceService,
+  );
+  const parameters = new AgentPlanRemoteParameters({
+    targets: remoteTargets,
+    tickets: input.agents.agentTicketParameterService,
+    content: input.agents.agentContentAccess,
+    assets: input.agents.agentTicketAssetService,
+    snapshots: input.agents.agentTicketAssetSnapshots,
+    authorization: new AuthorizationRepository(input.database),
+    users: input.users,
+  });
+  return { remoteTargets, parameters };
+}
+
+async function createRemoteExecutionParts(
+  input: PlanRemoteServiceInput,
+  context: {
+    readonly access: AgentPlanAccess;
+    readonly runs: AgentPlanRunRepository;
+    readonly local: {
+      readonly planAccess: AgentPlanSessionGrants;
+      readonly scripts: AgentPlanScriptPreparation;
+    };
+    readonly remoteTargets: AgentPlanRemoteTargets;
+    readonly parameters: AgentPlanRemoteParameters;
+    readonly pages: RunnerPagesAccessService;
+    readonly cipher: InstanceSecretCipher;
+  },
+): Promise<{
+  readonly remoteExecution: AgentPlanRemoteExecution;
+  readonly execution: RunnerPlanExecution;
+  readonly scripts: RunnerPlanScripts;
+}> {
+  const { access, runs, local, remoteTargets, parameters, pages, cipher } =
+    context;
   const transport = await createPlanRemoteTransport(
     input,
-    { runs, planAccess },
+    { runs, planAccess: local.planAccess },
     pages,
   );
   const planTasks = new AgentPlanTasks(input.tasks, input.users);
   const remoteExecution = new AgentPlanRemoteExecution({
+    authorizeLocal: (userId, source) =>
+      authorizeLocalRunnerSource(
+        {
+          plans: access,
+          scripts: local.scripts,
+          profiles: input.agents.agentProfileService,
+          parameters: input.agents.agentParameterService,
+        },
+        userId,
+        source,
+      ),
     tasks: planTasks,
     stepReports: new AgentPlanStepReportService(
       new AgentPlanStepReportRepository(input.database),
@@ -99,7 +226,25 @@ export async function createPlanRemoteServices(
     provider: transport.provider,
     runs,
   });
-  return { remoteTargets, remoteExecution, pages };
+  const execution = new RunnerPlanExecution({
+    runners: transport.runners,
+    runs,
+    cipher,
+    bridgeUrl: input.mcp.url,
+    access: input.agents.agentConnectionAccess,
+    saveBody: (planId, body) =>
+      requireAgentFiles(input.database).write(planId, body),
+    finishLegacy: (runId) =>
+      input.agents.localSessions?.finishRun(runId) ?? Promise.resolve(),
+  });
+  const scripts = new RunnerPlanScripts(
+    local.scripts,
+    transport.runners,
+    runs,
+    (run, snapshot, script) =>
+      remoteExecution.authorizeScript(run, snapshot, script),
+  );
+  return { remoteExecution, execution, scripts };
 }
 
 async function createPlanRemoteTransport(

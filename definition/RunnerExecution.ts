@@ -35,6 +35,7 @@ export const runnerModelRouteSchema = z
     connectionId: z.string().uuid(),
     workspaceId: z.string().uuid(),
     catalogRevision: z.string().min(1).max(100),
+    accountId: z.string().min(1).max(400).optional(),
     /** Absent selects OpenRouter; CLI routes use only the remote person's login or the host's own providers. */
     tool: z.enum(["codex", "claude", "opencode", "antigravity"]).optional(),
   })
@@ -62,15 +63,34 @@ export const runnerExecutionSchema = z
     sourceRevision: z.number().int().positive().optional(),
     workspace: z.string().startsWith("/").max(4096),
     timeoutSeconds: z.number().int().min(0).max(86400),
-    outputBytes: z.number().int().min(1).max(65536),
+    outputBytes: z.number().int().min(1).max(1048576),
+    streamBytes: z.number().int().min(1).max(131072).optional(),
     input: z.string().max(1048576),
     hasOutput: z.boolean().optional(),
     /** Runner 1.13.0 returns only the final CLI payload, without a provenance prefix. */
     resultPayloadVersion: z.literal(1).optional(),
     /** Requires Runner 1.6.0; credentials and file contents never belong to a durable command. */
     pagesAccess: z.literal(1).optional(),
+    /** Host-local account selection; no credential material is accepted. */
+    agentAccount: z
+      .object({ version: z.literal(1), id: z.string().min(1).max(400) })
+      .strict()
+      .optional(),
+    /** Explicit opt-in; supported only by a runner announcing browserVersion. */
+    browser: z.literal(1).optional(),
+    progressVersion: z.literal(1).optional(),
     /** Requires Runner 1.16.0; a writing CLI job keeps a resumable native session and proves its tool activity. */
     continuation: runnerContinuationRequestSchema.optional(),
+    managed: z
+      .object({
+        bridge: z.string().max(16000).optional(),
+        files: z.string().min(1).max(1000).optional(),
+        promptFile: z.string().min(1).max(1000).optional(),
+        ownerId: z.string().uuid().optional(),
+        connectionId: z.string().uuid().optional(),
+      })
+      .strict()
+      .optional(),
     program: z.discriminatedUnion("kind", [
       z
         .object({
@@ -79,7 +99,9 @@ export const runnerExecutionSchema = z
           model: z.string().min(1).max(200),
           reasoningEffort: z.string().max(40).nullable(),
           prompt: z.string().max(MAX_RUNNER_PROMPT_CHARACTERS),
-          access: z.enum(["read_only", "yolo"]),
+          access: z.enum(["read_only", "yolo", "full_environment"]),
+          linkedProvider: z.enum(["openrouter", "zai"]).optional(),
+          purpose: z.enum(["decision", "observer"]).optional(),
         })
         .strict(),
       z
@@ -87,6 +109,24 @@ export const runnerExecutionSchema = z
           kind: z.literal("script"),
           interpreter: runnerInterpreterSchema,
           source: z.string().max(100000),
+        })
+        .strict(),
+      z
+        .object({
+          kind: z.literal("api"),
+          provider: z.enum([
+            "openrouter",
+            "openai",
+            "google_ai_studio",
+            "zai",
+            "anthropic",
+          ]),
+          connectionId: z.string().uuid(),
+          model: z.string().min(1).max(200),
+          path: z.string().startsWith("/").max(500),
+          body: z.record(z.string(), z.unknown()).optional(),
+          bodyFile: z.string().min(1).max(1000).optional(),
+          webSearch: z.boolean().optional(),
         })
         .strict(),
       z
@@ -106,6 +146,7 @@ export type RunnerExecution = z.infer<typeof runnerExecutionSchema>;
 export const runnerLaunchSchema = z
   .object({
     id: z.string().uuid(),
+    isolation: z.enum(["cgroup_v2", "pid_namespace"]).optional(),
     processId: z.number().int().positive(),
     identity: z.string().max(100),
   })

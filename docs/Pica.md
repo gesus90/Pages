@@ -312,6 +312,44 @@ turn action results are excluded.
 Session deletion through agent tools also follows the explicit current request
 without a typed confirmation word.
 
+## Conversation sessions of agents over the runner
+
+The chat sessions of agent employees keep their own pool and are not bound to a
+plan order. The plan runner binds a native session to plan, step and attempt and
+ends the worker after one order. A conversation session is bound to one agent in
+one conversation instead: it takes any number of rounds, rests between them until
+the idle time of the agent settings and keeps one Pica tool credential for its
+whole life. `ConversationSessionRunner` in
+`backend/agents/ConversationSessionRunner.ts` defines this contract, and
+`PlanConversationRunner` offers the native ACP sessions of the plan runner
+(same connection checks, scheduler lease and closeout) through it. The session
+pool `PicaAcpSessionPool` works only on this contract.
+
+- **Rounds:** the first round opens the native session; every later round of the
+  conversation is another turn of the same native process and agent session.
+  A configuration or an agent that differs from the resting session's starts a
+  new one. Steering, interrupting a prompt and cancelling a tool call stay
+  available to the round that runs.
+- **Bridge credential:** the credential is issued to the agent and the
+  conversation and stays with the session. A job of another agent or
+  conversation cannot bind it, and it admits a call only through the turn of
+  the round that runs; between rounds every call is refused, and a replaced job
+  cannot unbind the job that replaced it.
+- **Native resume:** the runner session reports the native agent session
+  identifier; the next job saves it with its last message, and a session that was
+  released resumes it through the adapter. A conversation or message stored before
+  keeps its stored session, journal, usage and transcript unchanged: the contract
+  adds no stored data and no migration.
+- **Release:** a stop, the idle time, a changed configuration, a failed turn, the
+  end of the process, a waiting start at the instance limit, the removal of the
+  working folder, the deletion of the conversation and the shutdown release the
+  session. The credential is revoked first. The working folder, the place of a
+  new session and the data of a deleted conversation are freed only after the
+  runner confirmed that the process, its helpers and its lease are gone. A
+  release that cannot be confirmed keeps the entry, refuses a new session of the
+  conversation and is asked again by the next release or by a start that waits
+  for a place.
+
 ## Pica quota demo
 
 Pica's quota panel does not query provider budgets. Agent Plan's provider waits

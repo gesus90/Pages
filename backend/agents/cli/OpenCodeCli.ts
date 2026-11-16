@@ -13,7 +13,7 @@ import {
   OpenCodeCredentialStore,
   openCodeCredentials,
 } from "./OpenCodeCredentialStore";
-import { SUPPORTED_OPENCODE_VERSION } from "./OpenCodeVersion";
+import { isSupportedOpenCodeVersion } from "./OpenCodeVersion";
 
 import type { ProviderCheckOutcome } from "@/backend/agents/providers/ProviderContracts";
 import type { InstanceSecretCipher } from "@/backend/security/InstanceSecretCipher";
@@ -98,7 +98,7 @@ export class OpenCodeCli implements CliToolAdapter {
   ): Promise<ProviderCheckOutcome> {
     const version = await this.execution.version(home, signal);
     return version.ok &&
-      version.detail.cliVersion !== SUPPORTED_OPENCODE_VERSION
+      !isSupportedOpenCodeVersion(version.detail.cliVersion ?? "")
       ? {
           ok: false,
           errorCode: "opencode_acp_unsupported",

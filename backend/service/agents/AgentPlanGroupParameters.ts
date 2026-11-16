@@ -91,7 +91,8 @@ export async function prepareGroupParameters(
   return { ...snapshot, steps };
 }
 
-async function bindGroupStep(
+/** Applies already authorized shared group values to one frozen member. */
+export async function bindGroupStep(
   group: AgentPlanGroup,
   step: AgentPlanStepSnapshot,
   shared: PreparedAgentParameters,

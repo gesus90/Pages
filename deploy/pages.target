@@ -1,7 +1,7 @@
 [Unit]
 Description=Pages platform (default instance)
-Wants=pages-postgres@default.service pages-api@default.service pages-runs@default.service pages-integrations@default.service
-After=pages-postgres@default.service pages-api@default.service pages-runs@default.service pages-integrations@default.service
+Wants=pages-postgres@default.service pages-api@default.service pages-runs@default.service pages-integrations@default.service pages-runner@default.service
+After=pages-postgres@default.service pages-api@default.service pages-runs@default.service pages-integrations@default.service pages-runner@default.service
 
 [Install]
 WantedBy=multi-user.target

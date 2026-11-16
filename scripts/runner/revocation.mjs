@@ -29,7 +29,11 @@ export async function renewExecutionLease(directory, sessionId) {
 }
 
 /** A missing, expired, foreign-boot or unreadable lease fails closed. */
-export async function hasExecutionLease(directory, job) {
+export async function hasExecutionLease(
+  directory,
+  job,
+  canKeepLocalWorker = false,
+) {
   try {
     const [lease, clock] = await Promise.all([
       readRecord(join(directory, "execution-lease.json")),
@@ -38,7 +42,8 @@ export async function hasExecutionLease(directory, job) {
     return (
       lease?.sessionId === job.sessionId &&
       lease.boot === clock.boot &&
-      clock.milliseconds < lease.expiresAt
+      ((canKeepLocalWorker && process.env.PAGES_RUNNER_LOCAL === "1") ||
+        clock.milliseconds < lease.expiresAt)
     );
   } catch {
     return false;

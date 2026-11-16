@@ -1,3 +1,4 @@
+import { AgentPlanRunnerDetachedError } from "./AgentPlanRunnerDetach";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { AgentPlanPausedError } from "@/backend/error/AgentPlanPausedError";
 
@@ -164,6 +165,8 @@ export function dispatchRemoteStepWithRetry(
       return lastSession;
     },
   }).catch(async (error: unknown): Promise<Partial<AgentPlanStepResult>> => {
+    if (signal.reason instanceof AgentPlanRunnerDetachedError)
+      throw signal.reason;
     if (signal.reason instanceof AgentPlanPausedError)
       return { status: "paused" };
     if (signal.aborted) {

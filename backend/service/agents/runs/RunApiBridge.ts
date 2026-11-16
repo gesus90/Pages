@@ -112,6 +112,13 @@ export class RunApiBridge {
       case "cancel":
         await runners.cancel(request.connectionId, request.jobId);
         return null;
+      case "pauseExecution":
+        await runners.pauseExecution(
+          request.connectionId,
+          request.jobId,
+          request.isPaused,
+        );
+        return null;
       case "pauseQueued":
         await runners.pauseQueued(request.connectionId, request.jobId);
         return null;
@@ -210,6 +217,9 @@ export class RunApiBridge {
       openCode: runners.supportsOpenCode(connectionId),
       exactPayload: runners.supportsExactResultPayload(connectionId),
       continuation: runners.supportsContinuation(connectionId),
+      agentAccounts: runners.supportsAgentAccounts(connectionId),
+      browser: runners.supportsBrowser(connectionId),
+      progress: runners.supportsProgress(connectionId),
       contact: runners.contact(connectionId),
     };
   }

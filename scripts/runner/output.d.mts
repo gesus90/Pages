@@ -13,7 +13,7 @@ export class JobOutput extends Writable {
   initialize(folder: string): Promise<void>;
   close(): Promise<void>;
   result(): {
-    output: string;
+    output: string | null;
     stderr: string;
     reason?: string | null;
     terminal?: RunnerTerminal;

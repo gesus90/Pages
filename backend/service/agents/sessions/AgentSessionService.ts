@@ -553,11 +553,11 @@ export class AgentSessionService {
   }
 
   private async releaseInstance(instanceId: string): Promise<void> {
+    for (const [attemptId, entry] of this.live)
+      if (entry.instanceId === instanceId) this.live.delete(attemptId);
     const recorder = this.recorders.get(instanceId);
     if (!recorder) return;
     this.recorders.delete(instanceId);
-    for (const [attemptId, entry] of this.live)
-      if (entry.instanceId === instanceId) this.live.delete(attemptId);
     await this.update(recorder, (current) => ({
       ...current,
       state: ACTIVE_STATES.has(current.state) ? "ended" : current.state,

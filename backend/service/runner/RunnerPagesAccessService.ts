@@ -1,6 +1,7 @@
+import type { RunnerManagedAccess } from "./RunnerManagedAccess";
 import { readPlanSnapshot } from "@/backend/service/agents/AgentPlanSnapshot";
 import { canRunPlan } from "@/definition/AgentPlanTeam";
-import { isOriginalRemoteJob } from "@/backend/service/agents/AgentPlanRemoteCancellation";
+import { auditTarget, canRestoreRemoteJob } from "./RunnerPagesAccessHelpers";
 import { logCaughtError } from "@/backend/logging/Logger";
 import { sanitizeFileName } from "@/backend/service/wiki/WikiFileTypes";
 import { AgentAssetError } from "@/backend/error/AgentAssetError";
@@ -35,6 +36,7 @@ import type { AgentPlanRemoteParameters } from "@/backend/service/agents/AgentPl
 import type { RemotePlanStep } from "@/backend/service/agents/AgentPlanRemoteExecution";
 import type { AgentPlanRun } from "@/definition/AgentPlan";
 import type { RunnerPagesRequest } from "@/definition/RunnerPagesAccess";
+import type { RunnerJob } from "@/definition/RunnerProtocol";
 import type { RunnerService } from "./RunnerService";
 
 /** What the files a step reads through the download tool may add up to; parameter files have their own budget. */
@@ -51,6 +53,7 @@ interface ActivePagesAccess {
 }
 
 interface PagesAccessDependencies {
+  readonly managed?: RunnerManagedAccess;
   readonly credentials: AgentRunCredentialService;
   readonly runs: AgentPlanRunRepository;
   readonly plans: AgentPlanAccess;
@@ -66,12 +69,58 @@ export class RunnerPagesAccessService {
   private readonly uploads: RunnerAssetUploads;
   private readonly files: RunnerParameterFiles;
   private readonly active = new Map<string, ActivePagesAccess>();
+  private readonly managedDownloads = new Map<
+    string,
+    Map<string, PlanRemoteFile>
+  >();
 
   public constructor(dependencies: PagesAccessDependencies) {
     this.dependencies = dependencies;
     this.files = new RunnerParameterFiles(dependencies);
     this.uploads = new RunnerAssetUploads(async (ticket, bytes) =>
       (await dependencies.api()).uploadAsset(ticket, bytes),
+    );
+  }
+
+  /** Preserves binary tools under the same verified credential as a managed native session. */
+  public async managedBinary(
+    job: RunnerJob,
+    token: string,
+    request: RunnerPagesRequest["request"],
+  ): Promise<unknown> {
+    const binding = job.plan;
+    const run = binding
+      ? await this.dependencies.runs.find(binding.runId)
+      : null;
+    if (!binding || !run) throw new AgentError("plan_context_changed");
+    const downloads =
+      this.managedDownloads.get(job.jobId) ?? new Map<string, PlanRemoteFile>();
+    this.managedDownloads.set(job.jobId, downloads);
+    const access = {
+      token,
+      run,
+      downloads,
+      attemptId: binding.recordingAttemptId ?? binding.attemptId,
+    };
+    if (request.kind === "upload") return this.upload(access, request);
+    if (request.kind === "download") return this.download(access, request);
+    throw new AgentError("plan_mcp_unavailable");
+  }
+
+  /** Registers the upload capability returned by the existing preparation tool. */
+  public managedUploadTicket(
+    attemptId: string,
+    parameters: Readonly<Record<string, unknown>>,
+    result: Awaited<ReturnType<PagesAgentApiService["handle"]>>,
+  ): void {
+    this.rememberUpload({ attemptId }, parameters, result);
+  }
+
+  /** Discards binary capabilities after independently confirmed worker cleanup. */
+  public closeManaged(job: RunnerJob): void {
+    this.managedDownloads.delete(job.jobId);
+    this.uploads.close(
+      job.plan?.recordingAttemptId ?? job.plan?.attemptId ?? "",
     );
   }
 
@@ -167,10 +216,25 @@ export class RunnerPagesAccessService {
     input: unknown,
   ): Promise<Readonly<Record<string, unknown>>> {
     const message = runnerPagesRequestSchema.parse(input);
-    if (Buffer.byteLength(JSON.stringify(message)) > 65536)
+    if (Buffer.byteLength(JSON.stringify(message)) > 1_500_000)
       throw new Error("Remote Pages request too large");
     let attemptId: string | undefined;
     try {
+      const job = await this.dependencies.runners.pagesJob(
+        connectionId,
+        message.jobId,
+      );
+      if (job.plan?.managed) {
+        if (!this.dependencies.managed)
+          throw new AgentError("plan_mcp_unavailable");
+        return {
+          version: 1,
+          type: "pages-result",
+          requestId: message.requestId,
+          ok: true,
+          result: await this.dependencies.managed.receive(job, message.request),
+        };
+      }
       const access = await this.requireAccess(connectionId, message);
       attemptId = access.attemptId;
       const result = await this.dispatch(access, message);
@@ -303,11 +367,12 @@ export class RunnerPagesAccessService {
         ).map((entry) => entry.tool),
       };
     }
+    if (request.kind !== "call") throw new AgentError("plan_mcp_unavailable");
     return this.call(access, request, api);
   }
 
   private async upload(
-    access: ActivePagesAccess,
+    access: Pick<ActivePagesAccess, "token" | "run" | "attemptId">,
     request: Extract<RunnerPagesRequest["request"], { kind: "upload" }>,
   ): Promise<unknown> {
     const identity = await (await this.dependencies.api()).verify(access.token);
@@ -347,7 +412,11 @@ export class RunnerPagesAccessService {
   }
 
   private async download(
-    access: ActivePagesAccess,
+    access: Pick<
+      ActivePagesAccess,
+      "token" | "run" | "attemptId" | "downloads"
+    > &
+      Partial<Pick<ActivePagesAccess, "remote">>,
     request: Extract<RunnerPagesRequest["request"], { kind: "download" }>,
   ): Promise<unknown> {
     const reference = ticketAssetReference(request.link);
@@ -362,7 +431,7 @@ export class RunnerPagesAccessService {
       pinned?.digest ?? request.digest,
     );
     const metadata = remoteAssetFile("tool", reference, file);
-    const parameterFiles = access.remote.parameters?.assets.length ?? 0;
+    const parameterFiles = access.remote?.parameters?.assets.length ?? 0;
     // Parameter files have their own budget of 512 MiB; what an agent downloads on top is bounded separately.
     if (
       !pinned &&
@@ -455,7 +524,7 @@ export class RunnerPagesAccessService {
   }
 
   private rememberUpload(
-    access: ActivePagesAccess,
+    access: Pick<ActivePagesAccess, "attemptId">,
     parameters: Readonly<Record<string, unknown>>,
     result: Awaited<ReturnType<PagesAgentApiService["handle"]>>,
   ): void {
@@ -542,27 +611,4 @@ export class RunnerPagesAccessService {
       );
     }
   }
-}
-
-function auditTarget(
-  parameters: Readonly<Record<string, unknown>>,
-): string | null {
-  const target =
-    parameters.ticketId ?? parameters.pageId ?? parameters.projectId;
-  return typeof target === "string" &&
-    /^(?:[a-f0-9-]{36}|[A-Z][A-Z0-9]{0,15}-[0-9]{1,10})$/u.test(target)
-    ? target
-    : null;
-}
-
-function canRestoreRemoteJob(
-  run: AgentPlanRun,
-  step: AgentPlanRun["steps"][number],
-  job: Awaited<ReturnType<RunnerService["progress"]>>,
-): boolean {
-  return (
-    isOriginalRemoteJob(run, step, job) &&
-    !job.cancellation &&
-    ["queued", "accepted", "running"].includes(job.status)
-  );
 }

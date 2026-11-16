@@ -10,6 +10,8 @@ import { AgentToolHealthService } from "./AgentToolHealthService";
 import { AgentToolInstaller } from "./AgentToolInstaller";
 import { AgentToolManagerService } from "./AgentToolManagerService";
 import { agentToolDefinition } from "./AgentToolRegistry";
+import { AgentToolReleaseCheck } from "./AgentToolReleaseCheck";
+import { AgentToolUpdateSearch } from "./AgentToolUpdateSearch";
 
 import type { CliLocator } from "@/backend/agents/cli/CliLocator";
 import type { CliProcessRunner } from "@/backend/agents/cli/CliProcessRunner";
@@ -51,6 +53,7 @@ export function createAgentToolManager(input: {
   return new AgentToolManagerService({
     files,
     system,
+    updates: new AgentToolUpdateSearch(new AgentToolReleaseCheck()),
     activities: (id) => input.runner.toolActivities(path.join(files.root, id)),
     installer: new AgentToolInstaller({
       files,

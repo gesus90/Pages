@@ -1,6 +1,7 @@
 import { requireAgentFiles } from "@/backend/storage/AgentPayloadFileStore";
 import { sanitizePlanOutput } from "@/backend/service/agents/AgentPlanOutput";
 
+import { persistRunnerStructuredProgress } from "./RunnerStructuredProgress";
 import { persistRunnerSessionUsage } from "./RunnerSessionUsage";
 import {
   appendSessionHistoryChunks,
@@ -28,6 +29,19 @@ interface RunnerSessionAppend {
   readonly launchId?: string;
   readonly events: readonly RunnerLiveEvent[];
   readonly prepared?: PreparedRunnerSessionEvents;
+  readonly hasTerminalUsage?: boolean;
+}
+
+function recordingEvents(input: RunnerSessionAppend): RunnerSessionAppend {
+  if (!input.binding.managed || !input.binding.recordingAttemptId) return input;
+  return {
+    ...input,
+    binding: { ...input.binding, attemptId: input.binding.recordingAttemptId },
+    events: input.events.map((event) => ({
+      ...event,
+      sequence: event.sequence + (input.binding.historyBase ?? 0),
+    })),
+  };
 }
 
 /** Prepares sanitized remote event bodies and full immutable chunks before opening the importer transaction. */
@@ -35,12 +49,13 @@ export async function prepareRunnerSessionEvents(
   access: DatabaseTransaction,
   input: RunnerSessionAppend,
 ): Promise<PreparedRunnerSessionEvents> {
+  input = recordingEvents(input);
   const events = input.events.map((event) => ({
     ...event,
     id: `${input.binding.attemptId}:${event.sequence}`,
     attemptId: input.binding.attemptId,
     stepId: input.binding.stepId,
-    turn: 1,
+    turn: input.binding.turn ?? 1,
     text: sanitizePlanOutput(event.text),
   }));
   const bodies: string[] = [];
@@ -105,16 +120,18 @@ export async function persistRunnerSessionEvents(
         step_id,
         user_id,
         provider,
+        requested_model,
         instance_id,
         state,
         next_sequence,
         updated_at
     ) VALUES (
         $attempt_id, $plan_id, $run_id, $step_id, $user_id,
-        $provider, $instance_id, $state, $next_sequence, $updated_at
+        $provider, $requested_model, $instance_id, $state, $next_sequence, $updated_at
     )
     ON CONFLICT (attempt_id) DO UPDATE SET
         state = excluded.state,
+        requested_model = COALESCE(agent_session_attempts.requested_model, excluded.requested_model),
         next_sequence = GREATEST(agent_session_attempts.next_sequence, excluded.next_sequence),
         updated_at = excluded.updated_at;
   `,
@@ -125,6 +142,7 @@ export async function persistRunnerSessionEvents(
       step_id: step.id,
       user_id: run.userId,
       provider: record.runner,
+      requested_model: record.requested.model,
       instance_id: record.instanceId,
       state,
       next_sequence: next,
@@ -141,6 +159,9 @@ export async function persistRunnerSessionEvents(
       planRevision: run.planRevision,
     },
     jobId: record.instanceId,
+    hasTerminalUsage: Object.values(step.remote.terminal?.usage ?? {}).some(
+      (reading) => typeof reading === "number",
+    ),
     ...(step.remote.outputJournalVersion === 2
       ? { launchId: step.remote.launchId }
       : {}),
@@ -164,6 +185,7 @@ export async function appendRunnerSessionEvents(
   transaction: DatabaseTransaction,
   input: RunnerSessionAppend,
 ): Promise<void> {
+  input = recordingEvents(input);
   const [attempt] = await transaction.query(
     `
     SELECT attempt_id
@@ -172,46 +194,20 @@ export async function appendRunnerSessionEvents(
         AND plan_id = $plan_id
         AND run_id = $run_id
         AND step_id = $step_id
-        AND instance_id = $job_id;
+        AND instance_id = $instance_id;
   `,
     {
       attempt_id: input.binding.attemptId,
       plan_id: input.binding.planId,
       run_id: input.binding.runId,
       step_id: input.binding.stepId,
-      job_id: input.jobId,
+      instance_id: input.binding.recordingInstanceId ?? input.jobId,
     },
   );
   if (!attempt) throw new Error("Runner session binding mismatch");
   requirePreparedRunnerEvents(input);
-  for (const [index, event] of input.events.entries()) {
-    const text = sanitizePlanOutput(event.text);
-    const bodyFile = input.prepared?.bodies[index];
-    if (!bodyFile) throw new Error("Prepared runner event body missing.");
-    await transaction.execute(
-      `
-      INSERT INTO agent_session_events (
-          attempt_id,
-          sequence,
-          turn,
-          kind,
-          body,
-          body_file,
-          is_truncated,
-          created_at
-      ) VALUES ($attempt_id, $sequence, 1, $kind, $body, $body_file, $is_truncated, $created_at);
-    `,
-      {
-        attempt_id: input.binding.attemptId,
-        sequence: event.sequence,
-        kind: event.kind,
-        body: "",
-        body_file: bodyFile,
-        is_truncated: event.isTruncated || text.length > 4_000,
-        created_at: event.createdAt,
-      },
-    );
-  }
+  await insertSessionEvents(transaction, input);
+  await persistStructuredProgress(transaction, input);
   if (input.launchId)
     await appendSessionHistoryChunks(
       transaction,
@@ -240,4 +236,52 @@ export async function appendRunnerSessionEvents(
     `,
       { attempt_id: input.binding.attemptId, first_kept: next - 2_000 },
     );
+}
+
+async function insertSessionEvents(
+  transaction: DatabaseTransaction,
+  input: RunnerSessionAppend,
+): Promise<void> {
+  for (const [index, event] of input.events.entries()) {
+    const text = sanitizePlanOutput(event.text);
+    const bodyFile = input.prepared?.bodies[index];
+    if (!bodyFile) throw new Error("Prepared runner event body missing.");
+    await transaction.execute(
+      `
+      INSERT INTO agent_session_events (
+          attempt_id,
+          sequence,
+          turn,
+          kind,
+          body,
+          body_file,
+          is_truncated,
+          created_at
+      ) VALUES ($attempt_id, $sequence, $turn, $kind, $body, $body_file, $is_truncated, $created_at);
+    `,
+      {
+        attempt_id: input.binding.attemptId,
+        sequence: event.sequence,
+        turn: input.binding.turn ?? 1,
+        kind: event.kind,
+        body: "",
+        body_file: bodyFile,
+        is_truncated: event.isTruncated || text.length > 4_000,
+        created_at: event.createdAt,
+      },
+    );
+  }
+}
+
+async function persistStructuredProgress(
+  transaction: DatabaseTransaction,
+  input: RunnerSessionAppend,
+): Promise<void> {
+  for (const event of input.events)
+    await persistRunnerStructuredProgress(transaction, {
+      attemptId: input.binding.attemptId,
+      turn: input.binding.turn ?? 1,
+      event,
+      hasTerminalUsage: input.hasTerminalUsage === true,
+    });
 }

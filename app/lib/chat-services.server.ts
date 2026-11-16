@@ -30,6 +30,7 @@ import { PicaAcpService } from "@/backend/service/chat/acp/PicaAcpService";
 import { PicaAcpWorkspace } from "@/backend/service/chat/acp/PicaAcpWorkspace";
 import { PicaBridge } from "@/backend/service/chat/acp/PicaBridge";
 import { PicaAcpSessionPool } from "@/backend/service/chat/acp/PicaAcpSessionPool";
+import { PlanConversationRunner } from "@/backend/service/chat/acp/PlanConversationRunner";
 import { AgentChatSessionRepository } from "@/backend/database/repositories/employee/AgentChatSessionRepository";
 import { AgentSessionSettingsRepository } from "@/backend/database/repositories/employee/AgentSessionSettingsRepository";
 import { ChatError } from "@/backend/error/ChatErrors";
@@ -120,6 +121,7 @@ function createPicaAcp(
   const sessionSettings = new AgentSessionSettingsRepository(parts.database);
   const chatSessions = new AgentChatSessionRepository(parts.database);
   const picaAcpSessionPool = new PicaAcpSessionPool({
+    runner: new PlanConversationRunner(plans),
     // The agent's own idle time wins; without one the instance setting applies.
     idleMinutes: async (agentId) =>
       (await chatSessions.settings(agentId))?.idleMinutes ??

@@ -1,7 +1,10 @@
 import { randomBytes } from "node:crypto";
 
 import { RUN_INSTANCE_VARIABLE } from "@/backend/agents/cli/CliProcessScan";
-import { SUPPORTED_OPENCODE_VERSION } from "@/backend/agents/cli/OpenCodeVersion";
+import {
+  SUPPORTED_OPENCODE_VERSION,
+  isSupportedOpenCodeVersion,
+} from "@/backend/agents/cli/OpenCodeVersion";
 import { AgentError } from "@/backend/error/AgentErrors";
 
 import { requireManagedOpenCodeConfiguration } from "./OpenCodeAcpConfiguration";
@@ -62,7 +65,7 @@ export const OPENCODE_ACP_DRIVER: AcpDriver = {
   provider: "opencode",
   binary: "opencode",
   arguments: ["acp", "--port", "0", "--hostname", "127.0.0.1"],
-  supportedVersions: SUPPORTED_OPENCODE_VERSION,
+  supportedVersions: `${SUPPORTED_OPENCODE_VERSION} or later`,
   errors: {
     modeRequired: "opencode_permission_mode_required",
     adapterMissing: "cli_not_found",
@@ -71,7 +74,7 @@ export const OPENCODE_ACP_DRIVER: AcpDriver = {
   },
   steeringMeta: null,
   isSupportedAdapter: (agent): agent is NonNullable<typeof agent> =>
-    agent?.name === "OpenCode" && agent.version === SUPPORTED_OPENCODE_VERSION,
+    agent?.name === "OpenCode" && isSupportedOpenCodeVersion(agent.version),
   profile: openCodeAcpProfile,
   plan: (specification) => {
     const { model } = specification;

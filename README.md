@@ -77,6 +77,8 @@ Installation uses the lockfile and the repository's ten-day package release-age
 policy. Pages does not automatically load `.env`; export optional variables
 explicitly as described in [.env.example](.env.example).
 
+For systemd installations and updates, provision the [local Runner service](docs/LocalRunner.md#installation-und-update) alongside the API. Its plan transport stays opt-in.
+
 ## Data and architecture
 
 Pages uses a **static React Router browser app and an API server**, rather than

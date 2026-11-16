@@ -15,8 +15,9 @@ current_phase=1
 saved_terminal=''
 runner_temporary=''
 execution_temporary=''
+api_temporary=''
+full_environment_temporary=''
 unit_temporary=''
-antigravity_release_temporary=''
 service_plan=process
 service_plan_reason=''
 supervisor_target=''
@@ -40,8 +41,7 @@ stop_by_choice() { printf '\n%s\n' "$*"; exit "$EXIT_STOPPED"; }
 cleanup() {
   local status=$?
   [[ -z "$saved_terminal" ]] || stty "$saved_terminal" 2>/dev/null || true
-  rm -f -- "$runner_temporary" "$execution_temporary" "$unit_temporary"
-  [[ -z "$antigravity_release_temporary" ]] || rm -rf -- "$antigravity_release_temporary"
+  rm -f -- "$runner_temporary" "$execution_temporary" "$api_temporary" "$full_environment_temporary" "$unit_temporary"
   if (( status != 0 && status != EXIT_STOPPED )); then progress "$current_phase" failed || true; fi
 }
 trap cleanup EXIT
@@ -265,37 +265,14 @@ select_tool() {
 select_tool 'Codex' codex '@openai/codex'
 select_tool 'Claude Code' claude '@anthropic-ai/claude-code'
 select_tool 'OpenCode' opencode 'opencode-ai'
-install_antigravity() {
-  if command -v agy_acp_server.par >/dev/null; then
-    printf 'Antigravity ACP vorhanden. Installation und Anmeldung bleiben erhalten; der Runner prüft Identität und Version.\n'
+report_antigravity() {
+  if command -v agy >/dev/null; then
+    printf 'Antigravity CLI vorhanden: %s. Installation und Anmeldung bleiben erhalten; Pages startet sie über „agy acp“.\n' "$(command -v agy)"
     return 0
   fi
-  printf 'Optional: offizieller Antigravity ACP-Adapter 1.4.4 samt localharness, mit Registry-SHA-256; keine Anmeldung.\n'
-  confirm 'Antigravity ACP 1.4.4 installieren?' || return 0
-  local command architecture archive checksum release
-  for command in curl sha256sum unzip; do command -v "$command" >/dev/null || fail "Antigravity benötigt $command auf diesem Host."; done
-  architecture=$(uname -m)
-  case "$architecture" in
-    x86_64) archive=agy-acp-server-1.4.4-linux-x86_64.zip; checksum=baf31b7a97602dee359cf2a43f72b6e11c6bf354be874987d80660cd3526bb6a ;;
-    aarch64|arm64) archive=agy-acp-server-1.4.4-linux-arm64.zip; checksum=b0273227c07cfa1ea5c1d9ff869b64c5b2b39b98862081fcd4c597ec316e0c57 ;;
-    *) fail 'Antigravity ACP: nicht unterstützte Architektur.' ;;
-  esac
-  umask 077
-  mkdir -p "$tools_directory/bin" "$tools_directory/antigravity-acp"
-  release="$tools_directory/antigravity-acp/1.4.4"
-  [[ ! -e "$release" ]] || fail 'Die Antigravity-Version existiert bereits. Bestehende Installation wird nicht überschrieben.'
-  antigravity_release_temporary=$(mktemp -d "$tools_directory/antigravity-acp/.install.XXXXXX")
-  curl --fail --location --proto '=https' --tlsv1.2 --max-time 180 --max-filesize 524288000 --output "$antigravity_release_temporary/adapter.zip" "https://dl.google.com/agy-extensions/releases/linux/$archive"
-  printf '%s  %s\n' "$checksum" "$antigravity_release_temporary/adapter.zip" | sha256sum --check --status || fail 'Antigravity: Integritätsprüfung fehlgeschlagen.'
-  unzip -j "$antigravity_release_temporary/adapter.zip" agy_acp_server.par localharness_external -d "$antigravity_release_temporary"
-  chmod 700 "$antigravity_release_temporary/agy_acp_server.par" "$antigravity_release_temporary/localharness_external"
-  rm -- "$antigravity_release_temporary/adapter.zip"
-  mv -- "$antigravity_release_temporary" "$release"
-  antigravity_release_temporary=''
-  ln -s "$release/agy_acp_server.par" "$tools_directory/bin/agy_acp_server.par"
-  ln -s "$release/localharness_external" "$tools_directory/bin/localharness_external"
+  printf 'Optional: Die offizielle Antigravity CLI (agy) installiert Pages unter Einstellungen → Agents → Tools aus dem offiziellen GitHub-Release, mit dessen SHA-256-Prüfsumme; keine Anmeldung.\n'
 }
-install_antigravity
+report_antigravity
 
 if (( ${#selected_tools[@]} > 0 )); then
   for package in "${selected_tools[@]}"; do
@@ -395,17 +372,53 @@ for entry in 'Codex:codex' 'Claude Code:claude' 'OpenCode:opencode'; do
 done
 printf 'Runner-Code: %s/runner.mjs. Vorhandene Konfiguration und Arbeitsverzeichnisse bleiben erhalten.\n' "$runner_directory"
 confirm 'Runner-Code installieren/aktualisieren?' || stop_by_choice 'Ohne Runner-Code endet das Setup hier; Werkzeuge und Git bleiben eingerichtet.'
+if runner_process_running; then
+  fail 'Ein Runner läuft bereits. Kanalupdates in Pages verwenden; eine alte Installation erst nach Abschluss ihrer Aufträge anhalten.'
+fi
+if [[ -f "$config_directory/config.json" ]]; then
+  node -e '
+    const fs = require("fs");
+    const configuration = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
+    const unfinished = configuration.pending || configuration.jobs.some((job) =>
+      !["completed", "failed", "interrupted", "lost"].includes(job.status) ||
+      (job.outcome?.closeout !== "confirmed" && job.cancellation?.closeout !== "confirmed") ||
+      (job.historyCursor ?? 0) < (job.historyLength ?? 0));
+    if (unfinished) process.exit(1);
+  ' "$config_directory/config.json" || fail 'Vorhandene Schritte oder Bestätigungen sind noch nicht abgeschlossen; Installation aufgeschoben.'
+fi
 umask 077
 mkdir -p "$runner_directory" "$config_directory"
 runner_temporary=$(mktemp "$runner_directory/.runner.XXXXXX")
 cat > "$runner_temporary" <<'RUNNER'
-__PAGES_RUNNER_TRANSPORT__
+__PAGES_RUNNER_BOOTSTRAP__
 RUNNER
+cat > "$runner_directory/transport.mjs" <<'PAGES_TRANSPORT'
+__PAGES_RUNNER_TRANSPORT__
+PAGES_TRANSPORT
+cat > "$runner_directory/address.mjs" <<'PAGES_ADDRESS'
+__PAGES_RUNNER_ADDRESS__
+PAGES_ADDRESS
+cat > "$runner_directory/update.mjs" <<'PAGES_UPDATE'
+__PAGES_RUNNER_UPDATE__
+PAGES_UPDATE
+cat > "$runner_directory/maintenance.mjs" <<'PAGES_MAINTENANCE'
+__PAGES_RUNNER_MAINTENANCE__
+PAGES_MAINTENANCE
 execution_temporary=$(mktemp "$runner_directory/.execution.XXXXXX")
 cat > "$execution_temporary" <<'EXECUTION'
 __PAGES_RUNNER_EXECUTION__
 EXECUTION
 mv -f -- "$execution_temporary" "$runner_directory/execution.mjs"
+api_temporary=$(mktemp "$runner_directory/.api.XXXXXX")
+cat > "$api_temporary" <<'API'
+__PAGES_RUNNER_API__
+API
+mv -f -- "$api_temporary" "$runner_directory/api.mjs"
+full_environment_temporary=$(mktemp "$runner_directory/.full-environment.XXXXXX")
+cat > "$full_environment_temporary" <<'FULLENVIRONMENT'
+__PAGES_RUNNER_FULL_ENVIRONMENT__
+FULLENVIRONMENT
+mv -f -- "$full_environment_temporary" "$runner_directory/full-environment.mjs"
 cli_temporary=$(mktemp "$runner_directory/.cli.XXXXXX")
 cat > "$cli_temporary" <<'CLI'
 __PAGES_RUNNER_CLI__
@@ -462,6 +475,51 @@ cat > "$scratch_temporary" <<'TEMPORARY'
 __PAGES_RUNNER_TEMPORARY__
 TEMPORARY
 mv -f -- "$scratch_temporary" "$runner_directory/temporary.mjs"
+cgroups_temporary=$(mktemp "$runner_directory/.cgroups.XXXXXX")
+cat > "$cgroups_temporary" <<'CGROUPS'
+__PAGES_RUNNER_CGROUPS__
+CGROUPS
+mv -f -- "$cgroups_temporary" "$runner_directory/cgroups.mjs"
+accounts_temporary=$(mktemp "$runner_directory/.accounts.XXXXXX")
+cat > "$accounts_temporary" <<'ACCOUNTS'
+__PAGES_RUNNER_ACCOUNTS__
+ACCOUNTS
+mv -f -- "$accounts_temporary" "$runner_directory/accounts.mjs"
+local_accounts_temporary=$(mktemp "$runner_directory/.local-accounts.XXXXXX")
+cat > "$local_accounts_temporary" <<'LOCALACCOUNTS'
+__PAGES_RUNNER_LOCAL_ACCOUNTS__
+LOCALACCOUNTS
+mv -f -- "$local_accounts_temporary" "$runner_directory/local-accounts.mjs"
+browser_temporary=$(mktemp "$runner_directory/.browser.XXXXXX")
+cat > "$browser_temporary" <<'BROWSER'
+__PAGES_RUNNER_BROWSER__
+BROWSER
+mv -f -- "$browser_temporary" "$runner_directory/browser.mjs"
+usage_temporary=$(mktemp "$runner_directory/.usage.XXXXXX")
+cat > "$usage_temporary" <<'USAGE'
+__PAGES_RUNNER_USAGE__
+USAGE
+mv -f -- "$usage_temporary" "$runner_directory/usage.mjs"
+launch_temporary=$(mktemp "$runner_directory/.launch.XXXXXX")
+cat > "$launch_temporary" <<'LAUNCH'
+__PAGES_RUNNER_LAUNCH__
+LAUNCH
+mv -f -- "$launch_temporary" "$runner_directory/launch.mjs"
+ssh_temporary=$(mktemp "$runner_directory/.ssh.XXXXXX")
+cat > "$ssh_temporary" <<'SSH'
+__PAGES_RUNNER_SSH__
+SSH
+mv -f -- "$ssh_temporary" "$runner_directory/ssh.mjs"
+worker_control_temporary=$(mktemp "$runner_directory/.worker-control.XXXXXX")
+cat > "$worker_control_temporary" <<'WORKERCONTROL'
+__PAGES_RUNNER_WORKER_CONTROL__
+WORKERCONTROL
+mv -f -- "$worker_control_temporary" "$runner_directory/worker-control.mjs"
+scripts_temporary=$(mktemp "$runner_directory/.scripts.XXXXXX")
+cat > "$scripts_temporary" <<'SCRIPTS'
+__PAGES_RUNNER_SCRIPTS__
+SCRIPTS
+mv -f -- "$scripts_temporary" "$runner_directory/scripts.mjs"
 processes_temporary=$(mktemp "$runner_directory/.processes.XXXXXX")
 cat > "$processes_temporary" <<'PROCESSES'
 __PAGES_RUNNER_PROCESSES__
@@ -625,10 +683,24 @@ phase_done
 # ---------------------------------------------------------------- 8
 phase 8 'Kopplung und Übergabe'
 if [[ -e "$config_directory/config.json" ]]; then
-  printf 'Es gibt bereits Kopplungsdaten (%s/config.json).\n' "$config_directory"
-  confirm 'Vorhandene Kopplungsdaten verwerfen und neu koppeln?' || stop_by_choice 'Die vorhandene Kopplung bleibt unverändert; das Setup endet hier.'
-  rm -f -- "$config_directory/config.json"
-fi
+  printf 'Vorhandene Kopplung bleibt erhalten.\n'
+  if node -e '
+    const fs = require("fs");
+    const configuration = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
+    process.exit(configuration.endpoint.startsWith("ws://") && configuration.allowInsecureLan !== true ? 0 : 1);
+  ' "$config_directory/config.json"; then
+    printf 'WARNUNG: Runner-Token und Auftragsinhalte werden über WS unverschlüsselt übertragen.\n'
+    confirm 'Diese vorhandene WS-Adresse ausdrücklich als vertrauenswürdiges LAN erlauben?' || stop_by_choice 'LAN-Ausnahme nicht bestätigt; Kopplungsdaten bleiben unverändert.'
+    node -e '
+      const fs = require("fs");
+      const target = process.argv[1];
+      const configuration = JSON.parse(fs.readFileSync(target, "utf8"));
+      const temporary = `${target}.tmp`;
+      fs.writeFileSync(temporary, JSON.stringify({ ...configuration, allowInsecureLan: true }), { mode: 0o600, flag: "wx" });
+      fs.renameSync(temporary, target);
+    ' "$config_directory/config.json" || fail 'LAN-Auswahl konnte nicht gespeichert werden.'
+  fi
+else
 printf 'Pages liefert Adresse und einmalige Freigabe automatisch; die Eingabe bleibt verdeckt.\n'
 # Echo is switched off before Pages is told to answer, so the grant is never displayed.
 saved_terminal=$(stty -g)
@@ -636,26 +708,33 @@ stty -echo
 progress 8 waiting pairing
 pairing_endpoint=''
 pairing_grant=''
+pairing_lan=''
 IFS= read -r -t 120 pairing_endpoint || true
 IFS= read -r -t 120 pairing_grant || true
+IFS= read -r -t 120 pairing_lan || true
 stty "$saved_terminal"
 saved_terminal=''
 progress 8 running
 [[ "$pairing_endpoint" =~ ^wss?://[^[:space:]]+/runner/v1/channel/[a-f0-9-]{36}$ && "$pairing_grant" =~ ^[A-Za-z0-9_-]{43}$ ]] \
   || fail 'Pages hat keine gültige Freigabe geliefert (Zeitüberschreitung, Adresse oder Rechte).'
 printf '\nPages-Adresse: %s\n' "$pairing_endpoint"
+if [[ "$pairing_endpoint" == ws://* ]]; then
+  [[ "$pairing_lan" == true ]] || fail 'WS erfordert die ausdrückliche LAN-Auswahl in Pages.'
+  printf 'WARNUNG: Runner-Token und Auftragsinhalte werden im LAN unverschlüsselt übertragen.\n'
+fi
 umask 077
 mkdir -p "$config_directory"
-printf '%s\n%s\n' "$pairing_endpoint" "$pairing_grant" | node -e '
+printf '%s\n%s\n%s\n' "$pairing_endpoint" "$pairing_grant" "$pairing_lan" | node -e '
   const fs = require("fs");
   const target = process.argv[1];
-  const [endpoint, token] = fs.readFileSync(0, "utf8").split("\n");
+  const [endpoint, token, lan] = fs.readFileSync(0, "utf8").split("\n");
   const temporary = `${target}.tmp`;
-  fs.writeFileSync(temporary, JSON.stringify({ endpoint, token, sessionId: null, sequence: 0, jobs: [] }), { mode: 0o600, flag: "wx" });
+  fs.writeFileSync(temporary, JSON.stringify({ endpoint, token, allowInsecureLan: lan === "true", sessionId: null, sequence: 0, jobs: [] }), { mode: 0o600, flag: "wx" });
   fs.renameSync(temporary, target);
 ' "$config_directory/config.json" || fail 'Die Kopplungsdaten konnten nicht gespeichert werden.'
 pairing_grant=''
 printf 'Kopplungsdaten gespeichert (%s/config.json, nur für Sie lesbar).\n' "$config_directory"
+fi
 
 # The runner is not supervised in this plan; it gets its own session so that closing the
 # terminal does not end it, and descriptor 9 (the setup lock) is not passed on to it.

@@ -1,3 +1,5 @@
+import { planRunnerJobSchema } from "@/definition/PlanRunnerJob";
+import { z } from "zod";
 import { isAcpWaitReason } from "@/definition/AcpResource";
 import { claudeRunUsageSchema } from "@/definition/ClaudeUsage";
 import { planRunCommandReceiptSchema } from "@/definition/PagesRuns";
@@ -62,6 +64,14 @@ export function readPlanRun(input: unknown): AgentPlanRun {
     ...readPlanPauseBoundary(run.pauseBoundary),
     ...readPlanContinuation(run.continuation),
     steps: run.steps.map(readPlanStepResult),
+    ...(run.runnerJobs === undefined
+      ? {}
+      : {
+          runnerJobs: z
+            .array(planRunnerJobSchema)
+            .max(10000)
+            .parse(run.runnerJobs),
+        }),
   };
 }
 

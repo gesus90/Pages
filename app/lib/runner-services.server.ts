@@ -1,3 +1,5 @@
+import { RunnerMaintenanceService } from "@/backend/service/runner/RunnerMaintenanceService";
+import { RunnerMaintenanceRepository } from "@/backend/database/repositories/runner/RunnerMaintenanceRepository";
 import { canProcessRuns } from "@/backend/runtime/RunsMode";
 import { AgentPlanRemoteTargets } from "@/backend/service/agents/AgentPlanRemoteTargets";
 import { AgentPlanRepository } from "@/backend/database/repositories/agent/AgentPlanRepository";
@@ -25,6 +27,7 @@ import type { RemoteApplicationServices } from "./remote-services.server";
 
 /** Server-only runner configuration; offline GitHub is the default production behavior. */
 export interface RunnerApplicationServices {
+  readonly runnerMaintenanceService: RunnerMaintenanceService;
   readonly runnerGitHubMode: "offline" | "http";
   readonly runnerService: RunnerService;
   readonly runnerOpenRouterService: RunnerOpenRouterService;
@@ -32,23 +35,6 @@ export interface RunnerApplicationServices {
   readonly runnerSetupService: RunnerSetupService;
   readonly remoteSetupService: RemoteSetupService;
   readonly runnerDeployKeyService: RunnerDeployKeyService;
-}
-
-/** The operator's address of Pages for runners; an origin only, so no path or secret can ride along. */
-function readPublicUrl(): string | null {
-  const configured = process.env.PAGES_RUNNER_PUBLIC_URL?.trim();
-  if (!configured) return null;
-  const address = new URL(configured);
-  if (
-    !["http:", "https:"].includes(address.protocol) ||
-    address.username ||
-    address.password ||
-    address.pathname !== "/" ||
-    address.search ||
-    address.hash
-  )
-    throw new Error("Invalid PAGES_RUNNER_PUBLIC_URL");
-  return address.origin;
 }
 
 /** Creates lazy clients; only an explicit http configuration can ever contact GitHub. */
@@ -79,6 +65,11 @@ export function createRunnerServices(input: {
         );
   const { runnerService, runnerOpenRouterService } =
     createRunnerProcessingServices(input);
+  const runnerMaintenanceService = new RunnerMaintenanceService({
+    repository: new RunnerMaintenanceRepository(database),
+    identities: new RunnerRepository(database),
+    runners: runnerService,
+  });
   const runnerSetupService = new RunnerSetupService({
     runners: runnerService,
     connections: remote.remoteConnectionService,
@@ -91,7 +82,7 @@ export function createRunnerServices(input: {
     delivery: runnerSetupService,
     sessions: remote.remoteSessions,
     install: remote.remoteInstallService,
-    publicUrl: readPublicUrl(),
+    maintenance: runnerMaintenanceService,
   });
   // The console and the findings are built before the runner services they depend on.
   remote.remoteConsoleService.attachSetup(remoteSetupService);
@@ -108,6 +99,7 @@ export function createRunnerServices(input: {
     runnerGitHubAccessService,
     runnerOpenRouterService,
     runnerGitHubMode: mode,
+    runnerMaintenanceService,
     runnerDeployKeyService: new RunnerDeployKeyService(github, workspaces, {
       workspaces: remote.remoteWorkspaceService,
       connections: remote.remoteConnectionService,
@@ -151,6 +143,7 @@ export function createRunnerProcessingServices(input: {
         targets: new AgentPlanRemoteTargets(
           remote.remoteWorkspaceService,
           remote.remoteConnectionService,
+          input.configuration.agentWorkspaceService,
         ),
       },
       { shouldRecoverHistory: canProcessRuns() },

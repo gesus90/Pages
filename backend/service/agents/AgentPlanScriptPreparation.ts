@@ -1,6 +1,5 @@
 import { AgentOperationError } from "@/backend/error/AgentOperationError";
 import { UserPolicyService } from "@/backend/auth/UserPolicyService";
-import { readSpawnScope } from "@/backend/agents/cli/CliProcessScan";
 import { AgentError } from "@/backend/error/AgentErrors";
 import {
   planScriptIssues,
@@ -180,11 +179,6 @@ export class AgentPlanScriptPreparation {
       throw new AgentError("plan_context_changed");
     if (process.platform !== "linux" || !process.getuid || !process.getgid)
       throw new AgentError("plan_script_platform_unsupported");
-    try {
-      await readSpawnScope();
-    } catch {
-      throw new AgentError("plan_script_platform_unsupported");
-    }
     return this.dependencies.workspaces.resolve(
       userId,
       plan.workspaceId,

@@ -1,3 +1,4 @@
+import { AgentPlanSwarmMemoryRepository } from "@/backend/database/repositories/agent/AgentPlanSwarmMemoryRepository";
 import { AgentPlanSwarmRepository } from "@/backend/database/repositories/agent/AgentPlanSwarmRepository";
 import { AgentPlanDecisionModel } from "@/backend/service/agents/branching/AgentPlanDecisionModel";
 import { AgentPlanSwarmRunner } from "@/backend/service/agents/swarm/AgentPlanSwarmRunner";
@@ -5,6 +6,7 @@ import { PROCESS_SWARM_REGISTRY } from "@/backend/service/agents/swarm/SwarmRegi
 import { MAX_ACP_SESSIONS } from "@/definition/AcpResource";
 
 import type { Database } from "@/backend/database/Database";
+import type { PlanExecution } from "@/backend/agents/AgentPlanExecution";
 import type { AgentPlanSessionGrants } from "@/backend/service/agents/AgentPlanSessionAccess";
 import type { AgentPlanTasks } from "@/backend/service/agents/AgentPlanTasks";
 import type { PlanAgentServices } from "./plan-agent-services.server";
@@ -14,11 +16,8 @@ interface ModelNodeServices {
   readonly database: Database;
   readonly agents: Pick<
     PlanAgentServices,
-    | "acpResourceScheduler"
-    | "agentPlanExecution"
-    | "agentProfileService"
-    | "agentWorkspaceService"
-  >;
+    "acpResourceScheduler" | "agentProfileService" | "agentWorkspaceService"
+  > & { readonly agentPlanExecution: PlanExecution };
 }
 
 /**
@@ -63,6 +62,8 @@ function createSwarmRunner(
     grants: input.sessions,
     profiles: input.agents.agentProfileService,
     capacity: () => {
+      const runner = input.agents.agentPlanExecution.capacity?.();
+      if (runner) return runner;
       const snapshot = scheduler.snapshot();
       const limit = snapshot.options.maxConcurrentAcpSessions;
       return {
@@ -73,6 +74,7 @@ function createSwarmRunner(
     tasks: input.tasks,
     workspaces: input.agents.agentWorkspaceService,
     boards: new AgentPlanSwarmRepository(input.database),
+    memories: new AgentPlanSwarmMemoryRepository(input.database),
     registry: PROCESS_SWARM_REGISTRY,
   });
 }

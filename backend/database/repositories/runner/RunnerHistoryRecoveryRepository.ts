@@ -1,3 +1,4 @@
+import { allPlanRunResults } from "@/definition/AgentPlanLoopResults";
 import {
   requireAgentFiles,
   readStoredAgentPayload,
@@ -24,12 +25,15 @@ import type {
   Database,
   DatabaseTransaction,
   DatabaseValue,
+  SqlParameters,
 } from "@/backend/database/Database";
 import type {
   RunnerJob,
   RunnerMessage,
   RunnerPlanBinding,
 } from "@/definition/RunnerProtocol";
+import type { AgentPlanStepResult } from "@/definition/AgentPlan";
+import type { RunnerCliTool } from "@/definition/RunnerExecution";
 
 type PlanEvent = Extract<RunnerMessage, { type: "event" }>;
 
@@ -248,13 +252,14 @@ export class RunnerHistoryRecoveryRepository {
     });
     await this.database.transaction(async (transaction) => {
       const job = await this.currentJob(transaction, connectionId, jobId);
-      await this.initializeAttempt(transaction, job);
+      const hasTerminalUsage = await this.initializeAttempt(transaction, job);
       await appendRunnerSessionEvents(transaction, {
         binding: eventBinding,
         jobId,
         launchId: message.job.launch?.id,
         events: message.history ?? [],
         prepared,
+        hasTerminalUsage,
       });
       await transaction.execute(
         `
@@ -289,33 +294,38 @@ export class RunnerHistoryRecoveryRepository {
     const job = state.jobs
       .map((entry: unknown) => runnerJobSchema.parse(entry))
       .find((entry) => entry.jobId === jobId);
-    if (!job) throw new Error("History recovery job missing");
-    return job;
+    if (job) return job;
+    const [archived] = await transaction.query(
+      "SELECT job_json::text FROM runner_job_archive WHERE connection_id = $connection_id AND job_id = $job_id;",
+      { connection_id: connectionId, job_id: jobId },
+    );
+    if (!archived) throw new Error("History recovery job missing");
+    return runnerJobSchema.parse(
+      JSON.parse(readTextColumn(archived, 0, "job_json")),
+    );
   }
 
   private async initializeAttempt(
     transaction: DatabaseTransaction,
     job: RunnerJob,
-  ): Promise<void> {
-    if (!job.plan) throw new Error("History recovery plan missing");
+  ): Promise<boolean> {
+    const plan = job.plan;
+    if (!plan) throw new Error("History recovery plan missing");
     const [row] = await transaction.query(
       "SELECT view_json FROM agent_plan_runs WHERE id = $run_id;",
-      { run_id: job.plan.runId },
+      { run_id: plan.runId },
     );
     const run = readPlanRun(
       JSON.parse(readTextColumn(row ?? [], 0, "view_json")),
     );
-    const step = run.steps.find((entry) => entry.id === job.plan?.stepId);
-    const tool =
-      job.execution?.program.kind === "cli"
-        ? job.execution.program.route.tool
-        : undefined;
-    if (
-      run.planId !== job.plan.planId ||
-      step?.execution?.attemptId !== job.plan.attemptId ||
-      !tool
-    )
+    const step = attemptStep(run, plan);
+    const tool = programTool(job);
+    if (!tool || !attemptMatches(run, plan, step, tool))
       throw new Error("History recovery attempt mismatch");
+    if (!step) throw new Error("Runner step missing");
+    const state = plan.managed
+      ? managedAttemptState(job)
+      : runnerSessionState(step);
     // A late packet can arrive after Stop settled the step before its first
     // session projection. Its immutable claim still owns this archive.
     await transaction.execute(
@@ -326,7 +336,10 @@ export class RunnerHistoryRecoveryRepository {
           run_id,
           step_id,
           user_id,
+          connection_id,
+          agent_id,
           provider,
+          requested_model,
           instance_id,
           state,
           next_sequence,
@@ -337,24 +350,113 @@ export class RunnerHistoryRecoveryRepository {
           $run_id,
           $step_id,
           $user_id,
+          $connection_id,
+          $agent_id,
           $provider,
+          $requested_model,
           $instance_id,
           $state,
           1,
           utc_now()
       )
-      ON CONFLICT (attempt_id) DO NOTHING;
+      ON CONFLICT (attempt_id) DO UPDATE SET
+          state = CASE
+              WHEN NOT $is_managed
+                  OR agent_session_attempts.next_sequence <= $history_end
+              THEN EXCLUDED.state
+              ELSE agent_session_attempts.state
+          END,
+          updated_at = EXCLUDED.updated_at;
     `,
-      {
-        attempt_id: job.plan.attemptId,
-        plan_id: run.planId,
-        run_id: run.id,
-        step_id: job.plan.stepId,
-        user_id: run.userId,
-        provider: RUNNER_TOOL_PROVIDERS[tool],
-        instance_id: job.jobId,
-        state: runnerSessionState(step),
-      },
+      attemptParameters(job, run, tool, state),
     );
+    return stepUsageReported(step);
   }
+}
+
+function attemptStep(
+  run: ReturnType<typeof readPlanRun>,
+  plan: RunnerPlanBinding,
+): AgentPlanStepResult | undefined {
+  return (
+    allPlanRunResults(run).find((entry) => entry.id === plan.stepId) ??
+    allPlanRunResults(run).find((entry) => entry.id === plan.ownerStepId)
+  );
+}
+
+function programTool(job: RunnerJob): RunnerCliTool | undefined {
+  return job.execution?.program.kind === "cli"
+    ? job.execution.program.route.tool
+    : undefined;
+}
+
+function attemptMatches(
+  run: ReturnType<typeof readPlanRun>,
+  plan: RunnerPlanBinding,
+  step: AgentPlanStepResult | undefined,
+  tool: RunnerCliTool,
+): boolean {
+  return (
+    run.planId === plan.planId &&
+    (plan.managed === true || step?.execution?.attemptId === plan.attemptId) &&
+    tool !== undefined
+  );
+}
+
+function attemptConnectionId(
+  plan: RunnerPlanBinding,
+  job: RunnerJob,
+): string | null {
+  return (
+    plan.recordingConnectionId ?? job.execution?.managed?.connectionId ?? null
+  );
+}
+
+function attemptHistoryEnd(plan: RunnerPlanBinding, job: RunnerJob): number {
+  return (
+    (plan.historyBase ?? 0) + (job.historyLength ?? job.historyCursor ?? 0) + 1
+  );
+}
+
+function attemptParameters(
+  job: RunnerJob,
+  run: ReturnType<typeof readPlanRun>,
+  tool: RunnerCliTool,
+  state: string,
+): SqlParameters {
+  const plan = job.plan;
+  if (!plan) throw new Error("History recovery plan missing");
+  const program = job.execution?.program;
+  const cli = program?.kind === "cli" ? program : undefined;
+  return {
+    attempt_id: plan.recordingAttemptId ?? plan.attemptId,
+    plan_id: run.planId,
+    run_id: run.id,
+    step_id: plan.stepId,
+    user_id: run.userId,
+    connection_id: attemptConnectionId(plan, job),
+    agent_id: plan.recordingAgentId ?? null,
+    provider: cli?.linkedProvider ?? RUNNER_TOOL_PROVIDERS[tool],
+    requested_model: plan.recordingModel ?? cli?.model ?? null,
+    instance_id: plan.recordingInstanceId ?? job.jobId,
+    state,
+    is_managed: plan.managed === true,
+    history_end: attemptHistoryEnd(plan, job),
+  };
+}
+
+function stepUsageReported(step: AgentPlanStepResult): boolean {
+  return Object.values(step.remote?.terminal?.usage ?? {}).some(
+    (reading) => typeof reading === "number",
+  );
+}
+
+/** Records native worker completion independently of plan business acceptance. */
+function managedAttemptState(
+  job: RunnerJob,
+): "running" | "idle" | "failed" | "cancelled" {
+  if (job.status === "completed") return "idle";
+  if (job.status === "interrupted") return "cancelled";
+  if (job.status === "failed" || job.status === "lost") return "failed";
+  return "running";
 }

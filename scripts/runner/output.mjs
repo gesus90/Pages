@@ -32,8 +32,11 @@ export class JobOutput extends Writable {
   #diagnostic = "";
   #scriptOutput = "";
   #scriptDecoder = new TextDecoder("utf-8", { fatal: true });
+  #diagnosticDecoder = new TextDecoder("utf-8", { fatal: true });
   #scriptBytes = 0;
+  #scriptChannels = { stdout: 0, stderr: 0 };
   #isPrivateKey = false;
+  #hasCredentials = false;
   #checkpointAt = 0;
   #checkpointTimer = null;
 
@@ -61,6 +64,7 @@ export class JobOutput extends Writable {
       );
     });
     this.#stdout = new ProtocolLines(async (line) => {
+      await this.#appendRaw(Buffer.from(`${redact(line)}\n`), "stdout");
       let event;
       try {
         event = JSON.parse(line);
@@ -77,10 +81,17 @@ export class JobOutput extends Writable {
       await this.#history.receive(event);
     });
     this.#stderr = new ProtocolLines(async (line) => {
-      if (line.includes("-----BEGIN") && line.includes("PRIVATE KEY-----"))
+      if (redact(line) !== line) this.#hasCredentials = true;
+      if (line.includes("-----BEGIN") && line.includes("PRIVATE KEY-----")) {
         this.#isPrivateKey = true;
-      if (!this.#isPrivateKey)
-        this.#diagnostic = `${this.#diagnostic}${redact(line)}\n`.slice(-16384);
+        this.#hasCredentials = true;
+      }
+      if (!this.#isPrivateKey) {
+        await this.#appendRaw(Buffer.from(`${redact(line)}\n`), "stderr");
+        this.#diagnostic = `${this.#diagnostic}${redact(line)}\n`.slice(
+          -(this.#command.streamBytes ?? 16384),
+        );
+      }
       if (line.includes("-----END") && line.includes("PRIVATE KEY-----"))
         this.#isPrivateKey = false;
     });
@@ -105,11 +116,19 @@ export class JobOutput extends Writable {
 
   /** Returns only the bounded final answer and diagnostic tail, never concatenated log chunks. */
   result() {
-    if (this.#command.program.kind !== "cli")
-      return {
-        output: this.#redact(this.#scriptOutput),
-        stderr: this.#diagnostic,
-      };
+    if (this.#command.program.kind !== "cli") {
+      const output = this.#redact(this.#scriptOutput);
+      if (
+        this.#command.streamBytes &&
+        (this.#hasCredentials || output !== this.#scriptOutput)
+      )
+        return {
+          output: null,
+          stderr: this.#diagnostic,
+          reason: "credentials",
+        };
+      return { output, stderr: this.#diagnostic };
+    }
     return { ...this.#terminal.result(), stderr: this.#diagnostic };
   }
 
@@ -138,23 +157,26 @@ export class JobOutput extends Writable {
       return;
     }
     const { chunk, channel } = packet;
-    const header = Buffer.alloc(13);
-    this.#sequence += 1;
-    header.writeUInt8(channel === "stdout" ? 1 : 2);
-    header.writeUInt32BE(chunk.length, 1);
-    header.writeBigUInt64BE(BigInt(this.#sequence), 5);
-    await this.#raw.append(Buffer.concat([header, chunk]), this.#sequence);
     if (this.#command.program.kind !== "cli") {
       this.#scriptBytes += chunk.length;
+      this.#scriptChannels[channel] += chunk.length;
+      if (
+        this.#command.streamBytes &&
+        this.#scriptChannels[channel] > this.#command.streamBytes
+      )
+        throw Object.assign(new Error("Script stream limit exceeded"), {
+          reason: "output_limit",
+        });
       if (this.#scriptBytes > this.#command.outputBytes)
         throw Object.assign(new Error("Script result limit exceeded"), {
           reason: "output_limit",
         });
       if (channel === "stdout")
-        this.#scriptOutput += this.#scriptDecoder.decode(chunk, {
-          stream: true,
-        });
-      else await this.#stderr.receive(chunk);
+        this.#scriptOutput += this.#decodeScript(chunk, "stdout");
+      else {
+        this.#decodeScript(chunk, "stderr");
+        await this.#stderr.receive(chunk);
+      }
     } else
       await (channel === "stdout" ? this.#stdout : this.#stderr).receive(chunk);
     if (Date.now() - this.#checkpointAt < 250) {
@@ -162,6 +184,15 @@ export class JobOutput extends Writable {
       return;
     }
     await this.#checkpoint();
+  }
+
+  async #appendRaw(chunk, channel) {
+    const header = Buffer.alloc(13);
+    this.#sequence += 1;
+    header.writeUInt8(channel === "stdout" ? 1 : 2);
+    header.writeUInt32BE(chunk.length, 1);
+    header.writeBigUInt64BE(BigInt(this.#sequence), 5);
+    await this.#raw.append(Buffer.concat([header, chunk]), this.#sequence);
   }
 
   #scheduleCheckpoint() {
@@ -185,13 +216,31 @@ export class JobOutput extends Writable {
     this.#checkpointAt = Date.now();
   }
 
+  #decodeScript(chunk, channel, isFinal = false) {
+    const decoder =
+      channel === "stdout" ? this.#scriptDecoder : this.#diagnosticDecoder;
+    try {
+      return decoder.decode(chunk, { stream: !isFinal });
+    } catch {
+      throw Object.assign(new Error("Script output is not UTF-8"), {
+        reason: "encoding",
+      });
+    }
+  }
+
   async #finish() {
     if (this.#command.program.kind === "cli") {
       await this.#stdout.finish();
       await this.#history.finish();
     }
-    if (this.#command.program.kind !== "cli")
-      this.#scriptOutput += this.#scriptDecoder.decode();
+    if (this.#command.program.kind !== "cli") {
+      this.#scriptOutput += this.#decodeScript(undefined, "stdout", true);
+      this.#decodeScript(undefined, "stderr", true);
+      await this.#appendRaw(
+        Buffer.from(this.#redact(this.#scriptOutput)),
+        "stdout",
+      );
+    }
     await this.#stderr.finish();
     await this.close();
   }

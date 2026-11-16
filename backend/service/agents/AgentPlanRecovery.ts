@@ -69,27 +69,50 @@ export async function endInterruptedSession(
   step: AgentPlanStepResult,
   runStartedAt: string,
 ): Promise<AgentPlanStepResult> {
-  if (step.execution?.target.kind === "remote") return step;
+  if (isManagedOrRemoteStep(step)) return step;
   if (step.script) return endInterruptedScript(step);
   const session = step.session;
   if (!session || !needsSettlement(session)) return step;
   const cleanup = await settleSession(session, runStartedAt);
-  const isContained = cleanup.remaining === 0 && ownsNamespace(session);
-  const isConfirmedSuccess =
-    step.status === "succeeded" &&
-    cleanup.remaining === 0 &&
-    (session.acceptance === null || session.acceptance.verdict === "accepted");
   return {
     ...step,
     session: {
       ...session,
       endedAt: session.endedAt ?? new Date().toISOString(),
       closeout: cleanup.remaining === 0 ? "confirmed" : "failed",
-      ...(isContained ? { containment: "pid_namespace" as const } : {}),
+      ...(cleanup.remaining === 0 && ownsNamespace(session)
+        ? { containment: "pid_namespace" as const }
+        : {}),
       leftoverProcesses: cleanup.found,
-      resultCode: isConfirmedSuccess ? (session.resultCode ?? 0) : -1,
+      resultCode: hasConfirmedSuccess(step, session, cleanup)
+        ? (session.resultCode ?? 0)
+        : -1,
     },
   };
+}
+
+function isManagedOrRemoteStep(step: AgentPlanStepResult): boolean {
+  if (
+    step.session?.runnerOwned ||
+    step.session?.runnerJob ||
+    step.script?.runnerOwned ||
+    step.script?.runnerJob ||
+    step.execution?.target.kind === "remote"
+  )
+    return true;
+  return false;
+}
+
+function hasConfirmedSuccess(
+  step: AgentPlanStepResult,
+  session: AgentPlanSessionRecord,
+  cleanup: { readonly remaining: number },
+): boolean {
+  return (
+    step.status === "succeeded" &&
+    cleanup.remaining === 0 &&
+    (session.acceptance === null || session.acceptance.verdict === "accepted")
+  );
 }
 
 type OwnedNamespaceSession = AgentPlanSessionRecord & {
@@ -149,6 +172,8 @@ export async function checkSessionProcesses(run: AgentPlanRun): Promise<{
   readonly confirmed: boolean;
   readonly failure: AgentPlanCleanupFailure | null;
 }> {
+  if (run.runnerJobs?.some((job) => job.closeout !== "confirmed"))
+    return { confirmed: false, failure: null };
   // A reboot ended every process of a run that worked only before it.
   if (await hasEndedWithReboot(run)) return { confirmed: true, failure: null };
   if (
@@ -182,26 +207,35 @@ function processInstances(
     Pick<AgentPlanCleanupFailure, "stepId" | "kind">
   >();
   const contained = new Set<string>();
-  for (const step of allPlanRunResults(run)) {
-    if (step.execution?.target.kind === "remote") continue;
-    if (step.session && hasContainedSession(step.session))
-      contained.add(step.session.instanceId);
-    if (step.session?.instanceId && !needsNoSessionScan(step.session))
-      instances.set(step.session.instanceId, {
-        stepId: step.id,
-        kind: "local_session",
-      });
-    if (needsScriptScan(step))
-      instances.set(step.script.instanceId, {
-        stepId: step.id,
-        kind: "local_script",
-      });
-  }
+  for (const step of allPlanRunResults(run))
+    collectStepInstances(step, instances, contained);
   for (const loop of run.loops ?? [])
     for (const session of loop.sessions)
       if (session.instanceId && !contained.has(session.instanceId))
         instances.set(session.instanceId, { stepId: loop.id, kind: "loop" });
   return instances;
+}
+
+function collectStepInstances(
+  step: AgentPlanStepResult,
+  instances: Map<string, Pick<AgentPlanCleanupFailure, "stepId" | "kind">>,
+  contained: Set<string>,
+): void {
+  if (step.session?.runnerOwned || step.session?.runnerJob)
+    contained.add(step.session.instanceId);
+  if (isManagedOrRemoteStep(step)) return;
+  if (step.session && hasContainedSession(step.session))
+    contained.add(step.session.instanceId);
+  if (step.session?.instanceId && !needsNoSessionScan(step.session))
+    instances.set(step.session.instanceId, {
+      stepId: step.id,
+      kind: "local_session",
+    });
+  if (needsScriptScan(step))
+    instances.set(step.script.instanceId, {
+      stepId: step.id,
+      kind: "local_script",
+    });
 }
 
 function needsScriptScan(

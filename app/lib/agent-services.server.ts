@@ -4,6 +4,7 @@ import { ClaudeMonthlyBudget } from "@/backend/service/agents/sessions/ClaudeMon
 import { ClaudeMonthlyBudgetRepository } from "@/backend/database/repositories/agent/ClaudeMonthlyBudgetRepository";
 import { canProcessRuns } from "@/backend/runtime/RunsMode";
 import { AgentToolStartupService } from "@/backend/service/agents/tools/AgentToolStartupService";
+import { AgentToolRebindService } from "@/backend/service/agents/tools/AgentToolRebindService";
 import { CatalogProviderClient } from "@/backend/agents/catalog/CatalogProviderClient";
 import { AgentCatalogRefresh } from "@/backend/service/agents/AgentCatalogRefresh";
 import { AgentCatalogService } from "@/backend/service/agents/AgentCatalogService";
@@ -71,6 +72,7 @@ export interface AgentApplicationServices
     SpeechApplicationServices {
   readonly agentToolManagerService: AgentToolManagerService;
   readonly agentToolStartupService: AgentToolStartupService;
+  readonly agentToolRebindService: AgentToolRebindService;
   readonly acpResourceScheduler: AcpResourceScheduler;
   readonly agentAssignmentService: AgentAssignmentService;
   readonly agentCatalogService: AgentCatalogService;
@@ -225,6 +227,20 @@ export function createAgentServices(
     workspaces: configuration.agentWorkspaceService,
   });
   const remote = createRemoteServices({ database, cipher });
+  const executions = createExecutions({
+    localSessions,
+    tools: agentToolManagerService,
+    resources: acpResourceScheduler,
+    ...executionIsolation(dataDirectory, agentsDirectory),
+    repository,
+    cipher,
+    operations,
+    ...cliRuntime,
+    access,
+    github: github.agentCliGitHubCredentials,
+    catalog: refresh,
+    ...simulated,
+  });
   return {
     ...configuration,
     ...github,
@@ -235,30 +251,16 @@ export function createAgentServices(
     acpResourceScheduler,
     localSessions,
     agentToolManagerService,
-    agentToolStartupService: new AgentToolStartupService({
+    ...createToolServices({
       manager: agentToolManagerService,
       connections: repository,
       runtime,
       resources: acpResourceScheduler,
+      checks: executions.agentCheckService,
     }),
     agentConnectionAccess: access,
     ...createAssignments(database, repository),
-    ...createExecutions({
-      localSessions,
-      tools: agentToolManagerService,
-      resources: acpResourceScheduler,
-      protectedDirectories: [dataDirectory, agentsDirectory],
-      isIsolationRequired: process.env.PAGES_CLI_ISOLATION === "required",
-      workerUnitDirectory: path.join(dataDirectory, "worker-units"),
-      repository,
-      cipher,
-      operations,
-      ...cliRuntime,
-      access,
-      github: github.agentCliGitHubCredentials,
-      catalog: refresh,
-      ...simulated,
-    }),
+    ...executions,
     chatRequests: new ChatRequestRegistry({
       timeoutMs: CHAT_REQUEST_TIMEOUT_MS,
       capacity: 16,
@@ -270,6 +272,48 @@ export function createAgentServices(
       operations,
       cliRuntime,
       refresh,
+    }),
+  };
+}
+
+// The instance folders a session never sees, and where its worker units are kept.
+function executionIsolation(
+  dataDirectory: string,
+  agentsDirectory: string,
+): Pick<
+  Parameters<typeof createExecutions>[0],
+  "protectedDirectories" | "isIsolationRequired" | "workerUnitDirectory"
+> {
+  return {
+    protectedDirectories: [dataDirectory, agentsDirectory],
+    isIsolationRequired: process.env.PAGES_CLI_ISOLATION === "required",
+    workerUnitDirectory: path.join(dataDirectory, "worker-units"),
+  };
+}
+
+// Startup checks and re-binding share the manager with every session start.
+function createToolServices(input: {
+  readonly manager: AgentToolManagerService;
+  readonly connections: AgentConnectionRepository;
+  readonly runtime: AgentCliRuntime;
+  readonly resources: AcpResourceScheduler;
+  readonly checks: AgentCheckService;
+}): Pick<
+  AgentApplicationServices,
+  "agentToolStartupService" | "agentToolRebindService"
+> {
+  const { manager, connections, runtime, resources, checks } = input;
+  return {
+    agentToolStartupService: new AgentToolStartupService({
+      manager,
+      connections,
+      runtime,
+      resources,
+    }),
+    agentToolRebindService: new AgentToolRebindService({
+      manager,
+      connections,
+      checks,
     }),
   };
 }

@@ -4,16 +4,28 @@ import { RUNNER_TOOL_PROVIDERS } from "@/definition/RunnerExecution";
 import { agentRunOptionsFor } from "@/definition/AgentConfiguration";
 
 import { planStepOutput } from "./AgentPlanAcceptance";
+import { remotePlanContract } from "./AgentPlanRemoteCommand";
 import { planSessionReach } from "./AgentPlanSessionAccess";
 import { AgentPlanStepAssessment } from "./AgentPlanStepAssessment";
 
-import type { AgentPlanRun, AgentPlanStepResult } from "@/definition/AgentPlan";
-import type { AgentPlanSessionRecord } from "@/definition/AgentPlanSession";
+import type {
+  AgentPlanRun,
+  AgentPlanStep,
+  AgentPlanStepResult,
+} from "@/definition/AgentPlan";
+import type {
+  AgentPlanContract,
+  AgentPlanSessionRecord,
+} from "@/definition/AgentPlanSession";
 import type { AgentPlanStepReport } from "@/definition/AgentPlanStepReport";
 import type { AgentProviderId } from "@/definition/AgentConnection";
 import type { RemotePlanStep } from "./AgentPlanRemoteExecution";
 import type { AgentPlanSessionTerms } from "./AgentPlanStepAssessment";
-import type { AgentPlanTasks } from "./AgentPlanTasks";
+import type {
+  AgentPlanTasks,
+  AgentPlanTicketChecklist,
+} from "./AgentPlanTasks";
+import type { RunnerExecution } from "@/definition/RunnerExecution";
 
 /** Whether this frozen command requires the same business gate as local OpenCode. */
 export function requiresRemoteAcceptance(remote: RemotePlanStep): boolean {
@@ -156,4 +168,15 @@ export function completedGatedRemote(
     status: "succeeded",
     ...(step.session ? { session: { ...step.session, resultCode: 0 } } : {}),
   };
+}
+
+/** Captures only the acceptance contract that must be checked before remote OpenCode succeeds. */
+export function remoteAcceptanceContract(
+  step: AgentPlanStep,
+  command: RunnerExecution,
+  tickets: readonly AgentPlanTicketChecklist[],
+): AgentPlanContract | undefined {
+  return command.program.kind === "cli"
+    ? remotePlanContract(step, tickets)
+    : undefined;
 }

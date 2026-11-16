@@ -4,61 +4,11 @@ import { SerialQueue } from "@/backend/concurrency/SerialQueue";
 import { RemoteError } from "@/backend/error/RemoteErrors";
 import { logCaughtError } from "@/backend/logging/Logger";
 import { quoteShellWord } from "@/backend/remote/SshOptions";
-import setupTemplate from "@/scripts/pages_setup.sh?raw";
-import serviceManager from "@/scripts/runner/service-manager.sh?raw";
-import runnerTransport from "@/scripts/runner/transport.mjs?raw";
-import runnerExecution from "@/scripts/runner/execution.mjs?raw";
-import runnerGitHub from "@/scripts/runner/github.mjs?raw";
-import runnerCli from "@/scripts/runner/cli.mjs?raw";
-import runnerPages from "@/scripts/runner/pages.mjs?raw";
-import runnerAssetReturn from "@/scripts/runner/asset-return.mjs?raw";
-import runnerAntigravity from "@/scripts/runner/antigravity.mjs?raw";
-import runnerOpenCode from "@/scripts/runner/opencode.mjs?raw";
-import runnerLive from "@/scripts/runner/live.mjs?raw";
-import runnerSchedule from "@/scripts/runner/schedule.mjs?raw";
-import runnerJournal from "@/scripts/runner/journal.mjs?raw";
-import runnerProvider from "@/scripts/runner/provider.mjs?raw";
-import runnerChunks from "@/scripts/runner/chunks.mjs?raw";
-import runnerLines from "@/scripts/runner/lines.mjs?raw";
-import runnerOutput from "@/scripts/runner/output.mjs?raw";
-import runnerResult from "@/scripts/runner/result.mjs?raw";
-import runnerWire from "@/scripts/runner/wire.mjs?raw";
-import runnerJobs from "@/scripts/runner/jobs.mjs?raw";
-import runnerAdmission from "@/scripts/runner/admission.mjs?raw";
-import runnerInterpreters from "@/scripts/runner/interpreters.mjs?raw";
-import runnerRevocation from "@/scripts/runner/revocation.mjs?raw";
-import runnerTemporary from "@/scripts/runner/temporary.mjs?raw";
-import runnerProcesses from "@/scripts/runner/processes.mjs?raw";
+import { setupScript } from "./RunnerArtifact";
 
 import type { RemoteConnectionService } from "@/backend/service/remote/RemoteConnectionService";
 import type { RemoteSessionRegistry } from "@/backend/remote/RemoteSessionRegistry";
 import type { RunnerService } from "./RunnerService";
-
-const setupScript = setupTemplate
-  .replace("__PAGES_SERVICE_MANAGER__", () => serviceManager)
-  .replace("__PAGES_RUNNER_TRANSPORT__", () => runnerTransport)
-  .replace("__PAGES_RUNNER_EXECUTION__", () => runnerExecution)
-  .replace("__PAGES_RUNNER_CLI__", () => runnerCli)
-  .replace("__PAGES_RUNNER_PAGES__", () => runnerPages)
-  .replace("__PAGES_RUNNER_ASSET_RETURN__", () => runnerAssetReturn)
-  .replace("__PAGES_RUNNER_OPENCODE__", () => runnerOpenCode)
-  .replace("__PAGES_RUNNER_ANTIGRAVITY__", () => runnerAntigravity)
-  .replace("__PAGES_RUNNER_LIVE__", () => runnerLive)
-  .replace("__PAGES_RUNNER_SCHEDULE__", () => runnerSchedule)
-  .replace("__PAGES_RUNNER_JOURNAL__", () => runnerJournal)
-  .replace("__PAGES_RUNNER_PROVIDER__", () => runnerProvider)
-  .replace("__PAGES_RUNNER_CHUNKS__", () => runnerChunks)
-  .replace("__PAGES_RUNNER_LINES__", () => runnerLines)
-  .replace("__PAGES_RUNNER_OUTPUT__", () => runnerOutput)
-  .replace("__PAGES_RUNNER_RESULT__", () => runnerResult)
-  .replace("__PAGES_RUNNER_WIRE__", () => runnerWire)
-  .replace("__PAGES_RUNNER_JOBS__", () => runnerJobs)
-  .replace("__PAGES_RUNNER_ADMISSION__", () => runnerAdmission)
-  .replace("__PAGES_RUNNER_INTERPRETERS__", () => runnerInterpreters)
-  .replace("__PAGES_RUNNER_TEMPORARY__", () => runnerTemporary)
-  .replace("__PAGES_RUNNER_PROCESSES__", () => runnerProcesses)
-  .replace("__PAGES_RUNNER_REVOCATION__", () => runnerRevocation)
-  .replace("__PAGES_RUNNER_GITHUB__", () => runnerGitHub);
 
 // A command line is one argument of the local ssh process and of the remote
 // shell; Linux limits one argument to 128 KiB, the artifact is larger.

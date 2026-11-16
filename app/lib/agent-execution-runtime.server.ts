@@ -30,7 +30,6 @@ import { PlanAssetReferences } from "@/backend/service/agents/assets/PlanAssetRe
 import { CliSessionExecution } from "@/backend/agents/cli/CliSessionExecution";
 import { antigravityContextBinding } from "@/backend/agents/cli/AntigravityContextBinding";
 import { CliWorkerUnits } from "@/backend/agents/cli/CliWorkerUnit";
-import { DurableCliSessions } from "@/backend/agents/local/DurableCliSessions";
 import {
   isLocalSessionOwner,
   localSessionOwnerDirectory,
@@ -315,9 +314,7 @@ export function createPlanExecution(
         cipher,
         simulationGuardedFetch(input.simulation),
       ),
-      input.localSessions
-        ? new DurableCliSessions(input.localSessions, direct)
-        : direct,
+      direct,
       operations,
       input.access,
     ),

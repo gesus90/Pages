@@ -5,6 +5,11 @@ import { methods } from "@agentclientprotocol/sdk";
 
 import { requireManagedAntigravityConfiguration } from "@/backend/agents/acp/AntigravityConfiguration";
 import {
+  ANTIGRAVITY_APP_DATA_DIRECTORY,
+  ANTIGRAVITY_TOKEN_FILE,
+  antigravityAcpArguments,
+} from "@/backend/agents/acp/AntigravityAcpLaunch";
+import {
   isCatalogModelId,
   reasoningLevels,
   reasoningWithoutLevels,
@@ -30,7 +35,7 @@ import type { ProviderCheckOutcome } from "@/backend/agents/providers/ProviderCo
 import type { AgentCatalogModel } from "@/definition/AgentModelCatalog";
 import type { AgentErrorCode } from "@/backend/error/AgentErrors";
 
-/** Uses oauth-personal in the connection's isolated official ACP context. */
+/** Uses oauth-personal through `agy acp` in the connection's isolated context. */
 export class AntigravityCli implements CliLoginAdapter {
   public readonly provider = "antigravity";
   private readonly execution: CliToolExecution;
@@ -39,7 +44,7 @@ export class AntigravityCli implements CliLoginAdapter {
     this.execution = execution;
   }
 
-  /** A handshake proves the installed adapter version without a login or model call. */
+  /** A handshake proves the installed CLI's ACP version without a login or model call. */
   public async version(
     home: CliHome,
     signal: AbortSignal,
@@ -64,25 +69,48 @@ export class AntigravityCli implements CliLoginAdapter {
     return { outcome, accountLabel: null };
   }
 
-  /** Exposes only the provider's HTTPS challenge; the adapter owns the loopback callback. */
+  /**
+   * Runs the official headless sign-in, `agy acp --login`, in the given context.
+   * @remarks
+   * The CLI prints Google's PKCE authorization URL and waits for the code of
+   * Google's Antigravity page, which the administrator pastes into Pages. The
+   * token lands in this context only; the caller moves it into the connection
+   * after a confirmed status check.
+   */
   public startLogin(
     home: CliHome,
     onChallenge: (challenge: CliLoginChallenge) => void,
   ): CliRunningProcess {
-    const controller = new AbortController();
-    const handshake = setTimeout(
-      () => controller.abort(new AgentError("cli_unexpected_output")),
-      20_000,
-    );
-    const completed = this.login(home, controller.signal, (challenge) => {
-      clearTimeout(handshake);
-      onChallenge(challenge);
+    const [command, ...options] = antigravityAcpArguments(home);
+    let running: CliRunningProcess | null = null;
+    let cancelled: AgentErrorCode | null = null;
+    const refused = (code: AgentErrorCode): CliProcessResult => ({
+      exitCode: 1,
+      stdout: "",
+      stderr: "",
+      errorCode: code,
     });
-    void completed.then(() => clearTimeout(handshake));
+    const completed = requireManagedAntigravityConfiguration(home).then(
+      () => {
+        // A cancel that arrived during the configuration check starts nothing.
+        if (cancelled) return refused(cancelled);
+        running = this.execution.startLogin(home, {
+          arguments: [command, "--login", ...options],
+          parse: readAntigravityChallenge,
+          onChallenge,
+        });
+        return running.completed;
+      },
+      (error: unknown) =>
+        refused(error instanceof AgentError ? error.code : "login_failed"),
+    );
     return {
       completed,
-      cancel: (code) => controller.abort(new AgentError(code)),
-      write: () => false,
+      cancel: (code) => {
+        cancelled = code;
+        running?.cancel(code);
+      },
+      write: (code) => running?.write(code) ?? false,
     };
   }
 
@@ -206,45 +234,14 @@ export class AntigravityCli implements CliLoginAdapter {
   private async requireLogin(home: CliHome): Promise<void> {
     // Metadata only: the adapter alone reads or refreshes its private token.
     const token = await lstat(
-      path.join(home.config, "antigravity-acp", "acp_token.json"),
+      path.join(
+        home.config,
+        ANTIGRAVITY_APP_DATA_DIRECTORY,
+        ANTIGRAVITY_TOKEN_FILE,
+      ),
     ).catch(() => null);
     if (!token?.isFile() || token.isSymbolicLink())
       throw new AgentError("cli_not_logged_in");
-  }
-
-  private async login(
-    home: CliHome,
-    signal: AbortSignal,
-    onChallenge: (challenge: CliLoginChallenge) => void,
-  ): Promise<CliProcessResult> {
-    try {
-      await this.withProtocol(
-        home,
-        signal,
-        async (protocol) => {
-          await protocol.initialize();
-          await protocol.connection.agent.request(methods.agent.authenticate, {
-            methodId: "oauth-personal",
-          });
-        },
-        (tail) => {
-          const challenge = readAntigravityChallenge(tail);
-          if (challenge) onChallenge(challenge);
-        },
-      );
-      return { exitCode: 0, stdout: "", stderr: "", errorCode: null };
-    } catch (error: unknown) {
-      const errorCode = antigravityFailure(error, signal);
-      return {
-        exitCode: 1,
-        stdout: "",
-        stderr: "",
-        errorCode:
-          signal.aborted && signal.reason instanceof AgentError
-            ? signal.reason.code
-            : errorCode,
-      };
-    }
   }
 
   private async check(
@@ -267,12 +264,10 @@ export class AntigravityCli implements CliLoginAdapter {
     home: CliHome,
     signal: AbortSignal,
     operation: (protocol: AntigravityProtocol) => Promise<T>,
-    onStderr?: (tail: string) => void,
   ): Promise<T> {
     await requireManagedAntigravityConfiguration(home);
     const protocol = await AntigravityProtocol.open(this.execution, home, {
       signal,
-      onStderr,
     });
     try {
       return await operation(protocol);

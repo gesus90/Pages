@@ -1,46 +1,39 @@
 import { spawn } from "node:child_process";
-import { randomUUID } from "node:crypto";
-import { constants } from "node:fs";
-import {
-  chmod,
-  lstat,
-  mkdir,
-  open,
-  readdir,
-  readlink,
-  realpath,
-  rm,
-  stat,
-  writeFile,
-} from "node:fs/promises";
+import { chmod, lstat, mkdir, realpath, stat } from "node:fs/promises";
 import { join } from "node:path";
-import { fileURLToPath } from "node:url";
-import { homedir } from "node:os";
-import {
-  prepareRunnerTemporaryDirectory,
-  removeRunnerTemporaryDirectory,
-} from "./temporary.mjs";
+
+import { fullEnvironmentContext } from "./full-environment.mjs";
+import { executeApiRequest, runnerInputText } from "./api.mjs";
+import { prepareScript, spawnScript } from "./scripts.mjs";
+import { isWorkerStalled, workerControl } from "./worker-control.mjs";
+export { claimJob } from "./launch.mjs";
+export { sshConfigOverlay } from "./ssh.mjs";
+import { accountSecrets } from "./accounts.mjs";
 import {
   cancellationFor,
   hasExecutionLease,
   cancelJob,
 } from "./revocation.mjs";
 export { cancellationFor, cancelJob } from "./revocation.mjs";
-import { accountTasks, cleanup, rememberOwnership } from "./processes.mjs";
-import { interpreters } from "./interpreters.mjs";
+import { cleanup } from "./processes.mjs";
 export { interpreters, interpreterCatalog } from "./interpreters.mjs";
-import { spawnCli } from "./cli.mjs";
-import { antigravityContextProof } from "./antigravity.mjs";
+import { spawnCli, cliEnvironment } from "./cli.mjs";
 import {
+  pagesRequest,
   preparePagesFiles,
   modelAssetContent,
-  pagesRequest,
   pagesFailure,
   notifyJobCompletion,
 } from "./pages.mjs";
 import { JobOutput, outputBinding } from "./output.mjs";
 import { readJournalEvents } from "./chunks.mjs";
-import { store, readRecord, readOwnedLaunch, identity } from "./journal.mjs";
+import {
+  store,
+  readRecord,
+  readOwnedLaunch,
+  identity,
+  ownershipDirectory,
+} from "./journal.mjs";
 
 export { store, readRecord, identity } from "./journal.mjs";
 
@@ -48,122 +41,6 @@ const credentials =
   /\b(?:sk-[a-zA-Z0-9_-]{12,}|gh[pousr]_[a-zA-Z0-9]{12,}|github_pat_[a-zA-Z0-9_]+|Bearer\s+\S+|(?:api[_ -]?key|access[_ -]?token|password|client[_ -]?secret)["']?\s*[=:]\s*["']?[^\s"']+)/gi;
 
 let knownSecrets = [];
-
-const SSH_CONFIG_DIRECTORY = "/etc/ssh/ssh_config.d";
-const MAXIMUM_DROP_IN_BYTES = 1048576;
-// Open failures that `ssh` skips silently, so skipping the file in the copy changes nothing.
-const SKIPPED_BY_SSH = new Set(["ENOENT", "EACCES", "ELOOP", "ENOTDIR"]);
-
-/** The test `ssh` applies to an included file: root or the caller owns it and nobody else may write. */
-function isTrustedFile(metadata) {
-  return (
-    metadata.isFile() &&
-    (metadata.uid === 0 || metadata.uid === process.getuid()) &&
-    (metadata.mode & 0o022) === 0 &&
-    metadata.size <= MAXIMUM_DROP_IN_BYTES
-  );
-}
-
-/** Reads through the checked handle, as `ssh` does with `fstat` on its opened file; a link is followed. */
-async function readDropIn(file) {
-  let handle;
-  try {
-    // Non-blocking, so a pipe named `*.conf` is rejected instead of waiting for a writer.
-    handle = await open(file, constants.O_RDONLY | constants.O_NONBLOCK);
-  } catch (error) {
-    if (SKIPPED_BY_SSH.has(error.code)) return null;
-    throw error;
-  }
-  try {
-    const metadata = await handle.stat();
-    if (!isTrustedFile(metadata)) throw new Error(`${file} is not trusted`);
-    const buffer = Buffer.alloc(metadata.size + 1);
-    let total = 0;
-    while (total <= metadata.size) {
-      const { bytesRead } = await handle.read(
-        buffer,
-        total,
-        metadata.size + 1 - total,
-        total,
-      );
-      if (bytesRead === 0) break;
-      total += bytesRead;
-    }
-    if (total !== metadata.size) throw new Error(`${file} changed while read`);
-    return buffer.subarray(0, total);
-  } finally {
-    await handle.close();
-  }
-}
-
-/** The shell pattern `*.conf` of `ssh` matches no name with a leading dot. */
-async function trustedDropIns(systemDirectory) {
-  let names;
-  try {
-    names = await readdir(systemDirectory);
-  } catch (error) {
-    if (SKIPPED_BY_SSH.has(error.code)) return [];
-    throw error;
-  }
-  const dropIns = [];
-  for (const name of names.sort()) {
-    if (!name.endsWith(".conf") || name.startsWith(".")) continue;
-    const content = await readDropIn(join(systemDirectory, name));
-    if (content !== null) dropIns.push({ name, content });
-  }
-  return dropIns;
-}
-
-/**
- * Makes the system SSH drop-ins readable for `ssh` inside the job boundary.
- *
- * Unprivileged bubblewrap maps only the account into its user namespace, so
- * root-owned files belong to the overflow user there and `ssh` rejects an
- * included configuration file with "Bad owner or permissions". Every drop-in is
- * first judged by `ssh`'s own test on the handle it is read through; then
- * account-owned copies of the same content are mounted read-only over the
- * folder. A drop-in that fails the test, or any failure while copying, leaves
- * the whole mount out, so `ssh` fails inside the job as it does without this
- * and the copies never make a rejected file acceptable. The folder is new for
- * this job and no other job mounts it. Only the standard system folder is
- * covered. Where nothing can be copied the job starts anyway, because most jobs
- * do not use SSH.
- */
-export async function sshConfigOverlay(
-  copies,
-  systemDirectory = SSH_CONFIG_DIRECTORY,
-) {
-  let isCreated = false;
-  try {
-    const dropIns = await trustedDropIns(systemDirectory);
-    if (dropIns.length === 0) return [];
-    await mkdir(copies, { mode: 0o700 });
-    isCreated = true;
-    for (const { name, content } of dropIns)
-      await writeFile(join(copies, name), content, {
-        mode: 0o444,
-        flag: "wx",
-      });
-    return ["--ro-bind", copies, SSH_CONFIG_DIRECTORY];
-  } catch {
-    if (isCreated) await rm(copies, { recursive: true, force: true });
-    return [];
-  }
-}
-
-async function ownershipDirectory(directory) {
-  const ownership = join(directory, "ownership");
-  await mkdir(ownership, { recursive: true, mode: 0o700 });
-  const metadata = await lstat(ownership);
-  if (
-    !metadata.isDirectory() ||
-    metadata.isSymbolicLink() ||
-    metadata.uid !== process.getuid() ||
-    metadata.mode & 0o077
-  )
-    throw new Error("Invalid runner ownership directory");
-  return ownership;
-}
 
 function safeOutput(output, secrets = knownSecrets) {
   let redacted = output;
@@ -185,149 +62,13 @@ function safeOutput(output, secrets = knownSecrets) {
     .replace(credentials, "[redacted]");
 }
 
-/** A persistent claim is never spawned a second time, even after a bootstrap crash. */
-export async function claimJob(directory, job) {
-  if (
-    !/^[a-f0-9-]{36}$/.test(job.jobId) ||
-    !job.plan ||
-    job.execution?.version !== 1
-  )
-    throw new Error("Invalid dispatch");
-  const folder = join(directory, "jobs", job.jobId);
-  await mkdir(join(directory, "jobs"), { recursive: true, mode: 0o700 });
-  try {
-    await mkdir(folder, { mode: 0o700 });
-  } catch (error) {
-    if (error.code === "EEXIST") return;
-    throw error;
-  }
-  await store(join(folder, "claim.json"), job);
-  // Folder recreation cannot authorize a second worker or erase protected launch evidence.
-  if ((await readOwnedLaunch(folder)) || job.launch || job.status !== "queued")
-    return;
-  await rememberOwnership(folder);
-  const ownership = await ownershipDirectory(directory);
-  const ownershipPath = join(ownership, `${job.jobId}.json`);
-  await store(ownershipPath, { boundary: "preparing" });
-  // A stop that arrived during admission must not start the worker.
-  if (await cancellationFor(directory, job)) {
-    await store(ownershipPath, {
-      boundary: "not_started",
-      jobId: job.jobId,
-      sessionId: job.sessionId,
-      attemptId: job.plan.attemptId,
-    });
-    await store(join(folder, "result.json"), {
-      status: "interrupted",
-      result: {
-        output: null,
-        closeout: "confirmed",
-        exitCode: null,
-        signal: null,
-        reason: "cancelled",
-      },
-    });
-    return;
-  }
-  const parentNamespace = await readlink("/proc/self/ns/pid");
-  const hostTasks =
-    job.execution.program?.kind === "script" ? await accountTasks() : null;
-  const contextProof =
-    job.execution.program?.kind === "cli" &&
-    job.execution.program.route.tool === "antigravity"
-      ? await antigravityContextProof()
-      : "[]";
-  const sshConfig = await sshConfigOverlay(join(folder, "ssh_config.d"));
-  const temporaryDirectory = await prepareRunnerTemporaryDirectory(job);
-  const child = spawn(
-    "/usr/bin/bwrap",
-    [
-      "--unshare-pid",
-      "--new-session",
-      "--bind",
-      "/",
-      "/",
-      "--proc",
-      "/proc",
-      "--dev",
-      "/dev",
-      "--bind",
-      temporaryDirectory,
-      "/tmp",
-      "--tmpfs",
-      ownership,
-      ...sshConfig,
-      "--",
-      process.execPath,
-      fileURLToPath(import.meta.url),
-      "--job",
-      folder,
-    ],
-    {
-      detached: true,
-      stdio: ["pipe", "ignore", "ignore"],
-      env: {
-        PATH: "/usr/bin:/bin",
-        HOME: directory,
-        TMPDIR: "/tmp",
-        TEMP: "/tmp",
-        TMP: "/tmp",
-        NODE_COMPILE_CACHE: "/tmp/node-compile-cache",
-        LANG: "C.UTF-8",
-        NODE_OPTIONS: "--max-old-space-size=128",
-        PAGES_REMOTE_JOB: job.jobId,
-        PAGES_RUNNER_CLI_HOME: process.env.PAGES_RUNNER_CLI_HOME ?? homedir(),
-        PAGES_RUNNER_CLI_PATH: process.env.PATH,
-        PAGES_RUNNER_JOB_NAMESPACE: "1",
-        PAGES_RUNNER_CONTEXT_PROOF: contextProof,
-        ...(hostTasks === null
-          ? {}
-          : { PAGES_RUNNER_HOST_TASKS: String(hostTasks) }),
-        ...(process.env.PAGES_RUNNER_ANTIGRAVITY_HOME
-          ? {
-              PAGES_RUNNER_ANTIGRAVITY_HOME:
-                process.env.PAGES_RUNNER_ANTIGRAVITY_HOME,
-            }
-          : {}),
-        ...(process.env.PAGES_RUNNER_ANTIGRAVITY_CONTEXT_ROOT
-          ? {
-              PAGES_RUNNER_ANTIGRAVITY_CONTEXT_ROOT:
-                process.env.PAGES_RUNNER_ANTIGRAVITY_CONTEXT_ROOT,
-            }
-          : {}),
-      },
-    },
-  );
-  child.on("error", () => {
-    /* The durable claim reconciles as lost if launch never confirms. */
-  });
-  child.stdin.on("error", () => {});
-  try {
-    if (!child.pid) throw new Error("Runner supervisor did not start");
-    const start = await identity(child.pid);
-    if (!start) throw new Error("Runner supervisor identity unavailable");
-    const launch = {
-      id: randomUUID(),
-      processId: child.pid,
-      identity: start,
-      boundary: "pid_namespace",
-      parentNamespace,
-    };
-    await store(ownershipPath, launch);
-    await store(join(folder, "launch.json"), launch);
-    child.stdin.end("go\n");
-  } catch (error) {
-    child.stdin.destroy();
-    if (!child.pid) await removeRunnerTemporaryDirectory(job);
-    throw error;
-  }
-  child.unref();
-}
-
 function publicLaunch(launch) {
   if (!launch || launch.boundary !== "pid_namespace") return null;
   return {
     id: launch.id,
+    ...(launch.isolationVersion === 1
+      ? { isolation: launch.cgroup ? "cgroup_v2" : "pid_namespace" }
+      : {}),
     processId: launch.processId,
     identity: launch.identity,
   };
@@ -452,6 +193,25 @@ export async function observeJob(directory, job) {
     launch?.boundary === "pid_namespace" &&
     (await identity(launch.processId)) === launch.identity
   ) {
+    if (
+      job.execution?.managed &&
+      (await hasStalledWorker(folder, job, launch))
+    ) {
+      const closeout = await cleanup(folder, job.jobId);
+      const failed = {
+        status: "lost",
+        result: {
+          output: null,
+          closeout,
+          exitCode: null,
+          signal: null,
+          reason: "lost",
+          failureCode: "plan_runner_session_failed",
+        },
+      };
+      await store(join(folder, "result.json"), failed);
+      return { launch: publicLaunch(launch), ...observedHistory, ...failed };
+    }
     const progress = await readRecord(join(folder, "progress.json"));
     return {
       launch: publicLaunch(launch),
@@ -474,6 +234,20 @@ export async function observeJob(directory, job) {
   };
   await store(join(folder, "result.json"), lost);
   return { launch: publicLaunch(launch), ...observedHistory, ...lost };
+}
+
+async function hasStalledWorker(folder, job, launch) {
+  const [heartbeat, paused] = await Promise.all([
+    readRecord(join(folder, "heartbeat.json")),
+    readRecord(join(folder, "pause.json")),
+  ]);
+  return isWorkerStalled({
+    jobId: job.jobId,
+    heartbeat,
+    paused,
+    startedAt: launch.startedAt,
+    now: Date.now(),
+  });
 }
 
 async function endQueuedJob(directory, job, terminal) {
@@ -564,7 +338,6 @@ function requireContinuation(continuation, program) {
   if (
     continuation.version !== 1 ||
     program.kind !== "cli" ||
-    program.access !== "yolo" ||
     (resumeSessionId !== undefined && !SESSION_IDENTIFIER.test(resumeSessionId))
   )
     throw new Error("Invalid continuation");
@@ -576,9 +349,10 @@ async function checkedCommand(job, folder) {
     !command ||
     command.revision !== job.plan.planRevision ||
     command.timeoutSeconds < 0 ||
-    (command.timeoutSeconds === 0 && command.program.kind !== "cli") ||
+    (command.timeoutSeconds === 0 &&
+      !["cli", "api"].includes(command.program.kind)) ||
     command.timeoutSeconds > 86400 ||
-    command.outputBytes > 65536 ||
+    command.outputBytes > 1048576 ||
     Buffer.byteLength(command.input) > 1048576
   )
     throw new Error("Invalid execution bounds");
@@ -593,97 +367,18 @@ async function checkedCommand(job, folder) {
     });
   const runtime = join(folder, "runtime");
   await mkdir(runtime, { mode: 0o700 });
-  if (command.program.kind === "script") {
-    const profile = (await interpreters()).find(
-      (entry) => entry.id === command.program.interpreter.id,
-    );
-    if (
-      !profile ||
-      profile.path !== command.program.interpreter.path ||
-      profile.digest !== command.program.interpreter.digest
-    )
-      throw Object.assign(new Error("Interpreter changed"), {
-        failureCode: "plan_script_interpreter_unavailable",
-      });
-    const script = await open(join(runtime, "source.cjs"), "wx", 0o600);
-    try {
-      await script.writeFile(command.program.source);
-      await script.sync();
-    } finally {
-      await script.close();
-    }
-    if (profile.id === "node") {
-      const guard = await open(join(runtime, "node-guard.cjs"), "wx", 0o600);
-      try {
-        await guard.writeFile(
-          'if (typeof WebAssembly !== "undefined") process.exit(1);\nrequire("./source.cjs");\n',
-        );
-        await guard.sync();
-      } finally {
-        await guard.close();
-      }
-    }
-  }
+  if (command.program.kind === "script") await prepareScript(command, runtime);
   return command;
 }
 
-// RLIMIT_NPROC counts all threads of the account, so a fixed 128 fails every fork
-// as soon as parallel agents run; scripts get this headroom above current use.
-const SCRIPT_TASK_HEADROOM = 256;
-
-function hostTaskCount() {
-  const count = Number(process.env.PAGES_RUNNER_HOST_TASKS);
-  if (!Number.isSafeInteger(count) || count < 0)
-    throw new Error("Host task count unavailable");
-  return count;
-}
-
-function spawnScript(command, folder, jobId, accountTaskCount) {
-  const runtime = join(folder, "runtime");
-  const interpreter = command.program.interpreter;
-  const nodeArguments =
-    interpreter.id === "node" ? ["--jitless", "--max-old-space-size=128"] : [];
-  const limits = [
-    `--cpu=${command.timeoutSeconds + 1}`,
-    `--nproc=${accountTaskCount + SCRIPT_TASK_HEADROOM}`,
-    "--nofile=128",
-    "--fsize=10485760",
-    "--core=0",
-  ];
-  limits.push(interpreter.id === "node" ? "--as=1073741824" : "--as=536870912");
-  return spawn(
-    "/usr/bin/prlimit",
-    [
-      ...limits,
-      "--",
-      interpreter.path,
-      ...nodeArguments,
-      join(
-        runtime,
-        interpreter.id === "node" ? "node-guard.cjs" : "source.cjs",
-      ),
-    ],
-    {
-      cwd: command.workspace,
-      detached: true,
-      stdio: ["pipe", "pipe", "pipe"],
-      env: {
-        PATH: "/usr/local/bin:/usr/bin:/bin",
-        HOME: runtime,
-        TMPDIR: "/tmp",
-        TEMP: "/tmp",
-        TMP: "/tmp",
-        NODE_COMPILE_CACHE: "/tmp/node-compile-cache",
-        LANG: "C.UTF-8",
-        LC_ALL: "C.UTF-8",
-        PAGES_REMOTE_JOB: jobId,
-      },
-    },
-  );
-}
-
 function outputFailure(error) {
-  const reasons = ["event_limit", "protocol", "output_limit", "result_limit"];
+  const reasons = [
+    "event_limit",
+    "protocol",
+    "output_limit",
+    "result_limit",
+    "encoding",
+  ];
   if (reasons.includes(error.reason)) return { reason: error.reason };
   if (error instanceof TypeError) return { reason: "protocol" };
   const codes = ["ENOSPC", "EDQUOT", "EACCES", "EROFS", "EIO"];
@@ -758,7 +453,7 @@ async function processJob(command, folder, context) {
   const child =
     command.program.kind === "cli"
       ? await spawnCli(command, jobId, signal, folder)
-      : spawnScript(command, folder, jobId, hostTaskCount());
+      : spawnScript(command, folder, jobId);
   let failure = null;
   let cleanupWork = null;
   const stop = () => {
@@ -921,68 +616,12 @@ async function executeWorker(folder) {
   if (release !== "go\n") throw new Error("Worker was not released");
   const job = await readRecord(join(folder, "claim.json"));
   const privateRoot = join(folder, "..", "..");
-  const configuration = await readRecord(join(privateRoot, "config.json"));
   const provider = await readRecord(join(privateRoot, "openrouter.json"));
-  knownSecrets = [configuration?.token, provider?.apiKey].filter(Boolean);
+  knownSecrets = [provider?.apiKey].filter(Boolean);
   const launch = await readRecord(join(folder, "launch.json"));
   if (!launch || launch.boundary !== "pid_namespace")
     throw new Error("Worker ownership unavailable");
-  const controller = new AbortController();
-  let isCancelReadBusy = false;
-  const cancel = setInterval(() => {
-    if (isCancelReadBusy) return;
-    isCancelReadBusy = true;
-    void cancellationFor(privateRoot, job)
-      .then(async (record) => {
-        if (record || !(await hasExecutionLease(privateRoot, job)))
-          controller.abort("cancelled");
-      })
-      .catch(() => controller.abort("cancelled"))
-      .finally(() => {
-        isCancelReadBusy = false;
-      });
-  }, 250);
-  const began = Date.now();
-  let isReadingClock = false;
-  const timeout =
-    job.execution.timeoutSeconds === 0
-      ? null
-      : setInterval(() => {
-          if (isReadingClock) return;
-          isReadingClock = true;
-          void readRecord(join(folder, "pause.json"))
-            .then((paused) => {
-              const now = Date.now();
-              const excluded =
-                (paused?.totalMilliseconds ?? 0) +
-                (paused?.isPaused ? now - paused.startedAt : 0);
-              if (now - began - excluded >= job.execution.timeoutSeconds * 1000)
-                controller.abort("timeout");
-            })
-            .catch(() => controller.abort("cancelled"))
-            .finally(() => {
-              isReadingClock = false;
-            });
-        }, 100);
-
-  let leaseBusy = false;
-  const lease =
-    job.execution.pagesAccess === 1
-      ? setInterval(() => {
-          if (leaseBusy) return;
-          leaseBusy = true;
-          void pagesRequest(join(privateRoot, "pages.sock"), job.jobId, {
-            kind: "lease",
-          })
-            .catch((error) => {
-              if (error.code && error.code !== "pages_transport_unavailable")
-                controller.abort("cancelled");
-            })
-            .finally(() => {
-              leaseBusy = false;
-            });
-        }, 5000)
-      : null;
+  const controller = workerControl(folder, job, launch);
   let result;
   let isPreparingPages = false;
   try {
@@ -993,8 +632,24 @@ async function executeWorker(folder) {
       controller.abort("cancelled");
     controller.signal.throwIfAborted();
     let command = await checkedCommand(job, folder);
+    if (command.managed?.promptFile && "prompt" in command.program)
+      command = {
+        ...command,
+        program: {
+          ...command.program,
+          prompt: await runnerInputText(
+            join(privateRoot, "pages.sock"),
+            job.jobId,
+            controller.signal,
+            "prompt",
+          ),
+        },
+      };
+    knownSecrets.push(
+      ...(await accountSecrets(process.env.PAGES_RUNNER_CLI_HOME)),
+    );
     controller.signal.throwIfAborted();
-    if (command.pagesAccess === 1) {
+    if (command.pagesAccess === 1 && command.program.kind !== "api") {
       isPreparingPages = true;
       command = await preparePagesFiles(
         command,
@@ -1005,14 +660,16 @@ async function executeWorker(folder) {
       isPreparingPages = false;
     }
     controller.signal.throwIfAborted();
-    result =
-      command.program.kind !== "model"
-        ? await processJob(command, folder, {
-            job,
-            launch,
-            signal: controller.signal,
-          })
-        : await modelJob(command, folder, controller.signal);
+    command = await managedCliContext(command, {
+      privateRoot,
+      jobId: job.jobId,
+      signal: controller.signal,
+    });
+    result = await executeCommand(command, folder, {
+      job,
+      launch,
+      signal: controller.signal,
+    });
   } catch (error) {
     result = {
       ...(isPreparingPages
@@ -1035,9 +692,7 @@ async function executeWorker(folder) {
           : (error.reason ?? "spawn"),
     };
   } finally {
-    clearInterval(cancel);
-    clearInterval(lease);
-    clearInterval(timeout);
+    await controller.close();
   }
   const closeout = await cleanup(folder, job.jobId);
   const status = terminalStatus(result, closeout);
@@ -1046,6 +701,51 @@ async function executeWorker(folder) {
     result: { ...result, closeout },
   });
   await notifyJobCompletion(privateRoot, job.jobId);
+}
+
+async function executeCommand(command, folder, control) {
+  if (command.program.kind === "api")
+    return executeApiRequest(
+      command,
+      folder,
+      control.job.jobId,
+      control.signal,
+    );
+  if (command.program.kind === "model")
+    return modelJob(command, folder, control.signal);
+  return processJob(command, folder, control);
+}
+
+async function managedCliContext(command, control) {
+  if (!command.managed || command.program.kind !== "cli") return command;
+  let runtimeContext = await pagesRequest(
+    join(control.privateRoot, "pages.sock"),
+    control.jobId,
+    { kind: "turn-context" },
+  );
+  const owner = await fullEnvironmentContext(command, control.signal);
+  if (owner)
+    runtimeContext = {
+      ...runtimeContext,
+      environment: { ...runtimeContext.environment, ...owner.environment },
+      secrets: [...(runtimeContext.secrets ?? []), ...owner.secrets],
+    };
+  if (runtimeContext.pathPrefix)
+    runtimeContext = {
+      ...runtimeContext,
+      environment: {
+        ...runtimeContext.environment,
+        PATH: `${runtimeContext.pathPrefix}:${cliEnvironment().PATH}`,
+      },
+    };
+  knownSecrets.push(...(runtimeContext.secrets ?? []));
+  if (runtimeContext.auth)
+    knownSecrets.push(
+      ...Object.values(JSON.parse(runtimeContext.auth)).map(
+        (entry) => entry.key,
+      ),
+    );
+  return { ...command, runtimeContext };
 }
 
 if (process.argv[2] === "--job") {

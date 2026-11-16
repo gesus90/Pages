@@ -54,6 +54,7 @@ export type PlanAgentServices = Pick<
   | "agentCliGitHubCredentials"
   | "agentPlanGitHubCredentials"
   | "agentPlanExecution"
+  | "agentConnectionAccess"
   | "localSessions"
   | "agentSimulation"
   | "agentPlanAssetReferences"
@@ -158,6 +159,7 @@ export function createPlanAgentServices(
     localSessions,
     agentToolManagerService: tools,
     agentPlanExecution: execution,
+    agentConnectionAccess: access,
     agentSimulation: simulation.simulation,
     agentPlanAssetReferences: simulation.references,
   };

@@ -1,16 +1,18 @@
 import { FolderOpen, Loader2 } from "lucide-react";
+import { useLayoutEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 
 import { Button } from "@/app/components/ui/button";
-import { cn } from "@/app/lib/cn";
 
 import { StorageFileList } from "./storage-file-list";
+import { StorageLoadingBar } from "./storage-loading-bar";
 import {
   StorageConnectionNotice,
   StorageFailureNotice,
   StorageFolderProblemNotice,
   StorageStartFolderProblemNotice,
 } from "./storage-notices";
+import { useHasWaited } from "./use-has-waited";
 
 import type {
   StorageBrowseResult,
@@ -32,8 +34,13 @@ export interface StorageListTools {
   readonly onOpenMenu: (point: StorageMenuPoint) => void;
 }
 
+/** How long a folder may take to answer before the card shows its progress bar. */
+const PROGRESS_DELAY_MS = 150;
+
 interface StorageContentProps {
   readonly model: StorageFolderModel;
+  /** The folder the address asks for while it loads; its row shows the progress. */
+  readonly openingFolderId: string | null;
   /** The menu of one entry of the shown folder, when entries have one. */
   readonly renderActions?: (item: StorageItem) => ReactNode;
   readonly tools?: StorageListTools;
@@ -61,25 +68,29 @@ function FolderFooter({
   readonly model: StorageFolderModel;
 }): React.ReactElement {
   const { t } = useTranslation();
+  const isLoaded = model.reading.kind === "loaded";
+  const isFailed = model.reading.kind === "failed";
+  const countKey = folder.nextPageToken
+    ? "storage.list.countMore"
+    : "storage.list.count";
 
+  // The footer stands where it is; it counts the shown folder, so it says
+  // nothing while a failed one has no rows, and offers nothing while another
+  // folder is asked.
   return (
-    <footer className="flex min-h-12 shrink-0 flex-wrap items-center justify-between gap-3 border-t border-border px-4 py-2 text-xs text-muted-foreground">
+    <footer
+      className="flex min-h-12 shrink-0 flex-wrap items-center justify-between gap-3 border-t border-border px-4 py-2 text-xs text-muted-foreground"
+      inert={!isLoaded}
+    >
       <span aria-live="polite">
-        {t(
-          folder.nextPageToken
-            ? "storage.list.countMore"
-            : "storage.list.count",
-          {
-            count: folder.items.length,
-          },
-        )}
+        {isFailed ? null : t(countKey, { count: folder.items.length })}
       </span>
-      {model.loadMoreFailed ? (
+      {model.loadMoreFailed && !isFailed ? (
         <span className="text-destructive" role="alert">
           {t("storage.list.loadMoreFailed")}
         </span>
       ) : null}
-      {folder.nextPageToken ? (
+      {folder.nextPageToken && !isFailed ? (
         <Button
           isPending={model.isLoadingMore}
           onClick={model.loadMore}
@@ -91,102 +102,6 @@ function FolderFooter({
         </Button>
       ) : null}
     </footer>
-  );
-}
-
-function FolderBody({
-  result,
-  folder,
-  model,
-  renderActions,
-  tools,
-}: {
-  readonly result: StorageBrowseResult;
-  readonly folder: StorageFolderView;
-  readonly model: StorageFolderModel;
-  readonly renderActions?: (item: StorageItem) => ReactNode;
-  readonly tools?: StorageListTools;
-}): React.ReactElement {
-  const { t } = useTranslation();
-
-  function handleContextMenu(event: React.MouseEvent<HTMLDivElement>): void {
-    if (!tools) return;
-
-    // A right click beside the rows opens the menu without a selection change.
-    event.preventDefault();
-    tools.onOpenMenu({ x: event.clientX, y: event.clientY });
-  }
-
-  return (
-    <>
-      {tools?.menuBar}
-      {/* Another folder starts at the top; a reload keeps the place. */}
-      <div
-        className="min-h-0 flex-1 overflow-y-auto"
-        key={folder.folderId}
-        onContextMenu={handleContextMenu}
-      >
-        {folder.items.length === 0 ? (
-          <CenteredMessage>
-            <FolderOpen aria-hidden="true" className="size-8" />
-            <p>
-              {t(
-                result.reach === "full"
-                  ? "storage.list.empty"
-                  : "storage.list.emptyAppFiles",
-              )}
-            </p>
-          </CenteredMessage>
-        ) : (
-          <StorageFileList
-            items={folder.items}
-            onOpenMenu={tools?.onOpenMenu}
-            renderActions={renderActions}
-            selection={tools?.selection}
-          />
-        )}
-      </div>
-      <FolderFooter folder={folder} model={model} />
-    </>
-  );
-}
-
-function LoadedContent({
-  result,
-  model,
-  onChooseStartFolder,
-  onClearStartFolder,
-  renderActions,
-  tools,
-}: StorageContentProps & {
-  readonly result: StorageBrowseResult;
-}): React.ReactElement {
-  if (result.folder) {
-    return (
-      <FolderBody
-        folder={result.folder}
-        model={model}
-        renderActions={renderActions}
-        result={result}
-        tools={tools}
-      />
-    );
-  }
-
-  return (
-    <div className="p-4">
-      {result.startFolderProblem ? (
-        <StorageStartFolderProblemNotice
-          onChoose={onChooseStartFolder}
-          onClear={onClearStartFolder}
-          problem={result.startFolderProblem}
-          startFolderName={result.startFolder?.name ?? null}
-        />
-      ) : null}
-      {result.folderProblem ? (
-        <StorageFolderProblemNotice problem={result.folderProblem} />
-      ) : null}
-    </div>
   );
 }
 
@@ -226,20 +141,142 @@ function ReadingNotice({
   );
 }
 
-/** The quiet status of a folder change above the former folder. */
-function SwitchingStatus(): React.ReactElement {
+/** Scrolls the list to the top when another folder shows, and not on a reload of the same one. */
+function useScrollToTopOnFolder(
+  folderId: string,
+): React.RefObject<HTMLDivElement | null> {
+  const scrollerRef = useRef<HTMLDivElement>(null);
+  const shownFolderRef = useRef(folderId);
+
+  useLayoutEffect(() => {
+    if (shownFolderRef.current === folderId) return;
+
+    shownFolderRef.current = folderId;
+
+    if (scrollerRef.current) scrollerRef.current.scrollTop = 0;
+  }, [folderId]);
+
+  return scrollerRef;
+}
+
+function FolderBody({
+  result,
+  folder,
+  model,
+  openingFolderId,
+  isWaiting,
+  renderActions,
+  tools,
+}: {
+  readonly result: StorageBrowseResult;
+  readonly folder: StorageFolderView;
+  readonly model: StorageFolderModel;
+  readonly openingFolderId: string | null;
+  readonly isWaiting: boolean;
+  readonly renderActions?: (item: StorageItem) => ReactNode;
+  readonly tools?: StorageListTools;
+}): React.ReactElement {
   const { t } = useTranslation();
+  const scrollerRef = useScrollToTopOnFolder(folder.folderId);
+  const isFailed = model.reading.kind === "failed";
+  // Menu bar and rows are the former folder's until the asked one is shown:
+  // they stay in place and in full color, but nothing of them can be used.
+  const isFormer = model.reading.kind !== "loaded";
+
+  function handleContextMenu(event: React.MouseEvent<HTMLDivElement>): void {
+    if (!tools || isFormer) return;
+
+    // A right click beside the rows opens the menu without a selection change.
+    event.preventDefault();
+    tools.onOpenMenu({ x: event.clientX, y: event.clientY });
+  }
 
   return (
-    <div className="pointer-events-none absolute inset-0 flex items-center justify-center p-4">
-      <p
-        className="flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1.5 text-xs text-muted-foreground shadow-sm"
-        role="status"
+    <>
+      <div className="contents" inert={isFormer}>
+        {tools?.menuBar}
+      </div>
+      {isWaiting ? <StorageLoadingBar /> : null}
+      {/* The scroller and the column heads stay for every folder; another
+          folder starts at the top, a reload keeps the place. */}
+      <div
+        className="min-h-0 flex-1 overflow-y-auto"
+        onContextMenu={handleContextMenu}
+        ref={scrollerRef}
       >
-        <Loader2 aria-hidden="true" className="size-3.5 animate-spin" />
-        {t("storage.loading")}
-      </p>
-    </div>
+        <div className="contents" inert={isFormer}>
+          <StorageFileList
+            folderId={folder.folderId}
+            items={isFailed ? [] : folder.items}
+            onOpenMenu={tools?.onOpenMenu}
+            openingFolderId={openingFolderId}
+            renderActions={renderActions}
+            selection={tools?.selection}
+          />
+        </div>
+        {isFailed ? <ReadingNotice model={model} /> : null}
+        {!isFailed && folder.items.length === 0 ? (
+          <CenteredMessage>
+            <FolderOpen aria-hidden="true" className="size-8" />
+            <p>
+              {t(
+                result.reach === "full"
+                  ? "storage.list.empty"
+                  : "storage.list.emptyAppFiles",
+              )}
+            </p>
+          </CenteredMessage>
+        ) : null}
+      </div>
+      <FolderFooter folder={folder} model={model} />
+    </>
+  );
+}
+
+function LoadedContent({
+  result,
+  model,
+  isWaiting,
+  openingFolderId,
+  onChooseStartFolder,
+  onClearStartFolder,
+  renderActions,
+  tools,
+}: StorageContentProps & {
+  readonly result: StorageBrowseResult;
+  readonly isWaiting: boolean;
+}): React.ReactElement {
+  if (result.folder) {
+    return (
+      <FolderBody
+        folder={result.folder}
+        isWaiting={isWaiting}
+        model={model}
+        openingFolderId={openingFolderId}
+        renderActions={renderActions}
+        result={result}
+        tools={tools}
+      />
+    );
+  }
+
+  return (
+    <>
+      {isWaiting ? <StorageLoadingBar /> : null}
+      <div className="p-4" inert={model.reading.kind !== "loaded"}>
+        {result.startFolderProblem ? (
+          <StorageStartFolderProblemNotice
+            onChoose={onChooseStartFolder}
+            onClear={onClearStartFolder}
+            problem={result.startFolderProblem}
+            startFolderName={result.startFolder?.name ?? null}
+          />
+        ) : null}
+        {result.folderProblem ? (
+          <StorageFolderProblemNotice problem={result.folderProblem} />
+        ) : null}
+      </div>
+    </>
   );
 }
 
@@ -248,15 +285,18 @@ function SwitchingStatus(): React.ReactElement {
  * @remarks
  * Only the list scrolls; the card keeps its menu bar, column heads and
  * footer visible and its bottom edge above the free space of the Pica
- * launcher. Loading and failures stay inside the card; while another folder
- * loads, the former one stays in place without being operable.
+ * launcher. Loading and failures stay inside the card. While another folder
+ * loads, the former one stays in place in full color without being operable;
+ * a bar under the menu bar shows the wait only when it lasts longer than
+ * 150 ms. A failure replaces only the rows.
  */
 export function StorageContent(props: StorageContentProps): React.ReactElement {
   const { reading, previousResult } = props.model;
   const result = reading.kind === "loaded" ? reading.result : previousResult;
-  // The former folder keeps its place, dimmed and inert: nothing of it can be
-  // opened, selected or changed as if it were the asked folder.
-  const isSwitching = reading.kind !== "loaded" && result !== null;
+  const isWaiting = useHasWaited(
+    reading.kind === "loading" && result !== null,
+    PROGRESS_DELAY_MS,
+  );
 
   return (
     <div
@@ -264,19 +304,12 @@ export function StorageContent(props: StorageContentProps): React.ReactElement {
       className="pages-content-card relative flex min-h-48 min-w-0 flex-1 flex-col overflow-hidden p-0"
     >
       {result ? (
-        <div
-          className={cn(
-            "flex min-h-0 flex-1 flex-col motion-safe:transition-opacity",
-            isSwitching ? "opacity-50" : null,
-          )}
-          inert={isSwitching}
-        >
-          <LoadedContent {...props} result={result} />
+        <div className="flex min-h-0 flex-1 flex-col">
+          <LoadedContent {...props} isWaiting={isWaiting} result={result} />
         </div>
       ) : (
         <ReadingNotice model={props.model} />
       )}
-      {isSwitching ? <SwitchingStatus /> : null}
     </div>
   );
 }

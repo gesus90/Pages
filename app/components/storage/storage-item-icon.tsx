@@ -12,6 +12,7 @@ import {
   FileText,
   FileType,
   Folder,
+  Loader2,
   PenTool,
   Presentation,
 } from "lucide-react";
@@ -56,16 +57,22 @@ const KIND_STYLES: Readonly<
  * @remarks
  * The colors are theme tokens with a light and a dark value; the kind is
  * named in `data-kind`, so the tile stays checkable without its color.
+ * While the entry opens, the tile keeps its color and the symbol turns into a
+ * spinner, which stands still with reduced motion.
  */
 export function StorageItemIcon({
   kind,
   isLarge = false,
+  isBusy = false,
 }: {
   readonly kind: StorageItemKind;
   /** The tile of a preview head: 40 px instead of 32 px. */
   readonly isLarge?: boolean;
+  /** Whether the entry opens right now. */
+  readonly isBusy?: boolean;
 }): React.ReactElement {
   const { icon: Icon, tone } = KIND_STYLES[kind];
+  const symbolSize = isLarge ? "size-5" : "size-4";
 
   return (
     <span
@@ -75,14 +82,16 @@ export function StorageItemIcon({
         isLarge ? "size-10" : "size-8",
         tone,
       )}
+      data-busy={isBusy ? "true" : undefined}
       data-kind={kind}
     >
-      <Icon
-        className={cn(
-          isLarge ? "size-5" : "size-4",
-          kind === "folder" ? "fill-current" : null,
-        )}
-      />
+      {isBusy ? (
+        <Loader2 className={cn(symbolSize, "motion-safe:animate-spin")} />
+      ) : (
+        <Icon
+          className={cn(symbolSize, kind === "folder" ? "fill-current" : null)}
+        />
+      )}
     </span>
   );
 }

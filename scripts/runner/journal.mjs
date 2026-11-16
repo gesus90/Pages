@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { open, readFile, rename, rm } from "node:fs/promises";
+import { lstat, mkdir, open, readFile, rename, rm } from "node:fs/promises";
 import { basename, join } from "node:path";
 
 /** Writes and syncs private state before exposing it to the transport. */
@@ -61,4 +61,19 @@ export async function identity(pid) {
     if (error.code === "ENOENT" || error.code === "ESRCH") return null;
     throw error;
   }
+}
+
+/** Creates host-only launch evidence, outside the worker mount namespace. */
+export async function ownershipDirectory(directory) {
+  const ownership = join(directory, "ownership");
+  await mkdir(ownership, { recursive: true, mode: 0o700 });
+  const metadata = await lstat(ownership);
+  if (
+    !metadata.isDirectory() ||
+    metadata.isSymbolicLink() ||
+    metadata.uid !== process.getuid() ||
+    metadata.mode & 0o077
+  )
+    throw new Error("Invalid runner ownership directory");
+  return ownership;
 }

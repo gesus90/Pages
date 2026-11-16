@@ -166,6 +166,7 @@ export class AgentPlanStartResourceRepository {
         },
         options,
       );
+      if (run.runnerJobs?.some((job) => job.closeout !== "confirmed")) return;
       await transaction.execute(
         `
         UPDATE agent_local_session_owners

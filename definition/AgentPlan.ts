@@ -1,4 +1,5 @@
 import type { AcpWaitReason } from "./AcpResource";
+import type { PlanRunnerJob } from "./PlanRunnerJob";
 import type { ClaudeRunUsage } from "./ClaudeUsage";
 import type { PlanRunCommandReceipt } from "./PagesRuns";
 import type { AgentPlanResourceRelease } from "./AgentPlanResourceRelease";
@@ -572,6 +573,7 @@ export interface AgentPlanRun {
   /** When somebody first typed into a terminal of the run: the run was intervened in manually. */
   readonly manualInputAt?: string;
   readonly steps: readonly AgentPlanStepResult[];
+  readonly runnerJobs?: readonly PlanRunnerJob[];
   /** The iterations and sessions of the loops of the plan; absent in runs without a loop. */
   readonly loops?: readonly AgentPlanLoopRun[];
   /** What each stack of the plan handed over so far; absent in runs without a stack. */

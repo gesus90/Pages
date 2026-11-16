@@ -214,6 +214,14 @@ export interface AgentPlanSessionEffects {
  * exit is kept in `exit`; retained group turns await the shared closeout.
  */
 export interface AgentPlanSessionRecord {
+  /** New execution intent; host process scans apply only to historical records. */
+  readonly runnerOwned?: true;
+  /** Durable runner claim; never interpreted as a PID of the Pages host. */
+  readonly runnerJob?: {
+    readonly connectionId: string;
+    readonly jobId: string;
+    readonly attemptId: string;
+  };
   /** Corrective TODO turns already returned to this attempt; survives pause and reattachment. */
   readonly todoReturns?: number;
   /** Safe provider cause and release time, without upstream diagnostics. */

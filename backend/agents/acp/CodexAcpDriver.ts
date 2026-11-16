@@ -4,6 +4,7 @@ import { logDiagnostic } from "@/backend/logging/Logger";
 import { findUnmanagedCodexConfiguration } from "./CodexAcpConfigurationGuard";
 import {
   CODEX_ACP_BINARY,
+  CODEX_ACP_MINIMUM_VERSION,
   isSupportedCodexAcp,
   planCodexAcpLaunch,
 } from "./CodexAcpAdapter";
@@ -15,7 +16,7 @@ import type { AcpDriver } from "./AcpDriver";
 export const CODEX_ACP_DRIVER: AcpDriver = {
   provider: "codex_cli",
   binary: CODEX_ACP_BINARY,
-  supportedVersions: "2.1.1 up to 3.0.0",
+  supportedVersions: `${CODEX_ACP_MINIMUM_VERSION} or later`,
   errors: {
     modeRequired: "codex_permission_mode_required",
     adapterMissing: "plan_acp_adapter_missing",

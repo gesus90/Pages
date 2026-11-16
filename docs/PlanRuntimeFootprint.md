@@ -1,20 +1,16 @@
 # Getrennte Plan-Runtimes
 
-`local-agent.mjs` lädt `build/local-owner/index.js`, `pages-runs.mjs` lädt
-`build/runs/index.js`. `vite.config.ts` erzeugt im Modus `runtimes` diese Node-Einstiege mit
-Rollup unabhängig von React Router; gemeinsam benötigter Code liegt unter
-`build/runtime-chunks/`. Alle drei Verzeichnisse gehören zum auszuliefernden
-Build. `scripts/build.mjs` erzeugt sie nach SPA und API. Der Owner-Quellmodus
-verwendet eine eigene Vite-Konfiguration ohne Routen- oder React-Plugins.
+`pages-runs.mjs` lädt `build/runs/index.js`. `vite.config.ts` erzeugt diesen
+Node-Einstieg im Modus `runtimes` unabhängig von React Router. Gemeinsam
+benötigter Code liegt unter `build/runtime-chunks/`.
 
-Der Owner nutzt seine bestehende PostgreSQL-Verbindung. Er benötigt aktuelle
-Plan-/Workspace-/Modellrechte, Ticket-/Wiki-/Asset-Leser, Definitionen,
-Credential-Resolver, native Adapter, Journal, IPC und Logging. Die privaten
-Pica-Protokollerweiterungen und die Pica-Adaptervorbereitung werden erst am
-Chat-Start dynamisch geladen; Plan-Owner initialisieren sie nicht. Er konstruiert
-weder Anwendungsdienste noch Plan-Engine, Runner-Verwaltung, Pica-Einstellungen,
-Login-/Katalogdienste, Recovery oder Scheduler. Remote-Workspace-Leser bleiben
-für die unveränderte Berechtigungsprüfung gemischter Pläne verfügbar.
+Neue Plan-Schritte laufen über Runner-Worker. Der Runs-Prozess plant und
+steuert; native Prozesse, API-Aufrufe, Skripte und deren Prozessbereinigung
+gehören zum Runner. Der frühere lokale Owner-Einstieg und seine
+Neuerzeugung entfallen. Vorhandene Owner-Bundles und Runtime-Chunks bleiben
+beim Build für bereits existierende Alt-Besitzer erhalten. Deren
+Wiederanbindung und Abschluss bleiben als eng begrenzte Kompatibilität
+verfügbar. Der aktuelle Vertrag steht unter [LocalRunner.md](LocalRunner.md).
 
 `RunsServices` verbindet Plan-Konfiguration, Engine, Inbox, Recovery, native
 Owner-Importe, Runner-API-Kanal, Aufräumen, Datenbank und Logging. Die
@@ -65,7 +61,13 @@ Runner-/Mobile-WebSocket-Heartbeats. `RunApiBridge`-Cleanup (500 ms) gehört
 weiterhin ausschließlich zur API. Die Automationsausführung der API startet
 Pläne bei `runsMode = separate` über die bestehende Befehls-Inbox.
 
-## Vorhandene Funktionsbelege und verbleibende QA
+## Historische Funktionsbelege und damalige QA-Hinweise
+
+Die folgenden Nachweise und offenen Hinweise stammen aus der früheren
+Runtime-Trennung. Sie werden hier erhalten; sie sind keine ausgeführten
+Prüfungen der aktuellen Runner-Umstellung und keine zusätzlichen
+Abschlussvoraussetzungen. Deren gezielte Nachweise und Grenzen sind in
+[LocalRunner.md](LocalRunner.md) dokumentiert.
 
 Ergebnis der gezielten Läufe ohne Coverage: 16 Dateien / 180 Tests grün;
 ein zusätzlicher Test zur Installation der Planbeobachter vor Recovery grün;

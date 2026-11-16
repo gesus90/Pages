@@ -1,19 +1,16 @@
+import { recoverManagedRunnerRun } from "@/backend/service/runner/RunnerManagedRecovery";
+export { localPlanModelSteps } from "./AgentPlanRemoteModelAccess";
+
 import { logCaughtError } from "@/backend/logging/Logger";
 import { allPlanRunResults } from "@/definition/AgentPlanLoopResults";
 import { isRemoteCloseoutUnconfirmed } from "@/definition/AgentPlanRemoteCloseout";
-import { AgentPlanValidationError } from "@/backend/error/AgentPlanValidationError";
-import {
-  planTargetIssues,
-  withInheritedPlanTarget,
-} from "@/definition/AgentPlanTarget";
-import { allPlanSteps } from "@/definition/AgentPlanGroup";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { planContentDigest } from "@/backend/agents/AgentPlanContentDigest";
-import {
-  RUNNER_TOOL_PROVIDERS,
-  runnerExecutionSchema,
-} from "@/definition/RunnerExecution";
+import { runnerExecutionSchema } from "@/definition/RunnerExecution";
 
+import { AgentPlanRunnerDetachedError } from "./AgentPlanRunnerDetach";
+import { AgentPlanRunnerRemotePreparation } from "./AgentPlanRunnerRemotePreparation";
+import { validateRemoteModel } from "./AgentPlanRemoteModelAccess";
 import { AgentPlanRemoteSettlement } from "./AgentPlanRemoteSettlement";
 import { withRemoteProgress } from "./AgentPlanRemoteProgress";
 import { observeRemoteAttempt } from "./AgentPlanRemoteObservation";
@@ -21,10 +18,8 @@ import { requireRemoteRunResources } from "./AgentPlanRemoteTargets";
 import {
   remoteTextInputs,
   remoteScriptCommand,
-  remoteModelCommand,
-  remotePlanContract,
 } from "./AgentPlanRemoteCommand";
-import { validateRemoteParameterPrompt } from "./AgentPlanRemoteParameters";
+import { prepareRemoteAgentCommand } from "./AgentPlanRemoteAgentPreparation";
 import { STREAMED_ASSET_REASON } from "./AgentTicketAssetService";
 import {
   CANCELLED_BEFORE_DISPATCH,
@@ -38,7 +33,6 @@ import {
   resolvedRemoteCommand,
 } from "./AgentPlanRemoteResolvedCommand";
 import { AgentPlanRemoteSources } from "./AgentPlanRemoteSources";
-import { remoteTodoChecklists } from "./AgentPlanRemoteChecklist";
 import { isOriginalRemoteJob } from "./AgentPlanRemoteCancellation";
 import {
   completedGatedRemote,
@@ -46,6 +40,12 @@ import {
   requiresRemoteAcceptance,
 } from "./AgentPlanRemoteAcceptance";
 
+import type { PreparedPlanStep } from "./AgentPlanStepStart";
+import type {
+  AgentPlanSnapshot,
+  AgentPlanStepSnapshot,
+} from "./AgentPlanSnapshot";
+import type { AgentPlanScriptSnapshot } from "./AgentPlanScriptPreparation";
 import type {
   AgentPlanRemoteParameters,
   RemotePlanParameters,
@@ -54,7 +54,6 @@ import type { RunnerPagesAccessService } from "@/backend/service/runner/RunnerPa
 import type { AgentPlanRemoteStatus } from "@/definition/AgentPlanTarget";
 import type { AgentPlanRunResources } from "@/backend/agents/AgentPlanRunResources";
 import type {
-  AgentPlanInput,
   AgentPlan,
   AgentPlanStep,
   AgentPlanRun,
@@ -76,15 +75,18 @@ import type { AgentPlanStepReportService } from "./AgentPlanStepReportService";
 import type { AgentPlanRunRepository } from "@/backend/database/repositories/agent/AgentPlanRunRepository";
 import type { RunnerService } from "@/backend/service/runner/RunnerService";
 import type { RunnerOpenRouterService } from "@/backend/service/runner/RunnerOpenRouterService";
-import type {
-  AgentPlanTasks,
-  AgentPlanTicketChecklist,
-} from "./AgentPlanTasks";
+import type { AgentPlanTasks } from "./AgentPlanTasks";
 
 /** Private snapshot: exact command, source inputs and authorized target, without credentials. */
 export interface RemotePlanStep {
   /** Preserved context is appended after binding, so earlier output cannot introduce placeholders. */
   readonly recoveryContext?: string;
+  /** Original local authorization and account selection survive process recovery. */
+  readonly localSource?: {
+    readonly plan: AgentPlan;
+    readonly agent?: AgentPlanStepSnapshot;
+    readonly script?: AgentPlanScriptSnapshot;
+  };
   readonly step: AgentPlanStep | AgentPlanScript;
   readonly target: AgentPlanRemoteTarget;
   readonly command: RunnerExecution;
@@ -95,7 +97,11 @@ export interface RemotePlanStep {
 }
 
 interface RemoteExecutionDependencies {
-  readonly tasks?: Pick<AgentPlanTasks, "checklist">;
+  readonly authorizeLocal?: (
+    userId: string,
+    source: NonNullable<RemotePlanStep["localSource"]>,
+  ) => Promise<void>;
+  readonly tasks?: Pick<AgentPlanTasks, "checklist" | "snapshot">;
   readonly parameters?: AgentPlanRemoteParameters;
   readonly pages?: Pick<RunnerPagesAccessService, "open" | "close">;
   readonly stepReports?: Pick<AgentPlanStepReportService, "open" | "close">;
@@ -109,6 +115,9 @@ interface RemoteExecutionDependencies {
     | "supportsOpenCode"
     | "supportsExactResultPayload"
     | "supportsContinuation"
+    | "supportsAgentAccounts"
+    | "supportsBrowser"
+    | "supportsProgress"
     | "supportsAssetFiles"
     | "supportsLargeAssetFiles"
     | "ready"
@@ -120,17 +129,28 @@ interface RemoteExecutionDependencies {
   > &
     Partial<Pick<RunnerService, "enqueueRetry" | "pauseExecution">>;
   readonly provider: Pick<RunnerOpenRouterService, "catalog">;
-  readonly runs: Pick<AgentPlanRunRepository, "find">;
+  readonly runs: Pick<AgentPlanRunRepository, "find" | "update">;
 }
 
 /** Authorizes runner catalogs and dispatches immutable claims; nothing executes on Pages. */
 export class AgentPlanRemoteExecution {
   private readonly dependencies: RemoteExecutionDependencies;
   private readonly settlement: AgentPlanRemoteSettlement;
+  private readonly sessions: AgentPlanRunnerRemotePreparation;
 
   public constructor(dependencies: RemoteExecutionDependencies) {
     this.dependencies = dependencies;
     this.settlement = new AgentPlanRemoteSettlement(dependencies);
+    this.sessions = new AgentPlanRunnerRemotePreparation({
+      access: dependencies.access,
+      tasks: dependencies.tasks,
+      parameters: dependencies.parameters,
+      prepare: (userId, plan, step, tasks) =>
+        this.prepare(userId, plan, step, tasks),
+      target: (userId, plan, step) => this.target(userId, plan, step),
+      validateModel: (userId, plan, step) =>
+        this.validateModel(userId, plan, step),
+    });
   }
 
   /** Offers only models and interpreter identities from an executing, authorized runner. */
@@ -150,49 +170,13 @@ export class AgentPlanRemoteExecution {
     );
   }
 
-  /** Verifies exact catalog selection and current workspace access before saving a model copy. */
-  public async validateModel(
+  /** Verifies the exact model route before saving or starting a frozen selection. */
+  public validateModel(
     userId: string,
     plan: Pick<AgentPlan, "projectId">,
     step: AgentPlanStep,
   ): Promise<void> {
-    const route = requireRemoteModelRoute(step);
-    const { models, statuses } = await this.sources(userId, plan.projectId, [
-      route.workspaceId,
-    ]);
-    const issues = planTargetIssues(
-      {
-        name: "",
-        workspaceId: route.workspaceId,
-        usage: "private",
-        projectId: plan.projectId,
-        nodes: [step],
-        edges: [],
-        globals: {},
-      },
-      statuses,
-    );
-    if (issues.length)
-      throw new AgentPlanValidationError(
-        issues.map((issue) => ({
-          nodeId: issue.nodeId,
-          port: issue.port ?? null,
-          reason: issue.problem,
-        })),
-      );
-    if (
-      !models.some(
-        (model) =>
-          model.id === step.configuration?.modelProfileId &&
-          model.model === step.configuration.model &&
-          (step.configuration.reasoningEffort === null ||
-            model.reasoningEfforts.includes(
-              step.configuration.reasoningEffort,
-            )) &&
-          planContentDigest(model.runnerRoute) === planContentDigest(route),
-      )
-    )
-      throw new AgentError("plan_remote_unavailable");
+    return validateRemoteModel(this, userId, plan, step);
   }
 
   /** Freezes source and text parameters at the plan revision before a job can be claimed. */
@@ -234,36 +218,22 @@ export class AgentPlanRemoteExecution {
     if (step.type === "script")
       command = remoteScriptCommand(step, target, interpreters, basis);
     else {
-      await this.validateModel(userId, plan, step);
-      const tickets = await remoteTodoChecklists({
+      const prepared = await prepareRemoteAgentCommand({
+        userId,
+        plan,
         step,
         parameters,
+        target,
+        basis,
+        validateModel: (validationUserId, validationPlan, validationStep) =>
+          this.validateModel(validationUserId, validationPlan, validationStep),
         tasks: this.dependencies.tasks,
-        userId,
-        projectId: plan.projectId,
+        runners: this.dependencies.runners,
+        canReceiveFiles: (fileTarget, fileParameters) =>
+          this.canReceiveFiles(fileTarget, fileParameters),
       });
-      command = remoteModelCommand(step, basis, tickets);
-      acceptanceContract = remoteAcceptanceContract(step, command, tickets);
-      requireRemoteResultPayload(command, () =>
-        this.dependencies.runners.supportsExactResultPayload(
-          target.connectionId,
-        ),
-      );
-      if (parameters && command.program.kind !== "script")
-        await validateRemoteParameterPrompt(
-          step,
-          parameters,
-          command.program.prompt,
-        );
-      if (
-        parameters?.assets.length &&
-        !this.canReceiveFiles(target, parameters)
-      )
-        throw new AgentPlanValidationError([
-          { nodeId: step.id, port: null, reason: "remoteAssetRunner" },
-        ]);
-      if (parameters?.resources.length && command.pagesAccess !== 1)
-        throw new AgentError("plan_mcp_unavailable");
+      command = prepared.command;
+      acceptanceContract = prepared.acceptanceContract;
     }
     return {
       step,
@@ -275,6 +245,33 @@ export class AgentPlanRemoteExecution {
     };
   }
 
+  /** Rechecks a script's exact remote workspace before runner dispatch. */
+  public authorizeScript(
+    run: AgentPlanRun,
+    snapshot: AgentPlanSnapshot,
+    source: AgentPlanScriptSnapshot,
+  ): Promise<void> {
+    return this.sessions.authorizeScript(run, snapshot, source);
+  }
+
+  /** Resolves shared group inputs for remote runner sessions. */
+  public prepareGroupSession(
+    run: AgentPlanRun,
+    snapshot: AgentPlanSnapshot,
+    groupId: string,
+  ): Promise<AgentPlanSnapshot> {
+    return this.sessions.prepareGroupSession(run, snapshot, groupId);
+  }
+
+  /** Prepares a remote node under the same session contract as a local node. */
+  public prepareSession(
+    run: AgentPlanRun,
+    snapshot: AgentPlanSnapshot,
+    source: AgentPlanStepSnapshot,
+  ): Promise<PreparedPlanStep> {
+    return this.sessions.prepareSession(run, snapshot, source);
+  }
+
   /** Returns the terminal durable projection; reconnects retain the original attempt and launch. */
   public async run(
     run: AgentPlanRun,
@@ -283,6 +280,7 @@ export class AgentPlanRemoteExecution {
     retry?: RemoteRetryTerms,
   ): Promise<Partial<AgentPlanStepResult>> {
     if (signal.aborted) return CANCELLED_BEFORE_DISPATCH;
+    await this.requireLocalSource(run.userId, remote);
     const target = await this.target(
       run.userId,
       {
@@ -336,24 +334,28 @@ export class AgentPlanRemoteExecution {
       if (!job) return CANCELLED_BEFORE_DISPATCH;
       result = await this.waitForJob(run, remote, job, signal);
     } finally {
-      await this.dependencies.pages?.close(
-        run.id,
-        remote.step.id,
-        execution.attemptId,
-      );
+      if (!(signal.reason instanceof AgentPlanRunnerDetachedError))
+        await this.dependencies.pages?.close(
+          run.id,
+          remote.step.id,
+          execution.attemptId,
+        );
     }
     return this.settlement.settle(run, remote, result, execution.attemptId);
   }
 
   /** Reattaches the saved remote claim and retains its original completion and acceptance gates. */
-  public observe(
+  public async observe(
     run: AgentPlanRun,
     remote: RemotePlanStep,
     signal: AbortSignal,
   ): Promise<Partial<AgentPlanStepResult>> {
+    await this.requireLocalSource(run.userId, remote);
     return observeRemoteAttempt(run, remote, {
       runners: this.dependencies.runners,
       pages: this.dependencies.pages,
+      shouldClose: () =>
+        !(signal.reason instanceof AgentPlanRunnerDetachedError),
       wait: (job) => this.waitForJob(run, remote, job, signal),
       settle: (result, attemptId) =>
         this.settlement.settle(run, remote, result, attemptId),
@@ -374,6 +376,10 @@ export class AgentPlanRemoteExecution {
 
   /** Replays an authorized owner's stop against every original remote attempt, even after reload or restart. */
   public async stop(run: AgentPlanRun): Promise<void> {
+    const current = await this.dependencies.runs.find(run.id);
+    for (const job of current?.runnerJobs ?? run.runnerJobs ?? [])
+      if (job.closeout !== "confirmed")
+        await this.dependencies.runners.cancel(job.connectionId, job.jobId);
     for (const step of allPlanRunResults(run)) {
       const execution = step.execution;
       if (
@@ -406,7 +412,18 @@ export class AgentPlanRemoteExecution {
 
   /** Adds current transport health to confirmed job facts without mutating the stored execution state. */
   public async withProgress(run: AgentPlanRun): Promise<AgentPlanRun> {
-    return withRemoteProgress(run, this.dependencies.runners);
+    const stored = await this.dependencies.runs.find(run.id);
+    const current = {
+      ...run,
+      runnerJobs: stored?.runnerJobs ?? run.runnerJobs,
+    };
+    const recovered = await recoverManagedRunnerRun(
+      current,
+      this.dependencies.runners,
+    );
+    if (planContentDigest(recovered) !== planContentDigest(current))
+      await this.dependencies.runs.update(recovered);
+    return withRemoteProgress(recovered, this.dependencies.runners);
   }
 
   private async setPaused(run: AgentPlanRun, isPaused: boolean): Promise<void> {
@@ -510,18 +527,14 @@ export class AgentPlanRemoteExecution {
     signal: AbortSignal,
   ): Promise<Partial<AgentPlanStepResult>> {
     for (;;) {
+      if (signal.reason instanceof AgentPlanRunnerDetachedError)
+        throw signal.reason;
       if (signal.aborted)
         await this.dependencies.runners.cancel(
           remote.target.connectionId,
           job.jobId,
         );
-      const current = await this.dependencies.runs.find(run.id);
-      if (current?.status === "pausing")
-        await this.pause(current).catch((error: unknown) =>
-          logCaughtError("AgentPlanRemoteExecution", error),
-        );
-      const step = current?.steps.find((entry) => entry.id === remote.step.id);
-      if (!step) throw new AgentError("plan_context_changed");
+      const step = await this.refreshRemoteStep(run, remote);
       if (
         remote.step.type === "agent" &&
         (remote.step.completionGate || requiresRemoteAcceptance(remote)) &&
@@ -532,6 +545,30 @@ export class AgentPlanRemoteExecution {
         return step;
       await new Promise<void>((resolve) => setTimeout(resolve, 250));
     }
+  }
+
+  private async refreshRemoteStep(
+    run: AgentPlanRun,
+    remote: RemotePlanStep,
+  ): Promise<AgentPlanStepResult> {
+    const current = await this.dependencies.runs.find(run.id);
+    if (current?.status === "pausing")
+      await this.pause(current).catch((error: unknown) =>
+        logCaughtError("AgentPlanRemoteExecution", error),
+      );
+    const step = current?.steps.find((entry) => entry.id === remote.step.id);
+    if (!step) throw new AgentError("plan_context_changed");
+    return step;
+  }
+
+  private async requireLocalSource(
+    userId: string,
+    remote: RemotePlanStep,
+  ): Promise<void> {
+    if (!remote.localSource) return;
+    if (!this.dependencies.authorizeLocal)
+      throw new AgentError("plan_access_denied");
+    await this.dependencies.authorizeLocal(userId, remote.localSource);
   }
 
   private async target(
@@ -569,55 +606,4 @@ export class AgentPlanRemoteExecution {
     );
     return command;
   }
-}
-
-/** Captures only the acceptance contract that must be checked before remote OpenCode succeeds. */
-function remoteAcceptanceContract(
-  step: AgentPlanStep,
-  command: RunnerExecution,
-  tickets: readonly AgentPlanTicketChecklist[],
-): AgentPlanContract | undefined {
-  return command.program.kind === "cli"
-    ? remotePlanContract(step, tickets)
-    : undefined;
-}
-
-/** Reauthorizes remote model routes before handing local configurations to the local resolver. */
-export async function localPlanModelSteps(
-  service: AgentPlanRemoteExecution | undefined,
-  userId: string,
-  plan: AgentPlanInput,
-): Promise<readonly AgentPlanStep[]> {
-  const local = [];
-  // A node checks its model route against the target it runs on, which it may inherit.
-  for (const step of allPlanSteps(withInheritedPlanTarget(plan))) {
-    if (!step.configuration?.runnerRoute) {
-      local.push(step);
-      continue;
-    }
-    if (!service) throw new AgentError("plan_remote_unavailable");
-    await service.validateModel(
-      userId,
-      { projectId: plan.projectId ?? "" },
-      step,
-    );
-  }
-  return local;
-}
-
-function requireRemoteModelRoute(
-  step: AgentPlanStep,
-): NonNullable<NonNullable<AgentPlanStep["configuration"]>["runnerRoute"]> {
-  const route = step.configuration?.runnerRoute;
-  if (
-    !route ||
-    step.configuration?.connectionId !== undefined ||
-    step.configuration?.provider !==
-      (route.tool ? RUNNER_TOOL_PROVIDERS[route.tool] : "openrouter") ||
-    (!route.tool && step.configuration?.reasoningEffort !== null) ||
-    step.executionTarget?.kind !== "remote" ||
-    step.executionTarget.workspaceId !== route.workspaceId
-  )
-    throw new AgentError("plan_context_changed");
-  return route;
 }

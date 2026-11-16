@@ -1,7 +1,7 @@
 import { isAcpProvider } from "@/definition/AgentConfiguration";
 import {
-  AGENT_SWARM_TOOLS,
   agentSwarmOperations,
+  agentSwarmTools,
 } from "@/definition/AgentPlanSwarmOperations";
 
 import type { CliSessionMcp } from "@/backend/agents/cli/CliSessionPlans";
@@ -67,6 +67,8 @@ export interface AgentPlanSessionGrant {
   readonly canSetStatus?: boolean;
   /** The swarm side whose tools the session gets besides its reach. */
   readonly swarm?: AgentSwarmRole;
+  /** Whether a swarm session also gets the tools of the shared memory. */
+  readonly swarmMemory?: boolean;
 }
 
 /**
@@ -101,7 +103,9 @@ export function planSessionScope(
             ...(grant.canSetStatus ? [STATUS_OPERATION] : []),
           ]
         : []),
-      ...(grant.swarm ? agentSwarmOperations(grant.swarm) : []),
+      ...(grant.swarm
+        ? agentSwarmOperations(grant.swarm, { hasMemory: grant.swarmMemory })
+        : []),
     ],
     tickets: grant.tickets,
     reach: grant.reach,
@@ -110,13 +114,18 @@ export function planSessionScope(
 
 /** The tool names a step of the given grant may call; `null` leaves the choice to the scope of the credential. */
 export function planSessionTools(
-  grant: Pick<AgentPlanSessionGrant, "reach" | "canSetStatus" | "swarm">,
+  grant: Pick<
+    AgentPlanSessionGrant,
+    "reach" | "canSetStatus" | "swarm" | "swarmMemory"
+  >,
 ): readonly string[] | null {
   if (grant.reach !== "tickets") return null;
   return [
     ...SESSION_TOOLS,
     ...(grant.canSetStatus === true ? [STATUS_TOOL] : []),
-    ...(grant.swarm ? AGENT_SWARM_TOOLS[grant.swarm] : []),
+    ...(grant.swarm
+      ? agentSwarmTools(grant.swarm, { hasMemory: grant.swarmMemory })
+      : []),
   ];
 }
 

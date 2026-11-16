@@ -1,3 +1,4 @@
+import { projectManagedRunnerJob } from "./RunnerManagedProjection";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { canRunPlan } from "@/definition/AgentPlanTeam";
 import { logEvent } from "@/backend/logging/Logger";
@@ -91,6 +92,18 @@ export class RunnerPlanEventService {
       userId,
       binding,
     });
+    if (binding.managed) {
+      if (
+        binding.sharedWorkspaceId &&
+        (binding.ownerStepId !== binding.sharedWorkspaceId ||
+          !plan.nodes.some(
+            (node) =>
+              node.type === "swarm" && node.id === binding.sharedWorkspaceId,
+          ))
+      )
+        throw new AgentError("plan_context_changed");
+      return;
+    }
     const step = run.steps.find((entry) => entry.id === binding.stepId);
     const execution = step?.execution;
     if (
@@ -124,6 +137,22 @@ export class RunnerPlanEventService {
       userId,
       await this.access.runs.resources(run.id),
     );
+  }
+
+  /** Records ownership in the same transaction as dispatch, before a worker can start. */
+  public async bindManaged(
+    transaction: DatabaseTransaction,
+    connectionId: string,
+    job: RunnerJob,
+  ): Promise<void> {
+    if (!job.plan?.managed) return;
+    await this.repository.apply(transaction, job.plan.runId, (run) => ({
+      run: projectManagedRunnerJob(run, {
+        connectionId,
+        job,
+        isDetached: false,
+      }),
+    }));
   }
 
   /** Confirms an identical historical event without applying it a second time. */
@@ -227,16 +256,7 @@ export class RunnerPlanEventService {
   ): Promise<void> {
     const { message, previous, state } = input;
     if (message.type === "stop-result") {
-      const job = state.jobs.find((entry) => entry.jobId === message.jobId);
-      if (job?.plan)
-        await this.repository.apply(transaction, job.plan.runId, (run) => ({
-          run: runnerStoppedRun(
-            run,
-            job,
-            !this.isRunOwned(run.id),
-            connectionId,
-          ),
-        }));
+      await this.applyStopResult(transaction, connectionId, state, message);
       return;
     }
     if (message.type === "event") {
@@ -247,39 +267,93 @@ export class RunnerPlanEventService {
       await this.repository.history.retain(transaction, connectionId, message);
       if (isStaleTerminalRunnerEvent(previous, message)) return;
     }
-    for (const job of state.jobs) {
-      if (message.type === "event" && job.jobId !== message.job.jobId) continue;
-      if (
-        !job.plan ||
-        (message.type !== "event" &&
-          previous.jobs.find((entry) => entry.jobId === job.jobId)?.status ===
-            job.status)
-      )
-        continue;
-      const binding = job.plan;
-      logRunnerJob(connectionId, job, binding);
-      await this.repository.apply(
-        transaction,
-        binding.runId,
-        (run, snapshot) => {
-          const result = applyRunnerPlanEvent(
-            {
+    for (const job of state.jobs)
+      await this.applyJob(transaction, {
+        connectionId,
+        message,
+        previous,
+        job,
+      });
+  }
+
+  private async applyStopResult(
+    transaction: DatabaseTransaction,
+    connectionId: string,
+    state: RunnerState,
+    message: Extract<RunnerMessage, { type: "stop-result" }>,
+  ): Promise<void> {
+    const job = state.jobs.find((entry) => entry.jobId === message.jobId);
+    if (job?.plan?.managed)
+      await this.repository.apply(transaction, job.plan.runId, (run) => ({
+        run: projectManagedRunnerJob(run, {
+          connectionId,
+          job,
+          isDetached: !this.isRunOwned(run.id),
+          result: {
+            output: job.outcome?.output ?? null,
+            closeout: message.cancellation.closeout ?? "failed",
+            exitCode: job.outcome?.exitCode ?? null,
+            signal: job.outcome?.signal ?? null,
+            reason: "cancelled",
+          },
+        }),
+      }));
+    if (job?.plan && !job.plan.managed)
+      await this.repository.apply(transaction, job.plan.runId, (run) => ({
+        run: runnerStoppedRun(run, job, !this.isRunOwned(run.id), connectionId),
+      }));
+  }
+
+  private async applyJob(
+    transaction: DatabaseTransaction,
+    options: {
+      readonly connectionId: string;
+      readonly message: RunnerMessage;
+      readonly previous: RunnerState;
+      readonly job: RunnerJob;
+    },
+  ): Promise<void> {
+    const { connectionId, message, previous, job } = options;
+    if (message.type === "event" && job.jobId !== message.job.jobId) return;
+    if (
+      !job.plan ||
+      (message.type !== "event" &&
+        previous.jobs.find((entry) => entry.jobId === job.jobId)?.status ===
+          job.status)
+    )
+      return;
+    const binding = job.plan;
+    logRunnerJob(connectionId, job, binding);
+    await this.repository.apply(
+      transaction,
+      binding.runId,
+      (run, snapshot) => {
+        if (job.plan?.managed)
+          return {
+            run: projectManagedRunnerJob(run, {
               connectionId,
               job,
+              result: message.type === "event" ? message.result : undefined,
               isDetached: !this.isRunOwned(binding.runId),
-              ...(message.type === "event" ? { event: message } : {}),
-            },
-            run,
-            snapshot,
-          );
-          if (result.isSettled) logSettledStepFact(connectionId, job);
-          return result;
-        },
-        message.type === "event" && job.liveHistoryVersion === 1
-          ? { stepId: binding.stepId, events: [] }
-          : undefined,
-      );
-    }
+            }),
+          };
+        const result = applyRunnerPlanEvent(
+          {
+            connectionId,
+            job,
+            isDetached: !this.isRunOwned(binding.runId),
+            ...(message.type === "event" ? { event: message } : {}),
+          },
+          run,
+          snapshot,
+        );
+        if (result.isSettled) logSettledStepFact(connectionId, job);
+        return result;
+      },
+      message.type === "event" && job.liveHistoryVersion === 1
+        ? { stepId: binding.stepId, events: [] }
+        : undefined,
+    );
   }
 }
 

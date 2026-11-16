@@ -13,7 +13,11 @@ import {
   AgentError,
 } from "@/backend/error/AgentErrors";
 import { AgentToolReadinessError } from "@/backend/service/agents/tools/AgentToolReadinessError";
-import { isAgentToolAction, isAgentToolId } from "@/definition/AgentTools";
+import {
+  AGENT_TOOL_CHECK_UPDATES,
+  isAgentToolAction,
+  isAgentToolId,
+} from "@/definition/AgentTools";
 
 import type { AgentToolsData } from "./settings-agent-tools";
 import type { Route } from "./+types/settings-agent-tools-server";
@@ -46,7 +50,7 @@ export async function loader({
   }
 }
 
-/** Accepts fixed IDs/actions only; direct requests have the same authorization as the page. */
+/** Accepts fixed IDs/actions only; direct requests have the same authorization as the page and never name a package, URL or command. */
 export async function action({
   request,
   context,
@@ -67,6 +71,10 @@ export async function action({
     const form = await request.formData();
     const id = form.get("tool");
     const intent = form.get("intent");
+    if (intent === AGENT_TOOL_CHECK_UPDATES) {
+      await services.agentToolManagerService.checkUpdates(actor);
+      return Response.json({ ok: true }, { headers: AGENT_NO_STORE });
+    }
     if (!isAgentToolId(id)) throw new AgentError("configuration_invalid");
     if (intent === "enable" || intent === "disable")
       await services.agentToolManagerService.setEnabled(
@@ -75,7 +83,7 @@ export async function action({
         intent === "enable",
       );
     else if (isAgentToolAction(intent))
-      await services.agentToolManagerService.manage(actor, id, intent);
+      await services.agentToolRebindService.manage(actor, id, intent);
     else throw new AgentError("configuration_invalid");
     return Response.json({ ok: true }, { headers: AGENT_NO_STORE });
   } catch (error: unknown) {

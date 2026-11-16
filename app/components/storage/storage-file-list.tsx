@@ -4,14 +4,13 @@ import { Link, useSearchParams } from "react-router";
 import { Checkbox } from "@/app/components/ui/checkbox";
 import { cn } from "@/app/lib/cn";
 
-import {
-  formatBytes,
-  formatModified,
-  storageFolderHref,
-} from "./storage-format";
+import { storageFolderLink } from "./storage-folder-link";
+import { formatBytes, formatModified } from "./storage-format";
 import { StorageItemIcon } from "./storage-item-icon";
 import { storageItemKind } from "./storage-item-kind";
 import { storageFileLink } from "./storage-preview-route";
+
+import styles from "./storage-file-list.module.css";
 
 import type { StorageItem } from "@/definition/GoogleDriveStorage";
 import type { ReactNode } from "react";
@@ -20,7 +19,11 @@ import type { StorageMenuPoint } from "./storage-context-menu";
 import type { StorageSelection } from "./use-storage-selection";
 
 interface StorageFileListProps {
+  /** The folder the rows belong to; another folder starts its rows anew. */
+  readonly folderId: string;
   readonly items: readonly StorageItem[];
+  /** The folder that is being opened; its row shows the progress. */
+  readonly openingFolderId?: string | null;
   /** The menu of one entry; without it the list has no action column. */
   readonly renderActions?: (item: StorageItem) => ReactNode;
   /** The selection of the entries; without it rows cannot be selected. */
@@ -56,19 +59,27 @@ function menuPoint(event: React.MouseEvent<HTMLElement>): StorageMenuPoint {
  */
 function ItemName({
   item,
+  folderId,
+  isOpening,
 }: {
   readonly item: StorageItem;
+  readonly folderId: string;
+  readonly isOpening: boolean;
 }): React.ReactElement {
   const { t } = useTranslation();
   const [searchParams] = useSearchParams();
   const name = item.name === "" ? t("storage.untitled") : item.name;
-  const icon = <StorageItemIcon kind={storageItemKind(item)} />;
+  const icon = (
+    <StorageItemIcon isBusy={isOpening} kind={storageItemKind(item)} />
+  );
   const linkClass =
     "inline-flex max-w-full min-w-0 items-center gap-3 rounded-md py-0.5 align-middle text-foreground hover:underline focus-visible:outline-2 focus-visible:outline-primary";
 
   if (item.isFolder) {
+    const link = storageFolderLink(item, folderId);
+
     return (
-      <Link className={linkClass} to={storageFolderHref(item.id)}>
+      <Link className={linkClass} state={link.state} to={link.to}>
         {icon}
         <span className="truncate font-medium">{name}</span>
       </Link>
@@ -110,6 +121,8 @@ function SizeText({
 
 function ItemRow({
   item,
+  folderId,
+  openingFolderId,
   renderActions,
   selection,
   onOpenMenu,
@@ -170,7 +183,11 @@ function ItemRow({
         </td>
       ) : null}
       <td className="max-w-0 px-4 py-1.5">
-        <ItemName item={item} />
+        <ItemName
+          folderId={folderId}
+          isOpening={item.id === openingFolderId}
+          item={item}
+        />
         {isSelected && !selection?.isMultiSelect ? (
           <span className="sr-only">{t("storage.list.selected")}</span>
         ) : null}
@@ -220,9 +237,13 @@ function SelectAllCell({
  * multi-select mode shows checkboxes. Names keep opening folders and open files
  * in the preview.
  * A right click selects only an unselected row and opens the own menu.
+ * The column heads stay when another folder's rows replace the rows; the new
+ * rows fade in, unless motion is reduced.
  */
 export function StorageFileList({
+  folderId,
   items,
+  openingFolderId = null,
   renderActions,
   selection,
   onOpenMenu,
@@ -258,12 +279,14 @@ export function StorageFileList({
           ) : null}
         </tr>
       </thead>
-      <tbody>
+      <tbody className={styles.rows} key={folderId}>
         {items.map((item) => (
           <ItemRow
+            folderId={folderId}
             item={item}
             key={item.id}
             onOpenMenu={onOpenMenu}
+            openingFolderId={openingFolderId}
             renderActions={renderActions}
             selection={selection}
           />

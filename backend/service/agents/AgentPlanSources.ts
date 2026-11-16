@@ -1,3 +1,4 @@
+import { LOCAL_RUNNER_CONNECTION_ID } from "@/backend/service/runner/LocalRunnerIdentity";
 import { withPlanReadOrigin } from "@/backend/error/AgentPlanReadDenied";
 
 import type { AgentPlanRemoteExecution } from "./AgentPlanRemoteExecution";
@@ -52,7 +53,9 @@ export async function readPlanSources(
     phases,
     models: [...models, ...(remote?.models ?? [])],
     interpreters: [...interpreters, ...(remote?.interpreters ?? [])],
-    remoteTargets,
+    remoteTargets: remoteTargets?.filter(
+      (target) => target.connectionId !== LOCAL_RUNNER_CONNECTION_ID,
+    ),
     remoteStatus: remote?.statuses,
   };
 }

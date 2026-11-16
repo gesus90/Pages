@@ -51,5 +51,8 @@ export function runnerConnectionView(
     outputJournalVersion: facts.outputJournalVersion,
     runnerVersion: record?.state.runnerVersion ?? null,
     communicationVersion: record?.state.communicationVersion ?? null,
+    canFreezeExecution:
+      record?.state.executionControlVersion === 1 &&
+      record.state.cgroupVersion === 1,
   };
 }

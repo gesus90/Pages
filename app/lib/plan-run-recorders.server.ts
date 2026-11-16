@@ -1,3 +1,4 @@
+import { AgentPlanSwarmMemoryRepository } from "@/backend/database/repositories/agent/AgentPlanSwarmMemoryRepository";
 import { AutomationEventRepository } from "@/backend/database/repositories/automation/AutomationEventRepository";
 import { PicaMobileNotificationEventRepository } from "@/backend/database/repositories/mobile/PicaMobileNotificationEventRepository";
 import { PicaMobileNotificationPreferenceRepository } from "@/backend/database/repositories/mobile/PicaMobileNotificationPreferenceRepository";
@@ -7,6 +8,7 @@ import { sharedAgentPlanRunObservers } from "@/backend/service/agents/AgentPlanR
 import { AgentPlanOwnerRunReader } from "@/backend/service/agents/AgentPlanOwnerRunReader";
 import { PicaMobileNotificationAccess } from "@/backend/service/mobile/notifications/PicaMobileNotificationAccess";
 import { PicaMobileNotificationRecorder } from "@/backend/service/mobile/notifications/PicaMobileNotificationRecorder";
+import { SwarmMemoryRunEnd } from "@/backend/service/agents/swarm/SwarmMemoryRunEnd";
 import { readPicaMobileNotificationSettings } from "@/backend/service/mobile/notifications/PicaMobileNotificationSettings";
 import { registerShutdownTask } from "@/backend/runtime/ProcessLifecycle";
 
@@ -14,7 +16,11 @@ import type { Database } from "@/backend/database/Database";
 import type { PlanDependencies } from "@/backend/service/agents/AgentPlanDependencies";
 import type { PagesConfig } from "@/backend/config/PagesConfig";
 
-/** Records durable plan transitions; API/integration workers deliver the resulting work. */
+/**
+ * Records durable plan transitions; API/integration workers deliver the resulting work.
+ * @remarks
+ * It also deletes the swarm memory a finished or cancelled run does not keep.
+ */
 export function startPlanRunRecorders(
   database: Database,
   dependencies: PlanDependencies,
@@ -40,10 +46,14 @@ export function startPlanRunRecorders(
       onRecorded: () => undefined,
     }),
   );
+  const detachSwarmMemory = observers.add(
+    new SwarmMemoryRunEnd(new AgentPlanSwarmMemoryRepository(database)),
+  );
   registerShutdownTask(
     () => {
       detachAutomation();
       detachNotifications();
+      detachSwarmMemory();
       return Promise.resolve();
     },
     { step: "plan_run_recorders" },

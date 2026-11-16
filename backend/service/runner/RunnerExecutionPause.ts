@@ -1,3 +1,5 @@
+import { RunnerQueuedPause } from "./RunnerQueuedPause";
+
 import type { SerialQueue } from "@/backend/concurrency/SerialQueue";
 import type { RunnerRepository } from "@/backend/database/repositories/runner/RunnerRepository";
 import type { RunnerReply } from "@/definition/RunnerProtocol";
@@ -24,6 +26,16 @@ export class RunnerExecutionPause {
     jobId: string,
     isPaused: boolean,
   ): Promise<void> {
+    const current = await this.repository.find(connectionId);
+    if (current && current.state.executionControlVersion !== 1) {
+      if (isPaused)
+        await new RunnerQueuedPause(
+          this.repository,
+          this.writes,
+          this.deliver,
+        ).request(connectionId, jobId);
+      return;
+    }
     await this.writes.run(async () => {
       const record = await this.repository.find(connectionId);
       const job = record?.state.jobs.find((entry) => entry.jobId === jobId);
@@ -34,7 +46,17 @@ export class RunnerExecutionPause {
         !["queued", "accepted", "running"].includes(job.status)
       )
         return;
-      const requested = { ...job, isPaused };
+      if (record.state.executionControlVersion !== 1) return;
+      const previous = job.executionPauseRequestedAt
+        ? Date.parse(job.executionPauseRequestedAt)
+        : 0;
+      const requested = {
+        ...job,
+        isPaused,
+        executionPauseRequestedAt: new Date(
+          Math.max(Date.now(), previous + 1),
+        ).toISOString(),
+      };
       await this.repository.checkpoint(connectionId, {
         ...record.state,
         jobs: record.state.jobs.map((entry) =>

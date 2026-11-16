@@ -119,6 +119,18 @@ export class RunApiClient {
   public supportsContinuation(connectionId: string): boolean {
     return this.current(connectionId)?.continuation ?? false;
   }
+  /** Uses freshly observed host-local agent account capability only. */
+  public supportsAgentAccounts(connectionId: string): boolean {
+    return this.current(connectionId)?.agentAccounts ?? false;
+  }
+  /** Uses freshly observed sandboxed browser capability only. */
+  public supportsBrowser(connectionId: string): boolean {
+    return this.current(connectionId)?.browser ?? false;
+  }
+  /** Uses freshly observed structured progress capability only. */
+  public supportsProgress(connectionId: string): boolean {
+    return this.current(connectionId)?.progress ?? false;
+  }
 
   /** Dispatches through the API's existing idempotent binding and authenticated channel. */
   public async enqueue(
@@ -163,6 +175,20 @@ export class RunApiClient {
   /** Sends idempotent cancellation through the owner of the actual runner channel. */
   public async cancel(connectionId: string, jobId: string): Promise<void> {
     await this.call({ version: 1, operation: "cancel", connectionId, jobId });
+  }
+  /** Freezes or resumes the original worker through the API-owned channel. */
+  public async pauseExecution(
+    connectionId: string,
+    jobId: string,
+    isPaused: boolean,
+  ): Promise<void> {
+    await this.call({
+      version: 1,
+      operation: "pauseExecution",
+      connectionId,
+      jobId,
+      isPaused,
+    });
   }
   /** Requests queue-only pause without killing a running remote agent. */
   public async pauseQueued(connectionId: string, jobId: string): Promise<void> {

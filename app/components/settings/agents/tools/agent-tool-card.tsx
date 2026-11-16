@@ -3,6 +3,9 @@ import { useFetcher } from "react-router";
 
 import { useRegionFormatter } from "@/app/components/common/region-provider";
 import { AgentToolActions } from "./agent-tool-actions";
+import { AgentToolConnections } from "./agent-tool-card/agent-tool-connections";
+import { AgentToolOperation } from "./agent-tool-card/agent-tool-operation";
+import { AgentToolReleaseFacts } from "./agent-tool-card/agent-tool-release-facts";
 
 import type {
   AgentToolTerminalEntry,
@@ -50,6 +53,7 @@ export function AgentToolCard({
           {t(`agentTools.source.${tool.source ?? "none"}`)}
         </dd>
         <ToolVersionFacts tool={tool} />
+        {tool.kind === "browser" ? null : <AgentToolReleaseFacts tool={tool} />}
         <ToolLocationFacts tool={tool} />
         <dt className="text-muted-foreground">{t("agentTools.enabled")}</dt>
         <dd>{t(tool.enabled ? "agentTools.yes" : "agentTools.no")}</dd>
@@ -61,6 +65,11 @@ export function AgentToolCard({
       {tool.updateAvailable ? (
         <p className="text-sm text-primary-text">
           {t("agentTools.updateAvailable")}
+        </p>
+      ) : null}
+      {tool.source === "system" && tool.release.source ? (
+        <p className="text-sm text-muted-foreground">
+          {t("agentTools.externalHint")}
         </p>
       ) : null}
       <p className="text-sm text-muted-foreground">
@@ -77,7 +86,13 @@ export function AgentToolCard({
       >
         <input type="hidden" name="tool" value={tool.id} />
         <AgentToolActions tool={tool} isPending={isPending} />
+        <div className="basis-full">
+          <AgentToolOperation tool={tool} isPending={isPending} />
+        </div>
       </fetcher.Form>
+      {tool.operation?.action === "rebind" || tool.connections.length > 0 ? (
+        <AgentToolConnections connections={tool.connections} />
+      ) : null}
       <div aria-live="polite" className="text-sm">
         <ToolOutcome isPending={isPending} result={fetcher.data} />
       </div>

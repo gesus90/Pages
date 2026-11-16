@@ -1,4 +1,10 @@
+import { isRunnerCatalogCurrent } from "./RunnerCatalog";
+import type { RunnerCatalog } from "@/definition/RunnerProtocol";
 import { createHash, randomUUID, timingSafeEqual } from "node:crypto";
+import {
+  RUNNER_RELEASE,
+  RUNNER_PREVIOUS_RELEASE,
+} from "@/definition/RunnerMaintenance";
 import { planContentDigest } from "@/backend/agents/AgentPlanContentDigest";
 import type {
   RunnerRepository,
@@ -18,7 +24,12 @@ export type RunnerStore = Pick<
   RunnerRepository,
   "find" | "create" | "checkpoint" | "remove"
 > &
-  Partial<Pick<RunnerRepository, "reconnected">>;
+  Partial<
+    Pick<
+      RunnerRepository,
+      "reconnected" | "archivedJob" | "archivedAttempt" | "nativePlan"
+    >
+  >;
 export type RunnerConnectionAccess = Pick<
   RemoteConnectionService,
   "scope" | "scopeForRunner" | "requireUsable"
@@ -97,4 +108,71 @@ export function queuedRunnerJob(input: {
     sessionId: input.sessionId,
     status: "queued",
   };
+}
+
+/** Keeps the live capability of a connection exactly as its latest reconcile announced it. */
+export function markRunnerSupport(
+  connections: Set<string>,
+  connectionId: string,
+  isSupported: boolean,
+): void {
+  if (isSupported) connections.add(connectionId);
+  else connections.delete(connectionId);
+}
+
+/** Keeps internal native progress available through either transport without trusting worker projection fields. */
+export async function readRunnerProgress(
+  repository: RunnerStore,
+  connectionId: string,
+  runId: string,
+  attemptId: string,
+): Promise<RunnerJob | undefined> {
+  const record = await repository.find(connectionId);
+  const job =
+    record?.state.jobs.find(
+      (entry) =>
+        entry.plan?.runId === runId && entry.plan.attemptId === attemptId,
+    ) ?? (await repository.archivedAttempt?.(connectionId, runId, attemptId));
+  if (!job?.plan?.managed) return job;
+  return {
+    ...job,
+    nativePlan: await repository.nativePlan?.(
+      job.plan.recordingAttemptId ?? job.plan.attemptId,
+    ),
+  };
+}
+
+/** Reports missing execution contracts before a new remote selection can be admitted. */
+export async function readRunnerAvailability(input: {
+  readonly status: () => Promise<{
+    readonly isPaired: boolean;
+    readonly isReady: boolean;
+  }>;
+  readonly hasCommunication: boolean;
+  readonly record: () => Promise<RunnerRecord | null>;
+  readonly catalog: () => Promise<RunnerCatalog | undefined>;
+}): Promise<
+  | "remoteIdentity"
+  | "remoteOffline"
+  | "remoteRunnerUpdate"
+  | "remoteCatalogStale"
+  | null
+> {
+  const status = await input.status();
+  if (!status.isPaired) return "remoteIdentity";
+  if (!status.isReady) return "remoteOffline";
+  const record = await input.record();
+  if (
+    ![RUNNER_RELEASE, RUNNER_PREVIOUS_RELEASE].includes(
+      record?.state.runnerVersion ?? "",
+    ) ||
+    !input.hasCommunication ||
+    record?.state.executionLeaseVersion !== 1 ||
+    record.state.planControlVersion !== 1 ||
+    record.state.managedExecutionVersion !== 1
+  )
+    return "remoteRunnerUpdate";
+  return isRunnerCatalogCurrent(await input.catalog())
+    ? null
+    : "remoteCatalogStale";
 }

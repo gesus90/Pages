@@ -6,14 +6,30 @@ import { AgentAccessDeniedError } from "@/backend/error/AgentErrors";
 import { readSettingsRequest } from "@/app/lib/settings-actions/settings-request.server";
 import { requireAgentAccount } from "@/app/lib/settings-actions/settings-agents-access.server";
 import { AGENT_NO_STORE } from "@/app/lib/settings-actions/settings-agents-response.server";
+import { handleRunnerMaintenanceRequest } from "@/app/lib/settings-actions/settings-runner-maintenance.server";
 import { handleRunnerProviderRequest } from "@/app/lib/settings-actions/settings-runner-provider.server";
 
 import type { Route } from "./+types/settings-runners";
 
 /** Serves the setup artifact only to an authenticated administrator in admin mode. */
-export async function loader({ context }: Route.LoaderArgs): Promise<Response> {
+export async function loader({
+  context,
+  request,
+}: Route.LoaderArgs): Promise<Response> {
   const services = await getApplicationServices();
-  await requireAgentAccount(services, context.get(authenticatedUserContext));
+  const user = context.get(authenticatedUserContext);
+  await requireAgentAccount(services, user);
+  if (new URL(request.url).searchParams.has("configuration") && user) {
+    return Response.json(
+      {
+        settings: await services.runnerMaintenanceService.settings(
+          new URL(request.url).origin,
+        ),
+        states: await services.runnerMaintenanceService.overview(user.id),
+      },
+      { headers: AGENT_NO_STORE },
+    );
+  }
   return new Response(services.runnerSetupService.script(), {
     headers: {
       ...AGENT_NO_STORE,
@@ -30,6 +46,8 @@ export async function action(args: Route.ActionArgs): Promise<Response> {
   const intent = formData.get("intent");
   try {
     await requireAgentAccount(services, user);
+    const maintenance = await handleRunnerMaintenanceRequest(context);
+    if (maintenance) return maintenance;
     if (intent === "runner-repository-access") {
       const workspaceId = z.string().uuid().parse(formData.get("workspaceId"));
       const result = await services.runnerDeployKeyService.checkRunnerAccess(
@@ -86,16 +104,6 @@ export async function action(args: Route.ActionArgs): Promise<Response> {
       );
       return Response.json(
         { ok: true, intent, ...transfer },
-        { headers: AGENT_NO_STORE },
-      );
-    }
-    if (intent === "authorize") {
-      const grant = await services.runnerService.authorize(
-        user.id,
-        connectionId,
-      );
-      return Response.json(
-        { ok: true, intent, ...grant },
         { headers: AGENT_NO_STORE },
       );
     }

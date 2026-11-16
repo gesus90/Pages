@@ -48,6 +48,9 @@ export async function releaseCheckedWorkspaceLocks(
     { run_id: run.id },
   );
   if (pending) throw new AgentPlanRecoveryError("cleanup_unconfirmed");
+  // A runner job without confirmed closeout still owns work outside the database.
+  if (stored.runnerJobs?.some((job) => job.closeout !== "confirmed"))
+    throw new AgentPlanRecoveryError("cleanup_unconfirmed");
   const released = await transaction.query(
     `
     DELETE FROM agent_plan_workspace_locks

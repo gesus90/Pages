@@ -49,15 +49,46 @@ function PendingDestination({
   );
 }
 
-/** Shows the destination immediately while the router loads its authorized data. */
+/** The areas whose pages keep edits in the draft stores, so the placeholder shows real content. */
+const DRAFT_AREAS: ReadonlySet<string> = new Set(["wiki", "tasks", "aufgaben"]);
+
+function areaOf(pathname: string): string {
+  return pathname.split("/")[1] ?? "";
+}
+
+/**
+ * Whether the destination replaces the page with a placeholder until it is ready.
+ * @param destination - The address the router navigates to.
+ * @param current - The address that is shown.
+ * @returns `false` for the same path with another search part and for another
+ * path inside an area without drafts: the shown page stays until the new one is
+ * ready. `true` for another area and for any other path inside an area with
+ * drafts.
+ */
+function replacesPage(
+  destination: { readonly pathname: string },
+  current: { readonly pathname: string },
+): boolean {
+  if (destination.pathname === current.pathname) return false;
+
+  const area = areaOf(destination.pathname);
+
+  return area !== areaOf(current.pathname) || DRAFT_AREAS.has(area);
+}
+
+/**
+ * Shows the destination immediately while the router loads its authorized data.
+ * @remarks
+ * A change of the search part never replaces the page: its panels load their
+ * own content. Inside an area without drafts the shown page stays in place
+ * until the next one is ready.
+ */
 export function NavigationContent(): React.ReactElement {
   const navigation = useNavigation();
   const location = useLocation();
   const destination = navigation.location;
   const isChanging =
-    destination !== undefined &&
-    (destination.pathname !== location.pathname ||
-      destination.search !== location.search);
+    destination !== undefined && replacesPage(destination, location);
 
   return (
     <>

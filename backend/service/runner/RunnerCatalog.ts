@@ -33,6 +33,9 @@ function withRetainedProfiles(
     tools: incoming.areToolsComplete
       ? incoming.tools
       : (previous?.tools ?? incoming.tools),
+    accounts: incoming.areToolsComplete
+      ? incoming.accounts
+      : (previous?.accounts ?? incoming.accounts),
     removedInterpreterIds: incoming.isComplete
       ? retained.map((profile) => profile.id)
       : (previous?.removedInterpreterIds ?? []),

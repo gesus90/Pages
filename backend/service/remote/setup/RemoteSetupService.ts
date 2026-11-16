@@ -3,6 +3,7 @@ import { RemoteError } from "@/backend/error/RemoteErrors";
 import { isInstallConfirmed } from "./RemoteInstallView";
 import { RemoteSetupConductor } from "./RemoteSetupConductor";
 
+import type { RunnerMaintenanceService } from "@/backend/service/runner/RunnerMaintenanceService";
 import type { RemoteSessionRegistry } from "@/backend/remote/RemoteSessionRegistry";
 import type { RunnerService } from "@/backend/service/runner/RunnerService";
 import type { RunnerSetupService } from "@/backend/service/runner/RunnerSetupService";
@@ -27,8 +28,7 @@ export interface RemoteSetupDependencies {
   >;
   readonly sessions: RemoteSessionRegistry;
   readonly install: Pick<RemoteInstallService, "inspect" | "current">;
-  /** The operator's `PAGES_RUNNER_PUBLIC_URL` origin, when Pages is reached under another address than the browser's. */
-  readonly publicUrl: string | null;
+  readonly maintenance: RunnerMaintenanceService;
 }
 
 /**
@@ -97,11 +97,12 @@ export class RemoteSetupService implements RemoteConsoleSetupAccess {
       conductor: new RemoteSetupConductor({
         userId,
         connectionId,
-        sshHost: record.host,
-        pagesAddress: {
-          origin: context.origin,
-          publicUrl: this.dependencies.publicUrl,
-        },
+        pairing: () =>
+          this.dependencies.maintenance.pairing(
+            connectionId,
+            context.origin,
+            record.host,
+          ),
         connections: this.dependencies.connections,
         runners: this.dependencies.runners,
         delivery: this.dependencies.delivery,

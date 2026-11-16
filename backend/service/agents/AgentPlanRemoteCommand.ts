@@ -97,7 +97,7 @@ export function remoteModelCommand(
     );
     if (options.access === "full_environment")
       throw new AgentError("plan_full_environment_local_only");
-    if (options.access === "workspace_write" || options.browser)
+    if (options.access === "workspace_write")
       throw new AgentError("plan_context_changed");
     const isReadOnly = options.access === "read_only";
     const contract = remotePlanContract(step, tickets);
@@ -114,6 +114,7 @@ export function remoteModelCommand(
     return {
       ...basis,
       resultPayloadVersion: 1,
+      ...(options.browser ? { browser: 1 as const } : {}),
       timeoutSeconds: options.timeoutMinutes * 60,
       program: {
         kind: "cli",
@@ -136,5 +137,27 @@ export function remoteModelCommand(
       model: configuration.model,
       prompt: `${configuration.template.markdown}\n\n${step.instruction}`,
     },
+  };
+}
+
+/** Adds only contracts announced by the selected live runner. */
+export function withRemoteRunnerFeatures(
+  command: RunnerExecution,
+  features: {
+    readonly accountId: string;
+    readonly hasAccounts: boolean;
+    readonly hasBrowser: boolean;
+    readonly hasProgress: boolean;
+  },
+): RunnerExecution {
+  if (command.program.kind !== "cli") return command;
+  if (command.browser && !features.hasBrowser)
+    throw new AgentError("plan_context_changed");
+  return {
+    ...command,
+    ...(features.hasAccounts
+      ? { agentAccount: { version: 1 as const, id: features.accountId } }
+      : {}),
+    ...(features.hasProgress ? { progressVersion: 1 as const } : {}),
   };
 }

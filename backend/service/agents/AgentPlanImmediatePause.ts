@@ -9,6 +9,7 @@ const CODEX_PAUSE_POLL_MS = 25;
 
 /** Limits the native suspension path to local Codex plans; other providers keep their control path. */
 export function usesImmediateCodexPause(snapshot: AgentPlanSnapshot): boolean {
+  if (snapshot.runnerProtocolVersion === 1) return true;
   return (
     snapshot.steps.length > 0 &&
     snapshot.steps.every(

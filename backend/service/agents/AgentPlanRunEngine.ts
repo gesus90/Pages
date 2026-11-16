@@ -1,3 +1,7 @@
+import {
+  AgentPlanRunnerDetachedError,
+  canDetachLocalRunnerRun,
+} from "./AgentPlanRunnerDetach";
 import { SerialQueue } from "@/backend/concurrency/SerialQueue";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { isPlanWriterWaitActive } from "@/definition/AgentPlanRunState";
@@ -286,6 +290,12 @@ export class AgentPlanRunEngine {
     this.dependencies.localSessions?.detachAll();
     if (this.resourceTimer) clearTimeout(this.resourceTimer);
     for (const [id, active] of this.active) {
+      if (canDetachLocalRunnerRun(active)) {
+        for (const controller of active.controllers.values())
+          controller.abort(new AgentPlanRunnerDetachedError());
+        this.active.delete(id);
+        continue;
+      }
       if (
         active.view.status !== "paused" &&
         !this.dependencies.localSessions?.detachRun(id)
@@ -583,7 +593,11 @@ export class AgentPlanRunEngine {
         };
       },
     );
-    if (active.view.stopRequested) return;
+    if (
+      active.view.stopRequested ||
+      controller.signal.reason instanceof AgentPlanRunnerDetachedError
+    )
+      return;
     const changes =
       outcome.status === "failed"
         ? { ...outcome, failureStop: planNodeStop(active.view, node, outcome) }

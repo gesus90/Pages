@@ -1,9 +1,11 @@
 import { createHash } from "node:crypto";
 
+import { LOCAL_RUNNER_CONNECTION_ID } from "@/backend/service/runner/LocalRunnerIdentity";
 import { AgentError } from "@/backend/error/AgentErrors";
 
 import { planExecutionNodes } from "./AgentPlanExecutionTargets";
 
+import type { AgentWorkspaceService } from "./AgentWorkspaceService";
 import type { AgentPlanRunResources } from "@/backend/agents/AgentPlanRunResources";
 import type { AgentPlanInput } from "@/definition/AgentPlan";
 import type { AgentPlanRemoteTarget } from "@/definition/AgentPlanExecution";
@@ -15,13 +17,16 @@ import type { RemoteConnectionService } from "@/backend/service/remote/RemoteCon
 export class AgentPlanRemoteTargets {
   private readonly workspaces: RemoteWorkspaceService;
   private readonly connections: RemoteConnectionService;
+  private readonly local: AgentWorkspaceService | undefined;
 
   public constructor(
     workspaces: RemoteWorkspaceService,
     connections: RemoteConnectionService,
+    local?: AgentWorkspaceService,
   ) {
     this.workspaces = workspaces;
     this.connections = connections;
+    this.local = local;
   }
 
   /** Lists authorized metadata only; editing never connects to the remote host. */
@@ -33,7 +38,7 @@ export class AgentPlanRemoteTargets {
       this.workspaces.list(userId),
       this.connections.scope(userId),
     ]);
-    return workspaces
+    const remote = workspaces
       .filter(
         (workspace) =>
           workspace.projectId === projectId && workspace.canOpenConsole,
@@ -64,6 +69,7 @@ export class AgentPlanRemoteTargets {
             ]
           : [];
       });
+    return [...remote, ...(await this.localTargets(userId, projectId))];
   }
 
   /**
@@ -117,6 +123,30 @@ export class AgentPlanRemoteTargets {
         !choices.some((choice) => choice.workspaceId === target.workspaceId)
       )
         throw new AgentError("plan_access_denied");
+  }
+  private async localTargets(
+    userId: string,
+    projectId: string,
+  ): Promise<readonly AgentPlanRemoteTarget[]> {
+    if (!this.local || !process.env.PAGES_LOCAL_RUNNER_CONFIG) return [];
+    const choices = await this.local.choices(userId);
+    const targets: AgentPlanRemoteTarget[] = [];
+    for (const choice of choices.filter(
+      (entry) => entry.projectId === projectId && entry.isUsable,
+    )) {
+      const workspace = await this.local.resolve(userId, choice.id);
+      targets.push({
+        kind: "remote",
+        connectionId: LOCAL_RUNNER_CONNECTION_ID,
+        connectionRevision: 1,
+        connectionName: "127.0.0.1",
+        workspaceId: workspace.id,
+        workspaceRevision: workspace.revision,
+        workspaceName: choice.name,
+        path: workspace.path,
+      });
+    }
+    return targets;
   }
 }
 

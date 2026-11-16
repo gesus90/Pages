@@ -1,7 +1,9 @@
+import { pagesTempDirectory } from "@/backend/config/PagesTempDirectory";
 import { randomBytes } from "node:crypto";
 import { constants } from "node:fs";
 import {
   chmod,
+  mkdir,
   mkdtemp,
   open,
   readdir,
@@ -50,6 +52,7 @@ export interface CliGitHubAccess {
 }
 
 interface GitHubPreparation {
+  readonly runner?: boolean;
   readonly instanceId: string;
   readonly access: AgentPlanGitHubAccess;
   readonly gh: string | null;
@@ -340,8 +343,15 @@ export class CliGitHubCredentials {
     try {
       if (!INSTANCE_PATTERN.test(input.instanceId))
         throw new AgentError("secret_unavailable");
+      const root = input.runner
+        ? pagesTempDirectory("runner-github")
+        : this.root;
+      if (input.runner) await mkdir(root, { recursive: true, mode: 0o700 });
       directory = await mkdtemp(
-        path.join(await realpath(this.root), `acp-github-${input.instanceId}-`),
+        path.join(
+          await realpath(root),
+          `${input.runner ? "runner" : "acp"}-github-${input.instanceId}-`,
+        ),
       );
       await chmod(directory, 0o700);
       return await this.configure(directory, input);
@@ -351,6 +361,30 @@ export class CliGitHubCredentials {
       if (directory !== null) await this.remove(directory);
       throw new AgentError("secret_unavailable");
     }
+  }
+
+  /** Removes only this runner's helpers after its confirmed process closeout. */
+  public async cleanupRunner(jobId: string): Promise<void> {
+    if (!INSTANCE_PATTERN.test(jobId))
+      throw new AgentError("secret_unavailable");
+    const root = pagesTempDirectory("runner-github");
+    const entries = await readdir(root, { withFileTypes: true }).catch(
+      (error: unknown) => {
+        if (
+          error instanceof Error &&
+          "code" in error &&
+          error.code === "ENOENT"
+        )
+          return [];
+        throw error;
+      },
+    );
+    for (const entry of entries)
+      if (
+        entry.isDirectory() &&
+        entry.name.startsWith(`runner-github-${jobId}-`)
+      )
+        await this.remove(path.join(root, entry.name));
   }
 
   /**

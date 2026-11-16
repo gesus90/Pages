@@ -1,4 +1,4 @@
-import { realpath, symlink, writeFile } from "node:fs/promises";
+import { readFile, realpath, symlink, writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import path from "node:path";
 
@@ -14,9 +14,34 @@ import type { AgentToolDefinition } from "./AgentToolRegistry";
 import type {
   AgentToolInstallation,
   AgentToolLocation,
+  AgentToolRelease,
   AgentToolStorage,
   AgentToolRunContext,
 } from "./AgentToolContracts";
+
+interface InstallContext extends AgentToolRunContext {
+  readonly target: AgentToolRelease | null;
+}
+
+interface LockEntry {
+  readonly version: unknown;
+  readonly integrity: unknown;
+}
+
+function lockEntry(lock: unknown, key: string): LockEntry | null {
+  if (typeof lock !== "object" || lock === null || !("packages" in lock))
+    return null;
+  const packages: unknown = lock.packages;
+  if (typeof packages !== "object" || packages === null) return null;
+  const entry: unknown = Object.entries(packages).find(
+    ([name]) => name === key,
+  )?.[1];
+  if (typeof entry !== "object" || entry === null) return null;
+  return {
+    version: "version" in entry ? entry.version : null,
+    integrity: "integrity" in entry ? entry.integrity : null,
+  };
+}
 
 /** Resolves the browser installed by the package, without a runtime download. */
 export const BROWSER_EXECUTABLE_SCRIPT = `
@@ -31,7 +56,7 @@ export class AgentToolInstaller implements AgentToolInstallation {
   private readonly locator: Pick<CliLocator, "locate">;
   private readonly runner: Pick<CliProcessRunner, "run">;
   private readonly resolve: (
-    id: "playwright_mcp",
+    id: "playwright_mcp" | "codex",
   ) => Promise<AgentToolLocation | null>;
 
   public constructor(input: {
@@ -39,7 +64,7 @@ export class AgentToolInstaller implements AgentToolInstallation {
     readonly locator: Pick<CliLocator, "locate">;
     readonly runner: Pick<CliProcessRunner, "run">;
     readonly resolve: (
-      id: "playwright_mcp",
+      id: "playwright_mcp" | "codex",
     ) => Promise<AgentToolLocation | null>;
   }) {
     this.files = input.files;
@@ -52,12 +77,17 @@ export class AgentToolInstaller implements AgentToolInstallation {
   public async install(
     tool: AgentToolDefinition,
     candidate: AgentToolLocation,
+    target: AgentToolRelease | null,
     signal: AbortSignal,
   ): Promise<void> {
     const runs = new AgentToolRunFiles(this.files);
     await runs.install(() =>
       runs.temporary((temporaryDirectory) =>
-        this.installRelease(tool, candidate, { signal, temporaryDirectory }),
+        this.installRelease(tool, candidate, {
+          signal,
+          temporaryDirectory,
+          target,
+        }),
       ),
     );
   }
@@ -65,17 +95,23 @@ export class AgentToolInstaller implements AgentToolInstallation {
   private async installRelease(
     tool: AgentToolDefinition,
     candidate: AgentToolLocation,
-    control: AgentToolRunContext,
+    control: InstallContext,
   ): Promise<void> {
-    const { signal, temporaryDirectory } = control;
+    const { signal, temporaryDirectory, target } = control;
     signal.throwIfAborted();
     if (!candidate.release) throw new Error("Missing managed release");
     if (process.getuid?.() === 0)
       throw new AgentToolReadinessError(tool.id, "failed", "root_not_allowed");
-    if (tool.id === "antigravity_acp") {
+    if (tool.release?.kind === "github") {
+      if (!target?.archiveUrl || !target.integrity)
+        throw new Error("Unresolved official archive");
       await installAntigravityRelease(
         {
           candidate,
+          binary: tool.binary,
+          member: tool.release.member,
+          archiveUrl: target.archiveUrl,
+          digest: target.integrity,
           files: this.files,
           locator: this.locator,
           runner: this.runner,
@@ -89,22 +125,31 @@ export class AgentToolInstaller implements AgentToolInstallation {
       await this.browser(tool, candidate, control);
       return;
     }
-    if (!tool.packageName || !tool.version)
+    await this.npmPackage(tool, candidate.release, control);
+  }
+
+  private async npmPackage(
+    tool: AgentToolDefinition,
+    release: string,
+    control: InstallContext,
+  ): Promise<void> {
+    const { signal, temporaryDirectory, target } = control;
+    const version = target?.version ?? tool.version;
+    if (!tool.packageName || !version)
       throw new Error("Host provisioning required");
     const npm = await this.locator.locate("npm");
     if (!npm.path) throw new Error("npm is unavailable");
     await writeFile(
-      path.join(candidate.release, "package.json"),
+      path.join(release, "package.json"),
       JSON.stringify({
         private: true,
-        dependencies: { [tool.packageName]: tool.version },
-        overrides:
-          tool.id === "codex_acp" ? { "@openai/codex": "0.160.1" } : {},
+        dependencies: { [tool.packageName]: version },
+        overrides: await this.overrides(tool, target),
       }),
       { mode: 0o600, flag: "wx" },
     );
     for (const name of [".npm-user.rc", ".npm-global.rc"])
-      await writeFile(path.join(candidate.release, name), "", {
+      await writeFile(path.join(release, name), "", {
         mode: 0o600,
         flag: "wx",
       });
@@ -113,7 +158,7 @@ export class AgentToolInstaller implements AgentToolInstallation {
       arguments: [
         "install",
         "--prefix",
-        candidate.release,
+        release,
         "--registry=https://registry.npmjs.org",
         "--no-audit",
         "--no-fund",
@@ -121,14 +166,44 @@ export class AgentToolInstaller implements AgentToolInstallation {
       ],
       provider: "codex_cli",
       home: await this.files.home(),
-      environment: this.environment(candidate.release, temporaryDirectory),
+      environment: this.environment(release, temporaryDirectory),
       signal,
       stdin: "ignore",
       timeoutMs: 180_000,
     });
     if (result.exitCode !== 0 || result.errorCode)
       throw new Error("Managed npm installation failed");
-    await this.postinstall(tool, candidate.release, control);
+    await this.requireIntegrity(tool, release, target);
+    await this.postinstall(tool, release, control);
+  }
+
+  // The bundled CLI of codex-acp is pinned to the CLI generation it runs with.
+  private async overrides(
+    tool: AgentToolDefinition,
+    target: AgentToolRelease | null,
+  ): Promise<Readonly<Record<string, string>>> {
+    if (tool.id !== "codex_acp") return {};
+    const version =
+      target?.cliVersion ?? (await this.resolve("codex"))?.version;
+    return version ? { "@openai/codex": version } : {};
+  }
+
+  // npm records the integrity of what it unpacked; it has to equal the registry's proof.
+  private async requireIntegrity(
+    tool: AgentToolDefinition,
+    release: string,
+    target: AgentToolRelease | null,
+  ): Promise<void> {
+    if (!target?.integrity || !tool.packageName) return;
+    const lock: unknown = JSON.parse(
+      await readFile(path.join(release, "package-lock.json"), "utf8"),
+    );
+    const entry = lockEntry(lock, `node_modules/${tool.packageName}`);
+    if (
+      entry?.version !== target.version ||
+      entry.integrity !== target.integrity
+    )
+      throw new Error("Package integrity mismatch");
   }
 
   private environment(

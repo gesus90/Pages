@@ -15,6 +15,9 @@ import { validatePlanParameterContext } from "./AgentPlanParameterContext";
 import { planStepDirectory } from "./AgentPlanSnapshot";
 
 import type { CodexAgentBudget } from "./usage/CodexAgentBudget";
+import type { RemotePlanParameters } from "./AgentPlanRemoteParameters";
+import type { RunnerExecution } from "@/definition/RunnerExecution";
+import type { AgentPlanRemoteTarget } from "@/definition/AgentPlanExecution";
 import type { AgentTicketInput } from "@/definition/AgentTicketParameter";
 import type { AgentSessionStart } from "./sessions/AgentSessionAttempts";
 import type { TextExecutionInput } from "@/backend/agents/TextExecution";
@@ -41,13 +44,20 @@ import type {
 
 /** A working directory is a separate process contract, never a prompt convention. */
 export interface AgentPlanExecutionInput extends TextExecutionInput {
-  /** Server-created identity of the attempt whose real native owner records this turn. */
   /** Server-authorized host owner; absent for every isolated node and conversation. */
   readonly fullEnvironment?: {
     readonly ownerId: string;
     readonly ownerName: string;
   };
+  /** Server-created identity of the attempt whose real native owner records this turn. */
   readonly recording?: AgentSessionStart;
+  readonly runnerWorkspaceId?: string;
+  readonly runnerTimeoutSeconds?: number;
+  /** Current authorized remote file bindings, including group aliases. */
+  readonly runnerParameters?: RemotePlanParameters;
+  /** Frozen runner command for a remote session; no local provider may replace it. */
+  readonly runnerCommand?: RunnerExecution;
+  readonly runnerTarget?: AgentPlanRemoteTarget;
   /** The original rendered acceptance instruction, retained privately by a native owner. */
   readonly acceptanceInstruction?: string;
   /** Ownership retained across queued starts and group turns; contains no credentials. */
@@ -56,6 +66,8 @@ export interface AgentPlanExecutionInput extends TextExecutionInput {
     readonly runId: string;
     readonly stepId: string;
     readonly sessionScopeId?: string;
+    /** Explicit shared workspace of a swarm coordinator and its authorized helpers. */
+    readonly sharedWorkspaceScopeId?: string;
     /** The failed run a native recovery resumes; its transcripts move to this run. */
     readonly sourceRunId?: string;
     /** The ended predecessor whose stale reservations an explicit resume releases. */
@@ -196,14 +208,7 @@ export class AgentPlanStepStart {
       run.userId,
       selection,
     );
-    if (
-      (step.connectionId !== undefined &&
-        resolved.assignment.connection.id !== step.connectionId) ||
-      resolved.assignment.connection.provider !== step.provider ||
-      resolved.assignment.model !== step.model ||
-      resolved.assignment.reasoningEffort !== step.reasoningEffort
-    )
-      throw new AgentError("plan_context_changed");
+    this.requireContextMatch(step, resolved);
     for (const taskId of step.taskIds)
       await this.dependencies.tasks.snapshot(
         run.userId,
@@ -256,6 +261,8 @@ export class AgentPlanStepStart {
         userId: run.userId,
         fullEnvironment,
         directory: directory?.path ?? null,
+        runnerWorkspaceId: directory?.id ?? step.prepared.workspace.id,
+        runnerTimeoutSeconds: options.timeoutMinutes * 60,
         ...stepGitHubAccess({
           github: this.dependencies.github,
           step,
@@ -276,6 +283,20 @@ export class AgentPlanStepStart {
       options,
       instruction: parameters.instruction,
     };
+  }
+
+  private requireContextMatch(
+    step: AgentPlanStepSnapshot,
+    resolved: Awaited<ReturnType<AgentProfileService["resolveDefinition"]>>,
+  ): void {
+    if (
+      (step.connectionId !== undefined &&
+        resolved.assignment.connection.id !== step.connectionId) ||
+      resolved.assignment.connection.provider !== step.provider ||
+      resolved.assignment.model !== step.model ||
+      resolved.assignment.reasoningEffort !== step.reasoningEffort
+    )
+      throw new AgentError("plan_context_changed");
   }
 
   private async fullEnvironment(

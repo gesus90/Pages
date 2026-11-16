@@ -1,6 +1,8 @@
-import { cleanupPagesFiles } from "./pages.mjs";
 import { readdir, readFile, readlink, rm } from "node:fs/promises";
 import { join } from "node:path";
+
+import { freezeScope, stopScope } from "./cgroups.mjs";
+import { cleanupPagesFiles } from "./pages.mjs";
 import { removeRunnerTemporaryDirectory } from "./temporary.mjs";
 import { identity, readRecord, readOwnedLaunch, store } from "./journal.mjs";
 
@@ -154,8 +156,14 @@ export async function cleanup(folder, jobId, options = {}) {
       return failedCleanup(options, "process_scan_unavailable");
     return "confirmed";
   }
-  if (launch?.boundary === "pid_namespace" && !isNamespace)
+  if (launch?.boundary === "pid_namespace" && !isNamespace) {
+    if (launch.cgroup) {
+      const closeout = await stopScope(launch.cgroup, jobId);
+      if (closeout !== "confirmed")
+        return failedCleanup(options, "exit_timeout");
+    }
     return settleSupervisor(folder, launch, options);
+  }
   if (!isNamespace) return failedCleanup(options, "process_scan_unavailable");
   const tracked = new Map();
   let isConfirmed = true;
@@ -190,44 +198,46 @@ export async function cleanup(folder, jobId, options = {}) {
   return failedCleanup(options, "exit_timeout");
 }
 
-/** Suspends only the original host-owned worker and its descendants, preserving all runtime files. */
+/** Records actual cgroup state; unsupported hosts never claim an in-turn pause. */
 export async function pauseExecution(folder, isPaused) {
   const launch = await readOwnedLaunch(folder);
-  if (!launch || launch.boundary === "not_started") return;
-  if (
-    launch.boundary !== "pid_namespace" ||
-    (await identity(launch.processId)) !== launch.identity
-  )
-    return;
+  if (!launch || launch.boundary === "not_started") return null;
   const file = join(folder, "pause.json");
   const previous = await readRecord(file);
-  if (previous?.isPaused !== isPaused) {
-    const now = Date.now();
-    await store(file, {
-      isPaused,
-      startedAt: isPaused ? now : null,
-      totalMilliseconds:
-        (previous?.totalMilliseconds ?? 0) +
-        (previous?.isPaused ? now - previous.startedAt : 0),
-    });
-  }
-  if (isPaused) process.kill(launch.processId, "SIGSTOP");
-  const pending = [launch.processId];
-  const records = [];
-  for (const pid of pending) {
-    try {
-      const record = await processRecord(pid);
-      records.push(record);
-      const children = await readFile(
-        `/proc/${pid}/task/${pid}/children`,
-        "utf8",
+  if (
+    await readRecord(
+      join(folder, "..", `${folder.split("/").at(-1)}.cancel.json`),
+    )
+  )
+    return null;
+  if (
+    (!launch.cgroup && previous?.state === "unavailable") ||
+    (previous?.isPaused === isPaused &&
+      ["frozen", "thawed"].includes(previous.state))
+  )
+    return previous;
+  let state = "unavailable";
+  try {
+    if (launch.cgroup)
+      state = await freezeScope(
+        launch.cgroup,
+        folder.split("/").at(-1),
+        isPaused,
       );
-      for (const child of children.trim().split(/\s+/).map(Number))
-        if (child > 0 && !pending.includes(child)) pending.push(child);
-    } catch (error) {
-      if (!vanished(error)) throw error;
-    }
+  } catch {
+    state = "failed";
   }
-  if (!(await signalOwned(records.reverse(), isPaused ? "SIGSTOP" : "SIGCONT")))
-    throw new Error("Runner suspension could not be confirmed");
+  const isFrozen = state === "frozen";
+  const now = Date.now();
+  const result = {
+    state,
+    isPaused: isFrozen,
+    observedAt: new Date(now).toISOString(),
+    startedAt: isFrozen ? (previous?.startedAt ?? now) : null,
+    totalMilliseconds:
+      (previous?.totalMilliseconds ?? 0) +
+      (previous?.isPaused && !isFrozen ? now - previous.startedAt : 0),
+  };
+  await store(file, result);
+  return result;
 }

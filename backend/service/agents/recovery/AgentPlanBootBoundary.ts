@@ -77,7 +77,13 @@ export async function hasEndedWithReboot(
   run: AgentPlanRun,
   bootTime: () => Promise<number> = readBootTime,
 ): Promise<boolean> {
-  if (isActivePlanRun(run.status)) return false;
+  if (
+    isActivePlanRun(run.status) ||
+    allPlanRunResults(run).some(
+      (step) => step.execution?.target.kind === "remote" || step.remote,
+    )
+  )
+    return false;
   try {
     return predatesBoot(run, await bootTime());
   } catch (error: unknown) {

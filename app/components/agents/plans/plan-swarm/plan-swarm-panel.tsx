@@ -2,7 +2,8 @@ import { useTranslation } from "react-i18next";
 
 import { PlanFloatingPanel } from "../plan-floating-panel";
 import { PlanSwarmExecutionSection } from "./plan-swarm-execution";
-import { PlanSwarmRun } from "./plan-swarm-run";
+import { PlanSwarmMemorySection } from "./plan-swarm-memory-settings";
+import { PlanSwarmRunTabs } from "./plan-swarm-memory-tabs";
 import {
   PlanSwarmHeading,
   PlanSwarmMainSection,
@@ -28,7 +29,9 @@ function PlanSwarmRunSection(props: {
   return (
     <section className="flex flex-col gap-2" data-plan-swarm-section="run">
       <PlanSwarmHeading>{t("plans.swarm.sections.run")}</PlanSwarmHeading>
-      <PlanSwarmRun
+      <PlanSwarmRunTabs
+        runId={props.run.id}
+        stepId={props.swarm.id}
         run={step?.swarm}
         workerCount={props.swarm.workers.count}
         error={step?.status === "failed" ? step.error : null}
@@ -41,7 +44,7 @@ function PlanSwarmRunSection(props: {
  * The floating settings panel of a swarm.
  * @remarks
  * Its sections follow the order Aufgabe → Hauptmodell → Helfer →
- * Ausführung. Changes go into the plan draft at once and are stored when the
+ * Ausführung → Gedächtnis. Changes go into the plan draft at once and are stored when the
  * plan is saved; the panel starts nothing.
  */
 export function PlanSwarmPanel(props: {
@@ -80,6 +83,8 @@ export function PlanSwarmPanel(props: {
       <PlanSwarmWorkersSection {...sections} />
       <hr className="border-border" />
       <PlanSwarmExecutionSection {...sections} />
+      <hr className="border-border" />
+      <PlanSwarmMemorySection {...sections} />
       {props.run ? (
         <>
           <hr className="border-border" />

@@ -99,6 +99,8 @@ function runtimeFingerprint(input: AgentPlanSessionInput): string {
   return JSON.stringify({
     adapter: input.agent.connection.provider,
     connection: input.agent.connection.id,
+    runnerConnection: input.runnerTarget?.connectionId,
+    runnerAccount: input.runnerCommand?.agentAccount?.id,
     model: input.agent.model,
     effort: input.agent.reasoningEffort,
     user: input.userId,
@@ -154,6 +156,10 @@ export class AgentPlanGroupSessions {
       readonly started: GroupSession["started"];
       readonly stepId: string;
       readonly turns?: number;
+      readonly runnerIdentity?: {
+        readonly connectionId: string;
+        readonly accountId?: string;
+      };
     },
   ): void {
     const { record, session } = input;
@@ -182,6 +188,8 @@ export class AgentPlanGroupSessions {
       fingerprint: JSON.stringify({
         adapter: record.runner,
         connection: requested.connectionId,
+        runnerConnection: input.runnerIdentity?.connectionId,
+        runnerAccount: input.runnerIdentity?.accountId,
         model: requested.model,
         effort: requested.reasoningEffort,
         user: input.userId,
@@ -312,7 +320,7 @@ export class AgentPlanGroupSessions {
     if (isReopened && !resume) throw new AgentError("plan_group_session_lost");
     const resumed = resumedSessionFields(resume, input, isReopened);
     const controller = new AbortController();
-    const cancel = (): void => controller.abort();
+    const cancel = (): void => controller.abort(signal.reason);
     signal.addEventListener("abort", cancel, { once: true });
     let started: GroupSession["started"] = null;
     const hasProcessStarted = (): boolean => started !== null;

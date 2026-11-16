@@ -3,6 +3,11 @@ import { RUN_INSTANCE_VARIABLE } from "@/backend/agents/cli/CliProcessScan";
 import { PAGES_MCP_SERVER, pagesMcpServers } from "./AcpLaunch";
 import { approvePermission, refusePermission } from "./AcpPermissions";
 import { requireManagedAntigravityConfiguration } from "./AntigravityConfiguration";
+import {
+  ANTIGRAVITY_MINIMUM_VERSION,
+  antigravityAcpArguments,
+  isSupportedAntigravityAcp,
+} from "./AntigravityAcpLaunch";
 
 import type { RequestPermissionRequest } from "@agentclientprotocol/sdk";
 import type {
@@ -13,9 +18,6 @@ import type {
   AcpSessionProfile,
 } from "./AcpDriver";
 import type { AcpPermissionMode } from "@/definition/AgentConfiguration";
-
-/** Registry release reviewed together with its bundled localharness runtime. */
-export const ANTIGRAVITY_ACP_VERSION = "1.4.4";
 
 /** Only reading and web tools exist in the read-only plan profile. */
 export const ANTIGRAVITY_READ_TOOLS = [
@@ -181,12 +183,12 @@ const OBSERVER_PROFILE: AcpSessionProfile = {
   decide: refusePermission,
 };
 
-/** The official adapter, shared with the existing plan session lifecycle. */
+/** The official `agy acp` entry point, shared with the existing plan session lifecycle. */
 export const ANTIGRAVITY_ACP_DRIVER: AcpDriver = {
   provider: "antigravity",
-  binary: "agy_acp_server.par",
-  arguments: ["--uid="],
-  supportedVersions: ANTIGRAVITY_ACP_VERSION,
+  binary: "agy",
+  launchArguments: antigravityAcpArguments,
+  supportedVersions: `${ANTIGRAVITY_MINIMUM_VERSION} or later`,
   errors: {
     modeRequired: "plan_permission_mode_unenforceable",
     adapterMissing: "cli_not_found",
@@ -194,9 +196,7 @@ export const ANTIGRAVITY_ACP_DRIVER: AcpDriver = {
     sessionFailed: "antigravity_acp_session_failed",
   },
   steeringMeta: null,
-  isSupportedAdapter: (agent): agent is NonNullable<typeof agent> =>
-    agent?.name === "antigravity-acp" &&
-    agent.version === ANTIGRAVITY_ACP_VERSION,
+  isSupportedAdapter: isSupportedAntigravityAcp,
   profile: (mode, purpose) => {
     if (purpose === "observer") return OBSERVER_PROFILE;
     if (purpose !== "chat") return profile(mode);

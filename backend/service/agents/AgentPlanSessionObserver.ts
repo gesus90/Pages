@@ -48,6 +48,7 @@ export function createPlanSessionObserver(
       if (!node.record) return;
       write({
         mode: details.mode,
+        ...(details.runnerJob ? { runnerJob: details.runnerJob } : {}),
         processId: details.processId,
         ...(details.namespace ? { namespace: details.namespace } : {}),
         startedAt: details.startedAt,

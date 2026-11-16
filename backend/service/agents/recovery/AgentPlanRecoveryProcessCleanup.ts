@@ -8,7 +8,7 @@ import { needsNoSessionScan } from "../AgentPlanRecovery";
 import { cleanupScanFailure } from "../AgentPlanCleanupFailure";
 
 import type { readScopeSince } from "@/backend/agents/cli/CliProcessScan";
-import type { AgentPlanRun } from "@/definition/AgentPlan";
+import type { AgentPlanRun, AgentPlanStepResult } from "@/definition/AgentPlan";
 import type { AcpResourceScheduler } from "../AcpResourceScheduler";
 import type { AgentPlanRemoteExecution } from "../AgentPlanRemoteExecution";
 
@@ -39,7 +39,10 @@ export class AgentPlanRecoveryProcessCleanup {
    * @param run - The run whose remote results are checked.
    */
   public async requestRemoteCleanup(run: AgentPlanRun): Promise<void> {
-    if (allPlanRunResults(run).some(isRemoteCloseoutUnconfirmed))
+    if (
+      run.runnerJobs?.some((job) => job.closeout !== "confirmed") ||
+      allPlanRunResults(run).some(isRemoteCloseoutUnconfirmed)
+    )
       await this.dependencies.remoteExecution?.stop(run);
   }
 
@@ -55,34 +58,7 @@ export class AgentPlanRecoveryProcessCleanup {
     scope: Awaited<ReturnType<typeof readScopeSince>> | null,
   ): Promise<void> {
     for (const step of allPlanRunResults(run)) {
-      if (step.execution?.target.kind === "remote" || step.script) continue;
-      const instanceId = step.session?.instanceId;
-      const closeout = step.session?.closeout;
-      if (instanceId === undefined || closeout === "confirmed") continue;
-      const session = step.session;
-      // A turn refused before its start owns no process; the record that opened a shared session accounts for it.
-      if (session && needsNoSessionScan(session)) continue;
-      const cleanup = await (
-        session && session.runner !== "api" && session.namespace
-          ? settleOwnedNamespace(session.namespace, instanceId).then(
-              (ended) => ({
-                remaining: ended ? 0 : 1,
-              }),
-            )
-          : endTaggedProcesses(instanceId, scope)
-      ).catch((caughtError: unknown) => {
-        logCaughtError("AgentPlanRecoveryActions", caughtError);
-        throw new AgentPlanRecoveryError(
-          "cleanup_unconfirmed",
-          cleanupScanFailure(step.id, "local_session", caughtError),
-        );
-      });
-      if (cleanup.remaining > 0)
-        throw new AgentPlanRecoveryError("cleanup_unconfirmed", {
-          stepId: step.id,
-          kind: "local_session",
-          reason: "processes_remaining",
-        });
+      await this.endStepProcesses(step, scope);
     }
   }
 
@@ -109,5 +85,52 @@ export class AgentPlanRecoveryProcessCleanup {
       logCaughtError("AgentPlanRecoveryActions", error);
       throw new AgentPlanRecoveryError("cleanup_unconfirmed");
     }
+  }
+
+  private async endStepProcesses(
+    step: AgentPlanStepResult,
+    scope: Awaited<ReturnType<typeof readScopeSince>> | null,
+  ): Promise<void> {
+    if (
+      step.session?.runnerOwned ||
+      step.session?.runnerJob ||
+      step.execution?.target.kind === "remote" ||
+      step.script
+    )
+      return;
+    const instanceId = step.session?.instanceId;
+    const closeout = step.session?.closeout;
+    if (instanceId === undefined || closeout === "confirmed") return;
+    const session = step.session;
+    // A turn refused before its start owns no process; the record that opened a shared session accounts for it.
+    if (session && needsNoSessionScan(session)) return;
+    const cleanup = await this.settleStep(session, instanceId, scope, step.id);
+    if (cleanup.remaining > 0)
+      throw new AgentPlanRecoveryError("cleanup_unconfirmed", {
+        stepId: step.id,
+        kind: "local_session",
+        reason: "processes_remaining",
+      });
+  }
+
+  private async settleStep(
+    session: AgentPlanStepResult["session"],
+    instanceId: string,
+    scope: Awaited<ReturnType<typeof readScopeSince>> | null,
+    stepId: string,
+  ): Promise<{ readonly remaining: number }> {
+    return (
+      session && session.runner !== "api" && session.namespace
+        ? settleOwnedNamespace(session.namespace, instanceId).then((ended) => ({
+            remaining: ended ? 0 : 1,
+          }))
+        : endTaggedProcesses(instanceId, scope)
+    ).catch((caughtError: unknown) => {
+      logCaughtError("AgentPlanRecoveryActions", caughtError);
+      throw new AgentPlanRecoveryError(
+        "cleanup_unconfirmed",
+        cleanupScanFailure(stepId, "local_session", caughtError),
+      );
+    });
   }
 }

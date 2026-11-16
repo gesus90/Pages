@@ -37,6 +37,11 @@ const playwright = load('playwright');
 });
 `;
 
+/** The scratch directory of one check and the CLI generation an adapter is checked with. */
+interface CheckContext extends AgentToolRunContext {
+  readonly cli?: AgentToolLocation;
+}
+
 const READY: AgentToolHealth = {
   status: "ready",
   diagnostic: "ready",
@@ -80,11 +85,12 @@ export class AgentToolHealthService implements AgentToolHealthChecks {
     tool: AgentToolDefinition,
     location: AgentToolLocation,
     signal: AbortSignal,
+    cli?: AgentToolLocation,
   ): Promise<AgentToolHealth> {
     try {
       return await new AgentToolRunFiles(this.files).temporary(
         (temporaryDirectory) =>
-          this.inspect(tool, location, { signal, temporaryDirectory }),
+          this.inspect(tool, location, { signal, temporaryDirectory, cli }),
       );
     } catch (error: unknown) {
       if (error instanceof AgentToolReadinessError)
@@ -106,20 +112,36 @@ export class AgentToolHealthService implements AgentToolHealthChecks {
   private async inspect(
     tool: AgentToolDefinition,
     location: AgentToolLocation,
-    control: AgentToolRunContext,
+    control: CheckContext,
   ): Promise<AgentToolHealth> {
     control.signal.throwIfAborted();
     if (tool.probe === "sandbox") return this.sandbox(control);
     await access(location.file, constants.X_OK);
     if (tool.probe === "browser") return this.browser(tool, location, control);
-    if (tool.id === "antigravity_acp")
-      await access(
-        path.join(path.dirname(location.file), "localharness_external"),
-        constants.X_OK,
-      );
+    if (tool.hasIntegratedAdapter && tool.probe === "acp")
+      return this.integrated(tool, location, control);
     if (tool.probe === "acp" || tool.probe === "mcp")
       return this.protocol(tool, location, control);
     return this.version(tool, location, control);
+  }
+
+  // A CLI with its own ACP entry point: the started binary's version and its handshake must agree.
+  private async integrated(
+    tool: AgentToolDefinition,
+    location: AgentToolLocation,
+    control: CheckContext,
+  ): Promise<AgentToolHealth> {
+    const cli = await this.version(tool, location, control);
+    if (cli.status !== "ready") return cli;
+    const handshake = await this.protocol(tool, location, control);
+    if (handshake.status !== "ready") return handshake;
+    return handshake.version === cli.version
+      ? handshake
+      : {
+          status: "unsupported",
+          diagnostic: "version_unsupported",
+          version: cli.version,
+        };
   }
 
   private async version(
@@ -175,11 +197,16 @@ export class AgentToolHealthService implements AgentToolHealthChecks {
   private async protocol(
     tool: AgentToolDefinition,
     location: AgentToolLocation,
-    control: AgentToolRunContext,
+    control: CheckContext,
   ): Promise<AgentToolHealth> {
-    const runner = tool.id === "codex_acp" ? await this.resolve("codex") : null;
+    const runner =
+      tool.id === "codex_acp"
+        ? (control.cli ?? (await this.resolve("codex")))
+        : null;
     const claude =
-      tool.id === "claude_acp" ? await this.resolve("claude") : null;
+      tool.id === "claude_acp"
+        ? (control.cli ?? (await this.resolve("claude")))
+        : null;
     const reported = await new AgentToolProtocolProbe(this.runner).check({
       tool,
       file: location.file,
@@ -291,6 +318,7 @@ export class AgentToolHealthService implements AgentToolHealthChecks {
 function healthProvider(tool: AgentToolDefinition): CliProviderId {
   if (tool.id === "claude") return "claude_code";
   if (tool.id === "opencode") return "opencode";
+  if (tool.id === "antigravity_acp") return "antigravity";
   return "codex_cli";
 }
 

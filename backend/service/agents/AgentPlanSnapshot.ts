@@ -61,6 +61,8 @@ export interface AgentPlanRecoveryDirective {
 
 /** Each server-only execution basis is appended once; no basis is overwritten or sent as a run response. */
 export interface AgentPlanSnapshot {
+  /** All new work uses runner workers; absent only in historical snapshots. */
+  readonly runnerProtocolVersion?: 1;
   /** Invalid configuration fails only when its node is reached; a corrected revision can be resumed. */
   readonly preparationFailures?: Readonly<Record<string, string>>;
   readonly remoteSteps?: readonly RemotePlanStep[];

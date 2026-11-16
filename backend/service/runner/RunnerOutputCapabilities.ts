@@ -1,3 +1,7 @@
+import {
+  RUNNER_RELEASE,
+  RUNNER_PREVIOUS_RELEASE,
+} from "@/definition/RunnerMaintenance";
 import { AgentError } from "@/backend/error/AgentErrors";
 
 import type { RunnerExecution } from "@/definition/RunnerExecution";
@@ -14,6 +18,12 @@ export function requireRunnerOutputExecutor(input: {
   readonly runnerVersion?: string;
 }): void {
   const { execution } = input;
+  if (
+    ![RUNNER_RELEASE, RUNNER_PREVIOUS_RELEASE].includes(
+      input.runnerVersion ?? "",
+    )
+  )
+    throw new AgentError("plan_runner_update_required");
   if (!input.isOnline) throw new AgentError("plan_remote_unavailable");
   if (
     execution &&

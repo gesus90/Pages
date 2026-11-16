@@ -80,10 +80,13 @@ export class AgentPlanSwarmService {
       operation,
       parameters: this.withoutWait(operation, parameters),
     };
-    const first = await this.call(call);
     const seconds =
       operation === "run.swarm.status" ? waitSeconds(parameters) : 0;
-    if (seconds === 0) return first;
+    if (seconds === 0) return this.call(call);
+    // The polls leave the memory changes alone; only the answer that is
+    // returned appends them, so none is marked read without being shown.
+    const poll: SwarmCall = { ...call, appendsMemory: false };
+    const first = await this.call(poll);
     const now = this.dependencies.now ?? Date.now;
     const sleep = this.dependencies.sleep ?? sleepFor;
     const deadline = now() + seconds * 1000;
@@ -91,9 +94,9 @@ export class AgentPlanSwarmService {
     let latest = first;
     while (now() < deadline && versionOf(latest) === version) {
       await sleep(Math.min(STATUS_POLL_MS, Math.max(0, deadline - now())));
-      latest = await this.call(call);
+      latest = await this.call(poll);
     }
-    return latest;
+    return this.call(call);
   }
 
   private withoutWait(
@@ -107,7 +110,7 @@ export class AgentPlanSwarmService {
   private async call(call: SwarmCall): Promise<unknown> {
     try {
       if (this.dependencies.local.has(call.runId, call.stepId))
-        return this.dependencies.local.handle(call);
+        return await this.dependencies.local.handle(call);
       if (!this.dependencies.forward) throw new SwarmCallError("FORBIDDEN");
       return await this.dependencies.forward(call);
     } catch (error: unknown) {

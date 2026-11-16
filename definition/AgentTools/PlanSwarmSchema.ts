@@ -110,4 +110,16 @@ export const SWARM_FIELDS: ToolProperties = {
     description:
       "swarm: the time limit of the whole node. A remote execution target is refused with swarm_remote_unsupported.",
   },
+  memory: {
+    type: "object",
+    description:
+      "swarm: the shared memory of the helpers. enabled gives the run a versioned memory (more context per turn costs tokens); workersPublish lets helpers publish findings, blockers, handoffs and proposals; keepAfterEnd keeps the entries after a succeeded or cancelled run. Absent means on from two helpers, with both options on.",
+    properties: {
+      enabled: { type: "boolean" },
+      workersPublish: { type: "boolean" },
+      keepAfterEnd: { type: "boolean" },
+    },
+    required: ["enabled", "workersPublish", "keepAfterEnd"],
+    additionalProperties: false,
+  },
 };

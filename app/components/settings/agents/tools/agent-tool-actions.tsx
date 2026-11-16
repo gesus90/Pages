@@ -17,13 +17,37 @@ const INSTALLABLE = [
   "claude",
   "opencode",
   "codex_acp",
+  "claude_acp",
   "antigravity_acp",
   "playwright_mcp",
   "chromium",
   "firefox",
 ];
+// Tools that connections start; re-binding checks those connections again.
+const CONNECTION_TOOLS = [
+  "codex",
+  "claude",
+  "opencode",
+  "codex_acp",
+  "claude_acp",
+  "antigravity_acp",
+];
 
-/** Offers only fixed operations; active-process protection is also enforced by the service. */
+function actionsOf(tool: AgentToolView): readonly AgentToolAction[] {
+  const actions = INSTALLABLE.includes(tool.id)
+    ? [...CHECK_ACTIONS, ...MANAGED_ACTIONS]
+    : [...CHECK_ACTIONS];
+  return CONNECTION_TOOLS.includes(tool.id) ? [...actions, "rebind"] : actions;
+}
+
+// An external installation stays untouched; installing creates Pages' own managed one.
+function actionLabel(tool: AgentToolView, action: AgentToolAction): string {
+  return action === "install" && tool.source === "system"
+    ? "agentTools.actions.installManaged"
+    : `agentTools.actions.${action}`;
+}
+
+/** Offers only fixed operations; rights, serialization and active-process protection are enforced by the service. */
 export function AgentToolActions({
   tool,
   isPending,
@@ -32,12 +56,9 @@ export function AgentToolActions({
   readonly isPending: boolean;
 }): React.ReactElement {
   const { t } = useTranslation();
-  const actions = INSTALLABLE.includes(tool.id)
-    ? [...CHECK_ACTIONS, ...MANAGED_ACTIONS]
-    : CHECK_ACTIONS;
   return (
     <>
-      {actions.map((action) => (
+      {actionsOf(tool).map((action) => (
         <Button
           key={action}
           type="submit"
@@ -52,7 +73,7 @@ export function AgentToolActions({
             (action === "remove" && tool.activities.length > 0)
           }
         >
-          {t(`agentTools.actions.${action}`)}
+          {t(actionLabel(tool, action))}
         </Button>
       ))}
       {tool.id === "playwright_mcp" || tool.id === "firefox" ? (

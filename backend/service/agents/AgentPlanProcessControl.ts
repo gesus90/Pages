@@ -3,7 +3,8 @@ import { allPlanRunResults } from "@/definition/AgentPlanLoopResults";
 
 import { controlOwnedScript } from "./AgentPlanScriptOwner";
 
-import type { AgentPlanRun } from "@/definition/AgentPlan";
+import type { AgentPlanRun, AgentPlanStepResult } from "@/definition/AgentPlan";
+import type { AcpNamespaceOwner } from "@/definition/AcpResource";
 
 /** Applies reversible process control to every owned agent and script, including loop members. */
 export async function controlPlanProcesses(
@@ -12,13 +13,14 @@ export async function controlPlanProcesses(
 ): Promise<void> {
   if (run.stopRequested && action !== "stop") return;
   const namespaces = new Map(
-    allPlanRunResults(run).flatMap((step) => {
-      const owner = step.session?.namespace ?? step.script?.namespace;
-      return owner && !step.remote ? [[owner.pid, owner] as const] : [];
-    }),
+    allPlanRunResults(run).flatMap((step) => namespaceOwnerEntry(step)),
   );
   const scripts = allPlanRunResults(run).filter(
-    (step) => step.script?.closeout === "pending",
+    (step) =>
+      step.execution?.target.kind !== "remote" &&
+      step.script?.closeout === "pending" &&
+      !step.script.runnerOwned &&
+      !step.script.runnerJob,
   );
   await Promise.all(
     scripts.map((step) =>
@@ -38,4 +40,25 @@ export async function controlPlanProcesses(
   );
   const failure = results.find((result) => result.status === "rejected");
   if (failure?.status === "rejected") throw failure.reason;
+}
+
+function isRunnerOwnedStep(step: AgentPlanStepResult): boolean {
+  if (
+    step.session?.runnerOwned ||
+    step.session?.runnerJob ||
+    step.script?.runnerOwned ||
+    step.script?.runnerJob ||
+    step.execution?.target.kind === "remote"
+  )
+    return true;
+  return false;
+}
+
+function namespaceOwnerEntry(
+  step: AgentPlanStepResult,
+): readonly (readonly [number, AcpNamespaceOwner])[] {
+  if (isRunnerOwnedStep(step)) return [];
+  const owner = step.session?.namespace ?? step.script?.namespace;
+  if (!owner || step.remote) return [];
+  return [[owner.pid, owner]];
 }

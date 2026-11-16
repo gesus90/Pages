@@ -1,9 +1,10 @@
 import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { Link, useLoaderData, useRevalidator } from "react-router";
+import { Link, useFetcher, useLoaderData, useRevalidator } from "react-router";
 
 import { useLocalStateRoute } from "@/app/components/common/use-local-state-route";
 import { AgentToolCard } from "@/app/components/settings/agents/tools/agent-tool-card";
+import { Button } from "@/app/components/ui/button";
 import {
   isCurrentLocalStateAudience,
   isLocalStateAudience,
@@ -14,6 +15,7 @@ import {
 } from "@/app/lib/local-state/local-state-loader";
 import { readRouteData } from "@/app/lib/local-state/route-data";
 import { sendToBackend } from "@/app/lib/backend-request";
+import { AGENT_TOOL_CHECK_UPDATES } from "@/definition/AgentTools";
 
 import type { LocalStateRouteKind } from "@/app/components/common/use-local-state-route";
 import type { LocalStateAudience } from "@/app/lib/local-state/local-state-audience";
@@ -43,8 +45,8 @@ function isAgentToolsData(value: unknown): value is AgentToolsData {
 
 /** The tool inventory, kept per account and rights, the admin mode included. */
 const SETTINGS_AGENT_TOOLS_STATE: LocalStateRouteKind<AgentToolsData> = {
-  // 2: tools name their executable, rollback generation and terminal entry.
-  schemaVersion: 2,
+  // 3: tools name their releases, last operation and re-bound connections.
+  schemaVersion: 3,
   isPayload: isAgentToolsData,
   isCurrent: (inventory) => isCurrentLocalStateAudience(inventory.audience),
   ownerOf: (inventory) => inventory.audience.userId,
@@ -75,6 +77,33 @@ export async function clientAction({
   request,
 }: Route.ClientActionArgs): Promise<unknown> {
   return sendToBackend(request);
+}
+
+// Reads release metadata of the fixed official sources; nothing is installed by it.
+function UpdateSearch(): React.ReactElement {
+  const { t } = useTranslation();
+  const fetcher = useFetcher<{ readonly ok: boolean }>();
+  const isPending = fetcher.state !== "idle";
+  return (
+    <fetcher.Form
+      method="post"
+      action="/settings/agents/tools"
+      className="flex flex-wrap items-center gap-3"
+    >
+      <Button
+        type="submit"
+        name="intent"
+        value={AGENT_TOOL_CHECK_UPDATES}
+        size="sm"
+        disabled={isPending}
+      >
+        {t(isPending ? "agentTools.working" : "agentTools.checkUpdates")}
+      </Button>
+      <p className="text-sm text-muted-foreground">
+        {t("agentTools.checkUpdatesHint")}
+      </p>
+    </fetcher.Form>
+  );
 }
 
 /** Renders the system-admin tool inventory with cached status polling and bounded actions. */
@@ -108,6 +137,7 @@ export default function SettingsAgentToolsRoute(): React.ReactElement {
           {t("agentTools.hostHint")}
         </p>
       </div>
+      <UpdateSearch />
       <div className="grid gap-4 xl:grid-cols-2">
         {tools.map((tool) => (
           <AgentToolCard key={tool.id} tool={tool} />

@@ -13,6 +13,7 @@ import type { AcpProviderId } from "@/definition/AgentConfiguration";
 import type { ResolvedAgentAssignment } from "./AgentAssignmentResolution";
 import type {
   AgentPlanContract,
+  AgentPlanRunner,
   AgentPlanSessionRecord,
 } from "@/definition/AgentPlanSession";
 import type { NodeRun } from "./AgentPlanStepContext";
@@ -29,19 +30,12 @@ const RUNNER_LABELS: Readonly<Record<AcpProviderId, string>> = {
 
 /** What a new record of a node is built from. */
 export interface SessionRecordStart {
+  readonly isRequest?: boolean;
   readonly instanceId: string;
   readonly attemptId?: string;
   readonly prepared: PreparedPlanStep;
   readonly contract: AgentPlanContract | null;
   readonly usesMcp: boolean;
-}
-
-// Every CLI plan session stays open until Pages confirms its closeout.
-function sessionMode(
-  provider: ResolvedAgentAssignment["connection"]["provider"],
-): AgentPlanSessionRecord["mode"] {
-  if (isAcpProvider(provider)) return "interactive";
-  return "request";
 }
 
 function connectionOf(agent: ResolvedAgentAssignment): {
@@ -64,10 +58,12 @@ export function createSessionRecord(
 ): AgentPlanSessionRecord {
   const { agent, directory } = start.prepared.input;
   const provider = agent.connection.provider;
-  const isRequest = !isAcpProvider(provider);
+  const isRequest = start.isRequest ?? !isAcpProvider(provider);
+  const runner: AgentPlanRunner =
+    isAcpProvider(provider) && !isRequest ? provider : "api";
   return {
-    runner: isRequest ? "api" : provider,
-    mode: sessionMode(provider),
+    runner,
+    mode: isRequest ? "request" : "interactive",
     instanceId: start.instanceId,
     attemptId: start.attemptId ?? randomUUID(),
     sessionId: null,
@@ -80,7 +76,7 @@ export function createSessionRecord(
     leftoverProcesses: null,
     resultCode: null,
     requested: {
-      runner: isRequest ? "api" : provider,
+      runner,
       ...connectionOf(agent),
       model: agent.model,
       reasoningEffort: agent.reasoningEffort,

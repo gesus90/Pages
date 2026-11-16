@@ -1,4 +1,15 @@
-# Lokale Agenten überleben einen Pages-Neustart
+# Historisches Format lokaler Agentenbesitzer
+
+Diese Beschreibung hält das Altformat und seine früheren Funktionsnachweise
+fest. Neue Plan-Arbeit verwendet ausschließlich den [Runner](LocalRunner.md).
+Der verbliebene Code bindet existierende Besitzer wieder an und schließt sie
+geordnet ab. Ein weiterer Zug wird erst nach bestätigtem Alt-Abschluss über
+Runner gestartet; neue lokale Owner-Units werden nicht erzeugt.
+
+Die folgenden Abschnitte dokumentieren den früheren Betrieb. Ihre Aussagen
+über direkte Startwege gelten für gespeicherte Alt-Läufe. Die damaligen
+externen Prüfaufträge bleiben unbestätigte historische Aufträge und sind
+keine Abschlussvoraussetzungen der heutigen Plan-Umstellung.
 
 Lokale ACP-Planagenten bekommen einen eigenen vertrauenswürdigen Sitzungsbesitzer. `local-agent.mjs` lädt den eigenständigen Owner-Build mit den tatsächlich benötigten Ausführungsdiensten, startet aber keinen Webserver, keine Migration, Startup-Recovery oder Hintergrundzustellung. Der Besitzer hält den echten ACP-Client, dessen offene Protokollanfragen, Recorder und native Sitzung. Die bestehende begrenzte native Worker-Unit läuft unter diesem Besitzer. Der HTTP-Prozess hält nur eine austauschbare Beobachtung.
 

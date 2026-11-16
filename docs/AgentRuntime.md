@@ -299,11 +299,12 @@ kills of a test instance (`Failed to delete all rows from index` on
 
 ## OpenCode plan nodes with a Console / Zen key
 
-Pages manages the verified native OpenCode **1.18.34** under the instance's
-`tools/` directory. Create an active OpenCode connection or use **Settings →
-Agents → Tools → Install**. No global npm installation or separate OpenCode ACP
-adapter is needed. A compatible trusted system installation can be adopted;
-otherwise Pages installs its approved version locally. The service needs Node
+Pages manages the native OpenCode CLI (1.18.34 or a newer stable release that
+passed the tool manager's checks) under the instance's `tools/` directory.
+Create an active OpenCode connection or use **Settings → Agents → Tools →
+Install**. No global npm installation or separate OpenCode ACP adapter is
+needed. A compatible trusted system installation can be used; otherwise Pages
+installs its reviewed version locally. The service needs Node
 and npm from operator provisioning; a login shell's nvm setup alone does not
 configure a systemd service.
 
@@ -408,40 +409,76 @@ functional acceptance.
 
 ## ACP adapters for the CLI runners
 
-A Codex connection uses the instance-local Codex CLI and ACP adapter managed by
-**Settings → Agents → Tools**. Startup and native session preflight
-install or repair approved missing dependencies; neither requires a global npm
+A Codex or Claude connection uses the instance-local CLI and ACP adapter
+managed by **Settings → Agents → Tools**. Startup and native session preflight
+install or repair missing dependencies; neither requires a global npm
 installation. Compatible system tools under trusted system/Node installation
-paths can be adopted. The manager's exact allowlist is narrower than the ACP
-protocol driver's historical compatibility range below.
+paths are used as they are and shown as externally managed.
 
-The existing Claude ACP adapter remains an externally provisioned dependency;
-The current tool manager adds no new Claude/OpenCode adapter. Pages continues to start its process
-for each authorized session and use the connection's isolated sign-in.
+| Runner      | Package                                 | Executable         | Pages accepts          |
+| ----------- | --------------------------------------- | ------------------ | ---------------------- |
+| Codex CLI   | `@agentclientprotocol/codex-acp`        | `codex-acp`        | stable 2.1.1 or later  |
+| Claude Code | `@agentclientprotocol/claude-agent-acp` | `claude-agent-acp` | stable 0.90.0 or later |
 
-| Runner      | Package                                 | Executable         | Pages accepts   | Verified with |
-| ----------- | --------------------------------------- | ------------------ | --------------- | ------------- |
-| Codex CLI   | `@agentclientprotocol/codex-acp`        | `codex-acp`        | 2.1.1 up to 3.0 | 2.2.2         |
-| Claude Code | `@agentclientprotocol/claude-agent-acp` | `claude-agent-acp` | 0.90.x          | 0.90.0        |
-
-For the external Claude adapter only, an operator can install the fixed package
-into a dedicated directory owned by the service account and add its `.bin`
-directory to the service PATH:
-
-```sh
-npm install --prefix /srv/pages-external-acp @agentclientprotocol/claude-agent-acp@0.90.0
-# Add /srv/pages-external-acp/node_modules/.bin to the Pages service PATH.
-```
+Both adapters can be installed as managed tools. An existing external Claude
+adapter on the service `PATH` keeps working and is never changed by Pages;
+**Install managed** creates Pages' own checked installation, which new
+sessions then use.
 
 The adapter packages a Claude CLI binary of its own, which Pages never uses:
-it always points the adapter at the `claude` CLI of the host
+it always points the adapter at the managed or host `claude` CLI
 (`CLAUDE_CODE_EXECUTABLE`), so the sign-in, the version and the catalog the
-other Pages checks use are the ones the node runs with. The external Claude adapter is only
-found when its folder is on the `PATH` of the running server; the service
-needs no restart after installing it, because the executable is looked up at
-every node start. Previews and other majors are refused. A 0.x adapter may
-change with every minor version, so Pages accepts the next one only after it
-was verified.
+other Pages checks use are the ones the node runs with. Previews are refused.
+A session pins the exact adapter version of the generation the tool manager
+verified.
+
+## Updates, re-binding and rollback of agent tools
+
+**Settings → Agents → Tools** runs one administrative flow for Claude Code,
+Codex, Antigravity (`agy`) and OpenCode with their adapters. CLI and adapter
+have their own cards, versions and generations.
+
+1. **Search for updates** reads only release metadata of the fixed official
+   sources: the npm registry (`registry.npmjs.org`) for the npm packages and the
+   GitHub releases of `google-antigravity/antigravity-cli` for `agy`. It
+   installs and activates nothing. Each tool shows its installed, active,
+   newest stable and target version, the source, the time of the search and
+   the time of its last successful check. The states are _current_, _update
+   available_, _check failed_, _source unreachable_, _managed externally_ and
+   _incompatible_; a network error never reads as current. Pre-releases and
+   releases below the minimum version are incompatible.
+2. **Update** installs the target as a separate candidate generation and
+   checks it without a model call: the started binary's version, the ACP or
+   MCP handshake, and for an adapter the handshake with the CLI generation it
+   will run with. When an adapter declares a range for its CLI package, as
+   codex-acp does for `@openai/codex`, the CLI target is the newest stable
+   release inside that range. Only a combination whose every check passed is
+   activated, CLI first; otherwise the candidates are discarded and the
+   previous generations stay active. npm installations must match the
+   registry's `dist.integrity`; the `agy` archive must match the SHA-256 digest
+   of its GitHub release asset, and only its one program is extracted.
+3. **Re-bind** runs after an install, update or rollback and on request. It
+   keeps each connection, its isolated sign-in, its plan assignments and its
+   rights, runs the model-free access check with the new generation and then
+   refreshes the catalog. A provider that asks for a new sign-in is shown as
+   such; no credential is removed. Saved models and reasoning levels are never
+   changed: one the new catalog lacks is named as no longer available. A
+   failed, empty or incomplete listing keeps the last valid catalog, marked as
+   outdated with its reason.
+4. **Roll back** restores the retained previous generations of CLI and
+   adapter after checking them together, and re-binds the connections.
+
+Each action is checked for an active administrator on the server, takes only
+fixed tool IDs and actions, and is serialized per CLI/adapter pair. The page
+shows the running phase, the failed phase with its reason and the action that
+repeats it; a repeated update reads the actual installation first and never
+activates the same generation twice. Running sessions keep the generation
+they started with; generations are pruned only while no session uses the
+tool. Updates act on this Pages host only.
+
+Newer CLI or adapter releases do not by themselves make new models
+available: the catalog depends on the account and the provider. Remote runners
+keep their own tool installation and are not changed by this page.
 
 What Pages sets for a session, and nothing else:
 

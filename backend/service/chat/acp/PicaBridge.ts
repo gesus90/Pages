@@ -15,6 +15,7 @@ import { isValidPicaToolImage } from "../PicaToolImageValidation";
 import { bridgeToolDetails } from "./PicaBridgeToolEvents";
 
 import type { Tool } from "@modelcontextprotocol/server";
+import type { ConversationBridgeChannel } from "@/backend/agents/ConversationSessionRunner";
 import type { RuntimeExecutionContext } from "@/backend/agents/runtime/RuntimeExecutionContext";
 import type { PlanBridgeToolResult } from "@/backend/service/agents/bridge/PlanBridgeProtocol";
 import type {
@@ -94,7 +95,11 @@ export interface PicaBridgeLease {
    * session that answers several jobs; it is bound to this job now.
    */
   readonly openMcpChannel: () => PicaBridgeMcpChannel;
-  /** Binds the credential of a chat session that outlives its jobs to this job. */
+  /**
+   * Binds the credential of a chat session that outlives its jobs to this job.
+   * @throws {ChatError} `accessDenied` for a revoked credential or one issued
+   * to another agent or conversation than this job's.
+   */
   readonly attachMcpChannel: (channel: PicaBridgeMcpChannel) => void;
   readonly close: () => void;
 }
@@ -105,12 +110,12 @@ export interface PicaBridgeLease {
  * A native session reads its MCP servers once, when it starts. The
  * credential therefore stays the same while the session rests between
  * jobs; it lists the catalog of the last job and refuses every call until
- * the next job binds it to its running turn.
+ * the next job binds it to its running turn. It is issued to one agent in one
+ * conversation: only a job of that agent in that conversation can bind it,
+ * and it admits calls only through the turn that job is running.
  */
-export interface PicaBridgeMcpChannel {
+export interface PicaBridgeMcpChannel extends ConversationBridgeChannel {
   readonly descriptor: PicaBridgeDescriptor;
-  /** Revokes the credential when the session ends. */
-  readonly close: () => void;
 }
 
 /** An HTTP request whose body is read only after authentication. */
@@ -271,13 +276,20 @@ export class PicaBridge {
     let channelKey: string | null = null;
     const attach = (channel: PicaBridgeMcpChannel): void => {
       const key = this.channels.get(channel);
-      if (key === undefined || !this.mcpAccesses.has(key)) return;
+      if (
+        key === undefined ||
+        !this.mcpAccesses.has(key) ||
+        channel.owner.agentId !== owner.userId ||
+        channel.owner.conversationId !== owner.sessionId
+      )
+        throw new ChatError("accessDenied");
       channelKey = key;
       this.mcpAccesses.set(key, { owner, binding: () => current });
     };
     // A resting session keeps listing the catalog of this job, but calls nothing.
+    // A job that a later job already replaced leaves the credential of that job alone.
     const detach = (): void => {
-      if (channelKey && this.mcpAccesses.has(channelKey))
+      if (channelKey && this.mcpAccesses.get(channelKey)?.owner === owner)
         this.mcpAccesses.set(channelKey, { owner, binding: () => null });
       channelKey = null;
     };
@@ -382,6 +394,7 @@ export class PicaBridge {
     const key = digest(token);
     this.mcpAccesses.set(key, { owner, binding: () => null });
     const channel: PicaBridgeMcpChannel = {
+      owner: { agentId: owner.userId, conversationId: owner.sessionId },
       descriptor: { url: this.url, authorization: `Bearer ${token}` },
       close: () => {
         this.mcpAccesses.delete(key);

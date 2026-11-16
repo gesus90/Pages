@@ -68,6 +68,13 @@ const swarmSchema = z.strictObject({
   directory: z.string().max(PLAN_SWARM_TEXT_LENGTH.directory).optional(),
   timeoutMinutes: z.number().int(),
   executionTarget: planExecutionTargetSchema.optional(),
+  memory: z
+    .strictObject({
+      enabled: z.boolean(),
+      workersPublish: z.boolean(),
+      keepAfterEnd: z.boolean(),
+    })
+    .optional(),
 });
 
 /**
@@ -77,7 +84,8 @@ const swarmSchema = z.strictObject({
  * @param readBindings - Parses the bindings like those of every other node.
  * @throws {AgentError} `swarm_invalid` for a missing or malformed field, a
  * helper count outside 1–10, a time limit outside 1–1440 minutes or a
- * directory outside the workspace.
+ * directory outside the workspace. A node without the memory setting stays
+ * valid and keeps running with the default of its helper count.
  */
 export function readPlanSwarmNode(
   node: Readonly<Record<string, unknown>>,
@@ -111,6 +119,7 @@ export function readPlanSwarmNode(
     ...(parsed.data.executionTarget
       ? { executionTarget: parsed.data.executionTarget }
       : {}),
+    ...(parsed.data.memory ? { memory: parsed.data.memory } : {}),
     bindings: readBindings(node.bindings),
   };
   const issue = planSwarmSaveIssue(swarm, {});

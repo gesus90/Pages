@@ -217,7 +217,13 @@ export class AgentCliLoginService {
     return this.describe(actor, await this.requireCli(id));
   }
 
-  /** Validates a one-use Claude code and writes it directly to the official CLI's pipe. */
+  /**
+   * Validates a one-use sign-in code and writes it directly to the official CLI's pipe.
+   * @remarks
+   * Claude Code takes the code of Anthropic's page; `agy acp --login` takes
+   * the code of Google's Antigravity page or the full address it landed on.
+   * The value is never stored or logged.
+   */
   public async submitCode(
     actor: AccountAccess,
     id: string,
@@ -225,13 +231,15 @@ export class AgentCliLoginService {
   ): Promise<void> {
     requireAgentAdministrator(actor);
     await this.requireCli(id);
-    if (!code.trim() || code.length > 512 || /\p{Cc}/u.test(code))
+    if (!code.trim() || code.length > 4096 || /\p{Cc}/u.test(code))
       throw new AgentError("login_code_invalid");
     const session = this.sessions.get(id);
     if (
       !session ||
       session.ownerId !== actor.userId ||
-      session.provider !== "claude_code" ||
+      (session.provider !== "claude_code" &&
+        session.provider !== "antigravity") ||
+      (session.provider === "claude_code" && code.length > 512) ||
       session.state !== "awaiting_user" ||
       !session.process?.write(code)
     )

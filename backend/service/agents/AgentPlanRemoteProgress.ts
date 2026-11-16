@@ -39,6 +39,10 @@ export async function withRemoteProgress(
           status: job.status,
           cancellation: job.cancellation,
           queueReason: job.queueReason,
+          executionControl: job.executionControl,
+          canFreezeExecution: job.launch?.isolation
+            ? job.launch.isolation === "cgroup_v2"
+            : (job.canFreezeExecution ?? false),
           historyPending: await runners.historyPending(job.jobId),
           observedAt: job.observedAt,
           isObservationStale: isObservationStale(job),

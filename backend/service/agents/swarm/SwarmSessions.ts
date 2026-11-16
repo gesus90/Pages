@@ -51,6 +51,8 @@ export interface SwarmSessionScope {
   readonly deadline: number;
   /** Rechecks the executor's access right before a process starts. */
   readonly beforeStart: () => Promise<void>;
+  /** Whether the sessions also get the tools of the shared memory. */
+  readonly hasMemory?: boolean;
 }
 
 /** One session to open: which side, its model and access and its first prompt. */
@@ -216,6 +218,7 @@ export class SwarmSessions {
       lifetimeMs: minutes * 60_000,
       reach: reachOf(request.access),
       swarm: request.role,
+      swarmMemory: this.scope.hasMemory === true,
     });
     const base = {
       agent: assignment,
@@ -236,6 +239,7 @@ export class SwarmSessions {
           planId: this.scope.planId,
           runId: this.scope.runId,
           stepId,
+          sharedWorkspaceScopeId: this.scope.nodeId,
           ...(request.role === "worker"
             ? { admissionDeadlineMs: PLAN_SWARM_START_TIMEOUT_MS }
             : {}),

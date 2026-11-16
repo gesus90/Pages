@@ -54,6 +54,16 @@ export function readClaudeChallenge(output: string): CliLoginChallenge | null {
   return url ? { verificationUrl: url.href } : null;
 }
 
+// `agy acp --login` redirects to Google's own page, which shows the code to paste; PKCE protects it.
+function isHostedAntigravityCallback(candidate: URL): boolean {
+  return (
+    candidate.searchParams.get("redirect_uri") ===
+      "https://antigravity.google/oauth-callback" &&
+    candidate.searchParams.get("code_challenge_method") === "S256" &&
+    Boolean(candidate.searchParams.get("code_challenge"))
+  );
+}
+
 function readLoopbackPort(candidate: URL): number | null {
   try {
     const redirect = new URL(candidate.searchParams.get("redirect_uri") ?? "");
@@ -88,7 +98,8 @@ export function readAntigravityChallenge(
       !candidate.hash &&
       candidate.searchParams.get("response_type") === "code" &&
       Boolean(candidate.searchParams.get("state")) &&
-      readLoopbackPort(candidate) !== null,
+      (readLoopbackPort(candidate) !== null ||
+        isHostedAntigravityCallback(candidate)),
   );
   return url ? { verificationUrl: url.href } : null;
 }

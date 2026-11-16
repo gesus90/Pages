@@ -1,16 +1,24 @@
-import { randomBytes, randomUUID } from "node:crypto";
-
 import { AgentError } from "@/backend/error/AgentErrors";
 import { SerialQueue } from "@/backend/concurrency/SerialQueue";
-import { registerLogSecret } from "@/backend/logging/LogRedaction";
 
+import {
+  LOCAL_RUNNER_CONNECTION_ID,
+  provisionLocalRunner,
+} from "./LocalRunnerIdentity";
+import {
+  readRunnerProgress,
+  readRunnerAvailability,
+} from "./RunnerServiceSupport";
+import { rememberReconcileCapabilities } from "./RunnerReconcileCapabilities";
+import { RunnerIdentityService } from "./RunnerIdentityService";
 import { RunnerExecutionPause } from "./RunnerExecutionPause";
-import { digest, matches, GRANT_MILLISECONDS } from "./RunnerServiceSupport";
+import { runnerWireState } from "./RunnerProtocol";
 import { parseRunnerMessage } from "./RunnerMessageIntake";
 import { checkpointRunnerMessage } from "./RunnerMessageCheckpoint";
-import { runnerConnectionView } from "./RunnerConnectionFacts";
+import { runnerTools, runnerConnectionView } from "./RunnerConnectionFacts";
 import { requireRunnerOutputExecutor } from "./RunnerOutputCapabilities";
 import { RunnerObservation } from "./RunnerObservation";
+import { RunnerHostFeatures } from "./RunnerHostFeatures";
 import { RunnerJobQueue } from "./RunnerJobQueue";
 import { RunnerQueuedPause } from "./RunnerQueuedPause";
 import { RunnerCancellation } from "./RunnerCancellation";
@@ -21,7 +29,6 @@ import {
 } from "./RunnerCatalog";
 
 import type {
-  RegistrationGrant,
   RunnerStore,
   RunnerConnectionAccess,
 } from "./RunnerServiceSupport";
@@ -51,22 +58,13 @@ export interface RunnerAuthentication {
   readonly sessionId: string;
 }
 
-/** Keeps the live capability of a connection exactly as its latest reconcile announced it. */
-function markSupport(
-  connections: Set<string>,
-  connectionId: string,
-  isSupported: boolean,
-): void {
-  if (isSupported) connections.add(connectionId);
-  else connections.delete(connectionId);
-}
-
 /** Authorizes short-lived pairing and maintains durable sessions independently of SSH transports. */
 export class RunnerService {
   private readonly repository: RunnerStore;
+  private managedCleanup: ((job: RunnerJob) => Promise<void>) | undefined;
   private readonly events: RunnerPlanEventService | undefined;
   private readonly connections: RunnerConnectionAccess;
-  private readonly grants = new Map<string, RegistrationGrant>();
+  private readonly identity: RunnerIdentityService;
   private readonly contacts = new RunnerContacts();
   private readonly writes = new SerialQueue();
   private readonly channels = new Map<string, (reply: RunnerReply) => void>();
@@ -83,6 +81,7 @@ export class RunnerService {
   private readonly outputExecutors = new Set<string>();
   private readonly exactPayloadExecutors = new Set<string>();
   private readonly continuationExecutors = new Set<string>();
+  private readonly hostFeatures = new RunnerHostFeatures();
   private readonly knownOutputVersions = new Map<string, 1 | 2>();
   private readonly observation = new RunnerObservation();
   private readonly communicationExecutors = new Set<string>();
@@ -97,6 +96,14 @@ export class RunnerService {
     this.repository = repository;
     this.events = events;
     this.connections = connections;
+    this.identity = new RunnerIdentityService({
+      repository,
+      connections,
+      writes: this.writes,
+      requireSetup: (userId, connectionId) =>
+        this.requireSetup(userId, connectionId),
+      requireRevision: (record) => this.requireRevision(record),
+    });
     this.cancellation = new RunnerCancellation({
       repository,
       writes: this.writes,
@@ -109,7 +116,7 @@ export class RunnerService {
       events,
       writes: this.writes,
       requireUsable: (userId, connectionId) =>
-        this.connections.requireUsable(userId, connectionId),
+        this.requireUsable(userId, connectionId),
       requireRevision: (record) => this.requireRevision(record),
       checkOutput: (record, execution) =>
         requireRunnerOutputExecutor({
@@ -124,8 +131,18 @@ export class RunnerService {
           hasLiveHistory: this.liveExecutors.has(record.connectionId),
           runnerVersion: record.state.runnerVersion,
         }),
-      dispatch: (connectionId, job) =>
-        this.deliver(connectionId, { version: 1, type: "dispatch", job }),
+      dispatch: (connectionId, job, state) => {
+        if (state)
+          this.deliver(connectionId, {
+            version: 1,
+            type: "reconcile",
+            state: runnerWireState(state),
+            outputJournalVersion: 2,
+            communicationVersion: 1,
+            planControlVersion: 1,
+          });
+        else this.deliver(connectionId, { version: 1, type: "dispatch", job });
+      },
       observe: (connectionId, jobs) => {
         this.observation.configure(
           connectionId,
@@ -147,9 +164,36 @@ export class RunnerService {
   ): Promise<readonly RunnerConnectionView[]> {
     const scope = await this.connections.scope(userId);
     if (!scope.canManage) throw new Error("Runner administration required");
-    return Promise.all(
+    const remote = await Promise.all(
       scope.connections.map((connection) => this.connectionView(connection)),
     );
+    const record = await this.writes.run(() =>
+      provisionLocalRunner(this.repository),
+    );
+    if (!record) return remote;
+    return [
+      {
+        connectionId: LOCAL_RUNNER_CONNECTION_ID,
+        name: "",
+        endpoint: "127.0.0.1",
+        isLocal: true,
+        departmentName: null,
+        isStable: true,
+        runnerId: record.runnerId,
+        isOnline: this.contacts.isOnline(LOCAL_RUNNER_CONNECTION_ID),
+        checkedAt:
+          this.contact(LOCAL_RUNNER_CONNECTION_ID).lastContactAt ??
+          record.state.lastContactAt ??
+          null,
+        tools: runnerTools(record, this.tools.get(LOCAL_RUNNER_CONNECTION_ID)),
+        runnerVersion: record.state.runnerVersion ?? null,
+        communicationVersion: record.state.communicationVersion ?? null,
+        outputJournalVersion:
+          this.knownOutputVersions.get(LOCAL_RUNNER_CONNECTION_ID) ?? null,
+        canFreezeExecution: record.state.cgroupVersion === 1,
+      },
+      ...remote,
+    ];
   }
 
   /** Issues a single-use grant, bound to the administrator and current SSH revision. */
@@ -157,25 +201,7 @@ export class RunnerService {
     userId: string,
     connectionId: string,
   ): Promise<{ readonly grant: string; readonly expiresAt: string }> {
-    return this.writes.run(async () => {
-      await this.requireSetup(userId, connectionId);
-      for (const [id, grant] of this.grants)
-        if (grant.expiresAt <= Date.now()) this.grants.delete(id);
-      const connection = await this.connections.requireUsable(
-        userId,
-        connectionId,
-      );
-      const token = randomBytes(32).toString("base64url");
-      registerLogSecret(token);
-      const expiresAt = Date.now() + GRANT_MILLISECONDS;
-      this.grants.set(connectionId, {
-        digest: digest(token),
-        userId,
-        revision: connection.revision,
-        expiresAt,
-      });
-      return { grant: token, expiresAt: new Date(expiresAt).toISOString() };
-    });
+    return this.identity.authorize(userId, connectionId);
   }
 
   /** Consumes a grant or verifies a stored token before any WebSocket upgrade. */
@@ -183,58 +209,7 @@ export class RunnerService {
     connectionId: string,
     credential: string,
   ): Promise<RunnerAuthentication> {
-    return this.writes.run(async () => {
-      if (credential.length > 200) throw new Error("Invalid runner credential");
-      const record = await this.repository.find(connectionId);
-      if (record) {
-        await this.requireRevision(record);
-        if (!matches(credential, record.tokenHash))
-          throw new Error("Invalid runner credential");
-        return {
-          connectionId,
-          runnerId: record.runnerId,
-          token: null,
-          sessionId: record.state.sessionId,
-        };
-      }
-      const grant = this.grants.get(connectionId);
-      if (
-        !grant ||
-        grant.expiresAt <= Date.now() ||
-        !matches(credential, grant.digest)
-      )
-        throw new Error("Invalid runner grant");
-      await this.requireSetup(grant.userId, connectionId);
-      const connection = await this.connections.requireUsable(
-        grant.userId,
-        connectionId,
-      );
-      if (connection.revision !== grant.revision)
-        throw new Error("Runner configuration changed");
-      this.grants.delete(connectionId);
-      const token = randomBytes(32).toString("base64url");
-      registerLogSecret(token);
-      const created: RunnerRecord = {
-        connectionId,
-        runnerId: randomUUID(),
-        tokenHash: digest(token),
-        connectionRevision: connection.revision,
-        state: {
-          version: 1,
-          sessionId: randomUUID(),
-          sequence: 0,
-          lastEventId: null,
-          jobs: [],
-        },
-      };
-      await this.repository.create(created);
-      return {
-        connectionId,
-        runnerId: created.runnerId,
-        token,
-        sessionId: created.state.sessionId,
-      };
-    });
+    return this.identity.authenticate(connectionId, credential);
   }
 
   /** Validates and checkpoints one message before making its acknowledgement observable. */
@@ -254,6 +229,7 @@ export class RunnerService {
       ) {
         this.exactPayloadExecutors.delete(connectionId);
         this.continuationExecutors.delete(connectionId);
+        this.hostFeatures.forget(connectionId);
       }
       this.rememberOutputCapability(
         connectionId,
@@ -264,56 +240,31 @@ export class RunnerService {
         connectionId,
         repository: this.repository,
         events: this.events,
+        closeManaged: this.managedCleanup,
         record,
         message,
       });
       if (!this.contacts.isOnline(connectionId))
         await this.repository.reconnected?.(connectionId);
       this.heartbeat(connectionId);
-      if (message.type === "reconcile") {
-        markSupport(
-          this.communicationExecutors,
+      if (message.type === "reconcile")
+        rememberReconcileCapabilities(
+          {
+            hostFeatures: this.hostFeatures,
+            communicationExecutors: this.communicationExecutors,
+            liveExecutors: this.liveExecutors,
+            pagesExecutors: this.pagesExecutors,
+            githubProbes: this.githubProbes,
+            cliExecutors: this.cliExecutors,
+            openCodeExecutors: this.openCodeExecutors,
+            exactPayloadExecutors: this.exactPayloadExecutors,
+            continuationExecutors: this.continuationExecutors,
+            interpreters: this.interpreters,
+            tools: this.tools,
+          },
           connectionId,
-          message.communicationVersion === 1,
+          message,
         );
-        markSupport(
-          this.liveExecutors,
-          connectionId,
-          message.liveHistoryVersion === 1,
-        );
-        if (message.pagesAccessVersion)
-          this.pagesExecutors.set(connectionId, message.pagesAccessVersion);
-        else this.pagesExecutors.delete(connectionId);
-        markSupport(
-          this.githubProbes,
-          connectionId,
-          message.githubAccessVersion === 1,
-        );
-        markSupport(
-          this.cliExecutors,
-          connectionId,
-          message.cliExecutorVersion === 1,
-        );
-        markSupport(
-          this.openCodeExecutors,
-          connectionId,
-          message.openCodeExecutorVersion === 1,
-        );
-        markSupport(
-          this.exactPayloadExecutors,
-          connectionId,
-          message.resultPayloadVersion === 1,
-        );
-        markSupport(
-          this.continuationExecutors,
-          connectionId,
-          message.continuationVersion === 1,
-        );
-        if (message.executorVersion === 1 && message.interpreters)
-          this.interpreters.set(connectionId, message.interpreters);
-        if (message.tools) this.tools.set(connectionId, message.tools);
-        else this.tools.delete(connectionId);
-      }
       this.observation.configure(
         connectionId,
         result.state.jobs,
@@ -322,6 +273,13 @@ export class RunnerService {
       return result.reply;
     });
     return this.events?.restoreHistory(connectionId, message, reply) ?? reply;
+  }
+
+  /** Attaches credential cleanup to confirmed runner receipts, independently of scheduler lifetime. */
+  public attachManagedCleanup(
+    cleanup: (job: RunnerJob) => Promise<void>,
+  ): void {
+    this.managedCleanup = cleanup;
   }
 
   /** Records a job before dispatch; callers retain its ID instead of resubmitting after a loss. */
@@ -356,6 +314,7 @@ export class RunnerService {
     this.outputExecutors.delete(connectionId);
     this.exactPayloadExecutors.delete(connectionId);
     this.continuationExecutors.delete(connectionId);
+    this.hostFeatures.forget(connectionId);
     this.observation.detach(connectionId);
   }
 
@@ -373,7 +332,7 @@ export class RunnerService {
   ): Promise<{ readonly isPaired: boolean; readonly isReady: boolean }> {
     const record = await this.repository.find(connectionId);
     if (!record) return { isPaired: false, isReady: false };
-    const revision = await this.connections.scopeForRunner(connectionId);
+    const revision = await this.connectionRevision(connectionId);
     const isPaired = record.connectionRevision === revision;
     const isOnline = this.contacts.isOnline(connectionId);
     return {
@@ -387,6 +346,12 @@ export class RunnerService {
     userId: string,
     connectionId: string,
   ): Promise<void> {
+    if (connectionId === LOCAL_RUNNER_CONNECTION_ID) {
+      await this.requireUsable(userId, connectionId);
+      if (!(await this.status(connectionId)).isReady)
+        throw new Error("Local runner unavailable");
+      return;
+    }
     const row = (await this.overview(userId)).find(
       (entry) => entry.connectionId === connectionId,
     );
@@ -479,6 +444,21 @@ export class RunnerService {
     return this.continuationExecutors.has(connectionId);
   }
 
+  /** The live runner supports independently authenticated host-local agent homes. */
+  public supportsAgentAccounts(connectionId: string): boolean {
+    return this.hostFeatures.supportsAccounts(connectionId);
+  }
+
+  /** The live runner has an explicitly configured sandboxed browser MCP executable. */
+  public supportsBrowser(connectionId: string): boolean {
+    return this.hostFeatures.supportsBrowser(connectionId);
+  }
+
+  /** The live runner reports structured native TODO and token events. */
+  public supportsProgress(connectionId: string): boolean {
+    return this.hostFeatures.supportsProgress(connectionId);
+  }
+
   /** Resolves a live job from Pages' journal; a runner cannot choose another connection's attempt. */
   public async pagesJob(
     connectionId: string,
@@ -522,19 +502,12 @@ export class RunnerService {
     | "remoteCatalogStale"
     | null
   > {
-    const status = await this.status(connectionId);
-    if (!status.isPaired) return "remoteIdentity";
-    if (!status.isReady) return "remoteOffline";
-    if (
-      !this.communicationExecutors.has(connectionId) ||
-      (await this.repository.find(connectionId))?.state
-        .executionLeaseVersion !== 1 ||
-      (await this.repository.find(connectionId))?.state.planControlVersion !== 1
-    )
-      return "remoteRunnerUpdate";
-    return isRunnerCatalogCurrent(await this.catalog(connectionId))
-      ? null
-      : "remoteCatalogStale";
+    return readRunnerAvailability({
+      status: () => this.status(connectionId),
+      hasCommunication: this.communicationExecutors.has(connectionId),
+      record: () => this.repository.find(connectionId),
+      catalog: () => this.catalog(connectionId),
+    });
   }
 
   /** Reads retained metadata only for the still-current authenticated SSH identity. */
@@ -545,7 +518,7 @@ export class RunnerService {
     if (
       !record ||
       record.connectionRevision !==
-        (await this.connections.scopeForRunner(connectionId))
+        (await this.connectionRevision(connectionId))
     )
       return undefined;
     return compatibleRunnerCatalog(
@@ -587,10 +560,7 @@ export class RunnerService {
     runId: string,
     attemptId: string,
   ): Promise<RunnerJob | undefined> {
-    const record = await this.repository.find(connectionId);
-    return record?.state.jobs.find(
-      (job) => job.plan?.runId === runId && job.plan.attemptId === attemptId,
-    );
+    return readRunnerProgress(this.repository, connectionId, runId, attemptId);
   }
 
   /** Pending archive import never implies pending execution or cleanup. */
@@ -627,12 +597,14 @@ export class RunnerService {
 
   /** Explicitly revokes the machine credential and its registration grant. */
   public async revoke(userId: string, connectionId: string): Promise<void> {
+    if (connectionId === LOCAL_RUNNER_CONNECTION_ID)
+      throw new Error("The local runner is managed by the installation");
     await this.writes.run(async () => {
       const scope = await this.connections.scope(userId);
       if (!scope.canManage) throw new Error("Runner administration required");
       await this.repository.remove(connectionId);
       this.knownOutputVersions.delete(connectionId);
-      this.grants.delete(connectionId);
+      this.identity.forget(connectionId);
       this.disconnected(connectionId);
     });
   }
@@ -642,9 +614,12 @@ export class RunnerService {
     userId: string,
     connectionId: string,
   ): Promise<void> {
-    const row = (await this.overview(userId)).find(
-      (entry) => entry.connectionId === connectionId,
+    const scope = await this.connections.scope(userId);
+    if (!scope.canManage) throw new Error("Runner administration required");
+    const connection = scope.connections.find(
+      (entry) => entry.id === connectionId,
     );
+    const row = connection ? await this.connectionView(connection) : undefined;
     if (!row?.isStable || row.runnerId !== null)
       throw new Error("Stable SSH connection without runner required");
     // A changed SSH revision invalidates the old identity, but never silently replaces it.
@@ -685,8 +660,27 @@ export class RunnerService {
     });
   }
 
+  private async requireUsable(
+    userId: string,
+    connectionId: string,
+  ): Promise<{ readonly revision: number }> {
+    if (connectionId !== LOCAL_RUNNER_CONNECTION_ID)
+      return this.connections.requireUsable(userId, connectionId);
+    await this.connections.scope(userId);
+    if (!process.env.PAGES_LOCAL_RUNNER_CONFIG)
+      throw new Error("Local runner not installed");
+    return { revision: 1 };
+  }
+
+  private async connectionRevision(connectionId: string): Promise<number> {
+    return connectionId === LOCAL_RUNNER_CONNECTION_ID &&
+      process.env.PAGES_LOCAL_RUNNER_CONFIG
+      ? 1
+      : this.connections.scopeForRunner(connectionId);
+  }
+
   private async requireRevision(record: RunnerRecord): Promise<void> {
-    const scope = await this.connections.scopeForRunner(record.connectionId);
+    const scope = await this.connectionRevision(record.connectionId);
     if (scope !== record.connectionRevision)
       throw new Error("Runner connection revoked or changed");
   }

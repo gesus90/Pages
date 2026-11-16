@@ -14,6 +14,9 @@ import type { AgentPlanRunRepository } from "@/backend/database/repositories/age
 
 /** Runtime boundaries shared with the run command aggregate. */
 export interface EngineDependencies {
+  readonly runnerExecution?: {
+    setRunPaused(runId: string, isPaused: boolean): Promise<void>;
+  };
   readonly startResources?: Pick<
     AgentPlanStartResources,
     "release" | "releaseResources" | "reconcile"

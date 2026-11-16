@@ -7,18 +7,16 @@ import type {
   PlanSession,
   PlanSessionObserver,
 } from "@/backend/agents/AgentPlanExecution";
+import type { ConversationSessionOwner } from "@/backend/agents/ConversationSessionRunner";
 import type { AcpSessionListener } from "@/backend/agents/acp/AcpChat";
 import type { AgentPlanExecutionInput } from "@/backend/service/agents/AgentPlanStepStart";
 import type { PicaAcpCredential } from "./PicaAcpCredential";
-import type {
-  PicaAcpPoolSession,
-  PicaAcpSessionPool,
-} from "./PicaAcpSessionPool";
+import type { PicaAcpSessionPool } from "./PicaAcpSessionPool";
 
 /** The chat session a job of an agent employee answers through. */
 export interface PicaAcpJobPool {
   readonly sessions: Pick<PicaAcpSessionPool, "open">;
-  readonly session: PicaAcpPoolSession;
+  readonly session: ConversationSessionOwner;
 }
 
 /** What a new native session of the pool starts with instead of the job's own. */
@@ -76,16 +74,11 @@ export async function openPicaSession(
           },
         }
       : {}),
-    start: async (start) => {
-      const input = request.input({
+    input: (start) =>
+      request.input({
         listener: start.listener,
         servers: start.channel ? bridgeServers(start.channel.descriptor) : null,
-      });
-      return {
-        session: await plans.open(input, start.signal, start.observer),
-        instanceId: input.instanceId,
-      };
-    },
+      }),
     turn: request.turn,
   });
 }

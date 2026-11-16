@@ -25,10 +25,6 @@ export { startIntegrations } from "./IntegrationsEntry";
 
 export { startIngress } from "./IngressEntry";
 
-export { startPlanScriptOwner } from "@/backend/service/agents/AgentPlanScriptOwner";
-
-export { startLocalSessionOwner } from "@/backend/agents/local/LocalSessionOwner";
-
 /**
  * Starts the production server with the application build it is part of.
  * @param argumentList - Command-line arguments after the script name.

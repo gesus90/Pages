@@ -67,30 +67,16 @@ async function closeInterruptedScript(
   onFailure?: (failure: AgentPlanCleanupFailure) => void,
 ): Promise<AgentPlanStepResult> {
   const script = step.script;
-  if (!script || script.closeout === "confirmed") return step;
+  if (
+    !script ||
+    script.runnerOwned ||
+    script.runnerJob ||
+    script.closeout === "confirmed"
+  )
+    return step;
   const unstarted = await settledUnstartedStep(step, onFailure);
   if (unstarted) return unstarted;
-  let isConfirmed = false;
-  try {
-    if (script.namespace)
-      isConfirmed = await hasEndedOwnedNamespace(script.namespace);
-    else {
-      const cleanup = await endTaggedProcesses(
-        script.instanceId,
-        await readScopeSince(script.startedAt),
-      );
-      isConfirmed = cleanup.remaining === 0;
-    }
-    if (!isConfirmed)
-      onFailure?.({
-        stepId: step.id,
-        kind: "local_script",
-        reason: "processes_remaining",
-      });
-  } catch (error: unknown) {
-    onFailure?.(cleanupScanFailure(step.id, "local_script", error));
-    isConfirmed = false;
-  }
+  let isConfirmed = await confirmScriptProcesses(step, script, onFailure);
   if (isConfirmed) {
     try {
       await removeScriptResources(
@@ -115,6 +101,33 @@ async function closeInterruptedScript(
       failure: script.failure ?? interruptedFailure(isConfirmed),
     },
   };
+}
+
+async function confirmScriptProcesses(
+  step: AgentPlanStepResult,
+  script: NonNullable<AgentPlanStepResult["script"]>,
+  onFailure?: (failure: AgentPlanCleanupFailure) => void,
+): Promise<boolean> {
+  try {
+    const isConfirmed = script.namespace
+      ? await hasEndedOwnedNamespace(script.namespace)
+      : (
+          await endTaggedProcesses(
+            script.instanceId,
+            await readScopeSince(script.startedAt),
+          )
+        ).remaining === 0;
+    if (!isConfirmed)
+      onFailure?.({
+        stepId: step.id,
+        kind: "local_script",
+        reason: "processes_remaining",
+      });
+    return isConfirmed;
+  } catch (error: unknown) {
+    onFailure?.(cleanupScanFailure(step.id, "local_script", error));
+    return false;
+  }
 }
 
 function interruptedFailure(isConfirmed: boolean): "interrupted" | "cleanup" {

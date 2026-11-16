@@ -260,6 +260,7 @@ function swarmEntries(node: AgentPlanSwarm): readonly PlanNotationEntry[] {
     ...(node.executionTarget === undefined
       ? []
       : [jsonEntry("executionTarget", node.executionTarget)]),
+    ...(node.memory === undefined ? [] : [jsonEntry("memory", node.memory)]),
   ];
 }
 

@@ -58,10 +58,20 @@ async function workspaceResources(workspace) {
 }
 
 function overlaps(first, second) {
+  if (!first || !second) return false;
   return (
     first === second ||
     first.startsWith(`${second}/`) ||
     second.startsWith(`${first}/`)
+  );
+}
+
+function sharesSwarmWorkspace(job, lease) {
+  return (
+    job.plan.managed === true &&
+    Boolean(job.plan.sharedWorkspaceId) &&
+    job.plan.sharedWorkspaceId === lease.sharedWorkspaceId &&
+    job.plan.runId === lease.runId
   );
 }
 
@@ -99,10 +109,14 @@ async function activeLeases() {
 }
 
 async function reserveJob(directory, job) {
-  const resources = await workspaceResources(job.execution.workspace);
+  const resources =
+    job.execution.program.kind === "api"
+      ? { path: null, branch: null }
+      : await workspaceResources(job.execution.workspace);
   const leases = await activeLeases();
   const isReadOnly =
     job.execution.program.kind === "model" ||
+    job.execution.program.kind === "api" ||
     (job.execution.program.kind === "cli" &&
       job.execution.program.access === "read_only");
   if (
@@ -115,6 +129,7 @@ async function reserveJob(directory, job) {
     leases.some(
       (lease) =>
         !(isReadOnly && lease.isReadOnly === true) &&
+        !sharesSwarmWorkspace(job, lease) &&
         (overlaps(lease.path, resources.path) ||
           (resources.branch && lease.branch === resources.branch)),
     )
@@ -127,6 +142,10 @@ async function reserveJob(directory, job) {
     jobId: job.jobId,
     sessionId: job.sessionId,
     attemptId: job.plan.attemptId,
+    runId: job.plan.runId,
+    sharedWorkspaceId: job.plan.managed
+      ? job.plan.sharedWorkspaceId
+      : undefined,
     folder: join(directory, "jobs", job.jobId),
     createdAt: Date.now(),
     processId: Number(process.argv[5]),

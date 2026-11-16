@@ -72,14 +72,3 @@ export function pagesMcpServers(
     },
   ];
 }
-
-/**
- * Parses a plain `major.minor.patch` version.
- *
- * @param text - The version an adapter reported.
- * @returns The three numbers, or `null` for a preview or any other spelling.
- */
-export function readAdapterVersion(text: string): readonly number[] | null {
-  const match = /^(\d+)\.(\d+)\.(\d+)$/u.exec(text);
-  return match ? match.slice(1).map(Number) : null;
-}

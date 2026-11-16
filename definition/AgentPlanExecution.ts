@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { runnerExecutionControlSchema } from "./RunnerCapabilities.js";
 import { runnerContinuationEvidenceSchema } from "./RunnerContinuation.js";
 import { runnerTerminalSchema } from "./RunnerTerminal.js";
 import { planRemoteResourceSchema } from "./AgentPlanRemoteAccess.js";
@@ -94,6 +95,8 @@ export const planRemoteProgressSchema = z
     historyPending: z.number().int().nonnegative().optional(),
     cancellation: runnerCancellationSchema.optional(),
     queueReason: runnerQueueReasonSchema.nullable().optional(),
+    executionControl: runnerExecutionControlSchema.optional(),
+    canFreezeExecution: z.boolean().optional(),
     contact: runnerContactSchema.optional(),
     liveHistoryVersion: z.literal(1).optional(),
     outputJournalVersion: z.literal(2).optional(),

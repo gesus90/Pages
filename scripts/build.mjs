@@ -13,8 +13,8 @@ import { build } from "vite";
  *    `index.html`, `sw.js` and route list;
  * 2. the API (`PAGES_ROUTES=api`) into `build/api`, whose server bundle is
  *    moved to `build/server`, where `server.mjs` loads it;
- * 3. the independent native-owner and runs entries into `build/local-owner`
- *    and `build/runs`, sharing only their required runtime chunks.
+ * 3. the plan scheduler entry into `build/runs`. Previously deployed owner
+ *    bundles and runtime chunks remain available while legacy owners drain.
  */
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -49,12 +49,12 @@ await rm(path.join(BUILD, "server"), { recursive: true, force: true });
 await runBuild("api");
 await rename(path.join(BUILD, "api", "server"), path.join(BUILD, "server"));
 await rm(path.join(BUILD, "api"), { recursive: true, force: true });
-for (const directory of ["local-owner", "runs", "runtime-chunks"])
+for (const directory of ["runs"])
   await rm(path.join(BUILD, directory), { recursive: true, force: true });
 await build({
   configFile: path.join(ROOT, "vite.config.ts"),
   mode: "runtimes",
 });
 console.info(
-  "[pages] Static app in build/client, API in build/server, independent owner and runs runtimes built.",
+  "[pages] Static app in build/client, API in build/server, independent runs runtime built.",
 );

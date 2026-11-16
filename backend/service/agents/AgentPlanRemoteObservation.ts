@@ -9,6 +9,7 @@ import type { RunnerPagesAccessService } from "@/backend/service/runner/RunnerPa
 import type { RemotePlanStep } from "./AgentPlanRemoteExecution";
 
 interface RestoredRemoteObservation {
+  readonly shouldClose?: () => boolean;
   readonly runners: Pick<RunnerService, "progress">;
   readonly pages?: Pick<RunnerPagesAccessService, "close">;
   readonly wait: (job: RunnerJob) => Promise<Partial<AgentPlanStepResult>>;
@@ -39,7 +40,8 @@ export async function observeRemoteAttempt(
   try {
     result = await observation.wait(job);
   } finally {
-    await observation.pages?.close(run.id, step.id, execution.attemptId);
+    if (observation.shouldClose?.() !== false)
+      await observation.pages?.close(run.id, step.id, execution.attemptId);
   }
   return observation.settle(result, execution.attemptId);
 }

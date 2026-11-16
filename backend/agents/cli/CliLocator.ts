@@ -15,7 +15,7 @@ export const CLI_BINARIES: Readonly<Record<CliProviderId, string>> = {
   codex_cli: "codex",
   claude_code: "claude",
   opencode: "opencode",
-  antigravity: "agy_acp_server.par",
+  antigravity: "agy",
 };
 
 /** Locates externally installed CLIs through the filesystem; it never executes them. */

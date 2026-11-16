@@ -13,7 +13,7 @@ import {
   preparationStep,
   startedProgress,
 } from "./SetupProgressModel";
-import { SetupReasonError, pairingEndpoint } from "./SetupPairing";
+import { SetupReasonError } from "./SetupPairing";
 
 import type { RemoteSessionRegistry } from "@/backend/remote/RemoteSessionRegistry";
 import type { RunnerSetupService } from "@/backend/service/runner/RunnerSetupService";
@@ -45,12 +45,10 @@ const REASON_PREFIX = "remote.setup.reason.";
 export interface SetupConductorDependencies {
   readonly userId: string;
   readonly connectionId: string;
-  /** The SSH host of the connection, to tell a loopback Pages address from one the machine can reach. */
-  readonly sshHost: string;
-  readonly pagesAddress: {
-    readonly origin: string | null;
-    readonly publicUrl: string | null;
-  };
+  readonly pairing: () => Promise<{
+    endpoint: string;
+    allowInsecureLan: boolean;
+  }>;
   readonly connections: Pick<RemoteConnectionService, "requireSetup">;
   readonly runners: Pick<
     RunnerService,
@@ -239,17 +237,13 @@ export class RemoteSetupConductor implements RemoteConsoleConductor {
     const { userId, connectionId, connections, runners } = this.dependencies;
     try {
       await connections.requireSetup(userId, connectionId);
-      const endpoint = pairingEndpoint({
-        ...this.dependencies.pagesAddress,
-        connectionId,
-        sshHost: this.dependencies.sshHost,
-      });
+      const { endpoint, allowInsecureLan } = await this.dependencies.pairing();
       const { grant } = await runners.authorize(userId, connectionId);
-      control.write(`${endpoint}\n${grant}\n`);
+      control.write(`${endpoint}\n${grant}\n${String(allowInsecureLan)}\n`);
     } catch (error: unknown) {
       logCaughtError("RemoteSetupConductor", error);
       this.pairingReason = reasonOf(error);
-      control.write("\n\n");
+      control.write("\n\n\n");
     }
   }
 

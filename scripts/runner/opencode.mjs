@@ -23,7 +23,14 @@ const SAFE_SETTINGS = { share: "disabled", autoupdate: false };
 export function openCodeEnvironment(base, configuration = SAFE_SETTINGS) {
   return {
     ...base,
+    OPENCODE_DISABLE_PROJECT_CONFIG: "1",
     OPENCODE_DISABLE_AUTOUPDATE: "1",
+    OPENCODE_DISABLE_CLAUDE_CODE: "1",
+    OPENCODE_DISABLE_EXTERNAL_SKILLS: "1",
+    OPENCODE_DISABLE_DEFAULT_PLUGINS: "1",
+    OPENCODE_DISABLE_LSP_DOWNLOAD: "1",
+    OPENCODE_DISABLE_SHARE: "1",
+    OPENCODE_PURE: "1",
     OPENCODE_CONFIG_CONTENT: JSON.stringify(configuration),
   };
 }
@@ -407,23 +414,14 @@ export async function openCodeInventory(base, context = {}) {
 /** The managed primary agents and native rules, as Pages runs OpenCode locally. */
 function runConfiguration(job) {
   const read = { "*": "allow", "*.env": "deny", "*.env.*": "deny" };
-  const permission =
-    job.access === "yolo"
-      ? { "*": "allow", read }
-      : {
-          "*": "deny",
-          read,
-          list: "allow",
-          glob: "allow",
-          grep: "allow",
-          webfetch: "allow",
-          websearch: "allow",
-          "pages_*": "allow",
-        };
-  const mode = job.access === "yolo" ? "pages-yolo" : "pages-read-only";
+  const permission = runPermission(job, read);
+  const mode = runMode(job);
   const variant = job.reasoningEffort ?? "default";
   return {
     ...SAFE_SETTINGS,
+    ...(job.providerConfiguration
+      ? { provider: job.providerConfiguration }
+      : {}),
     model: job.model,
     small_model: job.model,
     enabled_providers: [job.model.split("/")[0]],
@@ -440,6 +438,26 @@ function runConfiguration(job) {
       compaction: { model: job.model, variant },
     },
     compaction: { auto: true },
+  };
+}
+
+function runMode(job) {
+  if (job.purpose) return "pages-decision";
+  return job.access === "read_only" ? "pages-read-only" : "pages-yolo";
+}
+
+function runPermission(job, read) {
+  if (job.purpose) return { "*": "deny" };
+  if (job.access !== "read_only") return { "*": "allow", read };
+  return {
+    "*": "deny",
+    read,
+    list: "allow",
+    glob: "allow",
+    grep: "allow",
+    webfetch: "allow",
+    websearch: "allow",
+    "pages_*": "allow",
   };
 }
 
@@ -495,7 +513,7 @@ async function choose(client, session, choice) {
 
 async function executeJob(job, prompt) {
   const environment = openCodeEnvironment(process.env, runConfiguration(job));
-  const decide = job.access === "yolo" ? approve : refuse;
+  const decide = job.access !== "read_only" ? approve : refuse;
   const { child, client } = startAcp(
     environment,
     job.workspace,
@@ -520,7 +538,7 @@ async function executeJob(job, prompt) {
     });
     let session = await choose(client, opened, [
       "mode",
-      job.access === "yolo" ? "pages-yolo" : "pages-read-only",
+      runMode(job),
       "opencode_acp_unsupported",
     ]);
     session = await choose(client, session, [

@@ -33,6 +33,8 @@ export async function resolvedRemoteCommand(
     inputs[name] = result?.status === "succeeded" ? (result.output ?? "") : "";
   }
   const command = remote.command;
+  if (command.program.kind === "api")
+    throw new AgentError("configuration_invalid");
   if (command.program.kind === "script")
     return {
       ...command,

@@ -1,3 +1,5 @@
+import { LOCAL_RUNNER_CONNECTION_ID } from "@/backend/service/runner/LocalRunnerIdentity";
+import { restoreManagedRunnerClaims } from "@/backend/service/runner/RunnerManagedRecovery";
 import { allPlanRunResults } from "@/definition/AgentPlanLoopResults";
 import { suspendedOpenCodeSessions } from "./AgentPlanRunState";
 
@@ -48,6 +50,7 @@ export async function adoptLocalPlanRun(
   context: AdoptionContext,
 ): Promise<boolean> {
   if (context.active.has(previous.id)) return true;
+  previous = restoreManagedRunnerClaims(previous);
   if (!canAdoptFrontier(previous, context)) return false;
   const snapshot = readPlanSnapshot(
     await context.dependencies.runs.snapshot?.(previous.id),
@@ -151,12 +154,28 @@ function canAdoptFrontier(
   run: AgentPlanRun,
   context: AdoptionContext,
 ): boolean {
+  if (run.runnerJobs?.length)
+    return allPlanRunResults(run)
+      .filter((step) => step.status === "running")
+      .every((step) =>
+        Boolean(
+          step.session?.runnerJob ??
+          step.script?.runnerJob ??
+          run.loops?.some((loop) => loop.id === step.id),
+        ),
+      );
   return (
     Boolean(context.dependencies.runs.snapshot) &&
     (run.status === "paused" ||
       context.dependencies.localSessions?.hasRun(run.id) === true ||
       allPlanRunResults(run).every(
-        (step) => step.status !== "running" || step.remote !== undefined,
+        (step) =>
+          step.status !== "running" ||
+          step.remote !== undefined ||
+          step.script?.closeout === "pending" ||
+          (run.loops?.some((loop) => loop.id === step.id) ?? false) ||
+          (step.execution?.target.kind === "remote" &&
+            step.execution.target.connectionId === LOCAL_RUNNER_CONNECTION_ID),
       ))
   );
 }
@@ -166,6 +185,8 @@ async function adoptionView(
   snapshot: AgentPlanSnapshot,
   context: AdoptionContext,
 ): Promise<{ readonly view: AgentPlanRun; readonly uncertain: boolean }> {
+  if (snapshot.runnerProtocolVersion === 1)
+    return { view: previous, uncertain: false };
   const local = context.dependencies.localSessions;
   const unresolved = local?.unverified() ?? new Set<string>();
   return {

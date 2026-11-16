@@ -1,6 +1,8 @@
 import { RUN_INSTANCE_VARIABLE } from "@/backend/agents/cli/CliProcessScan";
 
-import { pagesMcpServers, readAdapterVersion } from "./AcpLaunch";
+import { isStableVersionAtLeast } from "@/definition/AgentToolVersion";
+
+import { pagesMcpServers } from "./AcpLaunch";
 
 import type { Implementation } from "@agentclientprotocol/sdk";
 import type { AcpLaunchSpecification } from "./AcpDriver";
@@ -17,28 +19,27 @@ const HELPER_OUTPUT_LIMIT = 131_072;
 const CLAUDE_ACP_PACKAGE = "@agentclientprotocol/claude-agent-acp";
 
 /**
- * The adapter versions whose modes, configuration options, tool restriction
- * and MCP handling Pages verified: the 0.90 line. A 0.x release may change its
- * protocol surface with any minor version, so the next minor is not accepted
- * before it was verified.
+ * The oldest claude-agent-acp release whose modes, configuration options,
+ * tool restriction and MCP handling Pages implements.
+ * @remarks
+ * A newer release is accepted only after the tool manager's protocol check
+ * passed with the CLI it runs with; a session then pins that exact version.
  */
-const SUPPORTED_VERSIONS = { major: 0, minor: 90 } as const;
+export const CLAUDE_ACP_MINIMUM_VERSION = "0.90.0";
 
 /**
- * Whether the adapter that answered `initialize` is one Pages verified.
+ * Whether the adapter that answered `initialize` is one Pages supports.
  * @param agent - What the adapter reported about itself.
- * @returns `true` for claude-agent-acp 0.90.x; previews and other agents are
- * refused.
+ * @returns `true` for a stable claude-agent-acp release from 0.90.0 on;
+ * previews and other agents are refused. A session additionally pins the
+ * exact version of the generation the tool manager verified.
  */
 export function isSupportedClaudeAcp(
   agent: Implementation | null | undefined,
 ): agent is Implementation {
-  if (agent?.name !== CLAUDE_ACP_PACKAGE) return false;
-  const version = readAdapterVersion(agent.version);
   return (
-    version !== null &&
-    version[0] === SUPPORTED_VERSIONS.major &&
-    version[1] === SUPPORTED_VERSIONS.minor
+    agent?.name === CLAUDE_ACP_PACKAGE &&
+    isStableVersionAtLeast(agent.version, CLAUDE_ACP_MINIMUM_VERSION)
   );
 }
 

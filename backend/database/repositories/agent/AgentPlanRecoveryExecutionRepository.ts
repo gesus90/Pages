@@ -447,6 +447,8 @@ async function requireUnchangedRun(
   );
   if (!row) throw new AgentPlanRecoveryError("revision_conflict");
   const current = readPlanRun(JSON.parse(readTextColumn(row, 0, "view_json")));
+  if (current.runnerJobs?.some((job) => job.closeout !== "confirmed"))
+    throw new AgentPlanRecoveryError("action_unavailable");
   if (!isDeepStrictEqual(current, expected))
     throw new AgentPlanRecoveryError("revision_conflict");
 }

@@ -1,3 +1,6 @@
+import { drainLegacyPlanSession } from "./AgentPlanLegacyDrain";
+import type { PlanExecution } from "@/backend/agents/AgentPlanExecution";
+import type { AgentPlanSessionGrants } from "./AgentPlanSessionAccess";
 import { restoredLocalMcp } from "@/backend/agents/local/LocalSessionContracts";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { allPlanRunResults } from "@/definition/AgentPlanLoopResults";
@@ -26,6 +29,8 @@ import type { AgentPlanSessionTerms } from "./AgentPlanStepAssessment";
 import type { PlanSession } from "@/backend/agents/AgentPlanExecution";
 
 interface ReattachDependencies {
+  readonly execution: PlanExecution;
+  readonly access: AgentPlanSessionGrants;
   readonly local?: LocalSessions;
   readonly observer: (node: NodeRun) => PlanSessionObserver;
   readonly finish: (
@@ -71,17 +76,23 @@ async function finishReattached(
     node.control.signal,
     dependencies.observer(node),
   );
-  return dependencies.finish(node, session, {
-    contract: record.contract,
-    reach: planSessionReach(
-      record.runner === "api" ? node.step.provider : record.runner,
-      record.requested.options,
-    ),
-    instruction: launch.instruction,
-  });
+  return dependencies.finish(
+    node,
+    drainLegacyPlanSession(session, node, dependencies),
+    {
+      contract: record.contract,
+      reach: planSessionReach(
+        record.runner === "api" ? node.step.provider : record.runner,
+        record.requested.options,
+      ),
+      instruction: launch.instruction,
+    },
+  );
 }
 
 interface RestoreDependencies {
+  readonly execution: PlanExecution;
+  readonly access: AgentPlanSessionGrants;
   readonly local?: LocalSessions;
   readonly groups: AgentPlanGroupSessions;
   readonly retained: Map<string, NodeRun[]>;
@@ -107,32 +118,10 @@ export async function restoreLocalStepSessions(
   snapshot: AgentPlanSnapshot,
   dependencies: RestoreDependencies,
 ): Promise<void> {
-  const local = dependencies.local;
   const nodes: NodeRun[] = [];
   for (const result of allPlanRunResults(run)) {
-    const record = result.session;
-    const step = snapshot.steps.find(
-      (candidate) => candidate.step.id === result.id,
-    );
-    if (record?.group)
-      dependencies.groups.markLost(`${run.id}/${record.group.groupId}`);
-    if (
-      !record ||
-      !step ||
-      !local ||
-      !local.has(record.instanceId) ||
-      record.closeout === "confirmed"
-    )
-      continue;
-    const stored = storedPlanNodeInput(run, step, result);
-    const node = createNodeRun(stored.run, snapshot, stored.step, {
-      signal: new AbortController().signal,
-      iteration: storedPlanIteration(run, result),
-      save: dependencies.save,
-      runInstruction: dependencies.instruction,
-    });
-    node.record = record;
-    node.hasStarted = record.startedAt !== null;
+    const node = restoreNode(result, run, snapshot, dependencies);
+    if (!node) continue;
     nodes.push(node);
     if (node.sessionGroup && result.status === "succeeded") {
       const key = `${run.id}/${node.sessionGroup}`;
@@ -149,6 +138,42 @@ export async function restoreLocalStepSessions(
         restoredInput(node, dependencies),
       );
   }
+}
+
+function restoreNode(
+  result: AgentPlanStepResult,
+  run: AgentPlanRun,
+  snapshot: AgentPlanSnapshot,
+  dependencies: RestoreDependencies,
+): NodeRun | null {
+  const record = result.session;
+  if (record?.runnerJob) return null;
+  const step = snapshot.steps.find(
+    (candidate) => candidate.step.id === result.id,
+  );
+  if (record?.group)
+    dependencies.groups.markLost(`${run.id}/${record.group.groupId}`);
+  if (!record || !step || !isRestorableLocalStep(record, dependencies.local))
+    return null;
+  const stored = storedPlanNodeInput(run, step, result);
+  const node = createNodeRun(stored.run, snapshot, stored.step, {
+    signal: new AbortController().signal,
+    iteration: storedPlanIteration(run, result),
+    save: dependencies.save,
+    runInstruction: dependencies.instruction,
+  });
+  node.record = record;
+  node.hasStarted = record.startedAt !== null;
+  return node;
+}
+
+function isRestorableLocalStep(
+  record: NonNullable<AgentPlanStepResult["session"]>,
+  local: RestoreDependencies["local"],
+): boolean {
+  return (
+    local?.has(record.instanceId) === true && record.closeout !== "confirmed"
+  );
 }
 
 async function restoreHolders(
@@ -196,7 +221,7 @@ async function restoreHolder(
     stepId: node.step.step.id,
     userId: node.run.userId,
     mcp: restoredLocalMcp(launch),
-    session,
+    session: drainLegacyPlanSession(session, node, dependencies),
     started: started?.kind === "started" ? started.details : null,
     turns: position?.kind === "position" ? position.turns : undefined,
   });

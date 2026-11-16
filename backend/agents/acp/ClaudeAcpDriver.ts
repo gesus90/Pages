@@ -1,5 +1,6 @@
 import {
   CLAUDE_ACP_BINARY,
+  CLAUDE_ACP_MINIMUM_VERSION,
   isSupportedClaudeAcp,
   planClaudeAcpLaunch,
 } from "./ClaudeAcpAdapter";
@@ -19,7 +20,7 @@ import type { AcpDriver } from "./AcpDriver";
 export const CLAUDE_ACP_DRIVER: AcpDriver = {
   provider: "claude_code",
   binary: CLAUDE_ACP_BINARY,
-  supportedVersions: "0.90.x",
+  supportedVersions: `${CLAUDE_ACP_MINIMUM_VERSION} or later`,
   errors: {
     modeRequired: "claude_permission_mode_required",
     adapterMissing: "plan_claude_acp_adapter_missing",

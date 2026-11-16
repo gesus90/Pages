@@ -225,7 +225,6 @@ export default defineConfig(({ mode }) =>
           emptyOutDir: false,
           rollupOptions: {
             input: {
-              "local-owner/index": "backend/agents/local/LocalSessionOwner.ts",
               "runs/index": "backend/runtime/RunsEntry.ts",
             },
             output: {

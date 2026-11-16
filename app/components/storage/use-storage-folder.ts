@@ -26,9 +26,9 @@ export interface StorageFolderModel {
   /** What is known about the asked folder; `loading` until its own answer arrived. */
   readonly reading: StorageFolderReading;
   /**
-   * The folder loaded before, while the asked one loads. It
-   * belongs to no current target: a view keeps its place with it, but
-   * offers nothing of it.
+   * The folder loaded before, while the asked one loads or after its load
+   * failed. It belongs to no current target: a view keeps its place with it,
+   * but offers nothing of it.
    */
   readonly previousResult: StorageBrowseResult | null;
   readonly isLoadingMore: boolean;
@@ -56,6 +56,11 @@ interface StorageFolderState {
   /** The load of the answer; while another load is asked, it is replaced. */
   readonly loadId: number;
   readonly reading: StorageFolderReading;
+  /**
+   * The last folder shown before a reading that is no folder: a failed load
+   * keeps the place of the folder that was shown, so the view around it stays.
+   */
+  readonly kept: StorageBrowseResult | null;
 }
 
 /** A request for the next page, bound to the listing that asked for it. */
@@ -82,7 +87,31 @@ interface MorePagesOptions {
 
 const LOADING: StorageFolderReading = { kind: "loading" };
 
-const NOTHING_LOADED: StorageFolderState = { loadId: 0, reading: LOADING };
+const NOTHING_LOADED: StorageFolderState = {
+  kept: null,
+  loadId: 0,
+  reading: LOADING,
+};
+
+/** The result a view keeps its place with while the asked folder is not there. */
+function lastFolderOf(state: StorageFolderState): StorageBrowseResult | null {
+  return state.reading.kind === "loaded" ? state.reading.result : state.kept;
+}
+
+/**
+ * What stays in place when a new answer replaces the state.
+ * @remarks
+ * Only a listed folder is worth keeping: a result that is a folder problem, or
+ * an answer about the connection, leaves nothing of the view to stand in place.
+ */
+function keptBefore(
+  state: StorageFolderState,
+  reading: StorageFolderReading,
+): StorageBrowseResult | null {
+  const last = reading.kind === "connection" ? null : lastFolderOf(state);
+
+  return last?.folder ? last : null;
+}
 
 function toReading(
   reply: Awaited<ReturnType<typeof requestStorageFolder>>,
@@ -121,6 +150,7 @@ function appendPage(
   }
 
   return {
+    kept: current.kept,
     loadId: current.loadId,
     reading: {
       kind: "loaded",
@@ -247,7 +277,13 @@ export function useStorageFolder(
         return;
       }
 
-      setState({ loadId, reading: toReading(reply) });
+      const reading = toReading(reply);
+
+      setState((current) => ({
+        kept: keptBefore(current, reading),
+        loadId,
+        reading,
+      }));
       // The frame reads session and rights again; an ended session leads to the sign-in.
       if (!reply.ok) void revalidate();
     }
@@ -265,6 +301,7 @@ export function useStorageFolder(
     setState((current) =>
       current.reading.kind === "loaded"
         ? {
+            kept: current.kept,
             loadId: current.loadId,
             reading: {
               kind: "loaded",
@@ -283,9 +320,7 @@ export function useStorageFolder(
   return {
     ...useMorePages({ isFoldersOnly, loadId, setState, state }),
     previousResult:
-      !isCurrent && state.reading.kind === "loaded"
-        ? state.reading.result
-        : null,
+      isCurrent && state.reading.kind === "loaded" ? null : lastFolderOf(state),
     reading: isCurrent ? state.reading : LOADING,
     reload,
     replaceStartFolder,

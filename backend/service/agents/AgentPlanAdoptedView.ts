@@ -1,3 +1,4 @@
+import { LOCAL_RUNNER_CONNECTION_ID } from "@/backend/service/runner/LocalRunnerIdentity";
 import { readOwnedScript } from "./AgentPlanScriptOwner";
 import { endInterruptedSession } from "./AgentPlanRecovery";
 
@@ -45,6 +46,24 @@ function restartedStep(
   };
 }
 
+/** Whether a dispatched step keeps its record instead of being failed as unavailable. */
+function preservesDispatchedWork(
+  previous: AgentPlanRun,
+  step: AgentPlanStepResult,
+  local: LocalSessions,
+): boolean {
+  return (
+    step.status !== "running" ||
+    step.remote !== undefined ||
+    step.script?.closeout === "pending" ||
+    (step.execution?.target.kind === "remote" &&
+      step.execution.target.connectionId === LOCAL_RUNNER_CONNECTION_ID) ||
+    (previous.status === "paused" &&
+      (step.script != null || step.session?.runner === "api")) ||
+    (step.session != null && local.has(step.session.instanceId))
+  );
+}
+
 /** Preserves proven dispatched work and fails unavailable work without dispatching a replacement attempt. */
 export function adoptedPlanView(
   previous: AgentPlanRun,
@@ -57,14 +76,7 @@ export function adoptedPlanView(
   ): AgentPlanStepResult => {
     if (hasEndedOwner(previous, step, local))
       return restartedStep(step, restartStatus);
-    if (
-      step.status !== "running" ||
-      step.remote ||
-      (previous.status === "paused" &&
-        (step.script || step.session?.runner === "api")) ||
-      (step.session && local.has(step.session.instanceId))
-    )
-      return step;
+    if (preservesDispatchedWork(previous, step, local)) return step;
     if (
       snapshot.plan.nodes.some(
         (node) => node.id === step.id && node.type === "loop",
@@ -121,7 +133,7 @@ export async function reconcileAdoptedRun(
   const reconcile = async (
     step: AgentPlanStepResult,
   ): Promise<AgentPlanStepResult> => {
-    if (run.status === "paused" && step.script) {
+    if (step.script?.closeout === "pending") {
       const script = await readOwnedScript(
         step.script.instanceId,
         step.script.temporaryScope,

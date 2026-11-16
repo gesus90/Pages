@@ -1,5 +1,6 @@
 import { planContentDigest } from "@/backend/agents/AgentPlanContentDigest";
 
+import { applyExecutionState } from "./RunnerExecutionState";
 import { mergeRunnerCatalog } from "./RunnerCatalog";
 
 import type {
@@ -31,6 +32,8 @@ export function applyRunnerMessage(
 } {
   if (message.sessionId !== state.sessionId)
     throw new Error("Runner session mismatch");
+  if (message.type === "execution-state")
+    return applyExecutionState(state, message);
   if (message.type === "stop-result") return applyStopResult(state, message);
   if (message.type === "catalog")
     return {
@@ -74,45 +77,71 @@ export function applyRunnerMessage(
   if (isStaleTerminalRunnerEvent(state, message))
     return applyStaleEvent(state, message);
   requireTransition(state, message);
-  const updated = {
-    ...state,
-    lastContactAt: new Date().toISOString(),
-    sequence: message.sequence,
-    lastEventId: message.eventId,
-    lastEventDigest: planContentDigest(message),
-    jobs: state.jobs.map((job) =>
-      job.jobId === message.job.jobId
-        ? {
-            ...message.job,
-            ...(job.isPaused === undefined ? {} : { isPaused: job.isPaused }),
-            ...(job.pauseRequestedAt
-              ? { pauseRequestedAt: job.pauseRequestedAt }
-              : {}),
-            ...(job.cancellation
-              ? {
-                  cancellation: {
-                    ...job.cancellation,
-                    ...(message.job.cancellation?.requestedAt ===
-                      job.cancellation.requestedAt &&
-                    !job.cancellation.completedAt
-                      ? message.job.cancellation
-                      : {}),
-                  },
-                }
-              : {}),
-            ...(message.delta ? { execution: job.execution } : {}),
-          }
-        : job,
-    ),
-  };
   return {
-    state: updated,
+    state: mergeEventIntoState(state, message),
     reply: {
       version: 1,
       type: "ack",
       eventId: message.eventId,
       sequence: message.sequence,
     },
+  };
+}
+
+function mergeEventIntoState(
+  state: RunnerState,
+  message: Extract<RunnerMessage, { type: "event" }>,
+): RunnerState {
+  return {
+    ...state,
+    lastContactAt: new Date().toISOString(),
+    sequence: message.sequence,
+    lastEventId: message.eventId,
+    lastEventDigest: planContentDigest(message),
+    jobs: state.jobs.map((job) =>
+      job.jobId === message.job.jobId ? mergeEventJob(job, message) : job,
+    ),
+  };
+}
+
+function mergeEventJob(
+  job: RunnerJob,
+  message: Extract<RunnerMessage, { type: "event" }>,
+): RunnerJob {
+  return {
+    ...message.job,
+    outcome:
+      job.outcome ??
+      (job.plan?.managed &&
+      ["completed", "failed", "interrupted", "lost"].includes(
+        message.job.status,
+      )
+        ? message.result
+        : undefined),
+    ...(job.isPaused === undefined ? {} : { isPaused: job.isPaused }),
+    executionPauseRequestedAt: job.executionPauseRequestedAt,
+    executionControl: job.executionControl,
+    canFreezeExecution: message.job.launch?.isolation
+      ? message.job.launch.isolation === "cgroup_v2"
+      : job.canFreezeExecution,
+    ...(job.pauseRequestedAt ? { pauseRequestedAt: job.pauseRequestedAt } : {}),
+    ...(job.cancellation
+      ? { cancellation: mergedCancellation(job.cancellation, message.job) }
+      : {}),
+    ...(message.delta ? { execution: job.execution } : {}),
+  };
+}
+
+function mergedCancellation(
+  current: NonNullable<RunnerJob["cancellation"]>,
+  incoming: RunnerJob,
+): NonNullable<RunnerJob["cancellation"]> {
+  return {
+    ...current,
+    ...(incoming.cancellation?.requestedAt === current.requestedAt &&
+    !current.completedAt
+      ? incoming.cancellation
+      : {}),
   };
 }
 
@@ -135,7 +164,7 @@ export function reconciledRunnerReply(state: RunnerState): RunnerReply {
   return {
     version: 1,
     type: "reconcile",
-    state,
+    state: runnerWireState(state),
     outputJournalVersion: 2,
     communicationVersion: 1,
     planControlVersion: 1,
@@ -179,34 +208,8 @@ function reconcileRunner(
   state: RunnerState,
   message: Extract<RunnerMessage, { type: "reconcile" }>,
 ): { readonly state: RunnerState; readonly reply: RunnerReply } {
-  if (
-    message.resultPayloadVersion !== 1 &&
-    state.jobs.some(
-      (job) =>
-        job.execution?.program.kind === "cli" &&
-        job.execution.resultPayloadVersion === 1 &&
-        ["queued", "accepted", "running"].includes(job.status),
-    )
-  )
-    throw new Error(
-      "Runner 1.13.0 is required for outstanding exact-result jobs",
-    );
-  if (
-    message.continuationVersion !== 1 &&
-    state.jobs.some(
-      (job) =>
-        job.execution?.continuation !== undefined &&
-        ["queued", "accepted", "running"].includes(job.status),
-    )
-  )
-    throw new Error(
-      "Runner 1.16.0 is required for outstanding continuation jobs",
-    );
-  if (
-    message.outputJournalVersion !== 2 &&
-    state.jobs.some(requiresChunkExecutor)
-  )
-    throw new Error("Runner update required for outstanding chunk journals");
+  requireAccountCapabilities(state, message);
+  requireOutstandingCapabilities(state, message);
   if (message.sequence > state.sequence)
     throw new Error("Runner journal ahead of Pages");
   const reported = new Map(message.jobs.map((job) => [job.jobId, job]));
@@ -239,6 +242,13 @@ function reconcileRunner(
     communicationVersion: message.communicationVersion,
     planControlVersion: message.planControlVersion,
     runnerVersion: message.runnerVersion,
+    managedExecutionVersion: message.managedExecutionVersion,
+    isolationVersion: message.isolationVersion,
+    executionControlVersion: message.executionControlVersion,
+    cgroupVersion: message.cgroupVersion,
+    agentAccountsVersion: message.agentAccountsVersion,
+    browserVersion: message.browserVersion,
+    progressVersion: message.progressVersion,
     lastContactAt: new Date().toISOString(),
   };
   return {
@@ -246,12 +256,80 @@ function reconcileRunner(
     reply: {
       version: 1,
       type: "reconcile",
-      state: reconciled,
+      state: runnerWireState(reconciled),
       outputJournalVersion: 2,
       communicationVersion: 1,
       planControlVersion: 1,
     },
   };
+}
+
+function isActiveJob(job: RunnerJob): boolean {
+  return ["queued", "accepted", "running"].includes(job.status);
+}
+
+function needsNewerCapability(
+  job: RunnerJob,
+  message: Extract<RunnerMessage, { type: "reconcile" }>,
+): boolean {
+  if (job.execution?.agentAccount && message.agentAccountsVersion !== 1)
+    return true;
+  if (job.execution?.browser && message.browserVersion !== 1) return true;
+  if (job.execution?.progressVersion && message.progressVersion !== 1)
+    return true;
+  return false;
+}
+
+function requireAccountCapabilities(
+  state: RunnerState,
+  message: Extract<RunnerMessage, { type: "reconcile" }>,
+): void {
+  for (const job of state.jobs) {
+    if (!isActiveJob(job)) continue;
+    if (needsNewerCapability(job, message))
+      throw new Error(
+        "Runner update required for outstanding account, browser or progress jobs",
+      );
+  }
+}
+
+function needsExactResult(job: RunnerJob): boolean {
+  return (
+    job.execution?.program.kind === "cli" &&
+    job.execution.resultPayloadVersion === 1
+  );
+}
+
+function requireOutstandingCapabilities(
+  state: RunnerState,
+  message: Extract<RunnerMessage, { type: "reconcile" }>,
+): void {
+  if (
+    message.resultPayloadVersion !== 1 &&
+    state.jobs.some((job) => isActiveJob(job) && needsExactResult(job))
+  )
+    throw new Error(
+      "Runner 1.13.0 is required for outstanding exact-result jobs",
+    );
+  if (
+    message.continuationVersion !== 1 &&
+    state.jobs.some(
+      (job) => isActiveJob(job) && job.execution?.continuation !== undefined,
+    )
+  )
+    throw new Error(
+      "Runner 1.16.0 is required for outstanding continuation jobs",
+    );
+  if (
+    message.outputJournalVersion !== 2 &&
+    state.jobs.some(requiresChunkExecutor)
+  )
+    throw new Error("Runner update required for outstanding chunk journals");
+  if (
+    message.managedExecutionVersion !== 1 &&
+    state.jobs.some((job) => isActiveJob(job) && job.plan?.managed === true)
+  )
+    throw new Error("Runner update required for outstanding managed execution");
 }
 
 function requiresChunkExecutor(job: RunnerJob): boolean {
@@ -425,4 +503,22 @@ function applyStaleEvent(
     lastEventDigest: planContentDigest(message),
   };
   return { state: settled, reply: reconciledRunnerReply(settled) };
+}
+
+/** Keeps private terminal payloads out of the bounded reconciliation channel. */
+export function runnerWireState(state: RunnerState): RunnerState {
+  return {
+    ...state,
+    jobs: state.jobs.map((job) => {
+      const publicJob = { ...job };
+      delete publicJob.outcome;
+      delete publicJob.nativePlan;
+      if (
+        job.plan?.managed &&
+        ["completed", "failed", "interrupted", "lost"].includes(job.status)
+      )
+        delete publicJob.execution;
+      return publicJob;
+    }),
+  };
 }

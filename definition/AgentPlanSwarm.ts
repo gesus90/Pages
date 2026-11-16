@@ -1,5 +1,6 @@
 import type { AcpProviderId } from "./AgentConfiguration";
 import type { AgentPlanExecutionTarget } from "./AgentPlanExecution.js";
+import type { AgentPlanSwarmMemorySetting } from "./AgentPlanSwarmMemory";
 import type {
   AgentPlanBinding,
   AgentPlanInput,
@@ -124,6 +125,11 @@ export interface AgentPlanSwarm extends AgentPlanPosition {
   readonly directory?: string;
   readonly timeoutMinutes: number;
   readonly executionTarget?: AgentPlanExecutionTarget;
+  /**
+   * The shared memory of the helpers; absent in plans saved before it, which
+   * then run with memory from two helpers on.
+   */
+  readonly memory?: AgentPlanSwarmMemorySetting;
   readonly bindings: Readonly<Record<string, AgentPlanBinding>>;
 }
 

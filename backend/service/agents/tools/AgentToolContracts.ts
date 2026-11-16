@@ -21,6 +21,19 @@ export interface AgentToolLocation {
   readonly terminalEntry?: AgentToolTerminalEntry;
 }
 
+/** One exactly resolved provider release with the integrity proof its source publishes. */
+export interface AgentToolRelease {
+  readonly version: string;
+  /** npm `dist.integrity` (sha512) or the archive's `sha256:` digest. */
+  readonly integrity: string | null;
+  /** The official archive of a binary distribution; `null` for npm packages. */
+  readonly archiveUrl: string | null;
+  /** Declared runtime dependencies, used to match an adapter with its CLI. */
+  readonly dependencies: Readonly<Record<string, string>>;
+  /** For an adapter: the CLI version of the combination it is installed for. */
+  readonly cliVersion?: string;
+}
+
 /** Model-free functional result; upstream text is deliberately excluded. */
 export interface AgentToolHealth {
   readonly status: AgentToolStatus;
@@ -36,13 +49,17 @@ export interface AgentToolRunContext {
   readonly temporaryDirectory: string;
 }
 
-/** Persistence boundary kept separate from credentials and the DuckDB connection store. */
+/** Persistence boundary kept separate from credentials and the connection store. */
 export interface AgentToolStorage {
   readonly root: string;
   initialize?(): Promise<void>;
   home(): Promise<CliHome>;
   current(tool: AgentToolDefinition): Promise<AgentToolLocation | null>;
-  candidate(tool: AgentToolDefinition): Promise<AgentToolLocation>;
+  /** Creates an unpublished generation for exactly this version. */
+  candidate(
+    tool: AgentToolDefinition,
+    version: string | null,
+  ): Promise<AgentToolLocation>;
   activate(
     tool: AgentToolDefinition,
     location: AgentToolLocation,
@@ -60,15 +77,22 @@ export interface AgentToolInstallation {
   install(
     tool: AgentToolDefinition,
     candidate: AgentToolLocation,
+    target: AgentToolRelease | null,
     signal: AbortSignal,
   ): Promise<void>;
 }
 
-/** Checks can be replaced with synthetic implementations in unit tests. */
+/**
+ * Checks can be replaced with synthetic implementations in unit tests.
+ * @remarks
+ * `cli` names the CLI generation an adapter is checked with, so an adapter
+ * candidate is verified together with the CLI candidate it will run with.
+ */
 export interface AgentToolHealthChecks {
   check(
     tool: AgentToolDefinition,
     location: AgentToolLocation,
     signal: AbortSignal,
+    cli?: AgentToolLocation,
   ): Promise<AgentToolHealth>;
 }

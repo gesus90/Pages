@@ -1,4 +1,8 @@
 import { WebSocketServer } from "ws";
+import {
+  LOCAL_RUNNER_CONNECTION_ID,
+  isDirectLocalRunnerPeer,
+} from "@/backend/service/runner/LocalRunnerIdentity";
 import { getApplicationServices } from "@/app/lib/services.server";
 import { logCaughtError, logEvent } from "@/backend/logging/Logger";
 import { SerialQueue } from "@/backend/concurrency/SerialQueue";
@@ -8,6 +12,7 @@ import {
   isRemoteConsoleChannel,
   RUNNER_CHANNEL_PATH,
 } from "./ChannelPaths";
+import type { RunnerMaintenanceService } from "@/backend/service/runner/RunnerMaintenanceService";
 import type { IncomingMessage, Server } from "node:http";
 import type { Duplex } from "node:stream";
 import type { WebSocket } from "ws";
@@ -57,6 +62,7 @@ function noticeRejectedPeer(): void {
 import type { RunnerPagesAccessService } from "@/backend/service/runner/RunnerPagesAccessService";
 
 interface RunnerChannelServices {
+  readonly maintenance: RunnerMaintenanceService;
   readonly pages: RunnerPagesAccessService;
   readonly runners: RunnerService;
   readonly openRouter: RunnerOpenRouterService;
@@ -71,6 +77,10 @@ async function receiveAuxiliary(
 ): Promise<boolean> {
   if (typeof input !== "object" || input === null || !("type" in input))
     return false;
+  if (input.type === "maintenance") {
+    send(await services.maintenance.receive(connectionId, input));
+    return true;
+  }
   if (input.type === "pages-request") {
     send(await services.pages.receive(connectionId, input));
     return true;
@@ -235,6 +245,11 @@ async function upgrade(input: {
       !protocols?.includes("pages-runner.v1")
     )
       throw new Error("Runner authorization required");
+    if (
+      connectionId === LOCAL_RUNNER_CONNECTION_ID &&
+      !isDirectLocalRunnerPeer(request.socket.remoteAddress, request.headers)
+    )
+      throw new Error("Local runner requires direct loopback");
     const services = await getApplicationServices();
     const service = services.runnerService;
     const auth = await service.authenticate(connectionId, credential);
@@ -247,6 +262,7 @@ async function upgrade(input: {
         auth,
         {
           pages: services.runnerPagesAccessService,
+          maintenance: services.runnerMaintenanceService,
           runners: service,
           openRouter: services.runnerOpenRouterService,
           github: services.runnerGitHubAccessService,

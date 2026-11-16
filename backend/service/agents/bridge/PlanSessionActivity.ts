@@ -41,10 +41,16 @@ export function planSessionActivity(
   return async (grant) => {
     const run = await runs.find(grant.runId);
     if (!run || run.stopRequested) return false;
-    if (run.status !== "running" && run.status !== "pausing") return false;
+    const isDraining =
+      run.runnerJobs?.some((job) => job.closeout === "pending") === true;
+    if (run.status !== "running" && run.status !== "pausing" && !isDraining)
+      return false;
     return allPlanRunResults(run).some(
       (result) =>
-        result.status === "running" &&
+        (result.status === "running" ||
+          run.runnerJobs?.some(
+            (job) => job.stepId === result.id && job.closeout === "pending",
+          )) &&
         (result.session?.instanceId === grant.instanceId ||
           isSwarmSession(result, grant)),
     );

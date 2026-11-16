@@ -26,6 +26,7 @@ import type { AcpNamespaceOwner } from "@/definition/AcpResource";
 import type {
   AgentPlanProcessExit,
   AgentPlanSessionMode,
+  AgentPlanSessionRecord,
 } from "@/definition/AgentPlanSession";
 
 /** A CLI session of one plan node, in its authorized workspace. */
@@ -59,6 +60,11 @@ export interface PlanSessionObserver {
     readonly unattended: string;
     /** Durable supervisor identity, when this runner owns a PID namespace. */
     readonly namespace?: AcpNamespaceOwner;
+    readonly runnerJob?: {
+      readonly connectionId: string;
+      readonly jobId: string;
+      readonly attemptId: string;
+    };
   }) => void;
   readonly identified: (sessionId: string) => void;
   /** Announced by a supported adapter; never inferred from a provider name. */
@@ -156,11 +162,38 @@ export interface PlanSessionRunner {
   ): Promise<void>;
 }
 
+/** Persists an API request claim and reattaches that same claim after observer replacement. */
+export interface PlanRequestControl {
+  readonly attemptId: string;
+  readonly runnerJob?: NonNullable<AgentPlanSessionRecord["runnerJob"]>;
+  readonly dispatched: (
+    reference: NonNullable<AgentPlanSessionRecord["runnerJob"]>,
+  ) => Promise<void>;
+}
+
 /** Runs plan nodes: requests to API connections and sessions of CLI runners. */
 export interface PlanExecution {
+  /** Current runner admission occupancy for swarm helper selection. */
+  capacity?(): { readonly limit: number; readonly active: number };
+  /** Recovers the same sealed bridge bearer without replacing a running worker's grant. */
+  restoreAccess?(
+    reference: NonNullable<AgentPlanSessionRecord["runnerJob"]>,
+    runId: string,
+  ): Promise<CliSessionMcp | null>;
+  /** Observes an existing claim without resubmitting its prompt. */
+  reattach?(
+    input: AgentPlanSessionInput,
+    reference: NonNullable<AgentPlanSessionRecord["runnerJob"]>,
+    signal: AbortSignal,
+    observer: PlanSessionObserver,
+  ): Promise<PlanSession>;
   readonly hasDurableLocalSessions?: boolean;
   /** A request to an API connection; it uses no tools and no workspace. */
-  run(input: AgentPlanExecutionInput, signal: AbortSignal): Promise<string>;
+  run(
+    input: AgentPlanExecutionInput,
+    signal: AbortSignal,
+    control?: PlanRequestControl,
+  ): Promise<string>;
   /** A session of the CLI runner the connection of the node determines. */
   open(
     input: AgentPlanSessionInput,

@@ -1,23 +1,10 @@
+import { nativeUsage, claudeResultUsage } from "./usage.mjs";
 import { createHash } from "node:crypto";
 
 import { remoteBanner } from "./opencode.mjs";
 
 function digest(contents) {
   return createHash("sha256").update(contents).digest("hex");
-}
-
-function usage(counts) {
-  const number = (input) =>
-    Number.isSafeInteger(input) && input >= 0 ? input : null;
-  return {
-    inputTokens: number(counts?.input_tokens),
-    outputTokens: number(counts?.output_tokens),
-    cacheWriteTokens: number(counts?.cache_creation_input_tokens),
-    totalTokens: number(counts?.total_tokens),
-    cacheReadTokens: number(
-      counts?.cached_input_tokens ?? counts?.cache_read_input_tokens,
-    ),
-  };
 }
 
 // A block or item of these kinds changes nothing outside the conversation.
@@ -272,7 +259,7 @@ export class CliTerminalResult {
             ? "completed"
             : "failed",
         event: "result",
-        usage: usage(event.usage),
+        usage: claudeResultUsage(event),
       });
     }
     if (
@@ -288,7 +275,7 @@ export class CliTerminalResult {
             ? "completed"
             : "failed",
         event: "session/prompt",
-        usage: usage({
+        usage: nativeUsage({
           input_tokens: event.usage?.inputTokens,
           output_tokens: event.usage?.outputTokens,
           cached_input_tokens: event.usage?.cachedReadTokens,
@@ -378,7 +365,7 @@ export class CliTerminalResult {
         answer: this.#answer,
         status: event.type === "turn.completed" ? "completed" : "failed",
         event: event.type,
-        usage: usage(event.usage),
+        usage: nativeUsage(event.usage),
       });
     if (event.type === "error")
       throw Object.assign(new Error("CLI reported a terminal error"), {

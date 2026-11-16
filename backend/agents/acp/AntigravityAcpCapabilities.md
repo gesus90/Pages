@@ -1,26 +1,40 @@
 # Google Antigravity ACP
 
-Pages runs the official `antigravity-acp` adapter, not an `agy --acp` command.
-The reviewed registry release is **1.4.4**. Managed Linux x64/arm64 installations
-verify the registry SHA-256 before extracting `agy_acp_server.par` and its
-adjacent `localharness_external`. Both files belong to one immutable tool
-release. Installation, updates and rollback use Settings → Agents → Tools;
-a running session keeps its pinned release.
+Pages runs the official ACP entry point of the Antigravity CLI, `agy acp`. It
+replaces the earlier separate `agy_acp_server.par` adapter. Pages accepts a
+stable CLI release from **1.5.9** on whose `initialize` answer names
+`Antigravity ACP Server` with protocol version 1. The managed Linux x64/arm64
+installation comes from the official GitHub release of
+`google-antigravity/antigravity-cli`; Pages checks the SHA-256 digest of the
+release asset before it extracts the `antigravity` program as `agy` into one
+immutable tool generation. Installation, updates and rollback use Settings →
+Agents → Tools; a running session keeps its pinned generation. Pages sets
+`AGY_CLI_DISABLE_AUTO_UPDATE=1`, so a managed generation never replaces itself.
 
-Sources: [ACP registry](https://github.com/agentclientprotocol/registry/blob/main/antigravity-acp/agent.json),
-[official setup](https://antigravity.google/docs/ide/extensions/zed/).
-The shipped adapter's protocol implementation defines the selectors and OAuth
-callback contract described below.
+Every start names the connection's own context:
+`agy acp --gemini-dir=<connection>/config --app-data-dir=antigravity-acp
+--disable-telemetry`. The client identity stays `pages`; Pages does not pose as
+another application. The CLI keeps its sign-in in
+`<connection>/config/antigravity-acp/antigravity-oauth-token`. A sign-in of the
+earlier adapter (`acp_token.json`) is not read by `agy acp`: such a connection
+shows that a new sign-in is required, and the old file is kept.
+
+Sources: [Antigravity CLI releases](https://github.com/google-antigravity/antigravity-cli/releases),
+[changelog](https://github.com/google-antigravity/antigravity-cli/blob/main/CHANGELOG.md).
+The CLI's protocol implementation defines the selectors and OAuth callback
+contract described below.
 
 ## Connections and authentication
 
 Add Google Antigravity under the existing local/CLI connections. Each connection
-has its own `GEMINI_HOME`, separate from the service user's personal CLI state.
-The `oauth-personal` ACP method opens Google's authorization page and owns an
-HTTP callback on `127.0.0.1` with a random port. In 1.4.4 (and unchanged in
-1.4.5) this is the adapter's only interactive flow: an RFC 8252 loopback
-redirect with PKCE (S256) and `state`, one request, 300 seconds. There is no
-device code, no hosted HTTPS callback and no pasted Google password.
+has its own Gemini and application folder, separate from the service user's
+personal CLI state. The `oauth-personal` ACP method opens Google's
+authorization page and owns an HTTP callback on `127.0.0.1` with a random port.
+The earlier adapter used exactly this flow: an RFC 8252 loopback redirect with
+PKCE (S256) and `state`, one request, 300 seconds, without a device code, a
+hosted HTTPS callback or a pasted Google password. `agy acp` offers the same
+`oauth-personal` method; Pages keeps the flow below and refuses a sign-in that
+does not present such an authorization URL.
 
 Pages presents the protected URL through the existing login polling resource,
 only to the administrator who started that login. The user signs in and gives
@@ -37,8 +51,8 @@ redeem the code: the adapter checks `state` and exchanges the code with its
 own verifier. Neither the address nor the code is logged or returned.
 
 Each login writes into a fresh staging context (`<connection>/login`). Only
-after the adapter succeeded and a model-free status check confirmed the staged
-account does Pages move `settings.json` and `acp_token.json` into the
+after the CLI succeeded and a model-free status check confirmed the staged
+account does Pages move `settings.json` and `antigravity-oauth-token` into the
 connection context, by rename, and check that context again. A failed,
 cancelled or expired attempt removes the staging context; the connection's
 previous account stays valid and keeps its signed-in state. Pages ends the
@@ -102,7 +116,7 @@ explicit gaps and subscription charges kept separate. The reduced
 implementation, targeted tests and deferred live/historical-price evidence are
 documented in [the accounting handoff](../../../docs/PAGE-368.md).
 
-Adapter 1.4.4 reports its own failures (exhausted quota, failed MCP load,
+The earlier adapter 1.4.4 reported its own failures (exhausted quota, failed MCP load,
 execution error, lost connection) as ordinary agent text and still ends the
 turn with `end_turn`. Pages recognizes those fixed wordings, which belong to the
 pinned adapter version, and fails the node instead of storing the text as a

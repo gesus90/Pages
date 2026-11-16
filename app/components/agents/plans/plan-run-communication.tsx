@@ -56,6 +56,14 @@ export function PlanRunCommunication({
           })}
         </p>
       ) : null}
+      {remote.canFreezeExecution === false ? (
+        <p>{t("plans.communication.control.unavailable")}</p>
+      ) : null}
+      {remote.executionControl ? (
+        <p>
+          {t(`plans.communication.control.${remote.executionControl.state}`)}
+        </p>
+      ) : null}
       <PlanStopProgress remote={remote} />
       <PlanLivenessNotice remote={remote} />
     </section>

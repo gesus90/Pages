@@ -1,9 +1,6 @@
 import { z } from "zod";
 
-import {
-  AGENT_SWARM_MAIN_OPERATIONS,
-  AGENT_SWARM_WORKER_OPERATIONS,
-} from "./AgentPlanSwarmOperations";
+import { AGENT_SWARM_OPERATIONS } from "./AgentPlanSwarmOperations";
 import { planResourceStartSchema } from "./AgentPlanResourceRelease";
 
 /** Local control-plane protocol. Durable commands live in PostgreSQL, never in the socket. */
@@ -87,11 +84,10 @@ export const pagesRunsSwarmSchema = z
     operation: z.literal("swarm"),
     runId: z.string().min(1).max(200),
     stepId: z.string().min(1).max(300),
-    swarmOperation: z.enum([
-      ...AGENT_SWARM_MAIN_OPERATIONS,
-      ...AGENT_SWARM_WORKER_OPERATIONS,
-    ]),
+    swarmOperation: z.enum(AGENT_SWARM_OPERATIONS),
     parameters: z.unknown(),
+    /** Whether the answer appends the memory changes; a waiting status poll leaves them for its last answer. */
+    appendsMemory: z.boolean().optional(),
   })
   .strict();
 

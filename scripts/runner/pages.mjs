@@ -203,6 +203,7 @@ export async function preparePagesFiles(command, folder, jobId, signal) {
   const manifest = await pagesRequest(socketPath, jobId, { kind: "prepare" });
   if (!Array.isArray(manifest.files) || manifest.files.length > 64)
     throw new Error("Invalid Pages files");
+  if (manifest.files.length === 0) return command;
   const root = await realpath(command.workspace);
   const directory = await mkdtemp(join(root, ".pages-assets-"));
   await writeFile(

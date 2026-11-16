@@ -1,13 +1,23 @@
 import { z } from "zod";
 
 import {
-  AGENT_SWARM_MAIN_OPERATIONS,
+  agentSwarmOperationSide,
+  isAgentSwarmMemoryOperation,
   readAgentSwarmStep,
 } from "@/definition/AgentPlanSwarmOperations";
 import { PLAN_SWARM_PATH_LENGTH } from "@/definition/AgentPlanSwarmScope";
 import { PLAN_SWARM_RUN_TEXT } from "@/definition/AgentPlanSwarmRun";
 
-import type { AgentSwarmOperation } from "@/definition/AgentPlanSwarmOperations";
+import {
+  SwarmMemoryInputError,
+  answerSwarmMemoryCall,
+  withMemoryChanges,
+} from "./SwarmMemoryCalls";
+
+import type {
+  AgentSwarmMemoryOperation,
+  AgentSwarmOperation,
+} from "@/definition/AgentPlanSwarmOperations";
 import type { SwarmCoordinator } from "./SwarmCoordinator";
 
 /** One tool call of a swarm session, named by the run and step of its credential. */
@@ -16,6 +26,12 @@ export interface SwarmCall {
   readonly stepId: string;
   readonly operation: AgentSwarmOperation;
   readonly parameters: unknown;
+  /**
+   * Whether the answer appends the memory changes since the agent's revision;
+   * absent means it does. A waiting `swarm_status` polls without them and
+   * appends them to its last answer only, so no entry is lost in between.
+   */
+  readonly appendsMemory?: boolean;
 }
 
 /** Why a swarm call was refused before it reached the board. */
@@ -70,9 +86,12 @@ function parse<Input>(schema: z.ZodType<Input>, parameters: unknown): Input {
  *
  * @remarks
  * A call reaches only the swarm its credential names: the run and the step
- * of the credential are the key, so a session never reaches another run.
- * The main model calls the main tools only, a helper only its lock tools,
- * and only while it works on a subtask.
+ * of the credential are the key, so a session never reaches another run or
+ * node. The main model calls the main tools only, a helper only its lock
+ * tools, and only while it works on a subtask. Both read, publish and list
+ * the changes of the shared memory as the agent their credential names;
+ * only the main model consolidates it. With memory, every answer appends
+ * the entries of others since the agent's revision.
  */
 export class AgentPlanSwarmRegistry {
   private readonly coordinators = new Map<string, SwarmCoordinator>();
@@ -101,22 +120,29 @@ export class AgentPlanSwarmRegistry {
   }
 
   /**
-   * Runs one tool call against the board; it never waits.
+   * Runs one tool call against the board and the shared memory; it never
+   * waits for a helper or a lock.
    *
-   * @throws {SwarmCallError} `FORBIDDEN` for a swarm of another run or step
-   * or a tool of the other side, `INVALID_REQUEST` for invalid input.
+   * @throws {SwarmCallError} `FORBIDDEN` for a swarm of another run or step,
+   * a tool of the other side or a memory tool of a swarm without memory,
+   * `INVALID_REQUEST` for invalid input.
    */
-  public handle(call: SwarmCall): unknown {
+  public async handle(call: SwarmCall): Promise<unknown> {
     const coordinator = this.find(call.runId, call.stepId);
     if (!coordinator) throw new SwarmCallError("FORBIDDEN");
     const { workerId } = readAgentSwarmStep(call.stepId);
-    const isMainCall = AGENT_SWARM_MAIN_OPERATIONS.some(
-      (operation) => operation === call.operation,
-    );
-    if (isMainCall !== (workerId === null))
+    const side = agentSwarmOperationSide(call.operation);
+    if (side !== "both" && (side === "main") !== (workerId === null))
       throw new SwarmCallError("FORBIDDEN");
-    if (workerId === null) return this.main(coordinator, call);
-    return this.worker(coordinator, workerId, call);
+    const result = isAgentSwarmMemoryOperation(call.operation)
+      ? await this.memory(coordinator, workerId, {
+          operation: call.operation,
+          parameters: call.parameters,
+        })
+      : this.board(coordinator, workerId, call);
+    const memory = coordinator.memory();
+    if (!memory || call.appendsMemory === false) return result;
+    return withMemoryChanges(result, await memory.appended(workerId ?? "main"));
   }
 
   private find(runId: string, stepId: string): SwarmCoordinator | undefined {
@@ -124,17 +150,44 @@ export class AgentPlanSwarmRegistry {
     return this.coordinators.get(JSON.stringify([runId, nodeId]));
   }
 
+  private board(
+    coordinator: SwarmCoordinator,
+    workerId: string | null,
+    call: SwarmCall,
+  ): unknown {
+    if (workerId === null) return this.main(coordinator, call);
+    return this.worker(coordinator, workerId, call);
+  }
+
+  private async memory(
+    coordinator: SwarmCoordinator,
+    workerId: string | null,
+    call: {
+      readonly operation: AgentSwarmMemoryOperation;
+      readonly parameters: unknown;
+    },
+  ): Promise<unknown> {
+    const memory = coordinator.memory();
+    if (!memory) throw new SwarmCallError("FORBIDDEN");
+    try {
+      const answer = await answerSwarmMemoryCall(
+        memory,
+        workerId ?? "main",
+        call,
+      );
+      coordinator.memoryChanged(answer.effect);
+      return answer.result;
+    } catch (error: unknown) {
+      if (error instanceof SwarmMemoryInputError)
+        throw new SwarmCallError("INVALID_REQUEST");
+      throw error;
+    }
+  }
+
   private main(coordinator: SwarmCoordinator, call: SwarmCall): unknown {
     switch (call.operation) {
-      case "run.swarm.assign": {
-        const input = parse(inputs[call.operation], call.parameters);
-        return coordinator.assign({
-          instruction: input.instruction ?? "",
-          workerId: input.workerId ?? null,
-          scope: input.scope ?? [],
-          taskId: input.taskId ?? null,
-        });
-      }
+      case "run.swarm.assign":
+        return this.assign(coordinator, call);
       case "run.swarm.status":
         parse(inputs[call.operation], call.parameters);
         return { version: coordinator.version(), ...coordinator.view() };
@@ -153,8 +206,22 @@ export class AgentPlanSwarmRegistry {
       case "run.swarm.lock":
       case "run.swarm.unlock":
       case "run.swarm.locks":
+      case "run.swarm.memory.read":
+      case "run.swarm.memory.publish":
+      case "run.swarm.memory.changes":
+      case "run.swarm.memory.compact":
         throw new SwarmCallError("FORBIDDEN");
     }
+  }
+
+  private assign(coordinator: SwarmCoordinator, call: SwarmCall): unknown {
+    const input = parse(inputs["run.swarm.assign"], call.parameters);
+    return coordinator.assign({
+      instruction: input.instruction ?? "",
+      workerId: input.workerId ?? null,
+      scope: input.scope ?? [],
+      taskId: input.taskId ?? null,
+    });
   }
 
   private worker(
@@ -183,6 +250,10 @@ export class AgentPlanSwarmRegistry {
       case "run.swarm.result":
       case "run.swarm.cancel":
       case "run.swarm.finish":
+      case "run.swarm.memory.read":
+      case "run.swarm.memory.publish":
+      case "run.swarm.memory.changes":
+      case "run.swarm.memory.compact":
         throw new SwarmCallError("FORBIDDEN");
     }
   }
@@ -198,22 +269,24 @@ export const PROCESS_SWARM_REGISTRY = new AgentPlanSwarmRegistry();
  * @param registry - The swarms of this process.
  * @returns The result, or the refusal the API turns back into an error.
  */
-export function answerSwarmCall(
+export async function answerSwarmCall(
   request: {
     readonly runId: string;
     readonly stepId: string;
     readonly swarmOperation: AgentSwarmOperation;
     readonly parameters?: unknown;
+    readonly appendsMemory?: boolean;
   },
   registry: Pick<AgentPlanSwarmRegistry, "handle"> = PROCESS_SWARM_REGISTRY,
-): unknown {
+): Promise<unknown> {
   try {
     return {
-      result: registry.handle({
+      result: await registry.handle({
         runId: request.runId,
         stepId: request.stepId,
         operation: request.swarmOperation,
         parameters: request.parameters,
+        ...(request.appendsMemory === false ? { appendsMemory: false } : {}),
       }),
     };
   } catch (error: unknown) {

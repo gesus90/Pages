@@ -1,3 +1,4 @@
+import { receiveUsage } from "./usage.mjs";
 import { createHash } from "node:crypto";
 
 const MAXIMUM_TEXT_BYTES = 4000;
@@ -23,6 +24,29 @@ async function note(state, kind, text, channel = "stdout") {
     });
     start = end;
   }
+}
+
+async function planNote(state, entries) {
+  if (state.progressVersion !== 1)
+    return note(
+      state,
+      "plan",
+      entries.map((entry) => `[${entry.status}] ${entry.content}`).join("\n"),
+    );
+  const kept = entries.slice(0, 40).map((entry) => ({
+    content: state.redact(
+      String(entry.content ?? "")
+        .trim()
+        .slice(0, 200),
+    ),
+    status: String(entry.status ?? "pending"),
+  }));
+  let text = JSON.stringify({ entries: kept });
+  while (Buffer.byteLength(text) > MAXIMUM_TEXT_BYTES && kept.length) {
+    kept.pop();
+    text = JSON.stringify({ entries: kept });
+  }
+  await note(state, "plan", text);
 }
 
 function codexTool(item) {
@@ -77,14 +101,12 @@ async function readCodex(event, state) {
     return;
   }
   if (item.type === "todo_list")
-    return note(
+    return planNote(
       state,
-      "plan",
-      (item.items ?? [])
-        .map(
-          (entry) => `${entry.completed ? "[x]" : "[ ]"} ${entry.text ?? ""}`,
-        )
-        .join("\n"),
+      (item.items ?? []).map((entry) => ({
+        content: entry.text ?? "",
+        status: entry.completed ? "completed" : "pending",
+      })),
     );
   const text = codexTool(item);
   if (text === null) return;
@@ -100,12 +122,12 @@ async function claudeTool(block, state) {
   if (!isDuplicate(state, `claude-tool:${block.id}`, block))
     await note(state, "tool_started", block.name);
   if (block.name === "TodoWrite" && Array.isArray(block.input?.todos))
-    await note(
+    await planNote(
       state,
-      "plan",
-      block.input.todos
-        .map((todo) => `[${todo.status}] ${todo.content ?? ""}`)
-        .join("\n"),
+      block.input.todos.map((todo) => ({
+        content: todo.content ?? "",
+        status: todo.status,
+      })),
     );
 }
 
@@ -184,21 +206,24 @@ async function readOpenCode(event, state) {
       update.title ?? update.toolCallId,
     );
   if (update?.sessionUpdate === "plan")
-    await note(
-      state,
-      "plan",
-      (update.entries ?? [])
-        .map((entry) => `[${entry.status}] ${entry.content}`)
-        .join("\n"),
-    );
+    await planNote(state, update.entries ?? []);
 }
 
 /** Projects complete public fields with bounded deduplication and an awaited journal sink. */
 export function createLiveHistory(command, redact, emit) {
-  const state = { seen: new Map(), hasPartialText: false, redact, emit };
+  const state = {
+    seen: new Map(),
+    hasPartialText: false,
+    redact,
+    emit,
+    isManaged: Boolean(command.managed),
+    progressVersion: command.progressVersion,
+    usageMessages: new Map(),
+  };
   return {
     async receive(event) {
       const tool = command.program.route.tool;
+      if (state.progressVersion === 1) await receiveUsage(event, tool, state);
       if (tool === "codex") await readCodex(event, state);
       else if (tool === "claude") await readClaude(event, state);
       else if (tool === "opencode" || tool === "antigravity")

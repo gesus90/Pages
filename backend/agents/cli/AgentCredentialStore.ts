@@ -1,6 +1,7 @@
 import * as filesystem from "node:fs/promises";
 import path from "node:path";
 
+import { ANTIGRAVITY_TOKEN_FILE } from "@/backend/agents/acp/AntigravityAcpLaunch";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { logCaughtError } from "@/backend/logging/Logger";
 
@@ -24,8 +25,11 @@ const CONFIG_DIRECTORIES: Readonly<Record<CliProviderId, string>> = {
 /** The staging context of a running login, inside the connection's own folder. */
 const LOGIN_DIRECTORY = "login";
 
-/** What the official Antigravity adapter writes for a personal sign-in, settings first. */
-const ANTIGRAVITY_LOGIN_FILES = ["settings.json", "acp_token.json"] as const;
+/** What `agy acp` writes for a personal sign-in, settings first. */
+const ANTIGRAVITY_LOGIN_FILES = [
+  "settings.json",
+  ANTIGRAVITY_TOKEN_FILE,
+] as const;
 
 const UUID_PATTERN =
   /^[\da-f]{8}-[\da-f]{4}-[\da-f]{4}-[\da-f]{4}-[\da-f]{12}$/i;
@@ -141,7 +145,7 @@ export class AgentCredentialStore {
     const target = path.join(home.config, "antigravity-acp");
     try {
       const present = await this.readLoginFiles(source);
-      if (!present.includes("acp_token.json"))
+      if (!present.includes(ANTIGRAVITY_TOKEN_FILE))
         throw new AgentError("cli_not_logged_in");
       await this.ensureDirectory(home.config);
       await this.ensureDirectory(target);

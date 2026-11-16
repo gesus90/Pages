@@ -1,0 +1,15 @@
+@media (prefers-reduced-motion: no-preference) {
+  .rows {
+    animation: rows-in 120ms ease-out;
+  }
+}
+
+@keyframes rows-in {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}

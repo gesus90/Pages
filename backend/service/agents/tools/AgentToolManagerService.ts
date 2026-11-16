@@ -1,14 +1,25 @@
-import { AgentAccessDeniedError } from "@/backend/error/AgentErrors";
+import {
+  AgentAccessDeniedError,
+  AgentError,
+} from "@/backend/error/AgentErrors";
 import { requireAgentAdministrator } from "@/backend/service/agents/AgentServiceAccess";
 
+import {
+  AgentToolCombinations,
+  agentToolCombination,
+} from "./AgentToolCombinations";
+import { AgentToolOperationLog } from "./AgentToolOperationLog";
 import {
   AGENT_TOOL_REGISTRY,
   agentToolDefinition,
   providerToolIds,
   isAgentToolInstallable,
+  isAgentToolVersionSupported,
 } from "./AgentToolRegistry";
 import { AgentToolReadinessError } from "./AgentToolReadinessError";
 import { AgentRuntimeSupervisor } from "./AgentRuntimeSupervisor";
+import { AgentToolStates, UNCHECKED_TOOL_STATE } from "./AgentToolStates";
+import { agentToolView } from "./AgentToolViews";
 
 import type {
   CliToolLocation,
@@ -18,53 +29,32 @@ import type { AccountAccess } from "@/definition/Authorization";
 import type {
   AgentToolActivity,
   AgentToolAction,
+  AgentToolConnectionView,
   AgentToolDiagnostic,
   AgentToolId,
   AgentToolView,
 } from "@/definition/AgentTools";
 import type { AgentToolDefinition } from "./AgentToolRegistry";
 import type {
-  AgentToolHealth,
   AgentToolHealthChecks,
   AgentToolInstallation,
   AgentToolLocation,
   AgentToolStorage,
 } from "./AgentToolContracts";
+import type { AgentToolUpdateSearch } from "./AgentToolUpdateSearch";
 
 interface ManagerDependencies {
   readonly activities?: (id: AgentToolId) => readonly AgentToolActivity[];
   readonly files: AgentToolStorage;
   readonly installer: AgentToolInstallation;
   readonly health: AgentToolHealthChecks;
+  readonly updates: AgentToolUpdateSearch;
   readonly system: (
     tool: AgentToolDefinition,
   ) => Promise<AgentToolLocation | null>;
 }
 
-interface ToolState {
-  readonly location: AgentToolLocation | null;
-  readonly health: AgentToolHealth;
-  readonly dependency: AgentToolId | null;
-  readonly checkedAt: string | null;
-}
-
-const UNCHECKED: AgentToolHealth = {
-  status: "missing_dependency",
-  diagnostic: "not_checked",
-  version: null,
-};
-
-function locationFacts(
-  location: AgentToolLocation | null,
-): Pick<AgentToolView, "executable" | "rollbackRelease" | "terminalEntry"> {
-  return {
-    executable: location?.file ?? null,
-    rollbackRelease: location?.previousRelease ?? null,
-    terminalEntry: location?.terminalEntry ?? null,
-  };
-}
-
-/** Central fixed-registry readiness, installation, repair and update coordination. */
+/** Central fixed-registry readiness, installation, repair, update and rollback coordination. */
 export class AgentToolManagerService {
   public readonly supervisor = new AgentRuntimeSupervisor();
   private readonly dependencies: ManagerDependencies;
@@ -72,7 +62,13 @@ export class AgentToolManagerService {
     string,
     { readonly tool: AgentToolId; readonly isReady: boolean }
   >();
-  private readonly states = new Map<AgentToolId, ToolState>();
+  private readonly states = new AgentToolStates();
+  private readonly operations = new AgentToolOperationLog();
+  private readonly combinations: AgentToolCombinations;
+  private readonly connections = new Map<
+    AgentToolId,
+    readonly AgentToolConnectionView[]
+  >();
   private readonly pending = new Map<AgentToolId, Promise<void>>();
   private readonly shutdownController = new AbortController();
   private readonly requested = new Set<AgentToolId>();
@@ -83,6 +79,21 @@ export class AgentToolManagerService {
 
   public constructor(dependencies: ManagerDependencies) {
     this.dependencies = dependencies;
+    this.combinations = new AgentToolCombinations({
+      files: dependencies.files,
+      installer: dependencies.installer,
+      health: dependencies.health,
+      updates: dependencies.updates,
+      operations: this.operations,
+      states: this.states,
+      signal: this.shutdownController.signal,
+      inspect: (id) => this.inspect(id),
+      ready: (id) => this.ready(id),
+      dependenciesReady: (tool) => this.dependenciesReady(tool),
+      exclusive: (id, operation, mustRun) =>
+        this.exclusive(id, operation, mustRun),
+      published: (tool, location) => this.published(tool, location),
+    });
   }
 
   /** Instance-local directory mounted read-only for every native session. */
@@ -156,6 +167,12 @@ export class AgentToolManagerService {
   ): Promise<void> {
     requireAgentAdministrator(actor);
     await this.start();
+    if (action === "rebind") throw new AgentError("configuration_invalid");
+    const tool = agentToolDefinition(id);
+    if (tool.release && ["update", "rollback", "install"].includes(action)) {
+      await this.combinations.change(id, action);
+      return;
+    }
     await this.exclusive(
       id,
       async () => {
@@ -167,7 +184,7 @@ export class AgentToolManagerService {
           await this.rollback(id);
           return;
         }
-        await this.dependenciesReady(agentToolDefinition(id));
+        await this.dependenciesReady(tool);
         if (action === "check" || action === "test") {
           await this.inspect(id);
           return;
@@ -181,13 +198,45 @@ export class AgentToolManagerService {
         if (
           action === "update" &&
           current?.health.status === "ready" &&
-          current.health.version === agentToolDefinition(id).version
+          current.health.version === tool.version
         )
           return;
         await this.install(id, action === "update" ? "updating" : "repairing");
       },
       true,
     );
+  }
+
+  /**
+   * Reads release metadata of every fixed official source.
+   * @remarks
+   * Nothing is installed or activated; a later update installs what the
+   * search chose. An unreachable source is reported as such.
+   */
+  public async checkUpdates(actor: AccountAccess): Promise<void> {
+    requireAgentAdministrator(actor);
+    await this.start();
+    await this.dependencies.updates.search(this.shutdownController.signal);
+  }
+
+  /** Keeps the secret-free result of re-binding the connections that use a tool. */
+  public recordConnections(
+    id: AgentToolId,
+    connections: readonly AgentToolConnectionView[],
+  ): void {
+    for (const toolId of agentToolCombination(id).ids)
+      this.connections.set(toolId, connections);
+  }
+
+  /** Records a phase of a re-binding in the tool's operation log. */
+  public recordRebinding(
+    id: AgentToolId,
+    state: "running" | "succeeded" | "failed",
+  ): void {
+    const { ids } = agentToolCombination(id);
+    if (state === "running") this.operations.start(ids, "rebind", "rebinding");
+    else if (state === "succeeded") this.operations.succeed(ids);
+    else this.operations.fail(ids, "execution_failed", "rebind");
   }
 
   /** Records only a local sign-in result, never credential contents or an account label. */
@@ -295,32 +344,12 @@ export class AgentToolManagerService {
     for (const id of this.enabled()) {
       try {
         await this.ensureTool(id);
-        await this.updateApprovedTarget(id);
       } catch {
         console.warn(
           `[pages] Agent tool ${id} is unavailable (${this.states.get(id)?.health.diagnostic ?? "dependency_failed"}).`,
         );
       }
     }
-  }
-
-  private async updateApprovedTarget(id: AgentToolId): Promise<void> {
-    await this.exclusive(
-      id,
-      async () => {
-        const tool = agentToolDefinition(id);
-        const state = this.states.get(id);
-        if (
-          (tool.packageName !== null || tool.id === "antigravity_acp") &&
-          state?.location?.source === "managed" &&
-          state.health.status === "ready" &&
-          state.health.version !== tool.version &&
-          state.location.approvedTarget !== tool.version
-        )
-          await this.install(id, "updating");
-      },
-      true,
-    );
   }
 
   private enabled(): Set<AgentToolId> {
@@ -435,46 +464,24 @@ export class AgentToolManagerService {
     const tool = agentToolDefinition(id);
     if (!isAgentToolInstallable(tool))
       throw new AgentToolReadinessError(id, "unsupported", "not_installed");
-    const prior = this.states.get(id) ?? {
-      location: null,
-      health: UNCHECKED,
-      dependency: null,
-      checkedAt: null,
-    };
+    const prior = this.states.get(id) ?? UNCHECKED_TOOL_STATE;
     this.states.set(id, {
       ...prior,
       health: { ...prior.health, status, diagnostic: "not_checked" },
     });
-    let candidate: AgentToolLocation | null = null;
     try {
-      candidate = await this.dependencies.files.candidate(tool);
-      await this.dependencies.installer.install(
+      // A repair reinstalls the active version; installation and update take the reviewed one.
+      const kept =
+        status === "repairing" && prior.location?.source === "managed"
+          ? prior.location.version
+          : null;
+      await this.combinations.install(
         tool,
-        candidate,
-        this.shutdownController.signal,
+        kept !== null && isAgentToolVersionSupported(tool, kept)
+          ? kept
+          : tool.version,
       );
-      const health = await this.dependencies.health.check(
-        tool,
-        candidate,
-        this.shutdownController.signal,
-      );
-      if (health.status !== "ready")
-        throw new AgentToolReadinessError(id, health.status, health.diagnostic);
-      if (health.version !== tool.version)
-        throw new AgentToolReadinessError(
-          id,
-          "unsupported",
-          "version_unsupported",
-        );
-      await this.dependencies.files.activate(tool, candidate);
-      this.states.set(id, {
-        location: await this.published(tool, candidate),
-        health,
-        dependency: null,
-        checkedAt: new Date().toISOString(),
-      });
     } catch (error: unknown) {
-      if (candidate) await this.dependencies.files.discard(candidate);
       this.states.set(id, {
         location: prior.location,
         health: {
@@ -596,52 +603,25 @@ export class AgentToolManagerService {
   }
 
   private view(tool: AgentToolDefinition, enabled: boolean): AgentToolView {
-    const state = this.states.get(tool.id) ?? {
-      location: null,
-      health: UNCHECKED,
-      dependency: null,
-      checkedAt: null,
-    };
-    const { location, health } = state;
-    const authentication = [...this.authentication]
-      .filter(([, check]) => check.tool === tool.id)
-      .map(([connectionId, check]) => ({
-        connectionId,
-        isReady: check.isReady,
-      }));
-    const needsLogin =
-      authentication.length > 0 &&
-      authentication.every((check) => !check.isReady);
-    return {
-      id: tool.id,
-      name: tool.name,
-      kind: tool.kind,
+    const state = this.states.get(tool.id) ?? UNCHECKED_TOOL_STATE;
+    return agentToolView({
+      tool,
       enabled,
-      status:
-        health.status === "ready" && needsLogin
-          ? "authentication_required"
-          : health.status,
-      diagnostic:
-        health.status === "ready" && needsLogin
-          ? "authentication_required"
-          : health.diagnostic,
-      dependency: state.dependency,
-      installed: state.checkedAt === null ? null : location !== null,
-      installedVersion:
-        tool.kind === "browser"
-          ? (health.runtimeVersion ?? null)
-          : health.version,
-      supportedVersions: tool.versions,
-      approvedVersion: tool.version,
-      updateAvailable:
-        (tool.packageName !== null || tool.id === "antigravity_acp") &&
-        health.version !== null &&
-        tool.version !== health.version,
-      source: location?.source ?? null,
-      ...locationFacts(location),
-      lastCheck: state.checkedAt,
+      ...state,
+      lastSuccessfulCheck: this.states.lastSuccessfulCheck(tool.id),
+      release: this.dependencies.updates.view(tool, {
+        version: state.location?.version ?? state.health.version,
+        source: state.location?.source ?? null,
+      }),
+      operation: this.operations.get(tool.id),
+      connections: this.connections.get(tool.id) ?? [],
       activities: this.activities(tool.id),
-      authentication,
-    };
+      authentication: [...this.authentication]
+        .filter(([, check]) => check.tool === tool.id)
+        .map(([connectionId, check]) => ({
+          connectionId,
+          isReady: check.isReady,
+        })),
+    });
   }
 }

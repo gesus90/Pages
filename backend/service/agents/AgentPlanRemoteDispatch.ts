@@ -39,6 +39,7 @@ export function dispatchRemotePlanStep(
   request: RemoteDispatchRequest,
 ): Promise<Partial<AgentPlanStepResult>> | null {
   const { service, active, stepId, signal, retry } = request;
+  if (active.snapshot.runnerProtocolVersion === 1) return null;
   const remote = active.snapshot.remoteSteps?.find(
     (entry) => entry.step.id === stepId,
   );

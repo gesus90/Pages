@@ -35,7 +35,7 @@ Der Runner wird separat mit `node ~/.local/share/pages-runner/runner.mjs` gestar
 
 `wss://PAGES/runner/v1/channel/CONNECTION-ID`
 
-Auf ausdrückliche Betreiberentscheidung für die LAN-Inbetriebnahme ist auch `ws://PAGES/runner/v1/channel/CONNECTION-ID` zulässig. Dabei werden die Maschinen-Credentials unverschlüsselt übertragen; TLS wird später eingerichtet. `wss://` bleibt zulässig.
+Auf ausdrückliche Betreiberentscheidung für die LAN-Inbetriebnahme ist auch `ws://PAGES/runner/v1/channel/CONNECTION-ID` zulässig. Dabei werden die Maschinen-Credentials unverschlüsselt übertragen; die ausdrückliche LAN-Auswahl und die sichtbare Warnung sind erforderlich. Standard ist `wss://` mit normaler Zertifikatsprüfung.
 
 WebSocket-Subprotokolle: `pages-runner.v1` und `credential.FREIGABE` beziehungsweise `credential.RUNNER-TOKEN`. Der Server wählt ausschließlich `pages-runner.v1` als Antwort. Credentials stehen weder in URL noch Browser-Speicher. Browser-Origin wird abgelehnt. Bei TLS-Terminierung muss der Proxy WebSocket-Upgrades weiterleiten und Authentifizierungsheader aus Logs fernhalten.
 
@@ -53,7 +53,7 @@ Der Worker läuft in einer getrennten Prozessgruppe weiter, wenn der Transport e
 
 ## OpenRouter auf dem Runner
 
-Ab Runner-Version `1.2.0` (aktuell `1.12.0`) unterstützt der Runner OpenRouter einschließlich der Modell-IDs mit `~`-Präfix; `node ~/.local/share/pages-runner/runner.mjs --version` zeigt die Version ohne Kopplung. Aktualisierungen erfolgen weiterhin über das geprüfte Setup-Artefakt. Ein bereits laufender Runner muss anschließend neu gestartet werden.
+Ab Runner-Version `1.2.0` (aktuell `1.22.0`) unterstützt der Runner OpenRouter einschließlich der Modell-IDs mit `~`-Präfix; `node ~/.local/share/pages-runner/runner.mjs --version` zeigt die Version ohne Kopplung. Aktualisierungen erfolgen über den unten beschriebenen authentifizierten Paketvertrag; neue Installationen verwenden bereits dessen Startschicht.
 
 `POST /settings-api/runners` mit `intent=store-provider-key`, `connectionId`, `provider=openrouter` und `apiKey` verlangt eine aktive Administrator-Sitzung, Admin-Modus, denselben Origin sowie einen online gekoppelten Runner mit aktueller SSH-Revision. Pages übergibt den Schlüssel ausschließlich im authentifizierten Runner-Kanal, ohne ihn in DuckDB oder dem Jobjournal zu speichern. Pro Verbindung ist eine Provider-Anfrage gleichzeitig zulässig, mit 90 Sekunden Antwortfrist. Bei fehlendem Kanal erfolgt keine ersatzweise SSH-Übertragung.
 
@@ -170,7 +170,7 @@ Ein Paket enthält weiterhin höchstens **16 Ereignisse / 32 KiB**. Pro Job blei
 
 Die bisherigen 2.000 aktuellen `agent_session_events` bleiben ein kurzer Bestand für vorhandene Leser. Neue öffentliche Verläufe liegen zusätzlich als **4-MiB-Zielchunks** in `agent_session_history_chunks` (Migration 076), atomar mit denselben Belegen. Ganze JSON-Ereignisse bleiben zusammen; ein Chunk ist deshalb höchstens 4.194.304 Bytes groß und kann um eine Ereignislänge kleiner sein. Versuch, Launch, Sequenz, Byteposition und SHA-256-Kette sind gebunden. Alte Daten behalten ihren tatsächlichen `retainedFrom`-/Legacy-Hinweis; fehlende historische Ausgabe wird nicht erfunden.
 
-Neue CLI-Nodes benötigen ausdrücklich Runner **1.9.0**, `reconcile.outputJournalVersion=2` und die passende Pages-Version. Alte Runner werden in den Einstellungen als eingeschränkt angezeigt und mit `plan_runner_update_required` abgewiesen; gespeicherte Jobs und alte Verläufe bleiben lesbar. Ein neuer Runner lehnt eine Pages-Gegenstelle ohne Chunk-Fähigkeit ab. Aktualisieren und Neustarten erfolgen ausdrücklich durch den Betreiber über das bestehende Setup; es gibt keinen lokalen Ausführungs-Fallback. OpenCode ist jetzt auch an den öffentlichen Live-Verlauf angebunden. API- und Script-Ergebnisgrenzen bleiben separat.
+Neue CLI-Nodes benötigen ausdrücklich Runner **1.9.0**, `reconcile.outputJournalVersion=2` und die passende Pages-Version. Alte Runner werden in den Einstellungen als eingeschränkt angezeigt und mit `plan_runner_update_required` abgewiesen; gespeicherte Jobs und alte Verläufe bleiben lesbar. Ein neuer Runner lehnt eine Pages-Gegenstelle ohne Chunk-Fähigkeit ab. Aktualisieren und Neustarten erfolgen über den unten beschriebenen Paketvertrag; es gibt keinen lokalen Ausführungs-Fallback. OpenCode ist jetzt auch an den öffentlichen Live-Verlauf angebunden. API- und Script-Ergebnisgrenzen bleiben separat.
 
 Abbruchwiederholungen werden im Kanal auf höchstens einen Befehl je zwei Sekunden zusammengefasst; die erste Anforderung bleibt sofortig. Eine vorhandene private Abbruchdatei wird nicht erneut geschrieben. Beim erneuten Verbinden warten Zugriffsanfragen auf den abgeschlossenen Wiederabgleich, innerhalb ihrer bisherigen 20-Sekunden-Anfragefrist. Geschlossene Kanäle starten keine späteren Poll-/Heartbeat-Timer mehr. Die bestehenden Prozessgruppen, Claims, Sicherheitsprüfungen und die Bestätigung nach dem DuckDB-Checkpoint bleiben maßgeblich. Der bestehende kleine Pages-Zugangs-Lease eines aktiven CLI-Schritts bleibt unabhängig vom Fortschrittstakt erhalten.
 
@@ -390,3 +390,253 @@ Delivery is separate from the server release: deploy Pages first (it accepts old
 and new runners), then update each runner from the same source through the
 checked setup artifact and restart it. Until then `remote_evidence_missing` stops
 the retry of a writing job with a named cause.
+
+## Runner 1.19.0: cgroups, Agent-Konten und strukturierter Fortschritt
+
+Das Wire-Protokoll bleibt `pages-runner.v1`. Die optionalen Felder im
+`reconcile` und im gespeicherten Runner-Zustand kündigen die Erweiterungen an:
+
+| Feld                      | Bedeutung bei Wert `1`                                                       |
+| ------------------------- | ---------------------------------------------------------------------------- |
+| `isolationVersion`        | bwrap mit eigenem PID-Namespace; cgroup-Scope, wenn verfügbar                |
+| `executionControlVersion` | bestätigte Ausführungssteuerung über `execution-pause` und `execution-state` |
+| `cgroupVersion`           | cgroup v2 und User-systemd ab Version 246 verfügbar                          |
+| `agentAccountsVersion`    | getrennte lokale Agent-Homes und Konto-Kataloge                              |
+| `browserVersion`          | ein administrativ eingerichteter Browser-MCP ist verfügbar                   |
+| `progressVersion`         | strukturierte native TODO- und Token-Ereignisse                              |
+
+Pages setzt `agentAccount: { version: 1, id }`, `browser: 1` und
+`progressVersion: 1` im Ausführungsauftrag nur bei angekündigter Unterstützung.
+Ein Downgrade mit noch offenen solchen Aufträgen wird abgewiesen. Ältere Runner
+behalten ihre bisherigen Aufträge und unversionierten Historien; Pages sendet
+ihnen keine neue Ausführungssteuerung. GitHub-, OpenRouter-, Datei- und
+Continuation-Verträge behalten ihre bisherigen Versionsfelder.
+
+### Prozessgrenze und Steuerung
+
+Jeder neue Schritt startet bwrap in einer eigenen
+`pages-runner-job-<job-id>.scope` über `systemd-run --user --scope`. Die Scope
+begrenzt den ganzen Prozessbaum auf 8 GiB Speicher, keinen Swap, 512 Tasks und
+200 Prozent CPU. Die bestehenden engeren Script-Limits bleiben wirksam. Der
+Worker erhält seine Startfreigabe erst, nachdem die Scope-Zuordnung dauerhaft
+festgehalten wurde. Im Worker sind der cgroup-Baum schreibgeschützt und der
+Zugang zum User-systemd ausgeblendet.
+
+`launch.isolation` meldet die tatsächlich gewählte Grenze (`cgroup_v2` oder
+`pid_namespace`). Ohne cgroup v2, ausführbares systemd-run oder erreichbaren
+User-systemd mit Freeze-Unterstützung startet weiterhin die bisherige
+PID-Namespace-Grenze. Pages zeigt dann „Pause mitten im Zug nicht verfügbar“;
+wartende Schritte können weiterhin pausiert werden. Eine fehlgeschlagene
+Scope-Zuordnung gibt keinen Agent-Zug frei.
+
+Pages speichert `isPaused` und `executionPauseRequestedAt` vor dem Senden von
+`execution-pause`. Der Runner friert die ganze Scope ein beziehungsweise taut
+sie auf und wartet auf `cgroup.events` (`frozen 1` bzw. `frozen 0`). Die Antwort
+`execution-state` enthält Sitzungs-, Job- und Versuchs-ID sowie `control`:
+`requestedAt`, `isPaused` (gewünschter Zustand), `observedAt` und den tatsächlich
+beobachteten Zustand `frozen`, `thawed`, `terminated`, `unavailable` oder `failed`.
+Veraltete Antworten und Antworten nach Stop überschreiben keinen neueren
+Steuerwunsch. Die Antworten umgehen die sequenzierte Historienübertragung.
+Reconnect spielt den gespeicherten Steuerwunsch erneut ab. Eingefrorene Zeit
+zählt nicht gegen die Schrittfrist; die Transport-Lease wird weiter überwacht.
+
+Stop bleibt die bereits gebundene `cancel`-Nachricht. Bei cgroups beendet der
+Runner über `cgroup.kill` alle Mitglieder einschließlich eingefrorener und
+umgehängter Kindprozesse. Wo dieses Kernel-Interface fehlt oder nicht beschreibbar
+ist, wiederholt er `systemctl kill --kill-who=all --signal=SIGKILL`. Erst
+`populated 0` und das Ende des ursprünglichen Supervisors erlauben einen
+bestätigten Abschluss. `stop-result` meldet weiterhin die tatsächliche Bereinigung
+(`confirmed` oder `failed`); ein Fehler behält die Reservierung. Ohne cgroup
+bleibt die vorhandene Namespace-Bereinigung zuständig.
+
+### Agent-Konten und Browser einrichten
+
+Konten werden ausschließlich auf dem Runner eingerichtet. Dieser Befehl legt
+ein privates Home für eine frei gewählte Konto-ID an und gibt dessen Pfad aus:
+
+```sh
+node ~/.local/share/pages-runner/runner.mjs --agent-home agent-name
+```
+
+Das Home liegt unter dem Runner-Konfigurationsverzeichnis in
+`agents/<sha256-der-konto-id>/`. Die native Anmeldung erfolgt vor Ort mit diesem
+`HOME`, `CODEX_HOME=<home>/.codex`, `CLAUDE_CONFIG_DIR=<home>/.claude`,
+`XDG_CONFIG_HOME=<home>/.config`, `XDG_DATA_HOME=<home>/.local/share` und
+`XDG_CACHE_HOME=<home>/.cache`. Claude speichert dort seine eigene
+`.claude/.credentials.json`; Codex und OpenCode behalten ebenfalls ihre eigenen
+Anmeldungen und Transkripte. Antigravity verwendet das konto-eigene
+`.pages-antigravity`-Verzeichnis. Es werden keine Maschinen-Anmeldedaten kopiert.
+
+Der nächste Inventar-Refresh meldet bis zu 32 Konten als
+`catalog.accounts: [{ id, tools }]`. Die Modellauswahl nennt das Konto und
+speichert es als `runnerRoute.accountId`. Ohne explizites Konto verwendet ein
+neuer kontofähiger Auftrag die Agent-ID, bei einem unabhängigen Knoten
+`<plan-id>:<step-id>`. Dieses Konto muss ebenfalls vor Ort angemeldet sein;
+eine fehlende Anmeldung fällt niemals auf das Maschinen-Konto zurück.
+Im Namespace sind die anderen Agent-Homes und die bekannten Maschinen-
+Anmeldeverzeichnisse ausgeblendet. Die Runner-Konfiguration wird nicht gemountet.
+Anmeldedaten werden nur lokal benutzt. Bekannte Credential-Felder werden vor
+privaten CLI-Journalen und öffentlichen Ereignissen redigiert, auch wenn ein
+Ausgabestrom den Text auf mehrere Chunks verteilt.
+
+Für Browser-Zugang setzt der Administrator beim Runner
+`PAGES_RUNNER_BROWSER_COMMAND` auf das absolute ausführbare Playwright-MCP und
+`PAGES_RUNNER_BROWSERS_PATH` auf die installierten Chromium-Browser. Der Runner
+kündigt `browserVersion` nur an, wenn beides zugänglich ist. Der Knoten muss
+Browser-Zugang ausdrücklich aktivieren und YOLO verwenden. Alle vier CLI-Wege
+bekommen denselben stdio-MCP-Eintrag mit `--headless --browser chromium
+--isolated --sandbox --save-session`. Browser und MCP laufen im Agent-Konto
+innerhalb der Scope; Artefakte liegen unter
+`<workspace>/.pages-artifacts/<job-id>/`. Es wird kein Browserprofil der Maschine
+übernommen und keine Software während eines Schritts nachinstalliert.
+
+Die Pages-/Pica-Werkzeugbrücke nutzt weiterhin den vorhandenen kurzlebigen
+Pages-Zugang und dessen serverseitig geprüfte Schrittberechtigung
+(`pagesAccessVersion`). Der Runner erhält keinen Pages-Benutzer-Token. Browser
+und Pages-Brücke können gleichzeitig in derselben Sitzung verwendet werden.
+
+### TODOs und Token
+
+Mit `progressVersion: 1` enthält ein `plan`-Historienereignis begrenztes JSON
+`{ entries: [{ content, status }] }` statt einer frei formatierten Liste.
+Codex-TODOs, Claude `TodoWrite` und ACP-Pläne werden auf dieses gemeinsame Format
+abgebildet. Die Übernahme verwendet dieselbe TODO-Zusammenführung und dieselbe
+Tabelle wie lokale Sitzungen; abgeschlossene Einträge bleiben abgeschlossen.
+
+`usage`-Ereignisse enthalten ausschließlich gemeldete numerische Zähler für
+Eingabe, Ausgabe, Cache-Lesen, Cache-Schreiben und Gesamt-Tokens. Fehlende Zähler
+bleiben `null`. Claude-Meldungen werden nach nativer Nachrichten-ID ersetzt,
+nicht bei jeder Aktualisierung erneut addiert; abschließende Modell-Summen
+schließen Unteragenten ein. Die gemeinsame Auswertung berücksichtigt die
+Cache-Semantik des Providers und kennzeichnet unvollständige OpenCode- und
+Antigravity-Zahlen. Live-Zähler und der abschließende native Beleg aktualisieren
+dieselbe Versuch-/Zug-Zeile. Eine verspätete Historie ersetzt keinen bereits
+gespeicherten Abschlussbeleg.
+
+Das Setup-Artefakt enthält zusätzlich `cgroups.mjs`, `accounts.mjs`,
+`browser.mjs`, `usage.mjs`, `launch.mjs`, `ssh.mjs`, `worker-control.mjs` und
+`scripts.mjs`. Installation und Neustart
+bleiben ausdrückliche Administrationsschritte; die Quelländerung startet oder
+ändert keinen laufenden Dienst.
+
+### Runner 1.19.1: Pause und Wiederverbindung
+
+Pause-Abfragen und Fortsetzen verwenden dieselbe Warteschlange je Job. Ein
+älterer Steuerwunsch überschreibt keinen neueren Wunsch; dieselbe Zeitmarke
+mit widersprüchlichem Zustand wird abgewiesen. Ein pausierter Schritt ohne
+Launch bleibt in der Warteschlange, ohne einen Worker oder dessen Dateien
+vorauszusetzen. Abgeschlossene Jobs werden nicht weiter eingefroren.
+
+Die hostseitige Lease-Überwachung erfasst auch eingefrorene Jobs, deren
+Worker seine eigenen Timer während der Pause nicht ausführen kann. Beim
+Reconnect erfolgt der Widerruf abgelaufener Arbeit vor einem möglichen
+Auftauen. Auch ein lokal widerrufener pausierter Warteschlangeneintrag meldet
+seinen bestätigten Abschluss. Stop und bestätigte Bereinigung bleiben unabhängig von der Pause.
+Die Oberfläche übernimmt die tatsächlich gemeldete Prozessgrenze, auch wenn
+der Host seit der Einplanung auf den PID-Namespace zurückfallen musste.
+
+Bei älteren Runnern ohne `executionControlVersion` verwendet Pages weiterhin
+`pause-queued`; laufende Züge behalten das bisherige Verhalten. Der lokale
+Antigravity-Zugang verwendet das bereits konfigurierte Agent-Verzeichnis
+auch beim Inventarabruf und im ACP-Worker.
+
+## Adresse und sichere Runner-Updates
+
+Einstellungen → Agents enthält die Pages-Adresse für Runner, eine ausdrücklich
+anzukreuzende LAN-Ausnahme sowie die standardmäßig eingeschaltete Updateautomatik.
+Ein leerer Adresswert übernimmt `PAGES_RUNNER_PUBLIC_URL`, anschließend
+`publicUrl` aus der Pages-Konfiguration. Beim Setup steht zusätzlich der
+Browser-Ursprung zur Verfügung. Der Ursprung enthält weder Pfad noch Benutzer,
+Passwort, Query oder Fragment. HTTP-Eingaben werden im Standard zu WSS;
+`ws://` verlangt ausdrücklich `allowInsecureLan: true`.
+
+Beispiel der privaten Runner-Konfiguration (Token hier nur ein Platzhalter):
+
+```json
+{
+  "endpoint": "wss://pages.example.org/runner/v1/channel/00000000-0000-4000-8000-000000000002",
+  "allowInsecureLan": false,
+  "token": "<bei der Kopplung erhaltenes Maschinen-Token>",
+  "sessionId": null,
+  "sequence": 0,
+  "jobs": []
+}
+```
+
+Für das LAN ist beispielsweise `ws://192.168.10.20:3000/runner/v1/channel/…`
+mit `allowInsecureLan: true` zulässig. Die Oberfläche und das Setup warnen vor
+unverschlüsselter Übertragung von Token, Provider-Schlüsseln und Auftragsinhalten.
+TLS benutzt die normale Node-Zertifikatsprüfung. Ein geerbtes
+`NODE_TLS_REJECT_UNAUTHORIZED=0` wird abgewiesen. Es gibt keinen automatischen
+Wechsel zu WS und keine Ausnahme von Maschinen-Token, Session-ID, SSH-Revision
+oder bestehenden Administrator- und Abteilungsrechten.
+
+Der bestehende Pages-Eingang und das Subprotokoll `pages-runner.v1` bleiben
+unverändert. Erst nach Registrierung und dauerhaftem Wiederabgleich sendet der
+Runner `maintenance` mit `updateVersion: 1`, Session-ID, tatsächlich laufender
+Version und Status. Pages gleicht Session und Version mit dem authentifizierten
+Runner-Journal ab und prüft die weiterhin gültige Kopplung. Die Antwort enthält
+die aktuelle Adresse, die LAN-Auswahl und gegebenenfalls ein Updateangebot.
+Adressänderungen werden beim nächsten Heartbeat übernommen und vor dem
+Neuverbinden atomar gespeichert. Ein erreichbarer alter Kanal ist dafür nötig;
+ein bereits offline befindlicher Runner kann keine neue Adresse empfangen. Bei
+einer falsch konfigurierten oder unerreichbaren Adresse ist die private
+`config.json` am Host zu korrigieren; die Kopplung bleibt erhalten.
+
+Das Angebot besteht aus Version, SHA-256 und einem Base64-kodierten JSON-Paket
+mit den mitgelieferten `.mjs`-Modulen. Das dekodierte Paket ist auf 1 MiB begrenzt
+und passt einschließlich Kodierung unter die bestehende 2-MiB-Nachrichtengrenze.
+Es gibt keine frei wählbare Downloadadresse. Digest, kanonische Kodierung,
+Manifest, flache Modulnamen und Pflichtmodule werden geprüft. Das Paket enthält
+keine Token, Provider-Konfiguration oder Auftragsjournale. SHA-256 schützt die
+Integrität des übertragenen Pakets; seine Herkunft beruht auf dem bestehenden
+authentifizierten Kanal und bei WSS auf TLS, nicht auf einer separaten Signatur.
+
+Im privaten Runner-Verzeichnis werden vollständige Releases unter
+`releases/<digest>-<zufällige-id>/` geschrieben und synchronisiert. Der echte
+Aufruf `node transport.mjs --version` muss die angebotene Version melden. Erst
+danach aktiviert eine atomar umbenannte, synchronisierte `active-release.json`
+den Kandidaten; der vorherige Release bleibt unverändert vorhanden. Ungültige
+Pakete und fehlgeschlagene Vorbereitung ändern den aktiven Zeiger nicht.
+Vorbereitete, aber nicht aktivierte Releases können bei einem Speicherfehler
+liegen bleiben; sie starten nicht automatisch. Alte Releases werden zur
+Wiederherstellung aufbewahrt und benötigen entsprechend Plattenplatz.
+
+Die kleine stabile Startschicht startet den aktiven Transport. Ein erfolgreich
+vorbereitetes Update beendet ihn kontrolliert mit Status 75. Die Startschicht
+startet den Kandidaten und erwartet innerhalb von 60 Sekunden einen erfolgreichen
+authentifizierten Wiederabgleich samt passender Versionsmeldung. Fehlt diese
+Bestätigung oder endet der Kandidat vorher, stellt sie den vorherigen Zeiger
+wieder her und startet den bisherigen Transport. Ein hängender Kandidat erhält
+zunächst SIGTERM, nach weiteren fünf Sekunden SIGKILL. Ein Neustart des
+Dienstmanagers erkennt denselben gespeicherten Kandidatenzustand; Identität und
+Jobjournal bleiben außerhalb der Releases. Die Startschicht selbst gehört zur
+Installation und bleibt während Kanalupdates stabil.
+
+`idle`, `deferred`, `restarting`, `failed`, `verified` und `rolled-back` erscheinen
+mit dem letzten bekannten Grund in den Einstellungen. Eine manuelle Anforderung
+bleibt bis zur Versionsbestätigung oder einem gemeldeten Fehler gespeichert.
+Nach Paket- oder Startfehlern wird dieselbe Version nicht automatisch endlos
+wieder angeboten; die manuelle Auslösung erlaubt einen erneuten Versuch. Ein
+verlorener Kanal während des Neustarts bedeutet noch keinen Updateerfolg. Die
+Bestätigung erfolgt erst mit der real zurückgemeldeten aktuellen Version.
+
+Aktive, wartende und pausierte Schritte müssen zuerst regulär enden; auch
+unbestätigte Ereignisse, Closeouts und restliche Verlaufsdaten verschieben das
+Update. Die Ursache wird angezeigt. Der Updatepfad beendet keine produktive
+Sitzung und erzwingt keine native Fortsetzung. Er verwendet bewusst den sicheren
+Aufschub statt einer Übernahme laufender Worker. Derselbe Vertrag gilt für
+„Dieser Server“ bei einem Pages-Update: Die Erstinstallation pinnt den Code in
+einem privaten Release, spätere Pages-Versionen bieten ihn über den lokalen,
+authentifizierten Kanal an. Der Installer startet einen bereits aktiven Runner
+nicht pauschal neu. Die lokale Loopback-Adresse bleibt unverändert.
+
+Unterstützt werden die aktuelle Version `1.22.0` und die unmittelbar vorherige
+Version `1.21.0`, jeweils nur für ihre tatsächlich gemeldeten Fähigkeiten.
+Noch ältere Runner können ihre vorhandenen Aufträge und Historien abgleichen,
+aber keine neue Arbeit erhalten. Ein Runner ohne den Updateempfänger benötigt
+einmal die aktuelle Installation mit Startschicht; die vorhandene Kopplung wird
+weiterverwendet. Dieser Einrichtungsbedarf ist sichtbar und wird nicht als
+erfolgreiches Kanalupdate dargestellt. Updates neuer Installationen benötigen
+weder SSH noch eine erneute Kopplung. Ein direkter Start von `transport.mjs`
+ohne Startschicht meldet `restart_unavailable` und aktualisiert nicht.

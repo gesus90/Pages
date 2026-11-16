@@ -1,7 +1,7 @@
 import { FolderCog, HardDrive, Users } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Link, useSearchParams } from "react-router";
+import { Link, useLocation, useSearchParams } from "react-router";
 
 import { useCompactScreen } from "@/app/components/chat-page/chat-menu/use-compact-screen";
 import { Button, buttonVariants } from "@/app/components/ui/button";
@@ -18,6 +18,7 @@ import {
 } from "./storage-action-notices";
 import { StorageActionToolbar } from "./storage-action-toolbar";
 import { StorageContent } from "./storage-content";
+import { pendingFolderPath } from "./storage-folder-link";
 import { pathText, storageFolderHref } from "./storage-format";
 import { StorageHeader } from "./storage-header";
 import { StorageReachNotice, StorageRenamedNotice } from "./storage-notices";
@@ -39,8 +40,10 @@ import type { StorageCapabilities } from "@/definition/GoogleDriveFiles";
 import type {
   StorageBrowseResult,
   StorageItem,
+  StoragePathEntry,
   StorageStartFolder,
 } from "@/definition/GoogleDriveStorage";
+import type { StorageFolderModel } from "./use-storage-folder";
 import type { StorageFileManager } from "./use-storage-file-manager";
 import type { StorageFolderActions } from "./use-storage-folder-actions";
 
@@ -280,6 +283,43 @@ function StorageLayers(props: {
   );
 }
 
+/** What the page shows of the folder: the loaded one, or the former one while another loads. */
+interface ShownFolder {
+  readonly result: StorageBrowseResult | null;
+  /** The path of the asked folder; before Drive answers it follows the click. */
+  readonly path: readonly StoragePathEntry[];
+  /** The folder that is being opened; its row shows the progress. */
+  readonly openingFolderId: string | null;
+}
+
+function useShownFolder(
+  model: StorageFolderModel,
+  folderId: string | null,
+): ShownFolder {
+  const location = useLocation();
+  const { reading } = model;
+
+  if (reading.kind === "loaded") {
+    return {
+      openingFolderId: null,
+      path: reading.result.folder?.path ?? [],
+      result: reading.result,
+    };
+  }
+
+  const result = model.previousResult;
+
+  return {
+    openingFolderId: reading.kind === "loading" ? folderId : null,
+    path: pendingFolderPath({
+      folderId,
+      previous: result?.folder ?? null,
+      state: location.state,
+    }),
+    result,
+  };
+}
+
 /** The preview a `file` parameter asks for: its state, name and the way out. */
 function useStoragePagePreview(result: StorageBrowseResult | null): {
   readonly route: ReturnType<typeof useStoragePreviewRoute>;
@@ -318,11 +358,8 @@ export function StoragePage(): React.ReactElement {
   const [isPickerOpen, setIsPickerOpen] = useState(false);
   const [isTrashOpen, setIsTrashOpen] = useState(false);
   // While another folder loads, the former one keeps header, toolbar and card
-  // in place; the card shows it inert.
-  const result =
-    model.reading.kind === "loaded"
-      ? model.reading.result
-      : model.previousResult;
+  // in place, and the path already names the asked folder.
+  const { result, path, openingFolderId } = useShownFolder(model, folderId);
   const writing = useStorageFolderActions(result, model.reload);
   const manager = useStorageFileManager(result, writing, model.reload);
   const preview = useStoragePagePreview(result);
@@ -361,7 +398,7 @@ export function StoragePage(): React.ReactElement {
         <StorageHeader
           fileName={preview.fileName}
           isConnected={result !== null}
-          path={result?.folder?.path ?? []}
+          path={path}
         />
       </div>
       {/* The list stays mounted behind the preview, so its selection, scroll
@@ -385,6 +422,7 @@ export function StoragePage(): React.ReactElement {
         ) : (
           <StorageContent
             model={model}
+            openingFolderId={openingFolderId}
             onChooseStartFolder={() => setIsPickerOpen(true)}
             onClearStartFolder={() => void clearStartFolder()}
             renderActions={writing.renderActions}

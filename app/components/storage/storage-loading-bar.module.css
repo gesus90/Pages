@@ -1,0 +1,21 @@
+.segment {
+  margin-left: 30%;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .segment {
+    margin-left: 0;
+
+    animation: bar-slide 1.2s linear infinite;
+  }
+}
+
+@keyframes bar-slide {
+  from {
+    transform: translateX(-100%);
+  }
+
+  to {
+    transform: translateX(300%);
+  }
+}

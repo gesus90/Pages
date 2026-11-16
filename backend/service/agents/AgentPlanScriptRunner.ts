@@ -1,24 +1,23 @@
-import { planPauseGate } from "./AgentPlanPauseGate";
-
-import { randomUUID } from "node:crypto";
-
 import { removePlanTemporaryStep } from "@/backend/agents/PlanRunTemporaryDirectory";
 import { AgentPlanPausedError } from "@/backend/error/AgentPlanPausedError";
 import { AgentError } from "@/backend/error/AgentErrors";
 
+import { planPauseGate } from "./AgentPlanPauseGate";
 import {
   resumePlanScripts,
   suspendPlanScripts,
 } from "./AgentPlanScriptProcess";
-import { executeOwnedScript } from "./AgentPlanScriptOwner";
-import { scriptRuntimeDirectory } from "./AgentPlanScriptResources";
+import {
+  executeOwnedScript,
+  settleUnstartedScript,
+} from "./AgentPlanScriptOwner";
+import {
+  removeScriptResources,
+  scriptRuntimeDirectory,
+} from "./AgentPlanScriptResources";
 import { planStackScriptInput } from "./stack/AgentPlanStackInputs";
 import { scriptInputJson } from "./AgentPlanScriptInputs";
 import { assessPlanScriptResult } from "./AgentPlanScriptResult";
-import {
-  createScriptResources,
-  removeScriptResources,
-} from "./AgentPlanScriptResources";
 
 import type { AgentPlanRun, AgentPlanStepResult } from "@/definition/AgentPlan";
 import type { AgentPlanScriptRun } from "@/definition/AgentPlanScript";
@@ -27,6 +26,7 @@ import type {
   AgentPlanScriptSnapshot,
 } from "./AgentPlanScriptPreparation";
 import type { AgentPlanSnapshot } from "./AgentPlanSnapshot";
+import type { RunnerPlanScripts } from "@/backend/service/runner/RunnerPlanScripts";
 
 /** The existing engine owns persistence, pause gates and cancellation. */
 export interface ScriptRunControl {
@@ -38,14 +38,14 @@ export interface ScriptRunControl {
 /** Executes script nodes as processes, with no model, agent identity or ACP session. */
 export class AgentPlanScriptRunner {
   private readonly preparation: AgentPlanScriptPreparation;
-  private readonly sharedEnvironment: string;
+  private readonly runner: RunnerPlanScripts;
 
   public constructor(
     preparation: AgentPlanScriptPreparation,
-    sharedEnvironment: string,
+    runner: RunnerPlanScripts,
   ) {
     this.preparation = preparation;
-    this.sharedEnvironment = sharedEnvironment;
+    this.runner = runner;
   }
 
   /** Holds active script process groups without losing their execution state. */
@@ -65,6 +65,15 @@ export class AgentPlanScriptRunner {
     script: AgentPlanScriptSnapshot,
     control: ScriptRunControl,
   ): Promise<Partial<AgentPlanStepResult>> {
+    const previous = run.steps.find(
+      (step) => step.id === script.step.id,
+    )?.script;
+    const isLegacyOwner =
+      snapshot.runnerProtocolVersion !== 1 &&
+      previous?.closeout === "pending" &&
+      !previous.runnerJob &&
+      !previous.runnerOwned;
+    if (!isLegacyOwner) return this.runner.run(run, snapshot, script, control);
     let record: AgentPlanScriptRun | undefined;
     try {
       script = await planStackScriptInput(script, {
@@ -76,25 +85,18 @@ export class AgentPlanScriptRunner {
       const input = scriptInputJson(run, script);
       await this.preparation.reauthorize(run.userId, snapshot.plan, script);
       control.signal.throwIfAborted();
-      record =
-        run.steps.find((step) => step.id === script.step.id)?.script ??
-        initialRecord(run, script);
+      record = previous;
+      if (!record) throw new AgentError("plan_context_changed");
       await control.save(record);
       const scope = record.temporaryScope;
-      const resources = record.processId
-        ? scriptRuntimeDirectory(record.instanceId, scope)
-        : await createScriptResources(
-            record.instanceId,
-            script.step.content,
-            scope,
-          );
+      const resources = scriptRuntimeDirectory(record.instanceId, scope);
       await this.preparation.reauthorize(run.userId, snapshot.plan, script);
       record = await executeOwnedScript({
         runId: run.id,
         record,
         program: script.interpreter.path,
         resources,
-        sharedEnvironment: this.sharedEnvironment,
+        sharedEnvironment: "",
         input,
         timeoutSeconds: script.step.timeoutSeconds,
         signal: control.signal,
@@ -116,33 +118,6 @@ export class AgentPlanScriptRunner {
       return refusedResult(error, record, control.signal);
     }
   }
-}
-
-function initialRecord(
-  run: AgentPlanRun,
-  script: AgentPlanScriptSnapshot,
-): AgentPlanScriptRun {
-  return {
-    temporaryScope: { runId: run.id, stepId: script.step.id },
-    attemptId:
-      run.steps.find((step) => step.id === script.step.id)?.execution
-        ?.attemptId ?? randomUUID(),
-    instanceId: randomUUID(),
-    interpreterProfileId: script.interpreter.id,
-    directory: script.workspace.path,
-    userId: run.userId,
-    uid: process.getuid?.() ?? -1,
-    gid: process.getgid?.() ?? -1,
-    processId: null,
-    startedAt: new Date().toISOString(),
-    endedAt: null,
-    exitCode: null,
-    signal: null,
-    failure: null,
-    closeout: "pending",
-    stdout: null,
-    stderr: "",
-  };
 }
 
 function completedResult(
@@ -176,22 +151,16 @@ async function closeUnstartedRecord(
 ): Promise<AgentPlanScriptRun | undefined> {
   if (!record || record.closeout === "failed") return record;
   try {
-    if (record.temporaryScope)
-      await removeScriptResources(record.instanceId, record.temporaryScope);
-    else await removeScriptResources(record.instanceId);
-    return {
-      ...record,
-      closeout: "confirmed",
-      endedAt: new Date().toISOString(),
-    };
+    const settled = await settleUnstartedScript(record, "interrupted");
+    if (settled.closeout !== "pending") return settled;
   } catch {
-    return {
-      ...record,
-      closeout: "failed",
-      failure: record.failure ?? "cleanup",
-      endedAt: new Date().toISOString(),
-    };
+    // Failed evidence keeps the historical owner and its private resources reserved.
   }
+  return {
+    ...record,
+    closeout: "failed",
+    failure: record.failure ?? "cleanup",
+  };
 }
 
 function refusedResult(

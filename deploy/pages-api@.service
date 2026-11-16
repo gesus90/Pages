@@ -16,6 +16,7 @@ TimeoutStartSec=180
 User=pages
 Group=pages
 WorkingDirectory=/opt/pages
+ExecStartPre=/usr/bin/env node /opt/pages/scripts/local-runner-setup.mjs /etc/pages/%i/config.toml /var/lib/pages/%i/runner/config.json
 ExecStart=/usr/bin/env node --max-old-space-size=1024 /opt/pages/server.mjs --config /etc/pages/%i/config.toml
 Restart=always
 RestartSec=5
@@ -32,6 +33,7 @@ ProtectSystem=strict
 ProtectHome=true
 ReadWritePaths=/var/lib/pages/%i /etc/pages/%i
 Environment=NODE_ENV=production
+Environment=PAGES_LOCAL_RUNNER_CONFIG=/var/lib/pages/%i/runner/config.json
 EnvironmentFile=-/etc/pages/%i/runtime.env
 
 [Install]

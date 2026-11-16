@@ -39,6 +39,14 @@ export const pagesRunnerRequestSchema = z.discriminatedUnion("operation", [
     })
     .strict(),
   z
+    .object({
+      ...identity,
+      operation: z.literal("pauseExecution"),
+      jobId: z.string().uuid(),
+      isPaused: z.boolean(),
+    })
+    .strict(),
+  z
     .object({ ...step, operation: z.enum(["openPages", "closePages"]) })
     .strict(),
   z
@@ -98,6 +106,9 @@ export const pagesRunnerFactsSchema = z.object({
   openCode: z.boolean(),
   exactPayload: z.boolean(),
   continuation: z.boolean(),
+  agentAccounts: z.boolean(),
+  browser: z.boolean(),
+  progress: z.boolean(),
   contact: z.object({
     state: z.enum(["connected", "lost"]),
     lastContactAt: z.string().nullable(),

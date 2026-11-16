@@ -47,7 +47,8 @@ function workerProgram(
   parts: AcpWorkerParts,
 ): Pick<CliSessionRequest, "file" | "arguments" | "readOnlyFiles"> {
   const { driver, picaBundle, picaNative, adapter } = parts;
-  const driverArguments = driver.arguments ?? [];
+  const driverArguments =
+    driver.launchArguments?.(parts.home) ?? driver.arguments ?? [];
   if (!picaBundle)
     return {
       file: picaNative?.executable ?? adapter,

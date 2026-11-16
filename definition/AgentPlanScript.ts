@@ -64,6 +64,14 @@ export type AgentPlanScriptFailure =
 
 /** Process diagnostics within the existing node result; identifiers never authorize killing a PID. */
 export interface AgentPlanScriptRun {
+  /** New execution intent; host process scans apply only to historical records. */
+  readonly runnerOwned?: true;
+  /** Cleanup and process ownership belong exclusively to this runner claim. */
+  readonly runnerJob?: {
+    readonly connectionId: string;
+    readonly jobId: string;
+    readonly attemptId: string;
+  };
   /** Disk scratch identity; absent only for older attempts. */
   readonly temporaryScope?: { readonly runId: string; readonly stepId: string };
   readonly attemptId: string;

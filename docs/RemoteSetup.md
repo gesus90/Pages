@@ -60,7 +60,7 @@ Phasenmeldungen sind private Terminalsequenzen (`ESC ] 777 ; pages-setup ; …`)
 
 Phase 8 schaltet zuerst die Terminalausgabe der Eingabe ab (`stty -echo`) und meldet dann, dass sie wartet. Pages prüft die Rechte erneut, erzeugt die einmalige, zwei Minuten gültige Freigabe (`RunnerService.authorize`) und schreibt Adresse und Freigabe in den PTY. Sie erscheinen weder im Terminal noch im Wiederholungsverlauf, nicht in der Prozessliste und nicht in einem Protokoll. Die Freigabe gilt nur einmal und ist an Benutzer und SSH-Revision gebunden; es gibt keine feste, geteilte Passwortkonstante.
 
-Die Adresse ist `PAGES_RUNNER_PUBLIC_URL` (nur Ursprung, optional) oder der Ursprung, unter dem die Person Pages geöffnet hat; `http` wird zu `ws`, `https` zu `wss`. Eine Loopback-Adresse (`localhost`, `127.*`) wird für einen anderen Host abgelehnt, weil dieser sie nicht erreicht; Pages liefert dann keine Freigabe.
+Die Adresse kommt aus Einstellungen → Agents → Pages-Adresse für Runner. Ohne eigenen Wert gilt `PAGES_RUNNER_PUBLIC_URL`, danach die öffentliche Pages-Adresse (`publicUrl`) und beim Setup der Browser-Ursprung. Standard ist immer `wss`, auch bei einem HTTP-Browser-Ursprung. Nur die ausdrückliche LAN-Auswahl erlaubt `ws`; dabei zeigt Pages die Warnung vor unverschlüsselten Runner-Token, Provider-Schlüsseln und Auftragsinhalten. Eine Loopback-Adresse (`localhost`, `127.*`) wird für einen anderen Host abgelehnt, weil dieser sie nicht erreicht; Pages liefert dann keine Freigabe. Adresse und LAN-Auswahl werden zusammen mit der einmaligen Freigabe verdeckt übergeben und in der privaten Runner-Konfiguration gespeichert.
 
 ## Installationsbefund
 
@@ -164,3 +164,41 @@ Agent Plans can select an authorized remote profile for supported script and
 agent nodes. The plan tools of Pica can read and select these targets under the
 same permissions; the separate workspace administration tools still manage
 local workspaces.
+
+## Adressänderung und Paketaktualisierung
+
+Die Runner-Einstellungen gelten für alle entfernten Runner. Eine Änderung wird in
+PostgreSQL gespeichert. Verbundene Runner erhalten sie über den bestehenden,
+authentifizierten Kanal nach dem nächsten Heartbeat (15 Sekunden), speichern sie
+atomar und verbinden sich mit derselben Identität und demselben Token neu. Für
+„Dieser Server“ bleibt die direkte IPv4-Loopback-Verbindung maßgeblich. Einen
+neuen Eingangsport braucht Pages dafür nicht; der vorhandene Proxy muss weiterhin
+WebSocket-Upgrades für `/runner/v1/channel/…` durchlassen.
+
+Beispiel: öffentliche Adresse `https://pages.example.org` führt zu
+`wss://pages.example.org/runner/v1/channel/…`. Für ein ausdrücklich ausgewähltes,
+vertrauenswürdiges LAN kann `http://192.168.10.20:3000` als
+`ws://192.168.10.20:3000/runner/v1/channel/…` verwendet werden. Zertifikatsprüfung
+wird niemals abgeschaltet. Eine HTTPS-Adresse mit einem ungültigen Zertifikat
+führt zu einem Verbindungsfehler, nicht zu einem Wechsel auf WS.
+
+Die Optionen „Untätige Runner automatisch aktualisieren“ und „Aktualisierung
+anfordern / erneut versuchen“ verwenden denselben Updatevertrag. Pages liefert
+ausschließlich das mit dieser Pages-Version ausgelieferte Paket. Aktive oder
+wartende Schritte, unbestätigte Ergebnisse und noch ausstehende Verlaufsdaten
+verschieben die Aktualisierung mit sichtbarem Grund. Es werden keine Sitzungen
+abgebrochen oder neu gestartet, um ein Update zu erzwingen.
+
+Neue Installationen enthalten die Startschicht `runner.mjs` und den getrennten
+Transport `transport.mjs`. Ein vor diesem Updatevertrag installierter Runner
+muss einmal mit dem aktuellen Setup-Artefakt ausgestattet werden. Das Skript
+behält vorhandene Kopplungsdaten; vor einer solchen administrativen Installation
+müssen die vorhandenen Schritte beendet und der alte Transport angehalten sein;
+das Skript verweigert sonst die Installation, bevor es Runner-Code schreibt.
+Eine bisherige WS-Konfiguration verlangt dabei eine ausdrückliche LAN-Bestätigung.
+Dieser Altbestand unterstützt
+keine unbekannten Updatebefehle; Pages zeigt die fehlende Bestätigung und den
+Einrichtungsbedarf an. Eine automatische Neukopplung erfolgt nicht.
+
+Die genaue Paketprüfung, Aktivierung, Rückfallebene und Wiederanlaufgrenzen sind
+in [Pages Runner](PagesRunner.md#adresse-und-sichere-runner-updates) beschrieben.

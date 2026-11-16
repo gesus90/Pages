@@ -227,38 +227,41 @@ export class AgentPlanRunCommands {
     snapshot?: AgentPlanSnapshot,
     journal?: AgentPlanRunJournal,
   ): Promise<void> {
-    await this.dependencies.writes.run(async () => {
-      const active = this.dependencies.active.get(id);
-      if (
-        !active ||
-        this.dependencies.isClosing() ||
-        active.view.stopRequested ||
-        active.hasPersistenceFailure ||
-        active.view.status !== "paused"
-      )
-        throw new AgentError("plan_run_unavailable");
-      const previous = await this.pausedView(active);
-      const proposed = snapshot ?? active.snapshot;
-      if (active.controllers.size > 0) {
-        await this.resumeSuspended(active, proposed, previous, journal);
-        return;
-      }
-      const next = preparePlanContinuation(previous, active.snapshot, proposed);
-      await this.adoptContinuation(active, next, previous, journal);
-      active.snapshot = next.snapshot;
-      active.view = next.run;
-      this.dependencies.steps.revise?.(id);
-      if (usesImmediateCodexPause(active.snapshot))
-        await setCodexRunPaused(active, this.dependencies.localSessions, false);
-      if (!usesImmediateCodexPause(active.snapshot))
-        await setScriptRunPaused(id, false);
-      await controlPlanProcesses(active.view, "resume");
-      await this.dependencies.resources?.controlRun?.(id, "resume");
-      await this.dependencies.remoteExecution?.resume(active.view);
-      planPauseGate(id).resume();
-      this.dependencies.resources?.resumeRun(id);
-    });
+    await this.dependencies.writes.run(() =>
+      this.resumeActive(id, snapshot, journal),
+    );
     await this.dependencies.pump();
+  }
+
+  private async resumeActive(
+    id: string,
+    snapshot?: AgentPlanSnapshot,
+    journal?: AgentPlanRunJournal,
+  ): Promise<void> {
+    const active = this.dependencies.active.get(id);
+    if (!isResumableActive(active, this.dependencies.isClosing()))
+      throw new AgentError("plan_run_unavailable");
+    const previous = await this.pausedView(active);
+    const proposed = snapshot ?? active.snapshot;
+    if (active.controllers.size > 0) {
+      await this.resumeSuspended(active, proposed, previous, journal);
+      return;
+    }
+    const next = preparePlanContinuation(previous, active.snapshot, proposed);
+    await this.adoptContinuation(active, next, previous, journal);
+    active.snapshot = next.snapshot;
+    active.view = next.run;
+    this.dependencies.steps.revise?.(id);
+    if (usesImmediateCodexPause(active.snapshot))
+      await setCodexRunPaused(active, this.dependencies.localSessions, false);
+    if (!usesImmediateCodexPause(active.snapshot))
+      await setScriptRunPaused(id, false);
+    await this.dependencies.runnerExecution?.setRunPaused(id, false);
+    await controlPlanProcesses(active.view, "resume");
+    await this.dependencies.resources?.controlRun?.(id, "resume");
+    await this.dependencies.remoteExecution?.resume(active.view);
+    planPauseGate(id).resume();
+    this.dependencies.resources?.resumeRun(id);
   }
 
   private async controlPause(
@@ -269,6 +272,7 @@ export class AgentPlanRunCommands {
     const id = proposed.id;
     const attempts = await Promise.allSettled([
       controlPlanProcesses(proposed, "pause"),
+      this.dependencies.runnerExecution?.setRunPaused(id, true),
       this.dependencies.resources?.controlRun?.(id, "pause"),
       this.dependencies.remoteExecution?.pause(proposed),
       isImmediate
@@ -292,6 +296,7 @@ export class AgentPlanRunCommands {
     const id = previous.id;
     const attempts = await Promise.allSettled([
       controlPlanProcesses(previous, "resume"),
+      this.dependencies.runnerExecution?.setRunPaused(id, false),
       this.dependencies.resources?.controlRun?.(id, "resume"),
       this.dependencies.remoteExecution?.resume(previous),
       isImmediate
@@ -328,6 +333,7 @@ export class AgentPlanRunCommands {
         await setCodexRunPaused(active, this.dependencies.localSessions, false);
       if (!usesImmediateCodexPause(active.snapshot))
         await setScriptRunPaused(next.id, false);
+      await this.dependencies.runnerExecution?.setRunPaused(next.id, false);
       await controlPlanProcesses(next, "resume");
       await this.dependencies.resources?.controlRun?.(next.id, "resume");
       await this.dependencies.remoteExecution?.resume(next);
@@ -400,4 +406,17 @@ export class AgentPlanRunCommands {
       logCaughtError("AgentPlanRunCommands", error);
     });
   }
+}
+
+function isResumableActive(
+  active: ActivePlanRun | undefined,
+  isClosing: boolean,
+): active is ActivePlanRun {
+  return Boolean(
+    active &&
+    !isClosing &&
+    !active.view.stopRequested &&
+    !active.hasPersistenceFailure &&
+    active.view.status === "paused",
+  );
 }

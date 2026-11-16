@@ -1,5 +1,7 @@
+import { LOCAL_RUNNER_CONNECTION_ID } from "@/backend/service/runner/LocalRunnerIdentity";
 import {
   remoteCliModels,
+  remoteAccountModels,
   remoteOpenRouterModels,
 } from "./AgentPlanRemoteCatalog";
 
@@ -19,6 +21,8 @@ interface SourceDependencies {
     | "supportsPagesAccess"
     | "supportsOpenCode"
     | "supportsExactResultPayload"
+    | "supportsBrowser"
+    | "supportsAgentAccounts"
   >;
   readonly provider: Pick<RunnerOpenRouterService, "catalog">;
   readonly targets: Pick<AgentPlanRemoteTargets, "list" | "choices">;
@@ -48,17 +52,20 @@ export class AgentPlanRemoteSources {
     const selected = workspaceIds ? new Set(workspaceIds) : null;
     const targets = selected
       ? visible.filter((target) => selected.has(target.workspaceId))
-      : visible;
+      : visible.filter(
+          (target) => target.connectionId !== LOCAL_RUNNER_CONNECTION_ID,
+        );
     const choices = await this.dependencies.targets.choices(userId);
     const sources = await Promise.all(
       targets.map((target) =>
         this.target(
           userId,
           target,
-          choices.some(
-            (entry) =>
-              entry.workspaceId === target.workspaceId && entry.isUsable,
-          ),
+          target.connectionId === LOCAL_RUNNER_CONNECTION_ID ||
+            choices.some(
+              (entry) =>
+                entry.workspaceId === target.workspaceId && entry.isUsable,
+            ),
         ),
       ),
     );
@@ -85,8 +92,13 @@ export class AgentPlanRemoteSources {
       workspaceId: target.workspaceId,
       problem,
       tools: catalog?.tools ?? [],
+      accounts: runners.supportsAgentAccounts(target.connectionId)
+        ? catalog?.accounts
+        : [],
+      hasAgentAccounts: runners.supportsAgentAccounts(target.connectionId),
       hasModelCatalog: false,
       isToolCatalogCurrent: catalog?.areToolsComplete === true,
+      hasBrowserAccess: runners.supportsBrowser(target.connectionId),
       hasPagesAccess: runners.supportsPagesAccess(target.connectionId),
       hasOpenCodeAccess: runners.supportsOpenCode(target.connectionId),
       hasExactResultPayload: runners.supportsExactResultPayload(
@@ -108,11 +120,14 @@ export class AgentPlanRemoteSources {
       remoteState: profileState(removed.includes(program.id), problem),
     }));
     if (problem) return { models: [], interpreters, statuses: [status] };
-    const models = remoteCliModels(
-      target,
-      status.tools,
-      status.hasOpenCodeAccess,
-    );
+    const models = [
+      ...remoteCliModels(target, status.tools, status.hasOpenCodeAccess),
+      ...remoteAccountModels(
+        target,
+        status.accounts ?? [],
+        status.hasOpenCodeAccess === true,
+      ),
+    ];
     const provider = await this.provider(userId, target, status);
     return {
       models: [...models, ...provider.models],

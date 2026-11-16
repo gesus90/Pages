@@ -7,6 +7,7 @@ import { SettingsCard } from "@/app/components/settings/settings-layout";
 import { Button } from "@/app/components/ui/button";
 import { HorizontalScrollArea } from "@/app/components/ui/horizontal-scroll-area";
 
+import { RunnerUpdateSettings } from "./runner-update-settings";
 import { RunnerConnectionRow } from "./runner-connection-row";
 
 import type { RunnerConnectionView } from "@/definition/RunnerProtocol";
@@ -56,6 +57,7 @@ export function RunnerConnectionsCard({
           {t("settings.agents.runner.empty")}
         </p>
       )}
+      <RunnerUpdateSettings connections={connections} />
       <div className="mt-3 space-y-2 text-xs text-muted-foreground">
         <Link
           className="inline-block text-sm text-primary-text underline"

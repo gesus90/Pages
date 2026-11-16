@@ -1,0 +1,28 @@
+[Unit]
+Description=Pages local runner (%i)
+After=network-online.target pages-api@%i.service
+Wants=network-online.target pages-api@%i.service
+PartOf=pages.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+User=pages
+Group=pages
+WorkingDirectory=/opt/pages
+Environment=NODE_ENV=production
+Environment=PAGES_RUNNER_LOCAL=1
+Environment=PAGES_RUNNER_DIRECTORY=/var/lib/pages/%i/runner
+Environment=PAGES_LOCAL_RUNNER_CONFIG=/var/lib/pages/%i/runner/config.json
+EnvironmentFile=-/etc/pages/%i/runtime.env
+ExecStartPre=/usr/bin/env node /opt/pages/scripts/local-runner-setup.mjs /etc/pages/%i/config.toml /var/lib/pages/%i/runner/config.json
+ExecStart=/usr/bin/env node /opt/pages/scripts/runner/bootstrap.mjs
+Restart=always
+RestartSec=5
+UMask=0077
+# Detached workers and their durable claims survive a transport service restart.
+KillMode=process
+TimeoutStopSec=30
+
+[Install]
+WantedBy=pages.target

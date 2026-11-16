@@ -10,50 +10,44 @@ import type {
   AcpSteerOutcome,
 } from "@/backend/agents/acp/AcpChat";
 import type {
+  AgentPlanSessionInput,
   PlanSession,
   PlanSessionClosed,
   PlanSessionObserver,
   PlanSessionTurn,
 } from "@/backend/agents/AgentPlanExecution";
+import type {
+  ConversationRelease,
+  ConversationReleaseReason,
+  ConversationRunnerSession,
+  ConversationSessionOwner,
+  ConversationSessionRunner,
+} from "@/backend/agents/ConversationSessionRunner";
 import type { AgentPlanExecutionInput } from "@/backend/service/agents/AgentPlanStepStart";
 import type { AcpChatSessionView } from "@/definition/AcpResource";
 import type { PicaBridgeMcpChannel } from "./PicaBridge";
 
 const MILLISECONDS_PER_MINUTE = 60_000;
 
-/** Whose chat session a job asks for, and with which configuration. */
-export interface PicaAcpPoolSession {
-  /** The chat session of the agent: one per agent and conversation. */
-  readonly chatSessionId: string;
-  readonly agentId: string;
-  readonly agentName: string;
-  /** The conversation, as the memory of the agent names it. */
-  readonly conversation: string;
-  /** Connection, model, effort, profile, access, folder and credentials; another value starts anew. */
-  readonly fingerprint: string;
-}
-
-/** What a new native session starts with. */
-export interface PicaAcpPoolStart {
-  /** Lives as long as the session, not as the job that starts it. */
-  readonly signal: AbortSignal;
+/** What a new native session of the pool starts with. */
+export interface PicaAcpPoolInput {
+  /** Reports to the job that holds the session; it outlives the job that starts it. */
   readonly listener: AcpSessionListener;
   /** The MCP credential of the session; `null` for a runner without the bridge. */
   readonly channel: PicaBridgeMcpChannel | null;
-  /**
-   * The observer the native session reports to: it keeps the agent session
-   * identifier for the resume after the idle time and passes it on to the
-   * job.
-   */
-  readonly observer: PlanSessionObserver;
 }
 
 /** How a job asks the pool for its chat session. */
 export interface PicaAcpPoolOpening {
-  readonly session: PicaAcpPoolSession;
+  /** The agent, the conversation and the configuration the session answers for. */
+  readonly session: ConversationSessionOwner;
   readonly prepare?: (afterSequence: number | null) => Promise<number>;
   /** The stop, the deadline and the shutdown of the job. */
   readonly signal: AbortSignal;
+  /**
+   * The observer of the job: it hears the native session identifier, which the
+   * pool also passes on to the next job for the resume after the idle time.
+   */
   readonly observer: PlanSessionObserver;
   readonly listener: AcpSessionListener;
   /** Opens or binds the bridge credential of the session; absent for a runner without the bridge. */
@@ -61,17 +55,16 @@ export interface PicaAcpPoolOpening {
     readonly open: () => PicaBridgeMcpChannel;
     readonly attach: (channel: PicaBridgeMcpChannel) => void;
   };
-  /** Starts a native session through the scheduler; its first turn answers the job. */
-  readonly start: (start: PicaAcpPoolStart) => Promise<{
-    readonly session: PlanSession;
-    readonly instanceId: string;
-  }>;
+  /** The native session and first round of a new session, built with the listener and credential of the pool. */
+  readonly input: (start: PicaAcpPoolInput) => AgentPlanSessionInput;
   /** The turn a resting session answers the job with. */
   readonly turn: () => AgentPlanExecutionInput;
 }
 
 /** What the pool runs on. */
 export interface PicaAcpSessionPoolOptions {
+  /** Starts, continues and releases the native sessions. */
+  readonly runner: ConversationSessionRunner;
   /**
    * The idle time of a resting session of an agent, from the settings of the
    * agent and the instance; read for every rest.
@@ -81,22 +74,21 @@ export interface PicaAcpSessionPoolOptions {
 }
 
 interface PoolEntry {
-  readonly session: PicaAcpPoolSession;
+  readonly session: ConversationSessionOwner;
   readonly controller: AbortController;
   readonly listener: PicaAcpPooledListener;
   readonly channel: PicaBridgeMcpChannel | null;
-  native: PlanSession | null;
+  native: ConversationRunnerSession | null;
   throughSequence: number | null;
   instanceId: string;
-  /** The identifier of the agent session, for the job that reuses the process. */
-  acpSessionId: string | null;
-  /** Releases of the workspace that wait for the end of the process. */
+  /** Releases of the workspace that wait for the confirmed end of the process. */
   readonly releases: Array<() => Promise<void>>;
   isLent: boolean;
   isEnding: boolean;
   timer: ReturnType<typeof setTimeout> | null;
   lastActivityAt: Date;
-  ending: Promise<void> | null;
+  /** The release in progress; empty again after one that could not be confirmed, so it can be retried. */
+  releasing: Promise<ConversationRelease> | null;
 }
 
 /** Aborts the session with the job while the job holds it. */
@@ -110,17 +102,50 @@ function linkSignal(
   return () => signal.removeEventListener("abort", abort);
 }
 
+/** What the job reads of a release: whether its process is gone. */
+function closedOf(release: ConversationRelease): PlanSessionClosed {
+  return {
+    exit: release.exit,
+    endedAt: release.endedAt,
+    leftovers: release.leftovers,
+    isConfirmed: release.isConfirmed,
+  };
+}
+
 /**
- * One native ACP session per agent and conversation.
+ * Refuses a bridge credential that was not issued to the agent and the
+ * conversation of the session.
+ * @throws {PicaAcpJobError} `general` for a credential of anyone else.
+ */
+function requireOwnChannel(
+  channel: PicaBridgeMcpChannel | null,
+  session: ConversationSessionOwner,
+): void {
+  if (
+    channel &&
+    (channel.owner.agentId !== session.agentId ||
+      channel.owner.conversationId !== session.conversationId)
+  )
+    throw new PicaAcpJobError("general");
+}
+
+/**
+ * One native ACP session per agent and conversation, kept through the
+ * conversation session contract of the runner.
  * @remarks
  * A job of an agent employee answers its round through the session of its
- * chat: a resting session takes the round as its next turn, otherwise a new
- * one starts through the scheduler, with the transcript the job gives it.
- * Rounds of one chat already run one after another, so a session serves one
- * job at a time. After its job the session rests and ends after the idle time
- * of the agent settings, which releases its lease; a stop, a failed turn, a
- * changed configuration or the end of its process end it at once. A waiting
- * start at the instance limit takes the place of the longest resting one.
+ * chat: a resting session takes the round as its next round, otherwise a new
+ * one starts through the runner, with the transcript the job gives it, and
+ * resumes the stored native session when the job names it. Rounds of one chat
+ * already run one after another, so a session serves one job at a time. After
+ * its job the session rests and is released after the idle time of the agent
+ * settings. A stop, a failed turn, a changed configuration or agent, a
+ * working folder that goes away, a waiting start at the instance limit and
+ * the end of its process release it at once. A release revokes the bridge
+ * credential first and frees the working folder and the place of a new
+ * session only after the runner confirmed that the process is gone; a release
+ * that could not be confirmed keeps the entry, refuses a new session of the
+ * conversation and is tried again by the next release.
  */
 export class PicaAcpSessionPool {
   private readonly entries = new Map<string, PoolEntry>();
@@ -134,30 +159,39 @@ export class PicaAcpSessionPool {
   /**
    * Gives the job the session of its chat, with the turn of its round running.
    * @throws {PicaAcpJobError} `general` while another job holds the session.
+   * @throws {AcpCleanupUnconfirmedError} While the process of the earlier
+   * session of the conversation is not confirmed gone.
    */
   public async open(opening: PicaAcpPoolOpening): Promise<PlanSession> {
-    const { chatSessionId, fingerprint } = opening.session;
-    const existing = this.entries.get(chatSessionId);
+    const { conversationId, agentId, fingerprint } = opening.session;
+    const existing = this.entries.get(conversationId);
     if (existing?.isLent) throw new PicaAcpJobError("general");
     if (
       existing?.native &&
       !existing.isEnding &&
+      existing.session.agentId === agentId &&
       existing.session.fingerprint === fingerprint
     )
       return this.reuse(existing, existing.native, opening);
-    if (existing) await this.end(existing);
+    if (existing) {
+      const reason: ConversationReleaseReason = existing.isEnding
+        ? "reconnect"
+        : "configuration";
+      const release = await this.release(existing, reason);
+      if (!release.isConfirmed) throw new AcpCleanupUnconfirmedError();
+    }
     return this.startNew(opening);
   }
 
-  /** Ends the native cwd owner before workspace deletion, refusing an unconfirmed closeout. */
-  public async closeForWorkspace(chatSessionId: string): Promise<void> {
-    const entry = this.entries.get(chatSessionId);
+  /**
+   * Ends the native cwd owner before workspace deletion.
+   * @throws {AcpCleanupUnconfirmedError} When the release is not confirmed.
+   */
+  public async closeForWorkspace(conversationId: string): Promise<void> {
+    const entry = this.entries.get(conversationId);
     if (!entry) return;
-    entry.isEnding = true;
-    this.clearTimer(entry);
-    const closed = await entry.native?.close();
-    if (closed && !closed.isConfirmed) throw new AcpCleanupUnconfirmedError();
-    this.forget(entry);
+    const release = await this.release(entry, "workspace");
+    if (!release.isConfirmed) throw new AcpCleanupUnconfirmedError();
   }
 
   /**
@@ -169,44 +203,60 @@ export class PicaAcpSessionPool {
    * the caller releases the workspace itself.
    */
   public keepWorkspace(
-    chatSessionId: string,
+    conversationId: string,
     release: () => Promise<void>,
   ): boolean {
-    const entry = this.entries.get(chatSessionId);
+    const entry = this.entries.get(conversationId);
     if (!entry?.native || entry.isLent || entry.isEnding) return false;
     entry.releases.push(release);
     return true;
   }
 
-  /** Ends the session of a chat, such as before the chat is deleted. */
-  public async close(chatSessionId: string): Promise<void> {
-    const entry = this.entries.get(chatSessionId);
-    if (entry) await this.end(entry);
+  /**
+   * Ends the session of a chat, such as before the chat is deleted.
+   * @throws {AcpCleanupUnconfirmedError} When the release is not confirmed, so
+   * the caller keeps what the process may still use.
+   */
+  public async close(conversationId: string): Promise<void> {
+    const entry = this.entries.get(conversationId);
+    if (!entry) return;
+    const release = await this.release(entry, "deletion");
+    if (!release.isConfirmed) throw new AcpCleanupUnconfirmedError();
   }
 
-  /** Ends every session, for the shutdown of the service. */
+  /** Releases every session, for the shutdown of the service. */
   public async closeAll(): Promise<void> {
     await Promise.allSettled(
-      [...this.entries.values()].map((entry) => this.end(entry)),
+      [...this.entries.values()].map((entry) =>
+        this.release(entry, "shutdown"),
+      ),
     );
   }
 
   /**
    * Ends the longest resting session so a waiting start gets its place.
+   * @remarks
+   * A session whose release could not be confirmed is asked again, after the
+   * resting ones, because only a confirmed end frees its place.
    * @returns Whether one ends now; `false` while an earlier one still ends.
    */
   public reclaimIdle(): boolean {
     if (this.reclaiming) return false;
     const [oldest] = [...this.entries.values()]
-      .filter((entry) => !entry.isLent && !entry.isEnding && entry.native)
+      .filter(
+        (entry) => !entry.isLent && entry.native && entry.releasing === null,
+      )
       .sort(
         (first, second) =>
+          Number(first.isEnding) - Number(second.isEnding) ||
           first.lastActivityAt.getTime() - second.lastActivityAt.getTime(),
       );
     if (!oldest) return false;
-    this.reclaiming = this.end(oldest).finally(() => {
-      this.reclaiming = null;
-    });
+    this.reclaiming = this.release(oldest, "capacity")
+      .then(() => undefined)
+      .finally(() => {
+        this.reclaiming = null;
+      });
     return true;
   }
 
@@ -215,8 +265,8 @@ export class PicaAcpSessionPool {
    * @returns `busy` while a job holds it, `idle` while it waits for the next
    * round, `null` without a process.
    */
-  public stateOf(chatSessionId: string): "busy" | "idle" | null {
-    const entry = this.entries.get(chatSessionId);
+  public stateOf(conversationId: string): "busy" | "idle" | null {
+    const entry = this.entries.get(conversationId);
     if (!entry?.native || entry.isEnding) return null;
     return entry.isLent ? "busy" : "idle";
   }
@@ -236,37 +286,41 @@ export class PicaAcpSessionPool {
   }
 
   private async startNew(opening: PicaAcpPoolOpening): Promise<PlanSession> {
+    const channel = opening.bridge?.open() ?? null;
     const entry: PoolEntry = {
       session: opening.session,
       controller: new AbortController(),
       listener: new PicaAcpPooledListener(opening.listener),
-      channel: opening.bridge?.open() ?? null,
+      channel,
       native: null,
       throughSequence: null,
       instanceId: "",
-      acpSessionId: null,
       releases: [],
       isLent: true,
       isEnding: false,
       timer: null,
       lastActivityAt: this.now(),
-      ending: null,
+      releasing: null,
     };
-    this.entries.set(opening.session.chatSessionId, entry);
+    this.entries.set(opening.session.conversationId, entry);
     const unlink = linkSignal(opening.signal, entry.controller);
     try {
+      requireOwnChannel(channel, opening.session);
       entry.throughSequence = (await opening.prepare?.(null)) ?? null;
-      const started = await opening.start({
+      const opened = await this.options.runner.open({
+        owner: opening.session,
+        input: opening.input({ listener: entry.listener, channel }),
         signal: entry.controller.signal,
-        listener: entry.listener,
-        channel: entry.channel,
-        observer: this.identifying(entry, opening.observer),
+        observer: opening.observer,
+        bridge: channel,
       });
-      entry.native = started.session;
-      entry.instanceId = started.instanceId;
-      void started.session.terminated?.then(() => this.forget(entry));
-      return this.lend(entry, started.session, {
-        turn: started.session.turn,
+      entry.native = opened.session;
+      entry.instanceId = opened.session.instanceId;
+      void opened.session.exited.then((release) =>
+        this.settleExit(entry, release),
+      );
+      return this.lend(entry, opened.session, {
+        turn: opened.firstRound,
         unlink,
       });
     } catch (error: unknown) {
@@ -278,30 +332,33 @@ export class PicaAcpSessionPool {
 
   private async reuse(
     entry: PoolEntry,
-    native: PlanSession,
+    native: ConversationRunnerSession,
     opening: PicaAcpPoolOpening,
   ): Promise<PlanSession> {
-    if (!native.next) throw new PicaAcpJobError("general");
     this.clearTimer(entry);
     entry.isLent = true;
     entry.lastActivityAt = this.now();
-    // The job saves the agent session through its last message, so the resume after the idle time finds it.
-    if (entry.acpSessionId !== null)
-      opening.observer.identified(entry.acpSessionId);
-    entry.listener.attach(opening.listener);
-    if (entry.channel) opening.bridge?.attach(entry.channel);
     const unlink = linkSignal(opening.signal, entry.controller);
     try {
+      // The job saves the agent session through its last message, so the resume after the idle time finds it.
+      const nativeSessionId = native.nativeSessionId();
+      if (nativeSessionId !== null)
+        opening.observer.identified(nativeSessionId);
+      entry.listener.attach(opening.listener);
+      // The credential of the session goes to this job and its running turn only.
+      if (entry.channel) opening.bridge?.attach(entry.channel);
       entry.throughSequence =
         (await opening.prepare?.(entry.throughSequence)) ??
         entry.throughSequence;
       return this.lend(entry, native, {
-        turn: native.next(opening.turn(), opening.signal, opening.observer),
+        turn: native.round(opening.turn(), opening.signal, opening.observer),
         unlink,
       });
     } catch (error: unknown) {
       unlink();
-      await this.end(entry);
+      entry.listener.detach();
+      entry.isLent = false;
+      await this.release(entry, "failure");
       throw error;
     }
   }
@@ -309,7 +366,7 @@ export class PicaAcpSessionPool {
   /** The session as the job sees it: closing it lets the session rest instead of ending it. */
   private lend(
     entry: PoolEntry,
-    native: PlanSession,
+    native: ConversationRunnerSession,
     lending: {
       readonly turn: Promise<PlanSessionTurn>;
       readonly unlink: () => void;
@@ -337,8 +394,11 @@ export class PicaAcpSessionPool {
       entry.listener.detach();
       entry.isLent = false;
       entry.lastActivityAt = this.now();
-      if (!isHealthy || entry.controller.signal.aborted || entry.isEnding)
-        return this.endNow(entry, native);
+      const isStopped = entry.controller.signal.aborted;
+      if (!isHealthy || isStopped || entry.isEnding)
+        return closedOf(
+          await this.release(entry, isStopped ? "stop" : "failure"),
+        );
       await this.rest(entry);
       return {
         exit: null,
@@ -349,7 +409,6 @@ export class PicaAcpSessionPool {
     };
     const lent: PlanSession = {
       turn: observe(lending.turn),
-      terminated: native.terminated,
       close: () => {
         closing ??= giveBack();
         return closing;
@@ -360,21 +419,17 @@ export class PicaAcpSessionPool {
 
   private forward(
     lent: PlanSession,
-    native: PlanSession,
+    native: ConversationRunnerSession,
     observe: (pending: Promise<PlanSessionTurn>) => Promise<PlanSessionTurn>,
   ): PlanSession {
-    const { next, steer, interrupt, cancelTool } = native;
+    const { steer, interrupt, cancelTool } = native;
     return {
       ...lent,
-      ...(next
-        ? {
-            next: (
-              input: AgentPlanExecutionInput,
-              signal: AbortSignal,
-              observer: PlanSessionObserver,
-            ) => observe(next.call(native, input, signal, observer)),
-          }
-        : {}),
+      next: (
+        input: AgentPlanExecutionInput,
+        signal: AbortSignal,
+        observer: PlanSessionObserver,
+      ) => observe(native.round(input, signal, observer)),
       ...(steer
         ? {
             steer: (
@@ -389,20 +444,6 @@ export class PicaAcpSessionPool {
     };
   }
 
-  /** The observer of a new native session: it remembers the agent session identifier. */
-  private identifying(
-    entry: PoolEntry,
-    observer: PlanSessionObserver,
-  ): PlanSessionObserver {
-    return {
-      ...observer,
-      identified: (sessionId) => {
-        entry.acpSessionId = sessionId;
-        observer.identified(sessionId);
-      },
-    };
-  }
-
   /** Starts the idle time; a failed read of the settings keeps the default. */
   private async rest(entry: PoolEntry): Promise<void> {
     let minutes = AGENT_CHAT_IDLE_DEFAULT_MINUTES;
@@ -414,50 +455,80 @@ export class PicaAcpSessionPool {
     if (entry.isLent || entry.isEnding) return;
     this.clearTimer(entry);
     entry.timer = setTimeout(() => {
-      if (!entry.isLent) void this.end(entry);
+      if (!entry.isLent) void this.release(entry, "idle");
     }, minutes * MILLISECONDS_PER_MINUTE);
     entry.timer.unref();
   }
 
-  /** Ends a session its job cannot hand on, with the closeout the job reports. */
-  private async endNow(
+  /**
+   * Releases a session once; the entry and its folder go only with a confirmed end.
+   * @remarks
+   * The bridge credential is revoked first, whatever the outcome, so the agent
+   * loses the Pages tools before its process is confirmed gone. An unconfirmed
+   * release keeps the entry and its folder releases, and the next call asks
+   * the runner again. A session that has not started its process yet has
+   * nothing to confirm; the start that still runs releases the process when
+   * its job gives the session back.
+   */
+  private release(
     entry: PoolEntry,
-    native: PlanSession,
-  ): Promise<PlanSessionClosed> {
+    reason: ConversationReleaseReason,
+  ): Promise<ConversationRelease> {
     entry.isEnding = true;
     this.clearTimer(entry);
-    try {
-      return await native.close();
-    } finally {
-      this.forget(entry);
-    }
+    entry.channel?.close();
+    const { native } = entry;
+    if (!native) return Promise.resolve(this.record(reason, true));
+    entry.releasing ??= this.releaseOnce(entry, native, reason);
+    return entry.releasing;
   }
 
-  /** Ends a session once; its lease is released by its own closeout. */
-  private end(entry: PoolEntry): Promise<void> {
-    entry.ending ??= this.endOnce(entry);
-    return entry.ending;
-  }
-
-  private async endOnce(entry: PoolEntry): Promise<void> {
-    entry.isEnding = true;
-    this.clearTimer(entry);
+  private async releaseOnce(
+    entry: PoolEntry,
+    native: ConversationRunnerSession,
+    reason: ConversationReleaseReason,
+  ): Promise<ConversationRelease> {
+    let release: ConversationRelease;
     try {
-      await entry.native?.close();
+      release = await native.release(reason);
     } catch (error: unknown) {
+      // The runner never rejects; a session that does is not provably gone.
       logCaughtError("PicaAcpSessionPool", error);
-    } finally {
-      this.forget(entry);
+      release = this.record(reason, false);
     }
+    if (release.isConfirmed) this.forget(entry);
+    else entry.releasing = null;
+    return release;
   }
 
-  /** Drops a session whose process ended, however it ended. */
+  private record(
+    reason: ConversationReleaseReason,
+    isConfirmed: boolean,
+  ): ConversationRelease {
+    return {
+      reason,
+      exit: null,
+      endedAt: this.now().toISOString(),
+      leftovers: 0,
+      isConfirmed,
+    };
+  }
+
+  /** A process that ended on its own was closed out by the runner; free the entry once that is confirmed. */
+  private settleExit(entry: PoolEntry, release: ConversationRelease): void {
+    entry.isEnding = true;
+    this.clearTimer(entry);
+    entry.channel?.close();
+    if (release.isConfirmed) this.forget(entry);
+  }
+
+  /** Drops a session whose process is confirmed gone, however it ended. */
   private forget(entry: PoolEntry): void {
     entry.isEnding = true;
     this.clearTimer(entry);
     entry.channel?.close();
-    if (this.entries.get(entry.session.chatSessionId) === entry)
-      this.entries.delete(entry.session.chatSessionId);
+    if (this.entries.get(entry.session.conversationId) === entry)
+      this.entries.delete(entry.session.conversationId);
     const releases = entry.releases.splice(0);
     void Promise.allSettled(releases.map((release) => release())).then(
       (outcomes) => {

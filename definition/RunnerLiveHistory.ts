@@ -10,6 +10,7 @@ export const runnerLiveEventSchema = z
       "tool_completed",
       "tool_failed",
       "plan",
+      "usage",
       "status",
       "error",
     ]),

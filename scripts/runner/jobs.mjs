@@ -36,6 +36,8 @@ export class RunnerJobs {
   #progress = new Map();
   #pendingSentAt = 0;
   #lastPolledJobId = null;
+  #controls = new Map();
+  #reportedControl = new Map();
 
   constructor(context) {
     this.#context = context;
@@ -44,6 +46,7 @@ export class RunnerJobs {
   /** Reconciliation invalidates unconfirmed observations, never durable claims. */
   clear() {
     this.#snapshots.clear();
+    this.#reportedControl.clear();
   }
 
   /** Retries the exact pending event promptly, independent of viewer cadence. */
@@ -52,7 +55,12 @@ export class RunnerJobs {
     if (configuration.pending)
       return Math.max(0, this.#pendingSentAt + 2000 - Date.now());
     if (completionNotices.size) return 0;
-    if (configuration.jobs.some((job) => job.isPaused)) return 200;
+    if (
+      configuration.jobs.some(
+        (job) => job.isPaused && !TERMINAL_STATES.includes(job.status),
+      )
+    )
+      return 200;
     return schedule.delay(configuration.jobs);
   }
 
@@ -60,24 +68,17 @@ export class RunnerJobs {
   async receive(message) {
     const { configuration, persist, schedule } = this.#context;
     if (message.type === "execution-pause") {
-      const job = configuration.jobs.find(
-        (entry) => entry.jobId === message.job.jobId,
-      );
-      if (
-        !job ||
-        job.sessionId !== message.job.sessionId ||
-        job.plan?.attemptId !== message.job.plan?.attemptId
-      )
-        throw new Error("Execution pause identity mismatch");
-      if (job.cancellation) return;
-      job.isPaused = message.job.isPaused;
-      await persist();
-      await pauseExecution(
-        join(this.#context.directory, "jobs", job.jobId),
-        job.isPaused === true,
-      );
-      schedule.checked.delete(job.jobId);
-      return;
+      const key = message.job.jobId;
+      const previous = this.#controls.get(key) ?? Promise.resolve();
+      const pending = previous
+        .catch(() => null)
+        .then(() => this.#pause(message));
+      this.#controls.set(key, pending);
+      try {
+        return await pending;
+      } finally {
+        if (this.#controls.get(key) === pending) this.#controls.delete(key);
+      }
     }
     if (message.type === "pause-queued") {
       const job = configuration.jobs.find(
@@ -142,23 +143,92 @@ export class RunnerJobs {
     configuration.sequence = message.sequence;
     configuration.jobs = configuration.jobs.map((job) =>
       job.jobId === pending.job.jobId
-        ? { ...pending.job, isPaused: job.isPaused }
+        ? {
+            ...pending.job,
+            isPaused: job.isPaused,
+            executionPauseRequestedAt: job.executionPauseRequestedAt,
+          }
         : job,
     );
     configuration.pending = null;
     await persist();
   }
 
+  async #pause(message) {
+    const { configuration, persist, schedule } = this.#context;
+    const job = configuration.jobs.find(
+      (entry) => entry.jobId === message.job.jobId,
+    );
+    if (
+      !job ||
+      job.sessionId !== message.job.sessionId ||
+      job.plan?.attemptId !== message.job.plan?.attemptId
+    )
+      throw new Error("Execution pause identity mismatch");
+    if (job.cancellation || TERMINAL_STATES.includes(job.status)) return null;
+    if (
+      job.executionPauseRequestedAt &&
+      message.job.executionPauseRequestedAt < job.executionPauseRequestedAt
+    )
+      return null;
+    if (
+      job.executionPauseRequestedAt === message.job.executionPauseRequestedAt &&
+      job.isPaused !== message.job.isPaused
+    )
+      throw new Error("Conflicting execution pause request");
+    if (
+      job.isPaused !== message.job.isPaused ||
+      job.executionPauseRequestedAt !== message.job.executionPauseRequestedAt
+    ) {
+      job.isPaused = message.job.isPaused;
+      job.executionPauseRequestedAt = message.job.executionPauseRequestedAt;
+      await persist();
+    }
+    const actual = await pauseExecution(
+      join(this.#context.directory, "jobs", job.jobId),
+      job.isPaused === true,
+    );
+    schedule.checked.delete(job.jobId);
+    return actual && job.executionPauseRequestedAt
+      ? {
+          version: 1,
+          type: "execution-state",
+          sessionId: job.sessionId,
+          jobId: job.jobId,
+          attemptId: job.plan.attemptId,
+          control: {
+            state: actual.state,
+            observedAt: actual.observedAt,
+            isPaused: job.isPaused === true,
+            requestedAt: job.executionPauseRequestedAt,
+          },
+        }
+      : null;
+  }
+
   /** Round-robin bounded packets keep other launches and terminal results moving under log load. */
   async poll(channel) {
     const { configuration, completionNotices, schedule } = this.#context;
     if (channel.readyState !== WebSocket.OPEN) return;
-    for (const job of configuration.jobs)
-      if (job.isPaused && !job.cancellation)
-        await pauseExecution(
-          join(this.#context.directory, "jobs", job.jobId),
-          true,
-        );
+    for (const job of configuration.jobs) {
+      if (
+        !job.isPaused ||
+        job.cancellation ||
+        TERMINAL_STATES.includes(job.status) ||
+        this.#controls.has(job.jobId)
+      )
+        continue;
+      const reply = await this.receive({
+        type: "execution-pause",
+        job: { ...job },
+      });
+      if (!reply) continue;
+      const digest = JSON.stringify(reply.control);
+      if (this.#reportedControl.get(job.jobId) !== digest) {
+        sendRunnerPacket(channel, reply);
+        this.#reportedControl.set(job.jobId, digest);
+      }
+    }
     if (configuration.pending) {
       this.#send(channel, configuration.pending);
       return;
@@ -171,6 +241,7 @@ export class RunnerJobs {
       const isTerminal = TERMINAL_STATES.includes(job.status);
       if (isTerminal && (job.historyCursor ?? 0) >= (job.historyLength ?? 0))
         continue;
+      if (await this.#isHeld(job)) continue;
       if (!this.#snapshots.has(job.jobId) && !schedule.isDue(job)) continue;
       if (job.status === "queued") {
         const reason = await this.#admit(job);
@@ -198,6 +269,17 @@ export class RunnerJobs {
       this.#send(channel, event);
       return;
     }
+  }
+
+  async #isHeld(job) {
+    if (job.status !== "queued" || !job.isPaused || job.cancellation)
+      return false;
+    const { directory } = this.#context;
+    const cancellation = await cancellationFor(directory, job);
+    // A held entry has no worker files until a local lease expiry revokes it.
+    if (!cancellation) return true;
+    await cancelJob(directory, { ...job, cancellation });
+    return false;
   }
 
   async #admit(job) {

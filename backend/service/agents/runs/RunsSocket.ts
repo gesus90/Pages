@@ -126,6 +126,7 @@ export async function callRunsSwarm(
       stepId: call.stepId,
       swarmOperation: call.operation,
       parameters: call.parameters,
+      ...(call.appendsMemory === false ? { appendsMemory: false } : {}),
     }),
   );
   if (!reply.ok) throw new Error("Swarm call unavailable");

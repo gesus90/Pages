@@ -544,12 +544,18 @@ one sentence with a link to **Settings → System**.
   `/storage` opens the start folder, else My Drive.
 - **Folder change:** opening a folder, a path step, My Drive, the
   shared drives or the start folder changes only the address and the file card.
-  Frame, header, quota and toolbar stay in place; the frame's data is not read
-  again for it. Until the new folder arrives, the card shows the former one
-  dimmed and inert with a loading status, and uploads are off. A late answer
-  or page of a replaced folder is dropped and its request ended. A failed
-  request removes the former folder and lets the frame check session and
-  rights again.
+  Frame, header, quota, toolbar, menu bar, column heads and footer stay in
+  place; the frame's data is not read again for it. The path names the opened
+  folder at the click: a row adds its name as the last step, a path step cuts
+  the path there. Until the new folder arrives, the card keeps the former rows
+  in full color and inert, the opened row shows a spinning folder symbol, and
+  uploads are off. A bar of 2 px under the menu bar shows the wait only when
+  the answer takes longer than 150 ms. The new rows fade in within 120 ms and
+  start at the top; with reduced motion they replace the former rows at once
+  and the bar stands still. A late answer or page of a replaced folder is
+  dropped and its request ended. A failed request replaces only the rows with
+  the failure notice and "Try again"; the path stays at the asked folder, and
+  the request lets the frame check session and rights again.
 - **Preview:** a file name (or "Open" in the file menu) shows the file read-only
   in place of the list card, and full screen below 768 px. The address is
   `/storage?folder=<id>&file=<id>`: opening adds a history entry, Back, Close

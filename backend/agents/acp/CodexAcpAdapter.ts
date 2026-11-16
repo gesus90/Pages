@@ -1,6 +1,8 @@
 import { RUN_INSTANCE_VARIABLE } from "@/backend/agents/cli/CliProcessScan";
 
-import { pagesMcpServers, readAdapterVersion } from "./AcpLaunch";
+import { isStableVersionAtLeast } from "@/definition/AgentToolVersion";
+
+import { pagesMcpServers } from "./AcpLaunch";
 
 import type { Implementation } from "@agentclientprotocol/sdk";
 import type { AcpLaunchSpecification } from "./AcpDriver";
@@ -13,34 +15,26 @@ export const CODEX_ACP_BINARY = "codex-acp";
 /** The package the adapter names itself with when it initializes. */
 const CODEX_ACP_PACKAGE = "@agentclientprotocol/codex-acp";
 
-/**
- * The adapter versions whose session modes, configuration options and MCP
- * startup Pages verified: 2.1.1 up to the next major version.
- */
-const SUPPORTED_VERSIONS = {
-  minimum: [2, 1, 1],
-  major: 2,
-} as const;
+/** The oldest codex-acp release whose session modes, options and MCP startup Pages implements. */
+export const CODEX_ACP_MINIMUM_VERSION = "2.1.1";
 
 /** How long a new session waits for its MCP servers before its first turn. */
 const MCP_STARTUP_WAIT_MS = 30_000;
 
 /**
- * Whether the adapter that answered `initialize` is one Pages verified.
+ * Whether the adapter that answered `initialize` is one Pages supports.
  * @param agent - What the adapter reported about itself.
- * @returns `true` for codex-acp from 2.1.1 below 3.0.0; previews and other
- * agents are refused.
+ * @returns `true` for a stable codex-acp release from 2.1.1 on; previews and
+ * other agents are refused. A session additionally pins the exact version of
+ * the generation the tool manager verified.
  */
 export function isSupportedCodexAcp(
   agent: Implementation | null | undefined,
 ): agent is Implementation {
-  if (agent?.name !== CODEX_ACP_PACKAGE) return false;
-  const version = readAdapterVersion(agent.version);
-  if (version === null || version[0] !== SUPPORTED_VERSIONS.major) return false;
-  for (const [index, minimum] of SUPPORTED_VERSIONS.minimum.entries()) {
-    if (version[index] !== minimum) return version[index] > minimum;
-  }
-  return true;
+  return (
+    agent?.name === CODEX_ACP_PACKAGE &&
+    isStableVersionAtLeast(agent.version, CODEX_ACP_MINIMUM_VERSION)
+  );
 }
 
 function sessionConfiguration(

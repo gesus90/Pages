@@ -6,6 +6,7 @@ import {
   planRemoteProgressSchema,
 } from "@/definition/AgentPlanExecution";
 import { isActivePlanRun } from "@/definition/AgentPlanRunState";
+import { mergeConfirmedRunnerJobs } from "@/definition/PlanRunnerJob";
 import { readPlanScriptRun } from "@/backend/agents/AgentPlanScriptRunInput";
 import { readPlanRun } from "@/backend/agents/AgentPlanRunInput";
 import { readAgentObject } from "@/backend/agents/AgentPayload";
@@ -305,6 +306,10 @@ export class AgentPlanProgressRepository {
         );
       run = {
         ...run,
+        runnerJobs: mergeConfirmedRunnerJobs(
+          previous.run.runnerJobs,
+          run.runnerJobs,
+        ),
         stopRequested: previous.run.stopRequested || run.stopRequested,
         status:
           previous.run.stopRequested &&

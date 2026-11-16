@@ -15,6 +15,9 @@ import type { AgentPlanRemoteExecution } from "./AgentPlanRemoteExecution";
 
 const START_CLEANUP_TIMEOUT_MILLISECONDS = 10_000;
 
+type StartCleanupRemote = Pick<AgentPlanRemoteExecution, "stop"> &
+  Partial<Pick<AgentPlanRemoteExecution, "withProgress">>;
+
 /** A failed or unreachable owner is evidence for a hint, never a start gate. */
 export async function attemptPlanStartCleanup(
   clean: () => Promise<boolean>,
@@ -42,8 +45,7 @@ export async function attemptPlanStartCleanup(
 export async function cleanupPlanStartOwner(
   run: AgentPlanRun,
   localOwners: readonly string[],
-  remote?: Pick<AgentPlanRemoteExecution, "stop"> &
-    Partial<Pick<AgentPlanRemoteExecution, "withProgress">>,
+  remote?: StartCleanupRemote,
 ): Promise<readonly AgentPlanReleasedProcess[]> {
   // A reboot ended every local process of a run that worked only before it.
   const hasRebooted = await hasEndedWithReboot(run);
@@ -55,23 +57,33 @@ export async function cleanupPlanStartOwner(
         : (step.script?.instanceId ?? step.session?.instanceId);
     if (identity) steps.set(identity, step);
   }
-  const cleanup = [...steps.values()].map(async (step) => {
-    if (step.execution?.target.kind !== "remote")
-      return localProcess(run, step, hasRebooted);
-    const attempt = { ...run, steps: [step], loops: undefined };
-    return {
-      instanceId: step.remote?.jobId ?? step.execution.attemptId,
-      processId: null,
-      kind: "remote_attempt" as const,
-      confirmed: await attemptPlanStartCleanup(async () => {
-        if (!remote?.withProgress) return false;
-        await remote.stop(attempt);
-        return !allPlanRunResults(await remote.withProgress(attempt)).some(
-          isRemoteCloseoutUnconfirmed,
-        );
-      }),
-    };
-  });
+  const cleanup = [...steps.values()].map((step) =>
+    cleanupStep(run, step, hasRebooted, remote),
+  );
+  const recordedJobs = new Set(
+    [...steps.values()].flatMap((step) => {
+      const job = step.session?.runnerJob ?? step.script?.runnerJob;
+      return job ? [job.jobId] : [];
+    }),
+  );
+  for (const job of run.runnerJobs ?? []) {
+    if (recordedJobs.has(job.jobId)) continue;
+    cleanup.push(
+      (async () => ({
+        instanceId: job.jobId,
+        processId: null,
+        kind: "remote_attempt" as const,
+        confirmed: await attemptPlanStartCleanup(async () => {
+          if (!remote?.withProgress) return false;
+          await remote.stop(run);
+          return !(await remote.withProgress(run)).runnerJobs?.some(
+            (entry) =>
+              entry.jobId === job.jobId && entry.closeout !== "confirmed",
+          );
+        }),
+      }))(),
+    );
+  }
   for (const instanceId of localOwners) {
     if (steps.has(instanceId)) continue;
     cleanup.push(
@@ -86,6 +98,84 @@ export async function cleanupPlanStartOwner(
     );
   }
   return (await Promise.all(cleanup)).filter((entry) => entry !== null);
+}
+
+async function cleanupStep(
+  run: AgentPlanRun,
+  step: AgentPlanStepResult,
+  hasRebooted: boolean,
+  remote: StartCleanupRemote | undefined,
+): Promise<AgentPlanReleasedProcess | null> {
+  const runnerJob = step.session?.runnerJob ?? step.script?.runnerJob;
+  if (runnerJob) return cleanupJob(run, runnerJob, remote);
+  if (step.session?.runnerOwned || step.script?.runnerOwned)
+    return cleanupOwnedStep(run, step, remote);
+  if (step.execution?.target.kind !== "remote")
+    return localProcess(run, step, hasRebooted);
+  return cleanupRemoteAttempt(run, step, remote);
+}
+
+async function cleanupJob(
+  run: AgentPlanRun,
+  runnerJob: { readonly jobId: string },
+  remote: StartCleanupRemote | undefined,
+): Promise<AgentPlanReleasedProcess> {
+  return {
+    instanceId: runnerJob.jobId,
+    processId: null,
+    kind: "remote_attempt" as const,
+    confirmed: await attemptPlanStartCleanup(async () => {
+      if (!remote?.withProgress) return false;
+      await remote.stop(run);
+      return !(await remote.withProgress(run)).runnerJobs?.some(
+        (job) => job.jobId === runnerJob.jobId && job.closeout !== "confirmed",
+      );
+    }),
+  };
+}
+
+async function cleanupOwnedStep(
+  run: AgentPlanRun,
+  step: AgentPlanStepResult,
+  remote: StartCleanupRemote | undefined,
+): Promise<AgentPlanReleasedProcess> {
+  return {
+    instanceId: step.session?.instanceId ?? step.script?.instanceId ?? step.id,
+    processId: null,
+    kind: "remote_attempt" as const,
+    confirmed: await attemptPlanStartCleanup(async () => {
+      if (!remote?.withProgress) return false;
+      await remote.stop(run);
+      const current = await remote.withProgress(run);
+      const updated = allPlanRunResults(current).find(
+        (entry) => entry.id === step.id,
+      );
+      return (
+        updated?.session?.closeout === "not_needed" ||
+        updated?.script?.closeout === "confirmed"
+      );
+    }),
+  };
+}
+
+async function cleanupRemoteAttempt(
+  run: AgentPlanRun,
+  step: AgentPlanStepResult,
+  remote: StartCleanupRemote | undefined,
+): Promise<AgentPlanReleasedProcess> {
+  const attempt = { ...run, steps: [step], loops: undefined };
+  return {
+    instanceId: step.remote?.jobId ?? step.execution?.attemptId ?? step.id,
+    processId: null,
+    kind: "remote_attempt" as const,
+    confirmed: await attemptPlanStartCleanup(async () => {
+      if (!remote?.withProgress) return false;
+      await remote.stop(attempt);
+      return !allPlanRunResults(await remote.withProgress(attempt)).some(
+        isRemoteCloseoutUnconfirmed,
+      );
+    }),
+  };
 }
 
 async function localProcess(

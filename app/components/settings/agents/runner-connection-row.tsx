@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { Button } from "@/app/components/ui/button";
 
 import { AgentCheckTime } from "./agent-check-time";
+import { LocalRunnerRefresh } from "./local-runner-refresh";
 import { OpenCodeRemoteFacts } from "./opencode-remote-facts";
 import { RunnerMaintenance } from "./runner-maintenance";
 
@@ -98,13 +99,20 @@ export function RunnerConnectionRow({
   return (
     <tr className="border-b border-border/60 align-top last:border-0">
       <th scope="row" className="px-3 py-3 font-medium">
-        {connection.name}
+        {connection.isLocal
+          ? t("settings.agents.runner.thisServer")
+          : connection.name}
         <span className="block text-xs font-normal break-all text-muted-foreground">
           {connection.endpoint}
         </span>
       </th>
       <td className="px-3 py-3">
         {connection.runnerId ? t("settings.agents.runner.tool") : "—"}
+        {connection.runnerVersion ? (
+          <span className="block text-xs text-muted-foreground">
+            {connection.runnerVersion}
+          </span>
+        ) : null}
         <ToolInventoryList tools={connection.tools} />
         {connection.outputJournalVersion === 1 ? (
           <p role="status" className="mt-1 text-xs text-warning">
@@ -127,8 +135,17 @@ export function RunnerConnectionRow({
         <AgentCheckTime checkedAt={connection.checkedAt} />
       </td>
       <td className="min-w-40 px-3 py-3">
-        <RunnerActions connection={connection} />
-        <RunnerMaintenance connection={connection} />
+        {connection.isLocal ? null : <RunnerActions connection={connection} />}
+        {connection.isLocal ? (
+          <LocalRunnerRefresh connection={connection} />
+        ) : (
+          <RunnerMaintenance connection={connection} />
+        )}
+        {connection.isOnline && connection.canFreezeExecution === false ? (
+          <p className="text-xs text-muted-foreground">
+            {t("plans.communication.control.unavailable")}
+          </p>
+        ) : null}
       </td>
     </tr>
   );

@@ -267,6 +267,8 @@ export const AGENT_ERROR_MESSAGES = {
     "Shared run notes have been removed. {{@run.notes}} is no longer supported; update this agent or plan node explicitly.",
   plan_runner_lost:
     "The remote process disappeared without an exit record. It will not restart automatically.",
+  plan_paused_before_launch:
+    "The run was paused before this step launched. Nothing was started; resume the run to continue.",
   acp_result_limit:
     "The final ACP answer exceeds its separate 200,000-character result limit.",
   plan_runner_storage_failed:
@@ -445,6 +447,8 @@ export const AGENT_ERROR_MESSAGES = {
   catalog_interval_invalid: "Choose a supported catalog refresh interval.",
   catalog_limit_exceeded:
     "The catalog exceeded its safety limits; the previous catalog was retained.",
+  catalog_incomplete:
+    "The provider listed no models; the previous catalog was retained.",
   name_required: "A connection needs a name.",
   name_too_long: "The name must not exceed 80 characters.",
   name_taken: "A connection already uses this name.",

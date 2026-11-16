@@ -1,5 +1,9 @@
 import { z } from "zod";
 
+import {
+  runnerCapabilityFields,
+  runnerExecutionControlSchema,
+} from "./RunnerCapabilities";
 import { assetFailureSchema } from "./AgentPlanRemoteAccess";
 import { runnerResourceErrorSchema } from "./RunnerPagesAccess";
 import {
@@ -30,6 +34,17 @@ export const runnerCatalogSchema = z.object({
   areToolsComplete: z.boolean(),
   interpreters: z.array(runnerInterpreterSchema).max(16),
   tools: z.array(toolInventorySchema).max(4),
+  accounts: z
+    .array(
+      z
+        .object({
+          id: z.string().min(1).max(400),
+          tools: z.array(toolInventorySchema).max(4),
+        })
+        .strict(),
+    )
+    .max(32)
+    .optional(),
   removedInterpreterIds: z.array(z.string().max(100)).max(16),
 });
 export type RunnerCatalog = z.infer<typeof runnerCatalogSchema>;
@@ -38,6 +53,17 @@ const identifier = z.string().uuid();
 /** Immutable Pages identity attached by dispatch, never chosen by a runner event. */
 export const runnerPlanBindingSchema = z
   .object({
+    managed: z.literal(true).optional(),
+    isInstruction: z.literal(true).optional(),
+    ownerStepId: z.string().min(1).max(400).optional(),
+    sharedWorkspaceId: z.string().min(1).max(400).optional(),
+    recordingAttemptId: identifier.optional(),
+    recordingInstanceId: identifier.optional(),
+    recordingAgentId: z.string().min(1).max(400).optional(),
+    recordingConnectionId: z.string().min(1).max(400).optional(),
+    recordingModel: z.string().min(1).max(200).optional(),
+    turn: z.number().int().min(1).max(10000).optional(),
+    historyBase: z.number().int().nonnegative().safe().optional(),
     planId: identifier,
     runId: identifier,
     // A step is a plan node, whose id is a UUID only when the editor made it:
@@ -49,18 +75,113 @@ export const runnerPlanBindingSchema = z
   .strict();
 export type RunnerPlanBinding = z.infer<typeof runnerPlanBindingSchema>;
 
+/** The causes a runner may name for a failed OpenCode node, each a Pages agent error code. */
+export const REMOTE_OPENCODE_FAILURES = [
+  "plan_paused_before_launch",
+  "plan_script_interpreter_unavailable",
+  "plan_context_changed",
+  "plan_workspace_conflict",
+  "plan_runner_storage_failed",
+  "plan_runner_admission_failed",
+  "cli_isolation_unavailable",
+  "plan_mcp_unavailable",
+  "provider_auth_failed",
+  "provider_quota_exhausted",
+  "provider_rate_limited",
+  "provider_model_not_found",
+  "provider_permission_denied",
+  "provider_unavailable",
+  "provider_unreachable",
+  "provider_request_rejected",
+  "provider_bad_response",
+  "opencode_free_tier_refused",
+  "opencode_acp_unsupported",
+  "plan_model_unavailable",
+  "plan_reasoning_unsupported",
+  "opencode_acp_session_failed",
+  "antigravity_acp_unsupported",
+  "antigravity_acp_session_failed",
+  "antigravity_configuration_unmanaged",
+  "plan_runner_session_failed",
+  "plan_full_environment_forbidden",
+  "plan_full_environment_owner_unavailable",
+  "acp_session_resume_failed",
+] as const;
+
+/** Terminal evidence retained for engine-managed turns as well as projected nodes. */
+export const runnerJobResultSchema = z
+  .object({
+    output: z.string().max(1048576).nullable(),
+    historyLength: z.number().int().nonnegative().safe().optional(),
+    resourceError: runnerResourceErrorSchema.optional(),
+    assetFailure: assetFailureSchema.optional(),
+    /** A stable cause the runner recognized in an OpenCode ACP failure; never provider text. */
+    failureCode: z.enum(REMOTE_OPENCODE_FAILURES).optional(),
+    stderr: z.string().max(131072).optional(),
+    terminal: runnerTerminalSchema.optional(),
+    /** Present only for a job that asked for continuation. */
+    continuation: runnerContinuationEvidenceSchema.optional(),
+    storageError: z
+      .enum([
+        "ENOSPC",
+        "EDQUOT",
+        "EACCES",
+        "EROFS",
+        "EIO",
+        "journal_write_failed",
+      ])
+      .optional(),
+    resetAt: z.string().datetime().nullable().optional(),
+    closeout: z.enum(["confirmed", "pending", "failed"]),
+    exitCode: z.number().int().nullable().optional(),
+    signal: z.string().max(30).nullable().optional(),
+    reason: z
+      .enum([
+        "exit",
+        "timeout",
+        "cancelled",
+        "output_limit",
+        "encoding",
+        "credentials",
+        "lost",
+        "spawn",
+        "storage",
+        "protocol",
+        "event_limit",
+        "result_limit",
+      ])
+      .nullable()
+      .optional(),
+  })
+  .strict();
+export type RunnerJobResult = z.infer<typeof runnerJobResultSchema>;
+
 /** A job keeps its identity across transport reconnects and process interruptions. */
 export const runnerJobSchema = z.object({
+  /** Server-read native TODO projection for internal observers; never a dispatch input. */
+  nativePlan: z
+    .array(
+      z.object({
+        content: z.string().max(200),
+        status: z.enum(["pending", "in_progress", "completed"]),
+      }),
+    )
+    .max(40)
+    .optional(),
   jobId: identifier,
   sessionId: identifier,
   plan: runnerPlanBindingSchema.optional(),
   execution: runnerExecutionSchema.optional(),
+  outcome: runnerJobResultSchema.optional(),
   launch: runnerLaunchSchema.optional(),
   cancellation: runnerCancellationSchema.optional(),
   /** Durable queue-only pause; never authorizes interruption of a spawned worker. */
   pauseRequestedAt: z.string().datetime().optional(),
   /** Reversible process suspension, independent of job result and cancellation. */
   isPaused: z.boolean().optional(),
+  executionPauseRequestedAt: z.string().datetime().optional(),
+  executionControl: runnerExecutionControlSchema.optional(),
+  canFreezeExecution: z.boolean().optional(),
   queueReason: runnerQueueReasonSchema.nullable().optional(),
   observedAt: z.string().datetime().optional(),
   liveHistoryVersion: z.literal(1).optional(),
@@ -89,6 +210,7 @@ export const runnerStateSchema = z.object({
   sequence: z.number().int().nonnegative(),
   lastEventId: identifier.nullable(),
   catalog: runnerCatalogSchema.optional(),
+  ...runnerCapabilityFields,
   executionLeaseVersion: z.literal(1).optional(),
   communicationVersion: z.literal(1).optional(),
   planControlVersion: z.literal(1).optional(),
@@ -102,37 +224,18 @@ export const runnerStateSchema = z.object({
 });
 export type RunnerState = z.infer<typeof runnerStateSchema>;
 
-/** The causes a runner may name for a failed OpenCode node, each a Pages agent error code. */
-export const REMOTE_OPENCODE_FAILURES = [
-  "plan_paused_before_launch",
-  "plan_script_interpreter_unavailable",
-  "plan_context_changed",
-  "plan_workspace_conflict",
-  "plan_runner_storage_failed",
-  "plan_runner_admission_failed",
-  "cli_isolation_unavailable",
-  "plan_mcp_unavailable",
-  "provider_auth_failed",
-  "provider_quota_exhausted",
-  "provider_rate_limited",
-  "provider_model_not_found",
-  "provider_permission_denied",
-  "provider_unavailable",
-  "provider_unreachable",
-  "opencode_free_tier_refused",
-  "opencode_acp_unsupported",
-  "plan_model_unavailable",
-  "plan_reasoning_unsupported",
-  "opencode_acp_session_failed",
-  "antigravity_acp_unsupported",
-  "antigravity_acp_session_failed",
-  "antigravity_configuration_unmanaged",
-  "plan_runner_session_failed",
-  "acp_session_resume_failed",
-] as const;
-
 /** Runner-to-Pages messages; every event is acknowledged only after durable storage. */
 export const runnerMessageSchema = z.discriminatedUnion("type", [
+  z
+    .object({
+      version: z.literal(1),
+      type: z.literal("execution-state"),
+      sessionId: identifier,
+      jobId: identifier,
+      attemptId: identifier,
+      control: runnerExecutionControlSchema,
+    })
+    .strict(),
   z
     .object({
       version: z.literal(1),
@@ -160,6 +263,7 @@ export const runnerMessageSchema = z.discriminatedUnion("type", [
     sessionId: identifier,
     sequence: z.number().int().nonnegative(),
     jobs: z.array(runnerJobSchema).max(1000),
+    ...runnerCapabilityFields,
     executionLeaseVersion: z.literal(1).optional(),
     communicationVersion: z.literal(1).optional(),
     planControlVersion: z.literal(1).optional(),
@@ -195,48 +299,7 @@ export const runnerMessageSchema = z.discriminatedUnion("type", [
     delta: z.literal(true).optional(),
     job: runnerJobSchema,
     history: runnerLiveBatchSchema.optional(),
-    result: z
-      .object({
-        output: z.string().max(100_000).nullable(),
-        resourceError: runnerResourceErrorSchema.optional(),
-        assetFailure: assetFailureSchema.optional(),
-        /** A stable cause the runner recognized in an OpenCode ACP failure; never provider text. */
-        failureCode: z.enum(REMOTE_OPENCODE_FAILURES).optional(),
-        stderr: z.string().max(65536).optional(),
-        terminal: runnerTerminalSchema.optional(),
-        /** Present only for a job that asked for continuation. */
-        continuation: runnerContinuationEvidenceSchema.optional(),
-        storageError: z
-          .enum([
-            "ENOSPC",
-            "EDQUOT",
-            "EACCES",
-            "EROFS",
-            "EIO",
-            "journal_write_failed",
-          ])
-          .optional(),
-        closeout: z.enum(["confirmed", "pending", "failed"]),
-        exitCode: z.number().int().nullable().optional(),
-        signal: z.string().max(30).nullable().optional(),
-        reason: z
-          .enum([
-            "exit",
-            "timeout",
-            "cancelled",
-            "output_limit",
-            "lost",
-            "spawn",
-            "storage",
-            "protocol",
-            "event_limit",
-            "result_limit",
-          ])
-          .nullable()
-          .optional(),
-      })
-      .strict()
-      .optional(),
+    result: runnerJobResultSchema.optional(),
   }),
 ]);
 export type RunnerMessage = z.infer<typeof runnerMessageSchema>;
@@ -310,6 +373,7 @@ export type RunnerReply =
 /** Secret-free remote row in Settings → Agents. Only registered SSH connections appear. */
 export interface RunnerConnectionView {
   readonly connectionId: string;
+  readonly isLocal?: boolean;
   readonly name: string;
   readonly endpoint: string;
   readonly departmentName: string | null;
@@ -324,4 +388,5 @@ export interface RunnerConnectionView {
   readonly outputJournalVersion?: 1 | 2 | null;
   readonly runnerVersion?: string | null;
   readonly communicationVersion?: 1 | null;
+  readonly canFreezeExecution?: boolean;
 }

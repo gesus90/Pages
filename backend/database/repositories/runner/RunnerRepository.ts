@@ -1,11 +1,16 @@
 import { readCountColumn, readTextColumn } from "@/backend/database/RowValue";
-import { runnerStateSchema } from "@/definition/RunnerProtocol";
+import {
+  runnerJobSchema,
+  runnerStateSchema,
+} from "@/definition/RunnerProtocol";
+
+import { AgentPlanAgentTodoRepository } from "../agent/AgentPlanAgentTodoRepository";
 
 import type {
   Database,
   DatabaseTransaction,
 } from "@/backend/database/Database";
-import type { RunnerState } from "@/definition/RunnerProtocol";
+import type { RunnerJob, RunnerState } from "@/definition/RunnerProtocol";
 
 /** Persisted pairing bound to the exact SSH configuration that authorized it. */
 export interface RunnerRecord {
@@ -16,7 +21,7 @@ export interface RunnerRecord {
   readonly state: RunnerState;
 }
 
-/** Stores runner identities and acknowledged protocol checkpoints in DuckDB. */
+/** Stores runner identities and acknowledged protocol checkpoints in PostgreSQL. */
 export class RunnerRepository {
   private readonly database: Database;
   public constructor(database: Database) {
@@ -49,6 +54,48 @@ export class RunnerRepository {
         JSON.parse(readTextColumn(row, 4, "state_json")),
       ),
     };
+  }
+
+  /** Reads an immutable completed job after its live transport entry was retired. */
+  public async archivedJob(
+    connectionId: string,
+    jobId: string,
+  ): Promise<RunnerJob | undefined> {
+    const [row] = await this.database.query(
+      "SELECT job_json::text FROM runner_job_archive WHERE connection_id = $connection_id AND job_id = $job_id;",
+      { connection_id: connectionId, job_id: jobId },
+    );
+    return row
+      ? runnerJobSchema.parse(JSON.parse(readTextColumn(row, 0, "job_json")))
+      : undefined;
+  }
+
+  /** Resolves an acknowledged turn independently of the bounded live job list. */
+  public async archivedAttempt(
+    connectionId: string,
+    runId: string,
+    attemptId: string,
+  ): Promise<RunnerJob | undefined> {
+    const [row] = await this.database.query(
+      "SELECT job_json::text FROM runner_job_archive WHERE connection_id = $connection_id AND run_id = $run_id AND attempt_id = $attempt_id;",
+      { connection_id: connectionId, run_id: runId, attempt_id: attemptId },
+    );
+    return row
+      ? runnerJobSchema.parse(JSON.parse(readTextColumn(row, 0, "job_json")))
+      : undefined;
+  }
+
+  /** Reads native TODOs for internal group and swarm observers from the existing attempt journal. */
+  public async nativePlan(attemptId: string): Promise<RunnerJob["nativePlan"]> {
+    const todos = await new AgentPlanAgentTodoRepository(
+      this.database,
+    ).findPlan(attemptId);
+    return todos?.map((todo) => {
+      let status: "pending" | "in_progress" | "completed" = "pending";
+      if (todo.status === "active") status = "in_progress";
+      if (todo.status === "done") status = "completed";
+      return { content: todo.text, status };
+    });
   }
 
   /** Inserts one pairing; an existing identity cannot be replaced by registration. */
@@ -87,6 +134,33 @@ export class RunnerRepository {
   ): Promise<void> {
     await this.database.transaction(async (transaction) => {
       await journal?.(transaction);
+      await transaction.execute(
+        `
+        INSERT INTO runner_job_archive (
+            job_id,
+            connection_id,
+            run_id,
+            attempt_id,
+            job_json,
+            completed_at
+        )
+        SELECT
+            job ->> 'jobId',
+            $connection_id,
+            job -> 'plan' ->> 'runId',
+            job -> 'plan' ->> 'attemptId',
+            job,
+            utc_now()
+        FROM jsonb_array_elements($state_json::jsonb -> 'jobs') AS job
+        WHERE job -> 'plan' ->> 'managed' = 'true'
+            AND job ->> 'status' IN ('completed', 'failed', 'interrupted', 'lost')
+            AND (job -> 'outcome' ->> 'closeout' = 'confirmed'
+                OR job -> 'cancellation' ->> 'closeout' = 'confirmed')
+        ON CONFLICT (job_id) DO UPDATE SET
+            job_json = EXCLUDED.job_json;
+      `,
+        { connection_id: connectionId, state_json: JSON.stringify(state) },
+      );
       await transaction.execute(
         `
       UPDATE pages_runners

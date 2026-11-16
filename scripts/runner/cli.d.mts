@@ -17,10 +17,20 @@ export interface CliInventoryEntry {
 /** The job description the runner hands to the CLI; only the fields used here are declared. */
 export interface CliCommand {
   workspace: string;
+  managed?: { bridge?: string; connectionId?: string; ownerId?: string };
+  runtimeContext?: {
+    environment?: Record<string, string>;
+    auth?: string;
+    readOnlyDirectory?: string;
+    providerConfiguration?: Record<string, unknown>;
+  };
   pagesAccess?: number;
+  browser?: number;
   resultPayloadVersion?: number;
   continuation?: { resumeSessionId?: string } | undefined;
   program: {
+    linkedProvider?: "openrouter" | "zai";
+    purpose?: "decision" | "observer";
     model: string;
     access: string;
     reasoningEffort: string | null;
@@ -29,10 +39,12 @@ export interface CliCommand {
 }
 
 /** The environment a CLI keeps; no Pages environment or provider key is inherited. */
-export function cliEnvironment(): Record<string, string>;
+export function cliEnvironment(accountHome?: string): Record<string, string>;
 
 /** Queries status and the CLI picker only; no user prompt or paid model turn is sent. */
 export function cliInventory(context?: {
+  home?: string;
+  environment?: Record<string, string>;
   jobId?: string;
   signal?: AbortSignal;
 }): Promise<CliInventoryEntry[]>;

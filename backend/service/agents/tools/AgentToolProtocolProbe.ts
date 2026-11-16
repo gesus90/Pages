@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 
 import { acpDriverFor } from "@/backend/agents/acp/AcpDrivers";
+import { antigravityAcpArguments } from "@/backend/agents/acp/AntigravityAcpLaunch";
 import { closeCliSession } from "@/backend/agents/cli/CliSessionCloseout";
 import { readSpawnScope } from "@/backend/agents/cli/CliProcessScan";
 import { logCaughtError } from "@/backend/logging/Logger";
@@ -30,8 +31,11 @@ function protocolProvider(tool: AgentToolDefinition): NativeAcpProviderId {
   return tool.id === "claude_acp" ? "claude_code" : "codex_cli";
 }
 
-function protocolArguments(tool: AgentToolDefinition): readonly string[] {
-  return tool.id === "antigravity_acp" ? ["--uid="] : [];
+function protocolArguments(
+  tool: AgentToolDefinition,
+  home: CliHome,
+): readonly string[] {
+  return tool.id === "antigravity_acp" ? antigravityAcpArguments(home) : [];
 }
 
 function isolatedArguments(
@@ -81,7 +85,7 @@ export class AgentToolProtocolProbe {
     let receive: (line: string) => void = () => undefined;
     const scope = await readSpawnScope();
     const { file } = input;
-    const args = protocolArguments(tool);
+    const args = protocolArguments(tool, input.home);
     const child = this.runner.startSession({
       file: "/usr/bin/bwrap",
       toolFile: file,
@@ -170,7 +174,8 @@ export class AgentToolProtocolProbe {
           ? {
               protocolVersion: 1,
               clientCapabilities: {},
-              clientInfo: { name: "pages-health", version: "1" },
+              // The client identity stays the honest one; Pages never poses as another application.
+              clientInfo: { name: "pages", version: "1" },
             }
           : {
               protocolVersion: "2025-11-25",

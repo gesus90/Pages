@@ -21,6 +21,7 @@ const MANIFEST_BYTES = 1024 * 1024;
 
 /** What serving the files of a step needs from its live access. */
 export interface ParameterFileAccess {
+  readonly attemptId?: string;
   readonly run: AgentPlanRun;
   readonly remote: RemotePlanStep;
   readonly cursors: RunnerAssetCursors;
@@ -122,9 +123,10 @@ export class RunnerParameterFiles {
     const { chunk, size } = isStreamed
       ? await this.streamedChunk(access, input)
       : await this.bufferedChunk(access, input);
-    const attemptId = access.run.steps.find(
-      (entry) => entry.id === access.remote.step.id,
-    )?.execution?.attemptId;
+    const attemptId =
+      access.attemptId ??
+      access.run.steps.find((entry) => entry.id === access.remote.step.id)
+        ?.execution?.attemptId;
     if (!attemptId) throw new AgentError("plan_context_changed");
     // The evidence of a file does not change between its chunks.
     if (!isStreamed || request.offset === 0)

@@ -44,6 +44,8 @@ function providerEnvironment(
         GEMINI_HOME: home.config,
         BROWSER: "/bin/true",
         TMPDIR: home.root,
+        // A managed generation never replaces itself; updates go through the tool manager.
+        AGY_CLI_DISABLE_AUTO_UPDATE: "1",
       };
     case "opencode":
       return { XDG_DATA_HOME: home.config, ...OPENCODE_SWITCHES };
@@ -150,7 +152,7 @@ function loginArguments(provider: CliProviderId): readonly string[] {
     case "opencode":
       return ["providers", "login"];
     case "antigravity":
-      return ["--uid="];
+      return ["acp", "--login"];
   }
 }
 
