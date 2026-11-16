@@ -3,7 +3,7 @@
 [Documentation index](README.md). Start with the
 [local quickstart](../README.md#getting-started), then read the mandatory
 [coding guidelines](../GUIDELINES.md) and [agent instructions](../AGENTS.md).
-Make focused changes. The previous test suites and CI have been removed and are
+Make focused changes. The previous test suites and CI were removed and are
 rebuilt in separate steps. The new [backend unit-test foundation](BackendTesting.md)
 provides the backend runner, measurement scope and the CI entry point. See the
 [restart inventory](TestCiRemoval.md) for retained operating commands,
@@ -91,8 +91,10 @@ coverage and setup errors fail the job. The coverage table is written to the
 job summary, and the complete coverage reports plus the checked-out revision
 are kept as the `backend-coverage-<commit>` artifact. The workflow has no
 pull-request, tag, schedule or manual trigger. `test:backend` is described in
-[Backend unit-test foundation](BackendTesting.md); `check` and `lint` remain
-manual static checks. `postgres:restore-check` verifies an actual backup and
+[Backend unit-test foundation](BackendTesting.md). Every push to `main` also
+runs the `Pages check` job in `.github/workflows/ci.yml` with `pnpm run check`
+and `pnpm run lint`. This workflow runs no tests; backend tests run separately.
+`postgres:restore-check` verifies an actual backup and
 `db:transfer` performs offline transfer; both are operating commands, described
 in [PostgreSQL operations](PostgresMigration.md).
 

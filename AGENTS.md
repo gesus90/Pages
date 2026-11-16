@@ -175,13 +175,17 @@ For database work:
 The previous test suites, test runners, fixtures, coverage tooling and CI
 workflows have been removed and are rebuilt in separate steps. The backend
 unit-test foundation provides `pnpm run test:backend`; behavior tests and
-additional suites require their own assignment. The only repository CI
-workflow is `.github/workflows/backend-tests.yml`: a push to `main` installs
+additional suites require their own assignment. The repository CI workflow
+`.github/workflows/backend-tests.yml` runs on a push to `main`, installs
 from the frozen lockfile and runs `pnpm run test:backend`. Test, coverage and
 setup errors fail the job; the coverage tables and machine-readable reports
 stay available as artifacts. The workflow has no pull-request, tag, schedule
 or manual trigger. Do not invoke removed test commands or reintroduce old
 suites as a fallback.
+
+On every push to `main`, the `Pages check` job in `.github/workflows/ci.yml`
+runs `pnpm run check` and `pnpm run lint`. That workflow runs no tests; the
+backend tests run in the separate workflow described above.
 
 `pnpm run check` and `pnpm run lint` remain static checks; neither proves
 functional behavior. Follow the validation scope of the current assignment,
