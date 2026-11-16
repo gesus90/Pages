@@ -1,13 +1,11 @@
-import { isQueuedPlanStep } from "./plan-status";
 import { useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 
-import { ScrollViewport } from "@/app/components/ui/scroll-viewport";
 import { cn } from "@/app/lib/cn";
 
 import { PlanPaletteButton } from "./plan-palette-button";
 import { statusTone } from "./plan-run-status-model";
-import { hasOpenPlanReport, planStatusKey } from "./plan-status";
+import { hasOpenPlanReport, isQueuedPlanStep, planStatusKey } from "./plan-status";
 
 import type { TFunction } from "i18next";
 import type { AgentPlanRun } from "@/definition/AgentPlan";
@@ -23,7 +21,15 @@ interface StatusSequenceProps {
 
 /** The chevron of every block, shared by the run sequence and the plan outlook. */
 export const SEQUENCE_CHEVRON =
-  "[clip-path:polygon(0_0,74%_0,100%_50%,74%_100%,0_100%,25%_50%)]";
+  "[clip-path:polygon(0_0,calc(100%_-_10px)_0,100%_50%,calc(100%_-_10px)_100%,0_100%,10px_50%)]";
+
+/** The first block starts at a straight edge rather than an inset notch. */
+export const SEQUENCE_FIRST_CHEVRON =
+  "[clip-path:polygon(0_0,calc(100%_-_10px)_0,100%_50%,calc(100%_-_10px)_100%,0_100%)]";
+
+/** Content determines width while the padding keeps numbers clear of the cutout. */
+export const SEQUENCE_BLOCK_SIZE =
+  "h-7.5 min-h-7.5 min-w-11 shrink-0 py-0 pr-3.5 pl-4 xl:min-h-7.5 xl:py-0 xl:pr-3.5 xl:pl-4 [@media(pointer:coarse)]:h-11 [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-14";
 
 /** A planned block is the waiting tone; an assumed one is hatched, so it never reads as a fact. */
 const OUTLOOK_TONES = {
@@ -99,34 +105,94 @@ export function blockLabel(
 
 /** Scrolls the sequence so the anchor step sits in the middle of the visible window. */
 function centerAnchor(element: HTMLElement, anchorKey: string | null): void {
-  const entries = Array.from(
+  const anchor = Array.from(
     element.querySelectorAll<HTMLElement>("[data-status-step]"),
-  );
-  const anchorIndex = entries.findIndex(
-    (entry) => entry.dataset.statusStep === anchorKey,
-  );
-  const first = entries[0];
-  if (!first || anchorIndex < 0) return;
-  const stride = Math.max(
-    1,
-    entries[1] ? entries[1].offsetLeft - first.offsetLeft : first.offsetWidth,
-  );
-  const capacity = Math.max(
-    1,
-    Math.floor((element.clientWidth - first.offsetWidth) / stride) + 1,
-  );
-  // At least one step stays visible, so the start index always names a step.
-  const startIndex = Math.max(
-    0,
-    Math.min(anchorIndex - Math.floor(capacity / 2), entries.length - capacity),
-  );
+  ).find((entry) => entry.dataset.statusStep === anchorKey);
+  if (!anchor) return;
   element.scrollLeft = Math.max(
     0,
     Math.min(
       element.scrollWidth - element.clientWidth,
-      entries[startIndex].offsetLeft,
+      anchor.offsetLeft + anchor.offsetWidth / 2 - element.clientWidth / 2,
     ),
   );
+}
+
+/** Masks only edges beyond which further steps remain, without covering their colors. */
+function sequenceMask(element: HTMLElement): string {
+  if (element.scrollWidth <= element.clientWidth) return "none";
+  const hasLeft = element.scrollLeft > 0;
+  const hasRight =
+    element.scrollLeft + element.clientWidth < element.scrollWidth;
+  if (!hasLeft && !hasRight) return "none";
+  const left = hasLeft ? "transparent, currentColor 28px" : "currentColor";
+  const right = hasRight
+    ? "currentColor calc(100% - 28px), transparent"
+    : "currentColor";
+  return `linear-gradient(to right, ${left}, ${right})`;
+}
+
+/** Allows an ordinary mouse wheel to move the horizontal row, releasing it at either end. */
+function scrollSequence(element: HTMLElement, event: WheelEvent): void {
+  if (
+    event.ctrlKey ||
+    event.shiftKey ||
+    Math.abs(event.deltaX) >= Math.abs(event.deltaY)
+  )
+    return;
+  let distance = event.deltaY;
+  if (event.deltaMode === WheelEvent.DOM_DELTA_LINE)
+    distance *=
+      parseFloat(getComputedStyle(element).lineHeight) || element.clientHeight;
+  if (event.deltaMode === WheelEvent.DOM_DELTA_PAGE)
+    distance *= element.clientWidth;
+  const previous = element.scrollLeft;
+  element.scrollLeft += distance;
+  if (element.scrollLeft !== previous) event.preventDefault();
+}
+
+/** Keeps masks and centering in sync with scrolling, labels, fonts and viewport sizes. */
+function observeSequence(
+  element: HTMLElement,
+  anchorKey: string | null,
+): () => void {
+  const updateMask = (): void => {
+    element.style.maskImage = sequenceMask(element);
+  };
+  const center = (): void => {
+    centerAnchor(element, anchorKey);
+    updateMask();
+  };
+  const wheel = (event: WheelEvent): void => scrollSequence(element, event);
+  const resize = new ResizeObserver(center);
+  function observeContent(): void {
+    resize.disconnect();
+    resize.observe(element);
+    for (const child of element.children) resize.observe(child);
+    center();
+  }
+  const content = new MutationObserver(observeContent);
+  content.observe(element, { childList: true });
+  element.addEventListener("scroll", updateMask, { passive: true });
+  element.addEventListener("wheel", wheel, { passive: false });
+  observeContent();
+  return () => {
+    resize.disconnect();
+    content.disconnect();
+    element.removeEventListener("scroll", updateMask);
+    element.removeEventListener("wheel", wheel);
+  };
+}
+
+function keepSequenceScrollKeys(
+  event: React.KeyboardEvent<HTMLDivElement>,
+): void {
+  if (
+    ["ArrowLeft", "ArrowRight", "Home", "End", "PageUp", "PageDown"].includes(
+      event.key,
+    )
+  )
+    event.stopPropagation();
 }
 
 /** The number of a block and, for a repeated execution, its pass. */
@@ -138,7 +204,10 @@ export function BlockNumber({
   readonly pass: number | null;
 }): React.ReactElement {
   return (
-    <span aria-hidden="true" className="relative z-1 flex items-baseline pl-1">
+    <span
+      aria-hidden="true"
+      className="relative z-1 flex shrink-0 items-baseline whitespace-nowrap"
+    >
       {number}
       {pass === null ? null : (
         <span className="ml-px text-[0.5625rem] leading-none font-semibold opacity-80">
@@ -162,21 +231,17 @@ export function PlanStatusSequence({
   useEffect(() => {
     const element = viewport.current;
     if (!element) return;
-    const center = (): void => centerAnchor(element, selectedKey ?? anchorKey);
-    center();
-    const observer = new ResizeObserver(center);
-    observer.observe(element);
-    return () => observer.disconnect();
+    return observeSequence(element, selectedKey ?? anchorKey);
   }, [anchorKey, selectedKey, run?.id, blocks.length]);
   return (
     <div className="min-w-0 flex-1 px-2">
-      <ScrollViewport
-        axis="horizontal"
+      <div
         ref={viewport}
         role="group"
+        tabIndex={0}
         aria-label={t("plans.progress.sequence")}
-        containerClassName="relative"
-        className="flex -space-x-1 gap-0.75 overflow-x-auto"
+        onKeyDown={keepSequenceScrollKeys}
+        className="relative flex min-w-0 -space-x-1.5 gap-0.75 overflow-x-auto overflow-y-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       >
         {blocks.map((block, index) => {
           const hasPass = showsPass(block, blocks);
@@ -198,8 +263,9 @@ export function PlanStatusSequence({
               aria-pressed={selectedKey === block.key}
               onClick={() => onSelect(block.key)}
               className={cn(
-                "relative h-7.5 min-h-7.5 w-11 shrink-0 cursor-pointer rounded-none p-0 xl:min-h-7.5 xl:p-0 xl:text-xs [@media(pointer:coarse)]:h-11 [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:w-14 text-xs font-bold tabular-nums after:absolute after:inset-0 hover:brightness-110 focus-visible:outline-none focus-visible:after:border-y-4 focus-visible:after:border-ring",
-                SEQUENCE_CHEVRON,
+                "relative cursor-pointer rounded-none text-xs font-bold tabular-nums xl:text-xs after:absolute after:inset-0 hover:brightness-110 focus-visible:outline-none focus-visible:after:border-y-4 focus-visible:after:border-ring",
+                SEQUENCE_BLOCK_SIZE,
+                index === 0 ? SEQUENCE_FIRST_CHEVRON : SEQUENCE_CHEVRON,
                 sequenceTone(block, run),
                 selectedKey === block.key &&
                   "after:border-y-2 after:border-foreground/60",
@@ -212,7 +278,7 @@ export function PlanStatusSequence({
             </PlanPaletteButton>
           );
         })}
-      </ScrollViewport>
+      </div>
     </div>
   );
 }
