@@ -202,6 +202,29 @@ function discard(entry: UploadEntry): void {
   if (entry.previewUrl !== null) URL.revokeObjectURL(entry.previewUrl);
 }
 
+function releaseEntries(
+  held: Map<string, UploadEntry>,
+  readyIds: string[],
+): void {
+  held.forEach((entry) => {
+    // Sent uploads stay on the server; what is not ready yet is not sent.
+    const isSent =
+      entry.attachmentId !== null && readyIds.includes(entry.attachmentId);
+    if (isSent && entry.previewUrl !== null)
+      URL.revokeObjectURL(entry.previewUrl);
+    if (!isSent) discard(entry);
+  });
+  held.clear();
+}
+
+function readyAttachmentIds(items: readonly PendingAttachment[]): string[] {
+  return items.flatMap((item) =>
+    item.state === "ready" && item.attachmentId !== null
+      ? [item.attachmentId]
+      : [],
+  );
+}
+
 function createEntry(file: File, agentId: string | null): UploadEntry {
   return {
     localId: crypto.randomUUID(),
@@ -353,21 +376,8 @@ export function useAttachmentUploads(
   }
 
   function take(): string[] {
-    const readyIds = items.flatMap((item) =>
-      item.state === "ready" && item.attachmentId !== null
-        ? [item.attachmentId]
-        : [],
-    );
-    const held = entries.current;
-    held.forEach((entry) => {
-      // Sent uploads stay on the server; what is not ready yet is not sent.
-      const isSent =
-        entry.attachmentId !== null && readyIds.includes(entry.attachmentId);
-      if (isSent && entry.previewUrl !== null)
-        URL.revokeObjectURL(entry.previewUrl);
-      if (!isSent) discard(entry);
-    });
-    held.clear();
+    const readyIds = readyAttachmentIds(items);
+    releaseEntries(entries.current, readyIds);
     setItems([]);
     setFailure(null);
     return readyIds;
