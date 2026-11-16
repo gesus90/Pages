@@ -4011,6 +4011,7 @@
       "failure": {
         "tooLarge": "Die Datei ist größer als {{maximum}}.",
         "tooMany": "Du kannst höchstens {{limit}} Dateien an eine Nachricht anhängen.",
+        "unsupported": "Dieser Dateityp wird hier nicht unterstützt. Möglich sind Bilder, PDFs, Office-Dokumente und Textdateien.",
         "failed": "Die Datei konnte nicht hochgeladen werden. Versuch es noch einmal."
       },
       "dropHint": "Lass die Dateien los, um sie anzuhängen."

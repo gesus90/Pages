@@ -4011,6 +4011,7 @@
       "failure": {
         "tooLarge": "The file is larger than {{maximum}}.",
         "tooMany": "You can attach at most {{limit}} files to one message.",
+        "unsupported": "This file type is not supported here. You can attach images, PDFs, Office documents and text files.",
         "failed": "The file could not be uploaded. Try again."
       },
       "dropHint": "Drop the files to attach them."

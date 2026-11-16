@@ -183,7 +183,13 @@ export function MessageContentView({
   // A message on its way has no stored ID yet, so it offers no archive.
   const mediaOrigin: CardOrigin = message.id.startsWith("pending")
     ? origin
-    : { ...origin, messageId: message.id };
+    : {
+        ...origin,
+        messageId: message.id,
+        ...(message.archiveUrl === undefined
+          ? {}
+          : { archiveUrl: message.archiveUrl }),
+      };
   return (
     <>
       {parts.map((part, index) =>

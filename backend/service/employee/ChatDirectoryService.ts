@@ -105,6 +105,15 @@ export interface ChatDirectoryDependencies {
     agent: User,
     sessionId: string,
   ) => Promise<ReadonlySet<string>>;
+  /**
+   * Adds the files the person sent in a direct chat with an agent to the
+   * messages they went with; absent shows the messages without files.
+   */
+  readonly withFiles?: (
+    agentId: string,
+    sessionId: string,
+    messages: readonly VirtualChatMessage[],
+  ) => Promise<VirtualChatMessage[]>;
   /** The sessions of agents in the chats, for the head of the chat (PAGE-376). */
   readonly agentSessions?: Pick<
     AgentChatSessionService,
@@ -652,7 +661,7 @@ export class ChatDirectoryService {
       this.dependencies.waitingInJob?.(agent, sessionId) ?? new Set<string>(),
       this.dependencies.injectedInJob?.(agent, sessionId) ?? new Set<string>(),
     ]);
-    const messages: VirtualChatMessage[] = stored
+    const history: VirtualChatMessage[] = stored
       .slice(-HISTORY_MESSAGES)
       .map((message) => ({
         id: message.id,
@@ -662,6 +671,9 @@ export class ChatDirectoryService {
         ...(written.length > 0 ? { createdAt: message.createdAt } : {}),
         ...(message.isFromPreview === true ? { isFromPreview: true } : {}),
       }));
+    const messages =
+      (await this.dependencies.withFiles?.(agent.id, sessionId, history)) ??
+      history;
     const isBusy = isWorking || queued.length > 0;
     const chat = markSteeredMessages(
       markQueuedMessages(messages, waitingInChat(messages, waiting)),

@@ -1,3 +1,4 @@
+import { agentChatRefusal } from "@/app/lib/agent-chat-failure.server";
 import { authenticatedUserContext } from "@/app/lib/auth.server";
 import { openChatConversation } from "@/app/lib/chat-page-conversations.server";
 import {
@@ -7,7 +8,11 @@ import {
 } from "@/app/lib/chat-response.server";
 import { requestEntryContext } from "@/app/lib/request-origin.server";
 import { getApplicationServices } from "@/app/lib/services.server";
-import { readBody } from "@/app/lib/wiki-actions/wiki-upload.server";
+import {
+  readBody,
+  toUploadedFile,
+} from "@/app/lib/wiki-actions/wiki-upload.server";
+import { AgentEmployeeError } from "@/backend/error/AgentEmployeeError";
 import { ChatError } from "@/backend/error/ChatErrors";
 import { ConversationError } from "@/backend/error/ConversationError";
 import { logCaughtError } from "@/backend/logging/Logger";
@@ -19,6 +24,7 @@ import {
 import type { ChatPageServices } from "@/app/lib/chat-page-conversations.server";
 import type { ConversationErrorCode } from "@/definition/Conversation";
 import type { ConversationFileFactsInput } from "@/backend/service/conversation/content/ConversationAttachments";
+import type { ChatAttachment } from "@/definition/Chat";
 import type { ConversationAttachment } from "@/definition/ConversationContent";
 import type { User } from "@/definition/User";
 import type { Route } from "./+types/chat-page-files";
@@ -98,12 +104,41 @@ function factsOf(url: URL): ConversationFileFactsInput | undefined {
     : undefined;
 }
 
+/**
+ * A file for the direct chat with an agent, which lives in the agent's chat
+ * session and not in a stored conversation.
+ */
+async function runForAgent(
+  services: ChatPageServices,
+  person: User,
+  request: Request,
+  agentId: string,
+): Promise<ChatAttachment | null> {
+  const url = new URL(request.url);
+  const { agentChatAttachments } = services;
+  if (request.method === "POST")
+    return agentChatAttachments.upload(
+      person,
+      agentId,
+      toUploadedFile(request, url.searchParams.get("name") ?? ""),
+    );
+  if (request.method !== "DELETE") throw new ConversationError("invalid");
+  await agentChatAttachments.discard(
+    person,
+    agentId,
+    url.searchParams.get("attachmentId"),
+  );
+  return null;
+}
+
 async function run(
   services: ChatPageServices,
   person: User,
   request: Request,
-): Promise<ConversationAttachment | null> {
+): Promise<ConversationAttachment | ChatAttachment | null> {
   const url = new URL(request.url);
+  const agentId = url.searchParams.get("agentId");
+  if (agentId !== null) return runForAgent(services, person, request, agentId);
   const attachmentId = url.searchParams.get("attachmentId");
   if (request.method === "POST") return upload(services, person, request);
   if (request.method === "PATCH")
@@ -146,6 +181,10 @@ async function run(
  *   stores only these facts, for a video or sound whose preview exists.
  * - `DELETE /chat-page-api/files?attachmentId=…` drops an own upload that
  *   no message took.
+ * - With `agentId=…` instead of the conversation, `POST` and `DELETE` act on
+ *   the person's direct chat with that agent: the file goes into the agent's
+ *   chat session with the rules of every chat session (types, 16 MB, ten
+ *   files), and the message to the agent names its ID.
  *
  * @remarks
  * The file streams into the file store of Pages, at most 512 MB; a larger,
@@ -168,10 +207,12 @@ export async function action({
   } catch (error: unknown) {
     logCaughtError("chat_page_files", error);
 
-    if (!(error instanceof ConversationError)) return chatFailure(error);
+    const refusal =
+      error instanceof AgentEmployeeError ? agentChatRefusal(error) : error;
+    if (!(refusal instanceof ConversationError)) return chatFailure(refusal);
     return Response.json(
-      { ok: false, error: error.code },
-      { status: STATUS[error.code], headers: CHAT_NO_STORE },
+      { ok: false, error: refusal.code },
+      { status: STATUS[refusal.code], headers: CHAT_NO_STORE },
     );
   }
 }

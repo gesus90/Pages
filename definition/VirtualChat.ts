@@ -195,6 +195,12 @@ export interface VirtualChatMessage {
   /** The files of a stored message (PAGE-298). */
   readonly attachments?: readonly ConversationAttachment[];
   /**
+   * The address of the ZIP archive of the files, where the message is no
+   * message of a stored conversation; absent uses the archive of the
+   * conversation.
+   */
+  readonly archiveUrl?: string;
+  /**
    * The person sent this message from a preview of the chat (PAGE-383); the
    * chat marks it "aus der Vorschau gesendet". Absent for every other message.
    */

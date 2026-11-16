@@ -149,7 +149,7 @@ export function ImageGallery({
       {...(origin.messageId !== undefined && kept.length > 0
         ? {
             download: {
-              href: archiveUrl(origin.messageId),
+              href: origin.archiveUrl ?? archiveUrl(origin.messageId),
               label: t("chatPage.cards.downloadAll"),
             },
           }

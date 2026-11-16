@@ -41,6 +41,8 @@ import { isPagesRunsProcess } from "@/backend/runtime/RunsMode";
 import { createChatSessionId } from "@/backend/service/chat/ChatSessionWords";
 import type { AgentAccessEnvironmentService } from "@/backend/service/employee/AgentAccessEnvironmentService";
 import type { AgentChatPrivacyService } from "@/backend/service/employee/AgentChatPrivacyService";
+import type { ChatAttachmentService } from "@/backend/service/chat/ChatAttachmentService";
+import type { AgentChatAttachments } from "@/backend/service/employee/AgentChatAttachments";
 import { AgentChatReader } from "@/backend/service/employee/AgentChatReader";
 import { AgentChatSessionLifecycle } from "@/backend/service/employee/AgentChatSessionLifecycle";
 import { AgentChatSessionService } from "@/backend/service/employee/AgentChatSessionService";
@@ -69,6 +71,7 @@ import type { ChatDirectoryService } from "@/backend/service/employee/ChatDirect
 import { ChatGroupService } from "@/backend/service/employee/ChatGroupService";
 import { PersonColorService } from "@/backend/service/employee/PersonColorService";
 import {
+  createAgentChatAttachments,
   createChatDirectory,
   createChatTasks,
   createDeletionService,
@@ -115,6 +118,8 @@ export interface EmployeeApplicationServices
   /** The readable profiles of agents for administrators and leaders (PAGE-308). */
   readonly agentProfileReadService: AgentProfileReadService;
   readonly agentEmployeeSessions: AgentEmployeeSessions;
+  /** The files a person sends in the direct chat with an agent. */
+  readonly agentChatAttachments: AgentChatAttachments;
   /** The chat sessions of agents: the popup "Agent-Einstellungen" and the head of a chat (PAGE-376). */
   readonly agentChatSessionService: AgentChatSessionService;
   /** The tab "Lagebuch" of that popup: entries, settings, removal (PAGE-377). */
@@ -143,6 +148,11 @@ export interface EmployeeServicesInput {
   readonly cache: ServerCache;
   /** Pica's ACP path, which agent sessions share; `null` without ACP chat. */
   readonly acp: PicaAcpService | null;
+  /** The files of chat sessions, in which a person's files for an agent are stored. */
+  readonly chatAttachments: Pick<
+    ChatAttachmentService,
+    "upload" | "discard" | "open"
+  >;
   /** The live processes of the chat sessions (PAGE-376); `null` without ACP chat. */
   readonly pool?: PicaAcpSessionPool | null;
   /** The ticket and wiki attachments the file tools of an agent with host tools use (PAGE-303). */
@@ -268,6 +278,7 @@ function assembleEmployeeServices(
   parts: EmployeeParts,
 ): EmployeeApplicationServices {
   const { input, store, authorization, models, languages, sessions } = parts;
+  const agentChatAttachments = createAgentChatAttachments(parts);
   const dreams = createDreamingAdministration({
     ...parts,
     hasModel: input.acp !== null || currentAgentSimulationMode().isActive,
@@ -303,6 +314,7 @@ function assembleEmployeeServices(
       models,
     }),
     agentEmployeeSessions: sessions,
+    agentChatAttachments,
     agentChatSessionService: parts.agentSessions,
     agentLogbookAdministration: createLogbookAdministration(parts),
     agentDreamingAdministration: dreams.dreaming,
@@ -322,6 +334,7 @@ function assembleEmployeeServices(
       messages: parts.messages,
       sessions,
       agentSessions: parts.agentSessions,
+      agentAttachments: agentChatAttachments,
       conversations: parts.conversations,
       models,
     }),

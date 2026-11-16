@@ -29,7 +29,7 @@ const ITEM = "gap-3";
 const ICON = "size-4 shrink-0 text-muted-foreground";
 
 interface ChatPageAttachMenuProps {
-  /** Whether files can be attached; an agent's chat session takes text only. */
+  /** Whether files can be attached; false while no chat is open. */
   readonly canAttach: boolean;
   onFiles(files: File[]): void;
   /** Appends a template or an address to the message being written. */

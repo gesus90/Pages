@@ -46,13 +46,23 @@ function readFailure(body: unknown): VoiceFailure {
   return FAILURES.find((failure) => failure === body.error) ?? "general";
 }
 
+/** The chat of a recording: a conversation by kind and ID, an agent by its ID. */
+function chatQuery(
+  selection: VirtualChatSelection,
+  isAgentChat: boolean,
+): Record<string, string> {
+  return isAgentChat
+    ? { agentId: selection.id }
+    : { kind: selection.kind, id: selection.id };
+}
+
 async function postVoice(
   selection: VirtualChatSelection,
   recording: { readonly file: Blob; readonly durationMs: number },
+  isAgentChat: boolean,
 ): Promise<VoiceFailure | null> {
   const query = new URLSearchParams({
-    kind: selection.kind,
-    id: selection.id,
+    ...chatQuery(selection, isAgentChat),
     clientMessageId: crypto.randomUUID(),
     durationMs: String(Math.max(1, Math.round(recording.durationMs))),
   });
@@ -66,21 +76,26 @@ async function postVoice(
 }
 
 /**
- * Sends voice messages into the opened conversation of a person or a group
- * (PAGE-277).
+ * Sends voice messages into the opened chat of a person, a group or an
+ * agent.
  *
- * @param selection - The opened conversation.
+ * @param selection - The opened chat.
  * @param maximumMs - The longest recording of Pages.
+ * @param options - How the opened chat takes a recording.
  * @returns The sending and its last refusal.
  *
  * @remarks
  * The page refuses what is obviously too large, too long or of another
  * format before sending, with the same reasons the server gives; the server
  * checks everything again. A sent message shows once the page reads it back.
+ * An agent's chat takes text alone: the server recognizes the recording and
+ * sends the text, and a recording without recognizable text is refused as
+ * unreadable.
  */
 export function useVoiceSending(
   selection: VirtualChatSelection | null,
   maximumMs: number,
+  options: { readonly isAgentChat?: boolean } = {},
 ): VoiceSending {
   const [isSending, setSending] = useState(false);
   const [failure, setFailure] = useState<VoiceFailure | null>(null);
@@ -94,7 +109,9 @@ export function useVoiceSending(
     setSending(true);
     setFailure(null);
     try {
-      setFailure(await postVoice(selection, recording));
+      setFailure(
+        await postVoice(selection, recording, options.isAgentChat === true),
+      );
       await revalidator.revalidate();
     } catch (error: unknown) {
       console.warn("The voice message could not be sent", error);

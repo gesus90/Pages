@@ -60,6 +60,8 @@ export interface CardOrigin {
   readonly createdAt?: string;
   /** The message, for "Alle herunterladen" and "Zur Nachricht" (PAGE-382); missing for one on its way. */
   readonly messageId?: string;
+  /** The ZIP archive of the message's files where it is no message of a stored conversation. */
+  readonly archiveUrl?: string;
 }
 
 /**

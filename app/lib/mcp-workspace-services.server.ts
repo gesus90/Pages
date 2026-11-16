@@ -174,6 +174,7 @@ export async function startMcpWorkspace(context: McpWorkspaceContext): Promise<
     database: context.database,
     cache: context.serverCache,
     acp: chat.picaAcpService,
+    chatAttachments: chat.chatAttachmentService,
     pool: chat.picaAcpSessionPool,
     workspaceRoot: picaSettings.workspaceRoot,
     cipher: new InstanceSecretCipher(context.tokenKey),
