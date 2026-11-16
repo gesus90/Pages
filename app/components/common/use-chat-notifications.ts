@@ -8,12 +8,19 @@ import { CHAT_PAGE_ENDPOINT, isChatDirectory } from "@/app/lib/chat-directory";
 import { backendRequestHeaders } from "@/app/lib/backend-request";
 import { readRouteData } from "@/app/lib/local-state/route-data";
 
+import { isPicaAuthor } from "@/definition/PicaMobileNotifications";
+
 import {
+  chatMessageAuthor,
   chatNotificationSnapshots,
   newChatMessages,
 } from "./chat-notification-snapshot";
 
 import type { NotificationChoices } from "@/definition/PicaMobileNotifications";
+import type {
+  VirtualChatDirectory,
+  VirtualChatMessage,
+} from "@/definition/VirtualChat";
 
 interface ChatNotificationActivity {
   readonly chatKeys: readonly string[];
@@ -56,8 +63,7 @@ function shouldSuppressChatToast(
   snapshot: ReturnType<typeof chatNotificationSnapshots>[number],
   activity: ChatNotificationActivity,
 ): boolean {
-  const { choices } = activity;
-  if (snapshot.isMuted || !choices.receiveNotifications || !choices.chats) {
+  if (snapshot.isMuted || !activity.choices.receiveNotifications) {
     return true;
   }
   if (activity.chatKeys.includes(toastChatKey(snapshot.chat))) {
@@ -67,6 +73,20 @@ function shouldSuppressChatToast(
     snapshot.conversationId !== null &&
     activity.conversationIds.includes(snapshot.conversationId)
   );
+}
+
+/** Keeps the messages whose kind is chosen: Pica's follow `pica`, all others `chats`. */
+function chosenChatMessages(
+  directory: Pick<VirtualChatDirectory, "participants">,
+  messages: readonly VirtualChatMessage[],
+  choices: NotificationChoices,
+): readonly VirtualChatMessage[] {
+  return messages.filter((message) => {
+    const author = chatMessageAuthor(directory, message);
+    return author !== null && isPicaAuthor(author)
+      ? choices.pica
+      : choices.chats;
+  });
 }
 
 /** Agent session answers have no conversation event, so also read the directory at a slow interval. */
@@ -101,11 +121,14 @@ export function useChatNotifications(userId: string): () => void {
         if (controller.signal.aborted) return;
         const snapshots = chatNotificationSnapshots(directory);
         for (const snapshot of snapshots) {
-          const incoming = previous ? newChatMessages(snapshot, previous) : [];
+          if (shouldSuppressChatToast(snapshot, activity)) continue;
+          const incoming = chosenChatMessages(
+            directory,
+            previous ? newChatMessages(snapshot, previous) : [],
+            activity.choices,
+          );
           const latest = incoming.at(-1);
-          if (!latest || shouldSuppressChatToast(snapshot, activity)) {
-            continue;
-          }
+          if (!latest) continue;
           const query = new URLSearchParams({
             kind: snapshot.chat.kind,
             id: snapshot.chat.id,

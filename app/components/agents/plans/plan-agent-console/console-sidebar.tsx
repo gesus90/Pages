@@ -228,6 +228,62 @@ function OpenRouterUsageFacts({
   );
 }
 
+function findCodexStep(
+  view: AgentSessionView,
+): NonNullable<AgentSessionView["codexRunUsage"]>["steps"][number] | null {
+  if (view.provider !== "codex_cli") return null;
+  return (
+    view.codexRunUsage?.steps.find((step) => step.stepId === view.key.stepId) ??
+    null
+  );
+}
+
+function isOpenRouterView(view: AgentSessionView): boolean {
+  return (
+    view.provider === "opencode" &&
+    view.model.requestedModel.value?.startsWith("openrouter/") === true
+  );
+}
+
+function ContextMeter({
+  context,
+  label,
+  unknown,
+  numbers,
+}: {
+  readonly context: AgentSessionContextUsage;
+  readonly label: string;
+  readonly unknown: string;
+  readonly numbers: Intl.NumberFormat;
+}): React.ReactElement {
+  const share = contextShare(context);
+  const used = context.contextUsed;
+  const contextLimit =
+    context.contextLimit === null
+      ? unknown
+      : numbers.format(context.contextLimit);
+  const contextValue =
+    used === null ? unknown : `${numbers.format(used)} / ${contextLimit}`;
+  return (
+    <>
+      <Fact label={label} value={contextValue} />
+      <div
+        role="meter"
+        aria-label={label}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={share === null ? undefined : Math.round(share)}
+        className="h-1 overflow-hidden rounded-full bg-agent-console-track"
+      >
+        <div
+          className="h-full rounded-full bg-agent-terminal-accent"
+          style={{ width: `${share ?? 0}%` }}
+        />
+      </div>
+    </>
+  );
+}
+
 function UsageSection(props: {
   readonly view: AgentSessionView;
   /** A turn runs now: its tokens arrive with its end. */
@@ -239,27 +295,9 @@ function UsageSection(props: {
   const key = "plans.console.terminal.sidebar";
   const unknown = t(`${key}.unknown`);
   const numbers = new Intl.NumberFormat(i18n.language);
-  const { context } = props.view;
-  const share = contextShare(context);
-  const used = context.contextUsed;
-  const contextLimit =
-    context.contextLimit === null
-      ? unknown
-      : numbers.format(context.contextLimit);
-  const contextValue =
-    used === null
-      ? unknown
-      : `${numbers.format(used)} / ${contextLimit}`;
-  const codex =
-    props.view.provider === "codex_cli"
-      ? props.view.codexRunUsage?.steps.find(
-          (step) => step.stepId === props.view.key.stepId,
-        )
-      : null;
+  const codex = findCodexStep(props.view);
   const totals = props.view.nodeTotals ?? props.view.totals;
-  const isOpenRouter =
-    props.view.provider === "opencode" &&
-    props.view.model.requestedModel.value?.startsWith("openrouter/") === true;
+  const isOpenRouter = isOpenRouterView(props.view);
   const openRouterTotal = isOpenRouter ? (totals[0] ?? null) : null;
   const costLabels = {
     free: t(`${key}.free`),
@@ -280,36 +318,23 @@ function UsageSection(props: {
   });
   const cost = isOpenRouter
     ? openRouterCost(openRouterTotal, i18n.language, costLabels)
-    : formatStandardCost(context, i18n.language, unknown);
+    : formatStandardCost(props.view.context, i18n.language, unknown);
+  const costLabelKey =
+    props.view.provider === "antigravity"
+      ? `${key}.antigravity.providerCost`
+      : `${key}.cost`;
   return (
     <SidebarSection title={t(`${key}.usage`)}>
       {codex ? <CodexUsageFacts usage={codex.usage} /> : null}
       <dl className="space-y-1.5">
-        <Fact label={t(`${key}.context`)} value={contextValue} />
-        <div
-          role="meter"
-          aria-label={t(`${key}.context`)}
-          aria-valuemin={0}
-          aria-valuemax={100}
-          aria-valuenow={share === null ? undefined : Math.round(share)}
-          className="h-1 overflow-hidden rounded-full bg-agent-console-track"
-        >
-          <div
-            className="h-full rounded-full bg-agent-terminal-accent"
-            style={{ width: `${share ?? 0}%` }}
-          />
-        </div>
+        <ContextMeter
+          context={props.view.context}
+          label={t(`${key}.context`)}
+          unknown={unknown}
+          numbers={numbers}
+        />
         <Fact label={t(`${key}.tokens`)} value={tokens} />
-        {codex ? null : (
-          <Fact
-            label={t(
-              props.view.provider === "antigravity"
-                ? `${key}.antigravity.providerCost`
-                : `${key}.cost`,
-            )}
-            value={cost}
-          />
-        )}
+        {codex ? null : <Fact label={t(costLabelKey)} value={cost} />}
         {isOpenRouter ? (
           <OpenRouterUsageFacts
             openRouterTotal={openRouterTotal}

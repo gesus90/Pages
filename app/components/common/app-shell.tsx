@@ -55,6 +55,7 @@ import type { InstanceBranding } from "@/definition/Instance";
 import type { User } from "@/definition/User";
 import type { AccountAccess } from "@/definition/Authorization";
 import type { RefObject } from "react";
+import type { NavLinkRenderProps } from "react-router";
 import type { SidebarLayout } from "./app-shell/use-sidebar-layout";
 
 /** Viewports from which the permanent sidebar replaces the mobile menu. */
@@ -97,6 +98,9 @@ function getLinkClassName(isActive: boolean): string {
   );
 }
 
+const navLinkClassName = ({ isActive }: NavLinkRenderProps): string =>
+  getLinkClassName(isActive);
+
 /** The chat page (PAGE-254), open to every signed-in account. */
 function ChatNavigationLink({
   onNavigate,
@@ -107,7 +111,9 @@ function ChatNavigationLink({
 
   return (
     <NavLink
-      className={({ isActive }) => getLinkClassName(isActive)}
+      className={({ isActive }: NavLinkRenderProps) =>
+        getLinkClassName(isActive)
+      }
       to="/chat"
       prefetch="intent"
       onClick={onNavigate}
@@ -131,7 +137,9 @@ function WikiNavigationLink({
 
   return (
     <NavLink
-      className={({ isActive }) => getLinkClassName(isActive)}
+      className={({ isActive }: NavLinkRenderProps) =>
+        getLinkClassName(isActive)
+      }
       to="/wiki"
       prefetch="intent"
       onClick={onNavigate}
@@ -152,7 +160,9 @@ function AutomationsNavigationLink({
 
   return (
     <NavLink
-      className={({ isActive }) => getLinkClassName(isActive)}
+      className={({ isActive }: NavLinkRenderProps) =>
+        getLinkClassName(isActive)
+      }
       to="/automationen"
       prefetch="intent"
       onClick={onNavigate}
@@ -176,7 +186,9 @@ function StorageNavigationLink({
 
   return (
     <NavLink
-      className={({ isActive }) => getLinkClassName(isActive)}
+      className={({ isActive }: NavLinkRenderProps) =>
+        getLinkClassName(isActive)
+      }
       to="/storage"
       onClick={onNavigate}
     >
@@ -201,7 +213,7 @@ function NavigationLinks({
       aria-label={t("navigation.label")}
     >
       <NavLink
-        className={({ isActive }) => getLinkClassName(isActive)}
+        className={navLinkClassName}
         to="/dashboard"
         prefetch="intent"
         onClick={onNavigate}
@@ -215,7 +227,7 @@ function NavigationLinks({
       {canViewProjects ? (
         <>
           <NavLink
-            className={({ isActive }) => getLinkClassName(isActive)}
+            className={navLinkClassName}
             to="/projekte"
             prefetch="intent"
             onClick={onNavigate}
@@ -227,7 +239,7 @@ function NavigationLinks({
             {t("navigation.projects")}
           </NavLink>
           <NavLink
-            className={({ isActive }) => getLinkClassName(isActive)}
+            className={navLinkClassName}
             to="/aufgaben"
             prefetch="intent"
             onClick={onNavigate}
@@ -257,7 +269,7 @@ function NavigationLinks({
       <div className="mt-auto flex flex-col gap-1 pt-2">
         {canViewUsers ? (
           <NavLink
-            className={({ isActive }) => getLinkClassName(isActive)}
+            className={navLinkClassName}
             to="/users"
             prefetch="intent"
             onClick={onNavigate}
@@ -270,7 +282,7 @@ function NavigationLinks({
           </NavLink>
         ) : null}
         <NavLink
-          className={({ isActive }) => getLinkClassName(isActive)}
+          className={navLinkClassName}
           to="/settings"
           prefetch="intent"
           onClick={onNavigate}

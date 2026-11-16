@@ -20,9 +20,7 @@ import {
 } from "@/definition/AgentConfiguration";
 import { logCaughtError, logDiagnostic } from "@/backend/logging/Logger";
 
-import {
-  verifyFullEnvironmentStart,
-} from "./CliFullEnvironment";
+import { verifyFullEnvironmentStart } from "./CliFullEnvironment";
 import {
   describeOpenCodeAgent,
   openCodeAgentObserver,

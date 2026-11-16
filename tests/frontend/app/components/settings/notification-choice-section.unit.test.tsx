@@ -37,6 +37,14 @@ it("shows and saves each account choice while leaving More enabled", () => {
     </I18nextProvider>,
   );
   expect(screen.getByText("Agent-Pläne")).toBeTruthy();
+  expect(screen.queryByRole("switch", { name: /^Chats/u })).toBeNull();
+  expect(screen.queryByRole("switch", { name: /^Pica/u })).toBeNull();
+  fireEvent.click(screen.getByRole("checkbox", { name: /^Pica/u }));
+  expect(changed).toHaveBeenCalledWith("pica");
+  fireEvent.click(screen.getByRole("checkbox", { name: /^Pica/u }));
+  fireEvent.click(screen.getByRole("checkbox", { name: /^Chats/u }));
+  expect(changed).toHaveBeenCalledWith("chats");
+  fireEvent.click(screen.getByRole("checkbox", { name: /^Chats/u }));
   expect(
     screen.getByText(
       "Ist ein Chat sichtbar offen, kommen dafür keine Benachrichtigungen.",
@@ -55,7 +63,11 @@ it("shows and saves each account choice while leaving More enabled", () => {
   fireEvent.click(
     screen.getByRole("switch", { name: "Benachrichtigungen erhalten" }),
   );
-  expect(screen.getByRole("switch", { name: "Chats" })).toHaveProperty(
+  expect(screen.getByRole("checkbox", { name: /^Chats/u })).toHaveProperty(
+    "disabled",
+    true,
+  );
+  expect(screen.getByRole("checkbox", { name: /^Pica/u })).toHaveProperty(
     "disabled",
     true,
   );

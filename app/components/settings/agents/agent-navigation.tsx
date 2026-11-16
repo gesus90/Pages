@@ -5,6 +5,8 @@ import { NavLink, useLocation } from "react-router";
 
 import { cn } from "@/app/lib/cn";
 
+import type { NavLinkRenderProps } from "react-router";
+
 /** Links reusable user agents, execution plans and workspace management. */
 export function AgentNavigation(props: {
   readonly canManage?: boolean;
@@ -41,7 +43,7 @@ export function AgentNavigation(props: {
           <NavLink
             to="/agents/plans"
             onClick={props.onNavigate}
-            className={({ isActive: isPlanActive }) =>
+            className={({ isActive: isPlanActive }: NavLinkRenderProps) =>
               cn(
                 "flex min-h-11 items-center rounded-xl px-3 text-sm font-medium text-muted-foreground hover:bg-sidebar-hover hover:text-foreground",
                 isPlanActive &&
@@ -54,7 +56,7 @@ export function AgentNavigation(props: {
           <NavLink
             to="/agents/runs"
             onClick={props.onNavigate}
-            className={({ isActive: isRunsActive }) =>
+            className={({ isActive: isRunsActive }: NavLinkRenderProps) =>
               cn(
                 "flex min-h-11 items-center rounded-xl px-3 text-sm font-medium text-muted-foreground hover:bg-sidebar-hover hover:text-foreground xl:min-h-9",
                 isRunsActive &&
@@ -67,7 +69,7 @@ export function AgentNavigation(props: {
           <NavLink
             to="/agents/workspaces"
             onClick={props.onNavigate}
-            className={({ isActive: isWorkspaceActive }) =>
+            className={({ isActive: isWorkspaceActive }: NavLinkRenderProps) =>
               cn(
                 "flex min-h-11 items-center rounded-xl px-3 text-sm font-medium text-muted-foreground hover:bg-sidebar-hover hover:text-foreground xl:min-h-9",
                 isWorkspaceActive &&

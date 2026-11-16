@@ -1,5 +1,6 @@
 import { withBackgroundDatabaseWork } from "@/backend/database/executor/DatabaseWorkContext";
 import { logCaughtError, logEvent } from "@/backend/logging/Logger";
+import { isPicaAuthor } from "@/definition/PicaMobileNotifications";
 
 import { buildPicaMobileConversationPushMessage } from "./PicaMobileConversationPushMessage";
 import { wantsChatMessage } from "./NotificationChoicePolicy";
@@ -135,7 +136,7 @@ export class PicaMobileConversationPush {
     if (
       !wantsChatMessage(
         await this.options.preferences.find(recipientId),
-        false,
+        isPicaAuthor(push.message.sender),
       ) ||
       this.options.presence.isOpen(recipientId, push.message.conversationId)
     )
