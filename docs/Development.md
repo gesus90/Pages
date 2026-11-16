@@ -3,10 +3,11 @@
 [Documentation index](README.md). Start with the
 [local quickstart](../README.md#getting-started), then read the mandatory
 [coding guidelines](../GUIDELINES.md) and [agent instructions](../AGENTS.md).
-Make focused changes. The previous test suites and CI have been removed;
-the new [backend unit-test foundation](BackendTesting.md) provides the backend
-runner and measurement scope. See the [restart inventory](TestCiRemoval.md)
-for retained operating commands, validation limits and external dependencies.
+Make focused changes. The previous test suites and CI have been removed and are
+rebuilt in separate steps. The new [backend unit-test foundation](BackendTesting.md)
+provides the backend runner, measurement scope and the CI entry point. See the
+[restart inventory](TestCiRemoval.md) for retained operating commands,
+validation limits and external dependencies.
 
 - [Architecture](#architecture)
 - [Tech stack](#tech-stack)
@@ -81,7 +82,13 @@ All commands are scripts in `package.json`; run them with `pnpm run <script>`.
 | `format`       | Runs `prettier --write` and rewrites files in place.                                                                                                                                                                        |
 | `clean`        | Deletes the `build/` directory.                                                                                                                                                                                             |
 
-There is no repository CI workflow. `test:backend` is described in
+The CI workflow `.github/workflows/backend-tests.yml` runs on every push to
+`main`. It installs dependencies from the frozen lockfile with Node.js 24 and
+the pnpm version pinned in `package.json`, then runs `test:backend`. Test,
+coverage and setup errors fail the job. The coverage table is written to the
+job summary, and the complete coverage reports plus the checked-out revision
+are kept as the `backend-coverage-<commit>` artifact. The workflow has no
+pull-request, tag, schedule or manual trigger. `test:backend` is described in
 [Backend unit-test foundation](BackendTesting.md); `check` and `lint` remain
 manual static checks. `postgres:restore-check` verifies an actual backup and
 `db:transfer` performs offline transfer; both are operating commands, described

@@ -6163,7 +6163,22 @@
       "resumeHint_blocked": "Fortsetzen versucht den blockierten Schritt neu, nachdem die Ursache behoben ist; die gesperrten Nachfolger werden wieder freigegeben.",
       "resumeHint_closeout_open": "Fortsetzen wiederholt nur den offenen Abschluss-Schritt.",
       "resumeHint_stopped": "Stop ist endgültig. Starte den Plan von vorn.",
-      "allRuns": "Alle Läufe dieses Plans ansehen"
+      "allRuns": "Alle Läufe dieses Plans ansehen",
+      "runLog": {
+        "title": "Laufprotokoll",
+        "current": "Aktueller Lauf",
+        "label": "Laufprotokoll des angezeigten Laufs",
+        "noRun": "Noch kein Lauf. Nach dem Start erscheinen hier seine Meldungen.",
+        "empty": "Dieser Lauf hat noch keine Meldungen.",
+        "loading": "Laufprotokoll wird gelesen …",
+        "failed": "Das Laufprotokoll konnte nicht gelesen werden.",
+        "tone": {
+          "success": "Erfolg",
+          "warning": "Warnung",
+          "error": "Fehler",
+          "info": "Information"
+        }
+      }
     },
     "ticketPicker": {
       "choose": "Ticket auswählen",
@@ -7007,6 +7022,9 @@
       "cloneName": "Kopie von {{name}}",
       "cloneSource": "Kopie von „{{name}}“",
       "cloneOneShotItem": "Als Einmal-Plan kopieren",
+      "cleanupMenu": "Bereinigungen ({{count}})",
+      "cleanupTitle": "Bereinigungen",
+      "cleanupDescription": "Ausstehende Bereinigungen von Arbeitsbereichen und die Historie zwangsweiser Freigaben. Eine Bereinigung gilt erst nach ausdrücklicher Freigabe als erledigt.",
       "cloneOneShotTitle": "Als Einmal-Plan kopieren",
       "cloneOneShotLabel": "einmalig",
       "cloneOneShotNote": "Die Kopie ist ein Einmal-Plan: Pages löscht sie samt ihren Läufen 5 Minuten nach einem erfolgreich beendeten Lauf.",

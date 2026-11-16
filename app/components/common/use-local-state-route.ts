@@ -1,8 +1,9 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useFetcher, useLocation } from "react-router";
 
 import { markLocalStateRouteOpen } from "@/app/lib/local-state/local-state-loader";
 import { localState } from "@/app/lib/local-state/local-state-store";
+import { shareUnchanged } from "@/app/lib/local-state/share-unchanged";
 
 import type { WithLocalState } from "@/app/lib/local-state/local-state-loader";
 import type { LocalStateKind } from "@/app/lib/local-state/local-state-store";
@@ -34,6 +35,9 @@ function fetcherTarget(
  * A kept answer asks the server again at once; while the backend is
  * unreachable it asks again every 15 seconds. Only answers of the server are
  * kept, and only after they were shown, so a cancelled load leaves no trace.
+ * The server's answer to a kept answer shares every part that equals the
+ * kept one, so an unchanged answer changes nothing the route shows or
+ * depends on.
  * @param loaded - The route's loader data.
  * @param kind - The stored form of the route's answers.
  * @returns The answer to show, marked when it is a kept one.
@@ -84,5 +88,11 @@ export function useLocalStateRoute<T extends object>(
     if (kind.isRefused(shown)) void localState.remove(route);
     else void localState.save(kind.ownerOf(shown), route, kind, shown);
   }, [shown, route, kind]);
-  return shown;
+  // The server's answer to a kept one takes over the kept answer's unchanged
+  // parts; every other answer, such as one after an action, stays as loaded.
+  const [taken, setTaken] = useState({ shown, result: shown });
+  if (taken.shown === shown) return taken.result;
+  const result = shown === loaded ? shown : shareUnchanged(taken.result, shown);
+  setTaken({ shown, result });
+  return result;
 }

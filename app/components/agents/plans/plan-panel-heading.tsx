@@ -1,5 +1,4 @@
 import { PlanWorkspaceLocks } from "./plan-workspace-locks";
-import { PlanWorkspaceCleanup } from "./plan-workspace-cleanup";
 import { ChevronDown, ChevronUp, Loader2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
@@ -18,7 +17,7 @@ import {
 } from "./plan-resume-block-notice";
 
 import type { TFunction } from "i18next";
-import type { AgentPlanPage } from "@/definition/AgentPlan";
+import type { AgentPlanPage, AgentPlanRun } from "@/definition/AgentPlan";
 import type {
   AgentPlanControl,
   AgentPlanResumeAction,
@@ -67,6 +66,8 @@ interface PlanPanelHeadingProps {
   /** Carries out the action that lifts the block of Fortsetzen. */
   readonly onResolveBlock: (action: AgentPlanResumeAction) => void;
   readonly onManage: (dialog: PlanManagementDialog) => void;
+  /** The run the canvas shows, whose forced releases the plan menu opens. */
+  readonly run: AgentPlanRun | null;
 }
 
 /**
@@ -132,6 +133,7 @@ export function PlanPanelHeading(
               control={control}
               canEdit={editor.canEdit}
               onOpen={props.onManage}
+              run={props.run}
             />
             <Button
               size="icon-sm"
@@ -163,7 +165,7 @@ export function PlanPanelHeading(
       ) : null}
       {props.isOpen ? (
         <>
-          <PlanSaveStatus editor={editor} control={control} />
+          <PlanSaveStatus control={control} />
           <PlanControlNotes {...props} />
         </>
       ) : null}
@@ -227,10 +229,6 @@ function PlanControlNotes(props: PlanPanelHeadingProps): React.ReactElement {
           })}
         </p>
       ) : null}
-      <PlanWorkspaceCleanup
-        entries={control?.cleanup ?? []}
-        planId={props.page.selected?.id ?? ""}
-      />
       {props.page.selected?.isWorkspaceMissing ? (
         <p
           role="status"
@@ -243,36 +241,18 @@ function PlanControlNotes(props: PlanPanelHeadingProps): React.ReactElement {
   );
 }
 
-/** Says what is true of the draft now: stored, unsaved, or being stored. */
-function saveStateLabel(
-  editor: ReturnType<typeof usePlanEditor>,
-  translate: TFunction,
-): string {
-  if (editor.isSaving) return translate("plans.panel.savingShort");
-  return translate(
-    editor.isDirty ? "plans.panel.unsavedShort" : "plans.panel.savedShort",
-  );
-}
-
-/** Says whether the draft is stored, and that a run which executes steps locks the plan. */
+/** Says that a run which executes steps locks the plan; the status line names unsaved changes. */
 function PlanSaveStatus({
-  editor,
   control,
-}: Pick<PlanPanelHeadingProps, "editor" | "control">): React.ReactElement {
+}: Pick<PlanPanelHeadingProps, "control">): React.ReactElement | null {
   const { t } = useTranslation();
+  if (!control || !isPlanEditLocked(control.status)) return null;
   return (
-    <>
-      <p className="px-4 pt-3 text-xs text-muted-foreground">
-        {saveStateLabel(editor, t)}
-      </p>
-      {control && isPlanEditLocked(control.status) ? (
-        <p
-          role="status"
-          className="px-4 pt-1 text-xs wrap-anywhere text-muted-foreground"
-        >
-          {t("plans.execution.editLocked")}
-        </p>
-      ) : null}
-    </>
+    <p
+      role="status"
+      className="px-4 pt-2 text-xs wrap-anywhere text-muted-foreground"
+    >
+      {t("plans.execution.editLocked")}
+    </p>
   );
 }

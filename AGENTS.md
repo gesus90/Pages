@@ -173,10 +173,15 @@ For database work:
 ## 9. Validation during the test and CI restart
 
 The previous test suites, test runners, fixtures, coverage tooling and CI
-workflows have been removed. There is currently no automated Pages behavior
-suite and no repository CI workflow. Do not invoke removed test commands or
-reintroduce old suites as a fallback. A new test and CI setup requires a
-separate assignment.
+workflows have been removed and are rebuilt in separate steps. The backend
+unit-test foundation provides `pnpm run test:backend`; behavior tests and
+additional suites require their own assignment. The only repository CI
+workflow is `.github/workflows/backend-tests.yml`: a push to `main` installs
+from the frozen lockfile and runs `pnpm run test:backend`. Test, coverage and
+setup errors fail the job; the coverage tables and machine-readable reports
+stay available as artifacts. The workflow has no pull-request, tag, schedule
+or manual trigger. Do not invoke removed test commands or reintroduce old
+suites as a fallback.
 
 `pnpm run check` and `pnpm run lint` remain static checks; neither proves
 functional behavior. Follow the validation scope of the current assignment,

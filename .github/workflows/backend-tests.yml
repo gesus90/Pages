@@ -1,0 +1,82 @@
+name: backend-tests
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  pages-backend-tests:
+    name: Pages backend tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install
+        id: install
+        run: pnpm install --frozen-lockfile
+
+      - name: Backend tests and coverage
+        if: ${{ steps.install.outcome == 'success' }}
+        run: pnpm run test:backend
+
+      - name: Record revision and coverage summary
+        if: ${{ always() }}
+        run: |
+          revision="$(git rev-parse HEAD)"
+          mkdir -p coverage/backend
+          printf '%s\n' "$revision" > coverage/backend/checked-out-commit.txt
+          {
+            echo "## Backend tests and coverage"
+            echo ""
+            echo "Checked-out revision: \`$revision\`"
+            echo ""
+            if [ -f coverage/backend/first-section.tsv ]; then
+              echo "### First section (per-module thresholds from the configuration)"
+              echo ""
+              echo '```'
+              cat coverage/backend/first-section.tsv
+              echo '```'
+            else
+              echo "No first-section coverage table was written."
+            fi
+            echo ""
+            if [ -f coverage/backend/second-section.tsv ]; then
+              echo "### Second section (per-module thresholds from the configuration)"
+              echo ""
+              echo '```'
+              cat coverage/backend/second-section.tsv
+              echo '```'
+            else
+              echo "No second-section coverage table was written."
+            fi
+            echo ""
+            if [ -f coverage/backend/remaining-backend.tsv ]; then
+              echo "### Remaining backend (measured, no threshold yet)"
+              echo ""
+              echo '```'
+              cat coverage/backend/remaining-backend.tsv
+              echo '```'
+            else
+              echo "No remaining-backend coverage table was written."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload backend coverage reports
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-coverage-${{ github.sha }}
+          path: coverage/backend
+          if-no-files-found: warn

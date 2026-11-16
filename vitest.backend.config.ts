@@ -10,9 +10,12 @@ export const BACKEND_COVERAGE_EXCLUDES = [
 ];
 export const FIRST_SECTION_COVERAGE_GLOB =
   "backend/{discord,cache,concurrency}/**/*.{ts,tsx,mts,cts,js,mjs,cjs}";
+export const SECOND_SECTION_COVERAGE_GLOB =
+  "backend/{github,security,setup}/**/*.{ts,tsx,mts,cts,js,mjs,cjs}";
 
-// This is a required minimum, not a claim about measured coverage.
+// These are required minimums, not claims about measured coverage.
 const FIRST_SECTION_MINIMUM = 100;
+const SECOND_SECTION_MINIMUM = 100;
 
 export default defineConfig({
   root: fileURLToPath(new URL(".", import.meta.url)),
@@ -49,6 +52,13 @@ export default defineConfig({
           branches: FIRST_SECTION_MINIMUM,
           functions: FIRST_SECTION_MINIMUM,
           lines: FIRST_SECTION_MINIMUM,
+        },
+        [SECOND_SECTION_COVERAGE_GLOB]: {
+          perFile: true,
+          statements: SECOND_SECTION_MINIMUM,
+          branches: SECOND_SECTION_MINIMUM,
+          functions: SECOND_SECTION_MINIMUM,
+          lines: SECOND_SECTION_MINIMUM,
         },
       },
     },

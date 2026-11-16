@@ -40,7 +40,9 @@ a Pages instance or its private wiki. Some specialized guides are in German.
 - [Test and CI restart inventory](TestCiRemoval.md): removed suites, retained
   operating functions, validation evidence and external dependencies.
 - [Backend unit-test foundation](BackendTesting.md): Vitest setup, complete
-  measurement scope, section thresholds and validation limits.
+  measurement scope, section thresholds, CI run and validation limits.
+- [GitHub, security and setup inventory](BackendGitHubSecuritySetup.md): second
+  mandatory section, module boundaries, open areas and validation limits.
 - [Script runtime](../backend/service/agents/ScriptRuntime.md),
   [plan retries](../backend/service/agents/PlanRetries.md),
   [branching](../backend/service/agents/branching/README.md),

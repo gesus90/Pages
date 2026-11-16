@@ -6,6 +6,8 @@ import {
   useLocalStateLayout,
 } from "@/app/components/common/use-local-state-layout";
 import { SettingsNavigation } from "@/app/components/settings/settings-navigation";
+import { settingsAreaOf } from "@/app/components/settings/use-settings-area";
+import { useSettingsScroll } from "@/app/components/settings/use-settings-scroll";
 import { VerticalScrollArea } from "@/app/components/ui/vertical-scroll-area";
 import {
   isCurrentLocalStateAudience,
@@ -94,11 +96,19 @@ export function shouldRevalidate(args: ShouldRevalidateFunctionArgs): boolean {
   return isLocalStateNavigation(args) ? false : args.defaultShouldRevalidate;
 }
 
-/** Renders the settings frame with the navigation between its areas. */
+/**
+ * Renders the settings frame with the navigation between its areas.
+ * @remarks
+ * The shown area stays unchanged until the next one has loaded and is then
+ * swapped once. Each area gets a scrolling element of its own, so the edge
+ * fades of the previous area never show over the next one; the scrollbar's
+ * gutter is always reserved, so the width does not change with the height.
+ */
 export default function SettingsLayoutRoute(): React.ReactElement {
   const { t } = useTranslation();
   const loaded = useLoaderData<typeof clientLoader>();
   const { pathname } = useLocation();
+  const scroll = useSettingsScroll();
   const { canViewSystem } =
     useLocalStateLayout(
       loaded,
@@ -115,9 +125,13 @@ export default function SettingsLayoutRoute(): React.ReactElement {
       <SettingsNavigation canViewSystem={canViewSystem} />
 
       <VerticalScrollArea
+        key={settingsAreaOf(pathname) ?? pathname}
         className="mt-6 min-h-0 flex-1"
         contentClassName="pt-1 pl-2 pr-4 sm:pr-6 md:pr-8 xl:pr-12 pb-12"
         fadeClassName="z-20"
+        viewportClassName="[scrollbar-gutter:stable]"
+        viewportRef={scroll.viewportRef}
+        onScroll={scroll.onScroll}
       >
         <Outlet />
       </VerticalScrollArea>

@@ -28,7 +28,6 @@ import { recoverableRunId, recoveryErrorText } from "./plan-recovery-panel";
 import { PlanFailedResumeDialog } from "./plan-recovery/plan-failed-resume-dialog";
 import { usePlanRecovery } from "./use-plan-recovery";
 import { usePlanStartOwners } from "./use-plan-start-owners";
-import { PlanResourceReleases } from "./plan-resource-releases";
 import type { AgentPlanStartOwner } from "@/definition/AgentPlanResourceRelease";
 
 import type { AgentPlanPage, AgentPlanRun } from "@/definition/AgentPlan";
@@ -336,7 +335,6 @@ function PlanRunNotices({
           {t(`settings.agents.error.${startOwners.error}`)}
         </p>
       ) : null}
-      <PlanResourceReleases run={run} />
       {warnings.length > 0 ? (
         <div role="status" className="px-3 py-2">
           <PlanPanelIssueList issues={warnings} />
@@ -414,6 +412,7 @@ export function PlanRunPanel(props: PlanRunPanelProps): React.ReactElement {
           onAction={action}
           onResolveBlock={resolveBlock}
           onManage={management.open}
+          run={props.run}
         />
         <PlanRunNotices
           isOpen={isOpen}

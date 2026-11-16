@@ -78,6 +78,12 @@ instrumentable items exist. The separate declaration file
 | `setup`        | 6       | 0                 | open            |
 | `storage`      | 14      | 0                 | open            |
 
+This table records the first section at its original base revision. The
+`github`, `security` and `setup` areas later became the second mandatory
+section with their own 100% per-file threshold and
+[inventory](BackendGitHubSecuritySetup.md); the historical row above is not a
+current status.
+
 ## Cache byte quota correction
 
 The cache previously counted JavaScript string length instead of UTF-8 bytes

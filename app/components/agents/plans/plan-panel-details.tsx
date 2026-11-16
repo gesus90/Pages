@@ -1,40 +1,17 @@
 import { useTranslation } from "react-i18next";
-import { Link } from "react-router";
 
-import { PlanCodexUsage } from "./plan-codex-usage";
-import { PlanClaudeUsage } from "./plan-claude-usage";
 import { PlanPanelContext } from "./plan-panel-context";
 import { PlanPanelIssueList } from "./plan-panel-issues";
 import { PlanReloadButton } from "./plan-reload-button";
 import { PlanWorkspaceConflict } from "./plan-workspace-conflict";
-import { PlanStartRejection } from "./plan-start-rejection";
 import { recoveryErrorText } from "./plan-recovery-panel";
-import { PlanStartHistory } from "./plan-start-history";
-import { PlanEntryResultsOverview } from "./plan-entry-results";
+import { PlanRunLog } from "./plan-run-log/plan-run-log";
 
 import type { usePlanRecovery } from "./use-plan-recovery";
 import type { AgentPlanPage, AgentPlanRun } from "@/definition/AgentPlan";
 import type { AgentPlanControl } from "@/definition/AgentPlanControl";
 import type { PlanPanelIssue } from "./plan-panel-issues";
 import type { usePlanEditor } from "./use-plan-editor";
-
-/** Opens the run view of the plan: every run, whoever started it. */
-function PlanRunsLink({
-  page,
-}: {
-  readonly page: AgentPlanPage;
-}): React.ReactElement | null {
-  const { t } = useTranslation();
-  if (page.selected === null) return null;
-  return (
-    <Link
-      to={`/agents/runs?planId=${encodeURIComponent(page.selected.id)}`}
-      className="inline-block text-xs font-medium text-primary-text hover:text-primary-text-hover"
-    >
-      {t("plans.panel.allRuns")}
-    </Link>
-  );
-}
 
 /** The longer explanations of the run state that the status line names briefly. */
 function PlanPanelNotes({
@@ -95,10 +72,15 @@ function PlanPanelRecoveryAlert({
 }
 
 /**
- * The expanded part of the panel: findings, refusals, run notes, recovery and the plan choice.
+ * The expanded part of the panel: the plan choice and the log of the shown run.
  *
  * @remarks
- * Opening it reads nothing new and changes neither the plan nor the run.
+ * Below the controls it holds „Plan öffnen“ and the „Laufprotokoll“ only.
+ * What keeps the plan from starting or continuing now, a refused action and
+ * the notes of a pausing or stopping run stay above them while they apply;
+ * consumption, earlier start refusals, cleanups and other runs are read
+ * elsewhere. Opening it changes neither the plan nor the run, and hiding
+ * something here deletes nothing and lifts no block.
  */
 export function PlanPanelDetails(props: {
   /** @deprecated The upper run controls own recovery; retained for callers of the details projection. */
@@ -109,7 +91,7 @@ export function PlanPanelDetails(props: {
   readonly page: AgentPlanPage;
   readonly editor: ReturnType<typeof usePlanEditor>;
   readonly control: AgentPlanControl | undefined;
-  /** The run the canvas shows; its file entries get their own result overview. */
+  /** The run the canvas shows; the log holds its messages only. */
   readonly run?: AgentPlanRun | null;
   readonly issues: readonly PlanPanelIssue[];
   /** A refusal that no finding explains, as an error code. */
@@ -117,27 +99,14 @@ export function PlanPanelDetails(props: {
 }): React.ReactElement {
   const { t } = useTranslation();
   const { page, error } = props;
-  const run = props.run ?? null;
-  const rejection = props.control?.lastStartRejection;
   return (
     <div id={props.id} className="space-y-4 border-t border-border px-4 py-3.5">
       <PlanPanelIssueList issues={props.issues} />
-      <PlanCodexUsage run={run} />
-      <PlanClaudeUsage usage={run?.claudeUsage} />
-      <PlanEntryResultsOverview plan={props.editor.draft} run={run} />
       <PlanPanelRecoveryAlert
         recoveryRunId={props.recoveryRunId}
         recovery={props.recovery}
       />
       <PlanWorkspaceConflict conflict={props.control?.workspaceConflict} />
-      <PlanStartRejection rejection={rejection} />
-      {page.selected?.canEdit && rejection ? (
-        <PlanStartHistory
-          key={`${page.selected.id}:${rejection.id}`}
-          planId={page.selected.id}
-          latestId={rejection.id}
-        />
-      ) : null}
       <PlanPanelError error={error} />
       {page.selected?.canEdit === false ? (
         <p className="text-xs wrap-anywhere text-muted-foreground">
@@ -145,8 +114,8 @@ export function PlanPanelDetails(props: {
         </p>
       ) : null}
       <PlanPanelNotes control={props.control} />
-      <PlanRunsLink page={page} />
       <PlanPanelContext page={page} />
+      <PlanRunLog run={props.run ?? null} />
     </div>
   );
 }

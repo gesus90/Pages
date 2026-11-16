@@ -9,7 +9,17 @@ import {
   BACKEND_COVERAGE_EXCLUDES,
   BACKEND_SOURCE_GLOB,
   FIRST_SECTION_COVERAGE_GLOB,
+  SECOND_SECTION_COVERAGE_GLOB,
 } from "../vitest.backend.config";
+
+type BackendCoverageSection =
+  "first-section" | "second-section" | "remaining-backend";
+
+const BACKEND_COVERAGE_SECTIONS: readonly BackendCoverageSection[] = [
+  "first-section",
+  "second-section",
+  "remaining-backend",
+];
 
 const METRIC_NAMES = ["statements", "branches", "functions", "lines"] as const;
 const metricSchema = z.object({
@@ -32,7 +42,7 @@ type ModuleCoverage = z.infer<typeof summarySchema>[string];
 /** One source module, including modules absent from the provider's report. */
 export interface BackendCoverageEntry {
   readonly file: string;
-  readonly section: "first-section" | "remaining-backend";
+  readonly section: BackendCoverageSection;
   readonly status: "covered" | "open" | "not-applicable" | "missing";
   readonly metrics: ModuleCoverage | null;
 }
@@ -69,6 +79,16 @@ function isTypeOnlyModule(file: string): boolean {
   return source.statements.every(isTypeOnlyStatement);
 }
 
+function sectionForFile(file: string): BackendCoverageEntry["section"] {
+  if (path.matchesGlob(file, FIRST_SECTION_COVERAGE_GLOB)) {
+    return "first-section";
+  }
+  if (path.matchesGlob(file, SECOND_SECTION_COVERAGE_GLOB)) {
+    return "second-section";
+  }
+  return "remaining-backend";
+}
+
 function moduleStatus(
   file: string,
   metrics: ModuleCoverage | undefined,
@@ -102,11 +122,10 @@ export function buildBackendCoverageInventory(
   return collectBackendCoverageSources(root).map((file) => {
     const absolutePath = path.resolve(root, file);
     const metrics = parsedSummary[absolutePath];
+    const section = sectionForFile(file);
     return {
       file,
-      section: path.matchesGlob(file, FIRST_SECTION_COVERAGE_GLOB)
-        ? "first-section"
-        : "remaining-backend",
+      section,
       status: moduleStatus(absolutePath, metrics),
       metrics: metrics ?? null,
     };
@@ -143,7 +162,7 @@ export function writeBackendCoverageInventory(root: string): void {
     path.join(directory, "scope-inventory.json"),
     `${JSON.stringify(entries, null, 2)}\n`,
   );
-  for (const section of ["first-section", "remaining-backend"] as const) {
+  for (const section of BACKEND_COVERAGE_SECTIONS) {
     const selected = entries.filter((entry) => entry.section === section);
     writeFileSync(
       path.join(directory, `${section}.tsv`),
@@ -160,7 +179,7 @@ export function writeBackendCoverageInventory(root: string): void {
     );
   }
   const incomplete = entries.filter(
-    (entry) => entry.section === "first-section" && entry.status === "open",
+    (entry) => entry.section !== "remaining-backend" && entry.status === "open",
   );
   if (incomplete.length > 0) {
     throw new Error(

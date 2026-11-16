@@ -302,6 +302,12 @@
   --color-plan-todo-failed: #dc2626;
   --color-plan-todo-label: #ffffff;
   --color-plan-todo-done-text: #087253;
+  /* Filled status marks of the run log: the shape carries the state, the
+     symbol inside stays white in both palettes like the node marks. */
+  --color-plan-log-success: var(--color-plan-todo-done);
+  --color-plan-log-warning: #d19a00;
+  --color-plan-log-error: var(--color-plan-todo-failed);
+  --color-plan-log-symbol: var(--color-plan-todo-label);
   --color-status-active: #b94b08;
   --color-status-active-subtle: #fff1e6;
 
@@ -680,6 +686,10 @@
     --color-plan-todo-failed: #dc2626;
     --color-plan-todo-label: #ffffff;
     --color-plan-todo-done-text: #75e4ab;
+    --color-plan-log-success: var(--color-plan-todo-done);
+    --color-plan-log-warning: #c99400;
+    --color-plan-log-error: var(--color-plan-todo-failed);
+    --color-plan-log-symbol: var(--color-plan-todo-label);
     --color-status-active: #fb923c;
     --color-status-active-subtle: #2a1b11;
 

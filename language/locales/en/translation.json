@@ -6163,7 +6163,22 @@
       "resumeHint_blocked": "Resume retries the blocked step once its cause is fixed; the locked successors are released again.",
       "resumeHint_closeout_open": "Resume repeats only the open closeout step.",
       "resumeHint_stopped": "Stop is final. Start the plan from the beginning.",
-      "allRuns": "View all runs of this plan"
+      "allRuns": "View all runs of this plan",
+      "runLog": {
+        "title": "Run log",
+        "current": "Current run",
+        "label": "Run log of the shown run",
+        "noRun": "No run yet. Its messages appear here once it starts.",
+        "empty": "This run has no messages yet.",
+        "loading": "Reading the run log …",
+        "failed": "The run log could not be read.",
+        "tone": {
+          "success": "Success",
+          "warning": "Warning",
+          "error": "Error",
+          "info": "Information"
+        }
+      }
     },
     "ticketPicker": {
       "choose": "Choose a ticket",
@@ -7007,6 +7022,9 @@
       "cloneName": "Copy of {{name}}",
       "cloneSource": "Copy of “{{name}}”",
       "cloneOneShotItem": "Copy as one-time plan",
+      "cleanupMenu": "Cleanups ({{count}})",
+      "cleanupTitle": "Cleanups",
+      "cleanupDescription": "Pending workspace cleanups and the history of forced releases. A cleanup only counts as done after an explicit release.",
       "cloneOneShotTitle": "Copy as one-time plan",
       "cloneOneShotLabel": "one-time",
       "cloneOneShotNote": "The copy is a one-time plan: Pages deletes it with its runs 5 minutes after a run ended successfully.",
