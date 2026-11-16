@@ -17,6 +17,7 @@ import { sharedConversationEvents } from "@/backend/service/conversation/Convers
 import { sharedPicaMobileConversationPresence } from "@/backend/service/mobile/conversations/PicaMobileConversationPresence";
 import { PicaMobileAutomationPush } from "@/backend/service/mobile/notifications/PicaMobileAutomationPush";
 import { PicaMobileConversationPush } from "@/backend/service/mobile/notifications/PicaMobileConversationPush";
+import { PicaMobileRunPausedPush } from "@/backend/service/mobile/notifications/PicaMobileRunPausedPush";
 import { createPicaMobilePushSender } from "@/backend/service/mobile/notifications/PicaMobilePushSenders";
 import { PagesPicaMobileAccountChecks } from "@/backend/service/mobile/notifications/PicaMobileAccountChecks";
 import { PicaMobileNotificationAccess } from "@/backend/service/mobile/notifications/PicaMobileNotificationAccess";
@@ -189,6 +190,14 @@ export async function createPicaMobileNotificationServices(
     replayTtlSeconds: settings.replayTtlSeconds,
     onRecorded: () => dispatcher.kick(),
   });
+  const automationPush = new PicaMobileAutomationPush(push);
+  const runPausedPush = new PicaMobileRunPausedPush({
+    runs: runAccess,
+    preferences,
+    push: automationPush,
+  });
+  const detachRecorder = sharedAgentPlanRunObservers().add(recorder);
+  const detachRunPausedPush = sharedAgentPlanRunObservers().add(runPausedPush);
   const service = new PicaMobileNotificationService({
     registrations: new PicaMobilePushRegistrations({
       repository: registrationRepository,
@@ -201,7 +210,10 @@ export async function createPicaMobileNotificationServices(
     dispatcher,
     preferences,
     isPushAvailable: sender !== null,
-    detach: sharedAgentPlanRunObservers().add(recorder),
+    detach: () => {
+      detachRecorder();
+      detachRunPausedPush();
+    },
   });
 
   if (!isLocalSessionOwner() && canProcessIntegrations()) service.start();
@@ -213,6 +225,6 @@ export async function createPicaMobileNotificationServices(
 
   return {
     picaMobileNotifications: service,
-    picaMobileAutomationPush: new PicaMobileAutomationPush(push),
+    picaMobileAutomationPush: automationPush,
   };
 }

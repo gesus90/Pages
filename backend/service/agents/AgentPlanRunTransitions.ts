@@ -29,13 +29,17 @@ export type AgentPlanRunEnding =
  * A change between two stored views of a run that is worth a notification.
  *
  * @remarks
- * Both kinds are facts of the stored run, not of a screen: a step went from
- * waiting to running, or the run left its active states for good.
+ * Every kind is a fact of the stored run, not of a screen: a step went from
+ * waiting to running, the run reached `paused`, or the run left its active
+ * states for good. Reaching `pausing` is no pause yet and announces nothing.
  */
 export type AgentPlanRunTransition =
   | {
       readonly kind: "steps_started";
       readonly steps: readonly AgentPlanStartedStep[];
+    }
+  | {
+      readonly kind: "run_paused";
     }
   | {
       readonly kind: "run_ended";
@@ -128,14 +132,15 @@ export function failureReason(run: AgentPlanRun): string | null {
  *
  * @param previous - The view before the write.
  * @param next - The view after the write.
- * @returns The started steps and the ending of the run, each at most once;
- * empty for every other write, such as a progress record or a retry of a
- * step that never left `running`.
+ * @returns The started steps, the pause and the ending of the run, each at
+ * most once; empty for every other write, such as a progress record or a retry
+ * of a step that never left `running`.
  *
  * @remarks
  * It is cheap and pure so it can run on every write of a run. A retry keeps
- * its step `running`, a pause or a stop request changes no step to `running`,
- * and an ending is reported only on the write that leaves the active states.
+ * its step `running`, a stop request changes no step to `running`, a pause is
+ * reported only by the write that reaches `paused` and never by `pausing`, and
+ * an ending is reported only on the write that leaves the active states.
  */
 export function detectPlanRunTransitions(
   previous: AgentPlanRun,
@@ -149,6 +154,10 @@ export function detectPlanRunTransitions(
 
   if (steps.length > 0) {
     transitions.push({ kind: "steps_started", steps });
+  }
+
+  if (previous.status !== "paused" && next.status === "paused") {
+    transitions.push({ kind: "run_paused" });
   }
 
   if (isActivePlanRun(previous.status) && !isActivePlanRun(next.status)) {
