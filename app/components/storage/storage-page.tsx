@@ -3,13 +3,13 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useSearchParams } from "react-router";
 
+import { useCompactScreen } from "@/app/components/chat-page/chat-menu/use-compact-screen";
 import { Button, buttonVariants } from "@/app/components/ui/button";
 import {
   STORAGE_MY_DRIVE_ID,
   STORAGE_SHARED_DRIVES_ID,
 } from "@/definition/GoogleDriveStorage";
 
-import { StorageHistory } from "./storage-history";
 import { StorageActionDialogs } from "./storage-action-dialogs";
 import {
   StorageActionError,
@@ -21,18 +21,27 @@ import { StorageContent } from "./storage-content";
 import { pathText, storageFolderHref } from "./storage-format";
 import { StorageHeader } from "./storage-header";
 import { StorageReachNotice, StorageRenamedNotice } from "./storage-notices";
+import { StoragePreview } from "./storage-preview";
+import {
+  useRestoreListFocus,
+  useStoragePreviewRoute,
+} from "./storage-preview-route";
 import { requestStartFolderChange } from "./storage-requests";
 import { StorageStartFolderPicker } from "./storage-start-folder-picker";
 import { StorageTrashPanel } from "./storage-trash-panel";
+import { useKeepListScroll } from "./use-keep-list-scroll";
 import { useStorageFolder } from "./use-storage-folder";
 import { useStorageFileManager } from "./use-storage-file-manager";
 import { useStorageFolderActions } from "./use-storage-folder-actions";
+import { useStoragePreview } from "./storage-preview/use-storage-preview";
 
 import type { StorageCapabilities } from "@/definition/GoogleDriveFiles";
 import type {
   StorageBrowseResult,
+  StorageItem,
   StorageStartFolder,
 } from "@/definition/GoogleDriveStorage";
+import type { StorageFileManager } from "./use-storage-file-manager";
 import type { StorageFolderActions } from "./use-storage-folder-actions";
 
 /** The folder of the address; without one the start folder opens. */
@@ -239,9 +248,68 @@ function StorageLoadedControls(props: {
   );
 }
 
+/** The dialogs, the menus above the list and the start folder picker. */
+function StorageLayers(props: {
+  readonly result: StorageBrowseResult | null;
+  readonly writing: StorageFolderActions;
+  readonly manager: StorageFileManager;
+  readonly isPickerOpen: boolean;
+  readonly onPickerOpenChange: (isOpen: boolean) => void;
+  readonly onSaved: (startFolder: StorageStartFolder | null) => void;
+}): React.ReactElement {
+  const { result } = props;
+
+  return (
+    <>
+      <StorageActionDialogs actions={props.writing.actions} />
+      {props.manager.overlays}
+      {result && !result.isScoped ? (
+        <StorageStartFolderPicker
+          initialFolderId={
+            result.folder?.canBeStartFolder
+              ? result.folder.folderId
+              : STORAGE_MY_DRIVE_ID
+          }
+          isOpen={props.isPickerOpen}
+          onOpenChange={props.onPickerOpenChange}
+          onSaved={props.onSaved}
+          startFolder={result.startFolder}
+        />
+      ) : null}
+    </>
+  );
+}
+
+/** The preview a `file` parameter asks for: its state, name and the way out. */
+function useStoragePagePreview(result: StorageBrowseResult | null): {
+  readonly route: ReturnType<typeof useStoragePreviewRoute>;
+  readonly model: ReturnType<typeof useStoragePreview>;
+  readonly listed: StorageItem | null;
+  readonly fileName: string | null;
+} {
+  const route = useStoragePreviewRoute();
+  const model = useStoragePreview(route.fileRef);
+  const listed =
+    result?.folder?.items.find((item) => item.id === route.fileRef) ?? null;
+  const name = model.outcome?.entry?.name ?? listed?.name ?? "";
+
+  useRestoreListFocus(route.fileRef);
+
+  return {
+    fileName: name === "" ? null : name,
+    listed,
+    model,
+    route,
+  };
+}
+
 /**
  * The Storage area: the Google Drive of the existing instance
  * connection, with path, file list, start folder and storage quota.
+ * @remarks
+ * A file name opens a read-only preview in place of the list card, addressed
+ * by `?file=`. The list, its selection and its scroll position stay in
+ * place behind it, so closing returns to exactly where the person was.
  */
 export function StoragePage(): React.ReactElement {
   const [searchParams] = useSearchParams();
@@ -257,6 +325,11 @@ export function StoragePage(): React.ReactElement {
       : model.previousResult;
   const writing = useStorageFolderActions(result, model.reload);
   const manager = useStorageFileManager(result, writing, model.reload);
+  const preview = useStoragePagePreview(result);
+  const { route } = preview;
+  const isPreviewing = route.fileRef !== null;
+  const isPhone = useCompactScreen();
+  const handleListScroll = useKeepListScroll(isPreviewing);
 
   function toggleTrash(): void {
     // A restore in the trash may bring entries back into the shown folder.
@@ -283,51 +356,59 @@ export function StoragePage(): React.ReactElement {
 
   return (
     <StorageFrame>
-      <StorageHeader
-        isConnected={result !== null}
-        path={result?.folder?.path ?? []}
-      />
-      <StorageLoadedControls
-        result={result}
-        folderId={folderId}
-        isSwitching={model.previousResult !== null}
-        isTrashOpen={isTrashOpen}
-        writing={writing}
-        onChoose={() => setIsPickerOpen(true)}
-        onToggleTrash={toggleTrash}
-      />
-      {isTrashOpen ? null : manager.notices}
-      {isTrashOpen ? (
-        <StorageTrashPanel canWrite={writing.canWrite} />
-      ) : (
-        <StorageContent
-          model={model}
-          onChooseStartFolder={() => setIsPickerOpen(true)}
-          onClearStartFolder={() => void clearStartFolder()}
-          renderActions={writing.renderActions}
-          tools={manager.tools}
+      {/* Behind a full-screen preview nothing of the page can be reached. */}
+      <div className="contents" inert={isPreviewing && isPhone}>
+        <StorageHeader
+          fileName={preview.fileName}
+          isConnected={result !== null}
+          path={result?.folder?.path ?? []}
+        />
+      </div>
+      {/* The list stays mounted behind the preview, so its selection, scroll
+          position and folder survive; it is only not shown. */}
+      <div
+        className={isPreviewing ? "hidden" : "contents"}
+        onScrollCapture={handleListScroll}
+      >
+        <StorageLoadedControls
+          result={result}
+          folderId={folderId}
+          isSwitching={model.previousResult !== null}
+          isTrashOpen={isTrashOpen}
+          writing={writing}
+          onChoose={() => setIsPickerOpen(true)}
+          onToggleTrash={toggleTrash}
+        />
+        {isTrashOpen ? null : manager.notices}
+        {isTrashOpen ? (
+          <StorageTrashPanel canWrite={writing.canWrite} />
+        ) : (
+          <StorageContent
+            model={model}
+            onChooseStartFolder={() => setIsPickerOpen(true)}
+            onClearStartFolder={() => void clearStartFolder()}
+            renderActions={writing.renderActions}
+            tools={manager.tools}
+          />
+        )}
+      </div>
+      {route.fileRef === null ? null : (
+        <StoragePreview
+          fileRef={route.fileRef}
+          key={route.fileRef}
+          listed={preview.listed}
+          model={preview.model}
+          onClose={route.close}
         />
       )}
-      <StorageHistory
-        key={result?.folder?.items
-          .map((item) => `${item.id}:${item.modifiedAt ?? ""}`)
-          .join(",")}
+      <StorageLayers
+        isPickerOpen={isPickerOpen}
+        manager={manager}
+        onPickerOpenChange={setIsPickerOpen}
+        onSaved={handleSaved}
+        result={result}
+        writing={writing}
       />
-      <StorageActionDialogs actions={writing.actions} />
-      {manager.overlays}
-      {result && !result.isScoped ? (
-        <StorageStartFolderPicker
-          initialFolderId={
-            result.folder?.canBeStartFolder
-              ? result.folder.folderId
-              : STORAGE_MY_DRIVE_ID
-          }
-          isOpen={isPickerOpen}
-          onOpenChange={setIsPickerOpen}
-          onSaved={handleSaved}
-          startFolder={result.startFolder}
-        />
-      ) : null}
     </StorageFrame>
   );
 }

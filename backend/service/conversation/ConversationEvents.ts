@@ -98,7 +98,8 @@ export class ConversationEvents {
       try {
         listener(event);
       } catch (error: unknown) {
-        logCaughtError(COMPONENT, error);
+        // A listener can start an answer; its failure must show in the log.
+        logCaughtError(COMPONENT, error, "error");
       }
     }
   }

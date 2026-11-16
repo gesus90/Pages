@@ -33,6 +33,7 @@ import type {
 
 /** One consistent read of the run, its completion and its separate recovery audit. */
 export interface AgentPlanRecoveryRecord {
+  readonly hasReservation: boolean;
   readonly run: AgentPlanRun;
   readonly revision: number;
   readonly checkpoint: AgentPlanCheckpoint | null;
@@ -118,8 +119,13 @@ export class AgentPlanRecoveryRepository {
         `,
         { run_id: runId },
       );
+      const reservation = await transaction.query(
+        "SELECT 1 FROM agent_plan_workspace_locks WHERE run_id = $run_id LIMIT 1;",
+        { run_id: runId },
+      );
       return {
         ...progress,
+        hasReservation: reservation.length > 0,
         checkpoint,
         attempts: rows.map((row) =>
           readPlanRepairAttempt(

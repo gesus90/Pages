@@ -1,5 +1,9 @@
 import path from "node:path";
 
+import { createPlanWorkspaceLocks } from "./agent-plan-run-access.server";
+import type { AgentPlanWorkspaceLocks } from "@/backend/service/agents/AgentPlanWorkspaceLocks";
+import type { AgentPlanPreparation } from "@/backend/service/agents/AgentPlanPreparation";
+
 import { AgentSessionRepository } from "@/backend/database/repositories/agent/AgentSessionRepository";
 import { CodexPlanUsageRepository } from "@/backend/database/repositories/agent/CodexPlanUsageRepository";
 import { CodexAgentBudget } from "@/backend/service/agents/usage/CodexAgentBudget";
@@ -33,7 +37,8 @@ import { AgentPlanAutoResume } from "@/backend/service/agents/recovery/AgentPlan
 import { AgentPlanRecoveryService } from "@/backend/service/agents/recovery/AgentPlanRecoveryService";
 import { AgentPlanStartRejectionRepository } from "@/backend/database/repositories/agent/AgentPlanStartRejectionRepository";
 import { AgentPlanCleanupFailureRepository } from "@/backend/database/repositories/agent/AgentPlanCleanupFailureRepository";
-import { AgentPlanPreparation } from "@/backend/service/agents/AgentPlanPreparation";
+import { planAssetsOf } from "./agent-plan-preparation.server";
+import { createPlanPreparation } from "./agent-plan-preparation.server";
 import { AgentPlanScripts } from "@/backend/service/agents/AgentPlanScripts";
 import { AgentPlanScriptPreparation } from "@/backend/service/agents/AgentPlanScriptPreparation";
 import { AgentPlanScriptRunner } from "@/backend/service/agents/AgentPlanScriptRunner";
@@ -57,20 +62,18 @@ import { createModelNodeRunners } from "./agent-plan-swarm.server";
 import { createPlanTodoProgress } from "./agent-plan-todo-progress.server";
 import { upgradeStoredPlans } from "./agent-plan-upgrade.server";
 import { startOneShotPlanDeletion } from "./agent-plan-one-shot-services.server";
+import { createRunDiagnosis } from "./run-diagnosis-services.server";
 import {
-  createRunDiagnosis,
-  readableSessionRun,
-} from "./run-diagnosis-services.server";
+  attachRunOwnership,
+  sessionRunAccess,
+} from "./agent-plan-run-access.server";
 import { createPlanRemoteServices } from "./agent-plan-remote-services.server";
 import {
   createPlanWorkspaceAccess,
   planAccessRecords,
 } from "./plan-access-services.server";
 
-import type {
-  AgentSessionRunAccess,
-  AgentSessionService,
-} from "@/backend/service/agents/sessions/AgentSessionService";
+import type { AgentSessionService } from "@/backend/service/agents/sessions/AgentSessionService";
 import type { AgentPlanActiveRunService } from "@/backend/service/agents/AgentPlanActiveRuns";
 import type { AgentPlanOverviewService } from "@/backend/service/agents/AgentPlanOverview";
 import type { AgentPlanRunHistoryService } from "@/backend/service/agents/AgentPlanRunHistoryService";
@@ -181,15 +184,6 @@ function planScripts(): AgentPlanScripts {
   });
 }
 
-/** The file store of asset nodes, where one was wired. */
-function planAssetsOf(
-  agents: Pick<AgentApplicationServices, "agentPlanAssetService">,
-): Pick<PlanDependencies, "planAssets"> {
-  return agents.agentPlanAssetService
-    ? { planAssets: agents.agentPlanAssetService }
-    : {};
-}
-
 /** The stores and gates of the plan service that need only the instance's own services. */
 function planRecords(input: {
   readonly database: Database;
@@ -282,7 +276,7 @@ async function initializePlanProcessing(input: PlanProcessingInput): Promise<{
     sessions,
     pageAgentSessions,
   });
-  const preparation = new AgentPlanPreparation({
+  const preparation = createPlanPreparation(input, {
     access,
     workspaceCatalog,
     remoteExecution,
@@ -291,17 +285,15 @@ async function initializePlanProcessing(input: PlanProcessingInput): Promise<{
     profiles,
     parameters,
     tasks,
-    ...planAssetsOf(input.agents),
   });
   const resumeAdvisor: AgentPlanResumeAdvisorSlot = { current: null };
   const diagnosis = createRunDiagnosis(input);
+  const workspaceLocks = createPlanWorkspaceLocks(input, engine);
   const dependencies: PlanDependencies = {
+    workspaceLocks,
     ...planRecords(input),
     ...diagnosis.dependencies,
     resumeAdvisor,
-    startResources: new AgentPlanStartResources({
-      repository: new AgentPlanStartResourceRepository(input.database),
-    }),
     workspaceCatalog,
     remoteExecution,
     remoteTargets,
@@ -321,9 +313,18 @@ async function initializePlanProcessing(input: PlanProcessingInput): Promise<{
   await input.beforeRecovery?.(dependencies, service);
   const recovery = await startPlanRecovery(
     input,
-    { service, access, preparation, engine, runs, remoteExecution },
+    {
+      service,
+      access,
+      preparation,
+      engine,
+      runs,
+      remoteExecution,
+      workspaceLocks,
+    },
     resumeAdvisor,
   );
+  if (canProcessRuns()) await workspaceLocks.start();
   return {
     dependencies,
     services: {
@@ -339,26 +340,6 @@ async function initializePlanProcessing(input: PlanProcessingInput): Promise<{
       agentRunDiagnosisSettingsService: diagnosis.settings,
     },
   };
-}
-
-function sessionRunAccess(
-  service: () => AgentPlanService,
-): AgentSessionRunAccess {
-  return {
-    run: (userId, id) => service().run(userId, id),
-    readableRun: (userId, id) => readableSessionRun(service(), userId, id),
-    stop: (userId, id) => service().stop(userId, id),
-  };
-}
-
-/** The runner facts learn which runs an engine of this process still drives. */
-function attachRunOwnership(
-  runners: AgentApplicationServices["runnerService"],
-  engine: PlanRunEnginePort,
-): void {
-  const localEngine: AgentPlanRunEngine | null =
-    engine instanceof AgentPlanRunEngine ? engine : null;
-  runners.attachRunOwnership((id) => localEngine?.isActive(id) ?? true);
 }
 
 function createPlanStepStart(
@@ -386,12 +367,19 @@ async function startOwnedPlanProcessing(
     readonly runs: AgentPlanRunRepository;
     readonly engine: PlanRunEnginePort;
     readonly remoteExecution: AgentPlanRemoteExecution;
+    readonly workspaceLocks: AgentPlanWorkspaceLocks;
   },
 ): Promise<void> {
   if (!canProcessRuns()) return;
-  const { service, runs, engine, remoteExecution } = parts;
+  const { service, runs, engine, remoteExecution, workspaceLocks } = parts;
   await recoverRuns(input, service);
-  startWorkspaceCleanup(input.database, runs, engine, remoteExecution);
+  startWorkspaceCleanup({
+    database: input.database,
+    runs,
+    engine,
+    remoteExecution,
+    workspaceLocks,
+  });
   startOneShotPlanDeletion(input.database);
   if (!(engine instanceof AgentPlanRunEngine)) return;
   const runtime = await getPagesRuntime();
@@ -423,17 +411,19 @@ async function startPlanRecovery(
   return recovery;
 }
 
-function startWorkspaceCleanup(
-  database: Database,
-  runs: AgentPlanRunRepository,
-  engine: PlanRunEnginePort,
-  remoteExecution: AgentPlanRemoteExecution,
-): void {
+function startWorkspaceCleanup(input: {
+  readonly database: Database;
+  readonly runs: AgentPlanRunRepository;
+  readonly engine: PlanRunEnginePort;
+  readonly remoteExecution: AgentPlanRemoteExecution;
+  readonly workspaceLocks: AgentPlanWorkspaceLocks;
+}): void {
   new AgentWorkspaceCleanupService({
-    obligations: new AgentWorkspaceCleanupRepository(database),
-    runs,
-    engine,
-    remote: remoteExecution,
+    obligations: new AgentWorkspaceCleanupRepository(input.database),
+    runs: input.runs,
+    engine: input.engine,
+    remote: input.remoteExecution,
+    workspaceLocks: input.workspaceLocks,
   }).start();
 }
 
@@ -505,6 +495,7 @@ function createRecoveryService(
     readonly engine: PlanRunEnginePort;
     readonly runs: AgentPlanRunRepository;
     readonly remoteExecution: AgentPlanRemoteExecution;
+    readonly workspaceLocks: AgentPlanWorkspaceLocks;
   },
 ): AgentPlanRecoveryService {
   return new AgentPlanRecoveryService({
@@ -519,6 +510,7 @@ function createRecoveryService(
       planRuns: parts.runs,
       remoteExecution: parts.remoteExecution,
       resources: input.agents.acpResourceScheduler,
+      workspaceLocks: parts.workspaceLocks,
       restartOwners: new AgentPlanStartResourceRepository(input.database),
       executions: new AgentPlanRecoveryExecutionRepository(input.database),
     },

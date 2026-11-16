@@ -64,6 +64,7 @@ const UNAVAILABLE = {
 /** The view of a composition without an execution boundary, which can only record decisions. */
 function recordingOnly(
   run: AgentPlanRun,
+  hasReservation = false,
 ): Pick<
   AgentPlanRecoveryView,
   | "planRevision"
@@ -81,7 +82,7 @@ function recordingOnly(
     currentPlanRevision: run.planRevision,
     continuedBy: null,
     executions: [],
-    isCleanupUnconfirmed: false,
+    isCleanupUnconfirmed: hasReservation,
     restart: UNAVAILABLE,
     release: UNAVAILABLE,
     resume: {
@@ -294,7 +295,7 @@ export class AgentPlanRecoveryService {
           (await this.actions.facts(userId, runId, undefined, hasHistoryAccess))
             .facts,
         )
-      : recordingOnly(record.run);
+      : recordingOnly(record.run, record.hasReservation);
     if (!hasHistoryAccess) return controlRecoveryView(record, options);
     return this.fullView(userId, record, options);
   }
@@ -446,7 +447,7 @@ export class AgentPlanRecoveryService {
       record.run.id,
     );
     if (!readable) throw new AgentPlanRecoveryError("access_denied");
-    const options = recordingOnly(record.run);
+    const options = recordingOnly(record.run, record.hasReservation);
     if (readable.hiddenFields.length > 0)
       return controlRecoveryView(record, options);
     return {

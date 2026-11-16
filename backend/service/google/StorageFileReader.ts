@@ -12,6 +12,7 @@ import {
   readLiveFolder,
   storageFailure,
 } from "@/backend/service/google/StorageFileSupport";
+import { STORAGE_MAX_READ_BYTES } from "@/definition/GoogleDriveFiles";
 import { STORAGE_SHARED_DRIVES_ID } from "@/definition/GoogleDriveStorage";
 
 import type { DriveMedia } from "@/backend/google/GoogleDriveItemsClient";
@@ -33,9 +34,6 @@ export const STORAGE_PAGE_SIZE_LIMIT = 1000;
 
 /** The default page size of `list` and `search`. */
 const DEFAULT_PAGE_SIZE = 100;
-
-/** The most bytes `read` returns inline; larger files go through `download`. */
-export const STORAGE_MAX_READ_BYTES = 1024 * 1024;
 
 const MAXIMUM_PATH_STEPS = 30;
 const MAXIMUM_SEARCH_LENGTH = 200;

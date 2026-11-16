@@ -1,5 +1,6 @@
-import { Download, MoreHorizontal } from "lucide-react";
+import { Download, ExternalLink, Eye, MoreHorizontal } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { Link, useSearchParams } from "react-router";
 
 import { Button } from "@/app/components/ui/button";
 import {
@@ -13,6 +14,8 @@ import {
 } from "@/app/components/ui/dropdown-menu";
 
 import { storageDownloadHref } from "./storage-actions-requests";
+import { driveLinkOf } from "./storage-format";
+import { storageFileLink } from "./storage-preview-route";
 
 import type {
   StorageActionsModel,
@@ -44,6 +47,8 @@ export interface StorageFileActionTarget extends StorageActionTarget {
   readonly mimeType: string;
   /** The export formats of a Google document, else empty. */
   readonly exportFormats: readonly string[];
+  /** Google's own page of the file, offered only as a deliberate extra. */
+  readonly webViewLink: string | null;
 }
 
 interface StorageFileActionsProps {
@@ -98,22 +103,57 @@ function DownloadItems({
   );
 }
 
+function OpenItems({
+  target,
+}: {
+  readonly target: StorageFileActionTarget;
+}): React.ReactElement {
+  const { t } = useTranslation();
+  const [searchParams] = useSearchParams();
+  const { state, to } = storageFileLink(searchParams, target.ref);
+
+  return (
+    <DropdownMenuItem asChild>
+      <Link state={state} to={to}>
+        <Eye aria-hidden="true" className="mr-2 size-4" />
+        {t("storage.actions.open")}
+      </Link>
+    </DropdownMenuItem>
+  );
+}
+
+/** "In Google Drive öffnen" is a deliberate choice; no name or icon opens Drive. */
+function DriveItem({ link }: { readonly link: string }): React.ReactElement {
+  const { t } = useTranslation();
+
+  return (
+    <DropdownMenuItem asChild>
+      <a
+        href={link}
+        referrerPolicy="no-referrer"
+        rel="noopener noreferrer"
+        target="_blank"
+      >
+        <ExternalLink aria-hidden="true" className="mr-2 size-4" />
+        {t("storage.list.openInDrive")}
+      </a>
+    </DropdownMenuItem>
+  );
+}
+
 /**
- * The menu of one file: download, with the export formats of a Google
- * document. Changing actions live in the menu bar and the context menu of
- * the list.
+ * The menu of one file: open in the preview, download with the export formats
+ * of a Google document, and open in Google Drive when Drive names a page.
+ * Changing actions live in the menu bar and the context menu of the list.
  */
 export function StorageFileActions({
   target,
   actions,
 }: StorageFileActionsProps): React.ReactElement | null {
   const { t } = useTranslation();
-  const hasDownload =
-    !target.isFolder &&
-    (!target.mimeType.startsWith(GOOGLE_APPS_PREFIX) ||
-      target.exportFormats.length > 0);
+  const driveLink = driveLinkOf(target.webViewLink);
 
-  if (!hasDownload) {
+  if (target.isFolder) {
     return null;
   }
 
@@ -131,7 +171,9 @@ export function StorageFileActions({
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
+        <OpenItems target={target} />
         <DownloadItems target={target} />
+        {driveLink === null ? null : <DriveItem link={driveLink} />}
       </DropdownMenuContent>
     </DropdownMenu>
   );

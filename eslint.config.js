@@ -120,6 +120,8 @@ const typedSourceFiles = [
   "backend/**/*.ts",
   "definition/**/*.ts",
   "language/**/*.ts",
+  "vitest.backend.config.ts",
+  "scripts/backend-coverage-report.ts",
 ];
 
 /** ESLint flat configuration for Pages. */

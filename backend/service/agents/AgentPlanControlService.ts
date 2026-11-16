@@ -1,4 +1,5 @@
-import type { AgentWorkspaceCleanupRepository } from "@/backend/database/repositories/agent/AgentWorkspaceCleanupRepository";
+import { canReleasePlanWorkspaceLocks } from "@/definition/AgentPlanWorkspaceLock";
+import { planWritingWorkspaces } from "./AgentPlanContinuation";
 import { canRunPlan } from "@/definition/AgentPlanTeam";
 import { planStartIssues } from "@/definition/AgentPlanStart";
 import { AgentError } from "@/backend/error/AgentErrors";
@@ -13,6 +14,8 @@ import {
   resumeBlockFromRecovery,
 } from "./AgentPlanResumeBlocks";
 import { visibleStartRejection } from "./AgentPlanStartRejectionVisibility";
+import type { AgentWorkspaceCleanupRepository } from "@/backend/database/repositories/agent/AgentWorkspaceCleanupRepository";
+import type { AgentPlanWorkspaceLocks } from "./AgentPlanWorkspaceLocks";
 import type { AgentPlanIssue } from "@/definition/AgentPlanGraph";
 import type {
   AgentPlanControl,
@@ -38,6 +41,7 @@ import type { AgentPlanWorkspaces } from "./AgentPlanWorkspaces";
 import type { AgentWorkspaceService } from "./AgentWorkspaceService";
 
 interface ControlDependencies {
+  readonly workspaceLocks?: AgentPlanWorkspaceLocks;
   readonly workspaceCleanup?: AgentWorkspaceCleanupRepository;
   readonly access: Pick<AgentPlanAccess, "require">;
   readonly profiles: Pick<AgentProfileService, "catalog">;
@@ -64,6 +68,7 @@ interface ResumeContext {
 }
 
 interface ExecutionIssue {
+  readonly resources?: readonly string[];
   readonly code: string | null;
   readonly conflict?: AgentPlanWorkspaceConflict;
 }
@@ -92,6 +97,21 @@ function withStartRejection(
 ): AgentPlanControl {
   return rejection ? { ...control, lastStartRejection: rejection } : control;
 }
+function addWaitingResource(
+  run: AgentPlanRun | null,
+  resources: string[],
+): void {
+  if (run?.workspaceWait?.resource) resources.push(run.workspaceWait.resource);
+}
+
+function isRunInProgress(run: AgentPlanRun): boolean {
+  return (
+    run.status === "running" ||
+    run.status === "pausing" ||
+    run.status === "stopping"
+  );
+}
+
 /** Server-side action availability, including current graph and execution-context refusals. */
 export class AgentPlanControlService {
   private readonly dependencies: ControlDependencies;
@@ -101,52 +121,16 @@ export class AgentPlanControlService {
   /** Shared readers see state without prompts, results or session capabilities. */
   public async read(userId: string, planId: string): Promise<AgentPlanControl> {
     const plan = await this.dependencies.access.require(userId, planId);
-    const run = await this.dependencies.runs.latest(planId);
-    const base = planControl(plan, run, {
-      userId,
-      hasReservation: run
-        ? await this.dependencies.runs.hasReservation(run.id)
-        : false,
-    });
-    const control = await this.withCleanup(base, userId, plan);
-    const rejection = canRunPlan(plan)
-      ? await this.visibleStartRejection(userId, plan)
-      : null;
-    const context: ResumeContext = { userId, run, conflict: undefined };
-    if (plan.isWorkspaceMissing)
-      return this.withResume(
-        withStartRejection(
-          {
-            ...control,
-            canPlay: control.canRestart === true,
-            canResume: false,
-            issue: "workspace_not_found",
-          },
-          rejection,
-        ),
-        context,
-      );
-    if (!canRunPlan(plan)) return control;
-    if (
-      run &&
-      (run.status === "running" ||
-        run.status === "pausing" ||
-        run.status === "stopping")
-    )
-      return withStartRejection(control, rejection);
-    const issues = [...planStartIssues(plan)];
-    const execution = await this.executionIssue(userId, plan, issues);
-    let issue = execution.code ?? control.issue;
-    if (run?.status === "paused" && (await this.hasChangedContext(run, plan)))
-      issue = "plan_context_changed";
-    const conflict = issue === execution.code ? execution.conflict : undefined;
-    return this.withResume(
-      withStartRejection(
-        withExecutionIssue(control, issues, issue, conflict),
-        rejection,
+    const context = { resources: [plan.workspaceId] };
+    const control = await this.readControl(userId, plan, context);
+    return {
+      ...control,
+      workspaceLocks: await this.workspaceLocks(
+        userId,
+        plan,
+        context.resources,
       ),
-      { userId, run, conflict },
-    );
+    };
   }
 
   /** Reads one historical refusal after rechecking current editor and target rights. */
@@ -172,6 +156,77 @@ export class AgentPlanControlService {
         page.entry,
       ),
     };
+  }
+
+  private async readControl(
+    userId: string,
+    plan: AgentPlanView,
+    locks: { resources: string[] },
+  ): Promise<AgentPlanControl> {
+    const run = await this.dependencies.runs.latest(plan.id);
+    addWaitingResource(run, locks.resources);
+    const base = planControl(plan, run, {
+      userId,
+      hasReservation: run
+        ? await this.dependencies.runs.hasReservation(run.id)
+        : false,
+    });
+    const control = await this.withCleanup(base, userId, plan);
+    const rejection = canRunPlan(plan)
+      ? await this.visibleStartRejection(userId, plan)
+      : null;
+    const context: ResumeContext = { userId, run, conflict: undefined };
+    if (plan.isWorkspaceMissing)
+      return this.withResume(
+        withStartRejection(
+          {
+            ...control,
+            canPlay: control.canRestart === true,
+            canResume: false,
+            issue: "workspace_not_found",
+          },
+          rejection,
+        ),
+        context,
+      );
+    if (!canRunPlan(plan)) return control;
+    if (run && isRunInProgress(run))
+      return withStartRejection(control, rejection);
+    const issues = [...planStartIssues(plan)];
+    const execution = await this.executionIssue(userId, plan, issues);
+    locks.resources.push(...(execution.resources ?? []));
+    let issue = execution.code ?? control.issue;
+    if (run?.status === "paused" && (await this.hasChangedContext(run, plan)))
+      issue = "plan_context_changed";
+    const conflict = issue === execution.code ? execution.conflict : undefined;
+    return this.withResume(
+      withStartRejection(
+        withExecutionIssue(control, issues, issue, conflict),
+        rejection,
+      ),
+      { userId, run, conflict },
+    );
+  }
+
+  private async workspaceLocks(
+    userId: string,
+    plan: AgentPlanView,
+    resources: readonly string[],
+  ): Promise<AgentPlanControl["workspaceLocks"]> {
+    const locks = this.dependencies.workspaceLocks;
+    if (!locks) return undefined;
+    return locks.views(plan.id, resources, async (run) => {
+      try {
+        const holder = await this.dependencies.access.require(
+          userId,
+          run.planId,
+        );
+        return canReleasePlanWorkspaceLocks(holder, userId);
+      } catch (error: unknown) {
+        if (!(error instanceof AgentError)) throw error;
+        return null;
+      }
+    });
   }
 
   private async withCleanup(
@@ -229,7 +284,7 @@ export class AgentPlanControlService {
         plan,
       );
       if (!snapshot) return { code: null };
-      return { code: null };
+      return { code: null, resources: planWritingWorkspaces(snapshot) };
     } catch (error: unknown) {
       if (error instanceof AgentPlanWorkspaceConflictError)
         return { code: error.code, conflict: error.conflict };

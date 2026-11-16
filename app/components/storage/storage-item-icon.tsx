@@ -59,8 +59,11 @@ const KIND_STYLES: Readonly<
  */
 export function StorageItemIcon({
   kind,
+  isLarge = false,
 }: {
   readonly kind: StorageItemKind;
+  /** The tile of a preview head: 40 px instead of 32 px. */
+  readonly isLarge?: boolean;
 }): React.ReactElement {
   const { icon: Icon, tone } = KIND_STYLES[kind];
 
@@ -68,12 +71,18 @@ export function StorageItemIcon({
     <span
       aria-hidden="true"
       className={cn(
-        "flex size-8 shrink-0 items-center justify-center rounded-lg",
+        "flex shrink-0 items-center justify-center rounded-lg",
+        isLarge ? "size-10" : "size-8",
         tone,
       )}
       data-kind={kind}
     >
-      <Icon className={kind === "folder" ? "size-4 fill-current" : "size-4"} />
+      <Icon
+        className={cn(
+          isLarge ? "size-5" : "size-4",
+          kind === "folder" ? "fill-current" : null,
+        )}
+      />
     </span>
   );
 }

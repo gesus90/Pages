@@ -187,6 +187,7 @@ export class AcpResourceScheduler {
         finish: (id, confirmed) => this.finish(id, confirmed),
       },
     );
+    await this.checks.reconcile();
     this.isReady = true;
     this.wake();
     // The periodic check runs with the service, also without queue or open settings page.
@@ -359,6 +360,11 @@ export class AcpResourceScheduler {
         finish: (id, confirmed) => this.finish(id, confirmed),
       });
     return this.checks.reconcile(runId);
+  }
+
+  /** Checks idle failed leases without signalling processes, including leases of plan runs. */
+  public checkEndedLeases(): Promise<number> {
+    return this.checks.reconcile();
   }
 
   /** Stops all durable leases of an explicitly restarting run before releasing any capacity. */

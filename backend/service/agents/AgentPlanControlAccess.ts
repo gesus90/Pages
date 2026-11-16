@@ -41,7 +41,7 @@ export async function readPlanControlRun(
   readonly hasHistoryAccess: boolean;
 }> {
   const owned = await plans.controlRun(userId, runId);
-  if (owned.planId !== planId || owned.userId !== userId || owned.id !== runId)
+  if (owned.planId !== planId || owned.id !== runId)
     throw new AgentError("plan_access_denied");
   const continuationVersion = owned.continuation?.version ?? 0;
   try {
@@ -54,11 +54,7 @@ export async function readPlanControlRun(
     if (!isPlanHistoryReadFailure(error)) throw error;
     // Recheck ownership after the failed read, which may itself reflect revoked plan rights.
     const current = await plans.controlRun(userId, runId);
-    if (
-      current.planId !== planId ||
-      current.userId !== userId ||
-      current.id !== runId
-    )
+    if (current.planId !== planId || current.id !== runId)
       throw new AgentError("plan_access_denied");
     return {
       run: controlOnlyRun(current),
@@ -102,6 +98,7 @@ export function controlOnlyPlanControl(
   return {
     runId: access.run.id,
     status: access.run.status,
+    workspaceLocks: control.workspaceLocks,
     canPlay: control.canRestart === true,
     canRestart: control.canRestart,
     canEdit: control.canEdit,

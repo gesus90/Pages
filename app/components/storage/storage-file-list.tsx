@@ -1,6 +1,5 @@
-import { ExternalLink } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { Link } from "react-router";
+import { Link, useSearchParams } from "react-router";
 
 import { Checkbox } from "@/app/components/ui/checkbox";
 import { cn } from "@/app/lib/cn";
@@ -12,6 +11,7 @@ import {
 } from "./storage-format";
 import { StorageItemIcon } from "./storage-item-icon";
 import { storageItemKind } from "./storage-item-kind";
+import { storageFileLink } from "./storage-preview-route";
 
 import type { StorageItem } from "@/definition/GoogleDriveStorage";
 import type { ReactNode } from "react";
@@ -50,12 +50,17 @@ function menuPoint(event: React.MouseEvent<HTMLElement>): StorageMenuPoint {
   return { x: box.left + 24, y: box.top + box.height / 2 };
 }
 
+/**
+ * The name of an entry: a folder opens as the shown folder, a file opens in
+ * the preview inside Storage, with or without a link to Google.
+ */
 function ItemName({
   item,
 }: {
   readonly item: StorageItem;
 }): React.ReactElement {
   const { t } = useTranslation();
+  const [searchParams] = useSearchParams();
   const name = item.name === "" ? t("storage.untitled") : item.name;
   const icon = <StorageItemIcon kind={storageItemKind(item)} />;
   const linkClass =
@@ -70,31 +75,18 @@ function ItemName({
     );
   }
 
-  if (item.webViewLink === null) {
-    return (
-      <span className="flex min-w-0 items-center gap-3 py-0.5">
-        {icon}
-        <span className="truncate">{name}</span>
-      </span>
-    );
-  }
+  const { state, to } = storageFileLink(searchParams, item.id);
 
   return (
-    <a
+    <Link
       className={linkClass}
-      href={item.webViewLink}
-      referrerPolicy="no-referrer"
-      rel="noopener noreferrer"
-      target="_blank"
-      title={t("storage.list.openInDrive")}
+      data-storage-file={item.id}
+      state={state}
+      to={to}
     >
       {icon}
       <span className="truncate">{name}</span>
-      <ExternalLink
-        aria-hidden="true"
-        className="size-3.5 shrink-0 text-muted-foreground"
-      />
-    </a>
+    </Link>
   );
 }
 
@@ -225,7 +217,8 @@ function SelectAllCell({
  * @remarks
  * With a selection a click on a row selects it, Ctrl/Cmd-click
  * adds or removes it, Space does the same from the keyboard, and the
- * multi-select mode shows checkboxes. Names keep opening folders and files.
+ * multi-select mode shows checkboxes. Names keep opening folders and open files
+ * in the preview.
  * A right click selects only an unselected row and opens the own menu.
  */
 export function StorageFileList({

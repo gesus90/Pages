@@ -44,6 +44,9 @@ export const STORAGE_READ_OPERATIONS: readonly StorageOperation[] = [
   "capabilities",
 ];
 
+/** The most bytes `read` returns inline and the Storage preview shows of a text; larger files go through `download`. */
+export const STORAGE_MAX_READ_BYTES = 1024 * 1024;
+
 /** The actions a confirmation can be issued for. */
 export type StorageConfirmableAction =
   "delete" | "delete_permanently" | "update" | "overwrite";

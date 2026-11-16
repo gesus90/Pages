@@ -227,6 +227,9 @@ export async function purgeEarlierPlanRuns(
   database: PlanRunPurgeDatabase,
   keptRunId: string,
 ): Promise<boolean> {
+  // The intent names the kept anchor, not the earlier blocked run. A newer
+  // purge may already have deleted that anchor; its obsolete intent is then
+  // complete, rather than repeatedly claiming that a nonexistent run is stuck.
   const earlier = await database.query(EARLIER_RUNS, {
     kept_run_id: keptRunId,
   });
@@ -235,6 +238,13 @@ export async function purgeEarlierPlanRuns(
     if (!(await purgeRun(database, readTextColumn(row, 0, "id"))))
       isComplete = false;
   await deleteEarlierRefusals(database, keptRunId);
+  if (!isComplete) {
+    const [anchor] = await database.query(
+      "SELECT id FROM agent_plan_runs WHERE id = $kept_run_id;",
+      { kept_run_id: keptRunId },
+    );
+    if (!anchor) return true;
+  }
   return isComplete;
 }
 

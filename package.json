@@ -12,6 +12,7 @@
     "format": "prettier --write .",
     "lint": "PAGES_ROUTES=all react-router typegen && node scripts/run-lint.mjs",
     "check": "PAGES_ROUTES=all react-router typegen && NODE_OPTIONS=--max-old-space-size=4096 tsc --noEmit && prettier --check .",
+    "test:backend": "vitest run --config vitest.backend.config.ts --coverage && tsx scripts/backend-coverage-report.ts",
     "postgres:restore-check": "tsx scripts/postgres-restore-check.ts",
     "db:transfer": "tsx scripts/db-transfer.ts",
     "clean": "node -e \"require('node:fs').rmSync('build', { recursive: true, force: true })\""
@@ -80,6 +81,7 @@
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@types/ws": "^8.18.2",
+    "@vitest/coverage-v8": "5.0.3",
     "eslint": "^10.11.0",
     "eslint-plugin-jsdoc": "^64.5.4",
     "eslint-plugin-react-hooks": "^7.1.1",
@@ -89,7 +91,8 @@
     "tsx": "^4.23.15",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.70.1",
-    "vite": "^7.3.6"
+    "vite": "^7.3.6",
+    "vitest": "5.0.3"
   },
   "engines": {
     "node": ">=22.22.0",

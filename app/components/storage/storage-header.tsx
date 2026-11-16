@@ -13,6 +13,8 @@ import type { StoragePathEntry } from "@/definition/GoogleDriveStorage";
 interface StorageHeaderProps {
   readonly path: readonly StoragePathEntry[];
   readonly isConnected: boolean;
+  /** The file a preview shows; it ends the path, and the folder becomes a link. */
+  readonly fileName?: string | null;
 }
 
 function PathStep({
@@ -60,8 +62,10 @@ function PathStep({
 /** The path from the root of Google Drive to the shown folder, every step clickable. */
 function StorageBreadcrumb({
   path,
+  fileName,
 }: {
   readonly path: readonly StoragePathEntry[];
+  readonly fileName: string | null;
 }): React.ReactElement {
   const { t } = useTranslation();
 
@@ -87,10 +91,29 @@ function StorageBreadcrumb({
               <ChevronRight className="size-4" />
             </li>
             <li className="min-w-0 max-w-64">
-              <PathStep entry={entry} isCurrent={index === path.length - 1} />
+              <PathStep
+                entry={entry}
+                isCurrent={fileName === null && index === path.length - 1}
+              />
             </li>
           </Fragment>
         ))}
+        {fileName === null ? null : (
+          <>
+            <li aria-hidden="true" className="text-muted-foreground">
+              <ChevronRight className="size-4" />
+            </li>
+            <li className="max-w-64 min-w-0">
+              <span
+                aria-current="page"
+                className="block truncate font-semibold text-foreground"
+                title={fileName}
+              >
+                {fileName}
+              </span>
+            </li>
+          </>
+        )}
       </ol>
     </nav>
   );
@@ -116,11 +139,13 @@ function ConnectedBadge(): React.ReactElement {
  *
  * @remarks
  * "Verbunden" appears only when the server confirmed the connection with a
- * Drive request for this view.
+ * Drive request for this view. While a file is previewed its name ends the
+ * path.
  */
 export function StorageHeader({
   path,
   isConnected,
+  fileName = null,
 }: StorageHeaderProps): React.ReactElement {
   const { t } = useTranslation();
 
@@ -130,7 +155,7 @@ export function StorageHeader({
         <h1 className="mb-2 text-2xl font-semibold text-foreground">
           {t("storage.title")}
         </h1>
-        <StorageBreadcrumb path={path} />
+        <StorageBreadcrumb fileName={fileName} path={path} />
       </div>
       <div className="flex shrink-0 flex-col items-start gap-3 sm:flex-row sm:items-start lg:items-start">
         {isConnected ? <ConnectedBadge /> : null}

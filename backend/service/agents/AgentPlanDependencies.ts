@@ -1,3 +1,4 @@
+import type { AgentPlanWorkspaceLocks } from "./AgentPlanWorkspaceLocks";
 import type { AgentSessionStore } from "./sessions/AgentSessionStore";
 import type { AgentWorkspaceCleanupRepository } from "@/backend/database/repositories/agent/AgentWorkspaceCleanupRepository";
 import type { AgentPlanWorkGate } from "./AgentPlanWorkGate";
@@ -31,6 +32,7 @@ import type { AgentPlanScriptApprovalRepository } from "@/backend/database/repos
 
 /** What the plan service and its parts work with. */
 export interface PlanDependencies {
+  readonly workspaceLocks?: AgentPlanWorkspaceLocks;
   /** Durable accounting read projection, separate from run controls. */
   readonly usage?: Pick<AgentSessionStore, "listRunUsage">;
   readonly startResources?: Pick<AgentPlanStartResources, "owners">;

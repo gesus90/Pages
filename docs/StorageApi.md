@@ -100,8 +100,9 @@ callers cannot override the acting account. Revocation applies to the next call.
 
 Successful file operations are written to `storage_activity` with actor ID and
 name, operation and reference, without bytes, tokens or input parameters.
-The UI history and `/storage-api/access?view=history` show the account's own
-activity; active administrators see all activity. The settings at
+`/storage-api/access?view=history` shows the account's own activity; active
+administrators see all activity. The Storage page itself shows no history. The
+settings at
 `/settings/system` configure grants through `/storage-api/access`.
 
 ### File transfers and destructive changes
@@ -528,7 +529,8 @@ one sentence with a link to **Settings → System**.
   for navigation. The writer operations described above use the same connection.
   Google decides with the rights and granted scopes of the bound account.
   The access token goes only into the `Authorization` header; answers, addresses
-  and logs carry no token. Files open on Google's own page.
+  and logs carry no token. A file name opens the preview inside Storage; Google's
+  own page is only a deliberate extra in the file menu.
 - **Scopes:** with `drive.file` alone Google shows only files Pages created or
   opened, never the existing folder tree. The sign-in therefore also asks for
   `drive.readonly`; Storage reads the granted scopes of the stored connection
@@ -548,6 +550,29 @@ one sentence with a link to **Settings → System**.
   or page of a replaced folder is dropped and its request ended. A failed
   request removes the former folder and lets the frame check session and
   rights again.
+- **Preview:** a file name (or "Open" in the file menu) shows the file read-only
+  in place of the list card, and full screen below 768 px. The address is
+  `/storage?folder=<id>&file=<id>`: opening adds a history entry, Back, Close
+  and Escape return to the list with its selection, scroll position and focus,
+  and a directly opened link only drops `file` when closed. Reload and direct
+  links read the file again after a fresh rights check; the parameters grant
+  nothing. The preview asks `stat` for the current metadata and `download` for
+  the bytes, so both go through the checks of the signed-in account; reading
+  rights are enough. Nothing is cached between two openings, and closing ends
+  the requests and frees the opened PDF and the image addresses.
+  The type comes from the file ending first and the MIME type second, so
+  `application/octet-stream` files with a known ending work and unknown binary
+  files are never read as text. Markdown is rendered with the safe Pages
+  renderer; text, JSON, YAML, XML, log files and HTML show as plain text with
+  their line breaks; PDF uses the PDF reader; DOCX/ODT, XLSX/ODS/CSV/TSV and
+  PPTX/ODP use the document readers of the chat, without a promise of the
+  original Office layout. Google documents, sheets and presentations show their
+  PDF export when Drive offers it; otherwise, like every unknown, old (DOC, XLS,
+  PPT), encrypted or damaged file, they get a notice with the download in a
+  format that is really offered. Text is read up to **1 MiB**, PDF and Office
+  files up to **32 MiB**; the bytes that arrive count, not the size announced.
+  Nothing of a file runs: no HTML, script, macro or embedded object, and no
+  external image or link loads by itself.
 - **Start folder:** chosen in a compact folder dialog and saved per account in
   `storage_start_folder` with the Drive identifier, the shared drive, the
   readable name and path and the `permissionId` of the connection. It is a

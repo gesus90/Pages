@@ -133,6 +133,36 @@ function workerRuntime(request: CliSessionRequest): number | "infinity" {
     : UNBOUNDED_RUNTIME_SECONDS;
 }
 
+/** Reads one recorded unit without signalling it; manager failures never prove release. */
+export async function hasInactiveRecordedUnit(
+  unit: string,
+  command: CliWorkerCommand = runCommand,
+): Promise<boolean> {
+  if (!/^[a-zA-Z0-9_.@:-]+\.service$/u.test(unit)) return false;
+  const shown = await command(SYSTEMCTL, [
+    "--user",
+    "show",
+    unit,
+    "--property=LoadState,ActiveState",
+  ]).catch((error: unknown) => {
+    if (
+      typeof error === "object" &&
+      error !== null &&
+      "code" in error &&
+      error.code === 1 &&
+      "stdout" in error &&
+      typeof error.stdout === "string" &&
+      /(?:^|\n)LoadState=not-found(?:\n|$)/u.test(error.stdout)
+    )
+      return { stdout: error.stdout };
+    throw error;
+  });
+  return (
+    /(?:^|\n)LoadState=not-found(?:\n|$)/u.test(shown.stdout) ||
+    /(?:^|\n)ActiveState=(?:inactive|failed)(?:\n|$)/u.test(shown.stdout)
+  );
+}
+
 /**
  * Stops every worker unit of one session that is still loaded.
  * @param instanceId - The tag of the session; its units carry it in their name.

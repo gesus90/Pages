@@ -19,6 +19,7 @@ import {
 } from "./AgentPlanResourceReservation";
 import { AgentPlanContinuationRepository } from "./AgentPlanContinuationRepository";
 import { AgentPlanProgressRepository } from "./AgentPlanProgressRepository";
+import { releaseCheckedWorkspaceLocks } from "./AgentPlanWorkspaceLockRelease";
 import { queueEarlierRunPurge } from "./AgentPlanRunPurge";
 import {
   AgentPlanRunVisibilityRepository,
@@ -453,18 +454,15 @@ export class AgentPlanRunRepository {
 
   /** Releases the working copies an ended run still reserves. */
   public async release(id: string): Promise<void> {
-    await this.database.execute(
-      `
-        DELETE FROM agent_plan_workspace_locks
-        WHERE run_id = $id
-            AND run_id IN (
-                SELECT id
-                FROM agent_plan_runs
-                WHERE status NOT IN ('running', 'pausing', 'paused', 'stopping')
-            );
-      `,
-      { id },
-    );
+    await this.database.transaction(async (transaction) => {
+      const [row] = await transaction.query(
+        "SELECT view_json FROM agent_plan_runs WHERE id = $id FOR UPDATE;",
+        { id },
+      );
+      if (!row) return;
+      const run = readPlanRun(JSON.parse(readTextColumn(row, 0, "view_json")));
+      await releaseCheckedWorkspaceLocks(transaction, run, "cleanup_confirmed");
+    });
   }
 
   /** History is restricted to the executor and the latest twenty runs of the selected plan. */

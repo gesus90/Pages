@@ -12,8 +12,8 @@ import {
 import { readTextColumn } from "@/backend/database/RowValue";
 import { AgentPlanRecoveryError } from "@/backend/error/AgentPlanRecoveryError";
 import { sharedAgentPlanRunObservers } from "@/backend/service/agents/AgentPlanRunObservers";
-import { isActivePlanRun } from "@/definition/AgentPlanRunState";
 
+import { releaseCheckedWorkspaceLocks } from "./AgentPlanWorkspaceLockRelease";
 import { CURRENT_PLAN_SNAPSHOT } from "./AgentPlanContinuationRepository";
 
 import type {
@@ -212,13 +212,12 @@ export class AgentPlanRecoveryExecutionRepository {
 
   /** Releases an ended run only if the facts checked during closeout are still current. */
   public async releaseChecked(run: AgentPlanRun): Promise<void> {
-    if (isActivePlanRun(run.status))
-      throw new AgentPlanRecoveryError("action_unavailable");
     await this.database.transaction(async (transaction) => {
       await requireUnchangedRun(transaction, run);
-      await transaction.execute(
-        "DELETE FROM agent_plan_workspace_locks WHERE run_id = $run_id;",
-        { run_id: run.id },
+      await releaseCheckedWorkspaceLocks(
+        transaction,
+        run,
+        "recovery_confirmed",
       );
     });
   }
@@ -372,10 +371,8 @@ export class AgentPlanRecoveryExecutionRepository {
           previous_revision: previous,
         },
       );
-      await transaction.execute(
-        "DELETE FROM agent_plan_workspace_locks WHERE run_id = $run_id;",
-        { run_id: run.id },
-      );
+      // The terminal observer releases workspace ownership after this Stop and
+      // its remaining cleanup obligations have finished committing.
       await journal?.(transaction, cancelled);
       transaction.onCommit?.(() => {
         sharedAgentPlanRunObservers().notify(run, cancelled);
@@ -429,10 +426,7 @@ export class AgentPlanRecoveryExecutionRepository {
             revision: write.result.revision,
           },
         );
-      await transaction.execute(
-        "DELETE FROM agent_plan_workspace_locks WHERE run_id = $run_id;",
-        { run_id: run.id },
-      );
+      await releaseCheckedWorkspaceLocks(transaction, run, "user_requested");
       if (run !== releasedRun)
         transaction.onCommit?.(() => {
           sharedAgentPlanRunObservers().notify(releasedRun, run);

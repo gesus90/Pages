@@ -1,3 +1,4 @@
+import { PlanWorkspaceLocks } from "./plan-workspace-locks";
 import { PlanWorkspaceCleanup } from "./plan-workspace-cleanup";
 import { ChevronDown, ChevronUp, Loader2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -152,6 +153,7 @@ export function PlanPanelHeading(
           </div>
         </div>
       </div>
+      <PlanWorkspaceLocks entries={control?.workspaceLocks ?? []} />
       {props.page.selected ? (
         <PlanOneShotNotice
           plan={props.page.selected}

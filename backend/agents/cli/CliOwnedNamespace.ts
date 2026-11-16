@@ -61,6 +61,16 @@ export async function captureOwnedNamespace(
   return { pid, ...identity, boot };
 }
 
+/** A foreign boot is released only when its recorded PID is also absent now. */
+export async function previousBootNamespaceState(
+  owner: AcpNamespaceOwner,
+  root = "/proc",
+): Promise<"current" | "dead" | "alive"> {
+  readOwnedNamespace(owner);
+  if ((await bootId(root)) === owner.boot) return "current";
+  return (await processIdentity(owner.pid, root)) === null ? "dead" : "alive";
+}
+
 /** Checks a stored supervisor without reading any process environment or signalling a PID. */
 export async function hasEndedOwnedNamespace(
   owner: AcpNamespaceOwner,

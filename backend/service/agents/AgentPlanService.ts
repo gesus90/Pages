@@ -8,6 +8,8 @@ import {
   requireManagementPlanAccess,
   requireManagementScriptExecution,
 } from "../management/ManagementPlanAccess";
+import { resolvePlanWorkspace } from "./AgentPlanWorkspaceResolution";
+import { releasePlanWorkspaceLocks } from "./AgentPlanLockRelease";
 import { decideWorkspaceCleanup } from "./AgentWorkspaceCleanupDecision";
 import { cleanupOrphanedPlanTemporaryDirectories } from "./AgentPlanTemporaryCleanup";
 import { reviseAgentPlan } from "./AgentPlanRevision";
@@ -54,7 +56,6 @@ import type { AccountAccess } from "@/definition/Authorization";
 import type { AgentDefinitionChoice } from "@/definition/AgentAvailability";
 import type {
   AgentPlan,
-  AgentPlanInput,
   AgentPlanNode,
   AgentPlanPage,
   AgentPlanRun,
@@ -124,9 +125,9 @@ export class AgentPlanService extends AgentPlanTeamReads {
    * Records orphaned runs as interrupted without inventing a user stop or replaying work.
    * @remarks
    * Processes and MCP access that interrupted sessions left behind are ended
-   * first; nothing is started again. A working copy stays reserved only while
-   * a process of one of the run's sessions is still alive, so a confirmed
-   * cleanup lets the next run of a plan start.
+   * first; nothing is started again. The shared lock reconciler subsequently
+   * frees cancelled and successful runs once their resources have ended.
+   * Failed and closeout-open runs retain their continuation reservations.
    * @param retained - Sessions whose leftover cleanup could not be confirmed;
    * their runs keep the working copies reserved until a later start.
    */
@@ -137,6 +138,14 @@ export class AgentPlanService extends AgentPlanTeamReads {
     await cleanupOrphanedPlanTemporaryDirectories((runId) =>
       this.dependencies.runs.find(runId),
     );
+  }
+
+  /** Releases an ended run's locks only for the current plan owner or active administrator. */
+  public async releaseWorkspaceLocks(
+    userId: string,
+    runId: string,
+  ): Promise<void> {
+    await releasePlanWorkspaceLocks(this.dependencies, userId, runId);
   }
 
   /**
@@ -235,7 +244,11 @@ export class AgentPlanService extends AgentPlanTeamReads {
         ? { executionTarget: { kind: "remote" as const, workspaceId } }
         : {}),
     };
-    const workspace = await this.resolveWorkspace(userId, plan);
+    const workspace = await resolvePlanWorkspace(
+      this.dependencies,
+      userId,
+      plan,
+    );
     const pinned = {
       ...(await this.pins.pin(
         userId,
@@ -808,18 +821,6 @@ export class AgentPlanService extends AgentPlanTeamReads {
     return workspace;
   }
 
-  private async resolveWorkspace(
-    userId: string,
-    plan: AgentPlanInput,
-  ): Promise<
-    { readonly projectId: string } & Pick<AgentPlanInput, "executionTarget">
-  > {
-    return (
-      this.dependencies.workspaceCatalog?.resolve(userId, plan) ??
-      this.dependencies.workspaces.resolve(userId, plan.workspaceId)
-    );
-  }
-
   /**
    * Validates a proposed plan and returns it as it is stored, with the revision it was based on.
    * @remarks
@@ -840,7 +841,8 @@ export class AgentPlanService extends AgentPlanTeamReads {
       id,
       input,
       pins: this.pins,
-      resolveWorkspace: (actorId, plan) => this.resolveWorkspace(actorId, plan),
+      resolveWorkspace: (actorId, plan) =>
+        resolvePlanWorkspace(this.dependencies, actorId, plan),
     });
   }
 }

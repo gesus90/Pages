@@ -3,8 +3,9 @@
 [Documentation index](README.md). Start with the
 [local quickstart](../README.md#getting-started), then read the mandatory
 [coding guidelines](../GUIDELINES.md) and [agent instructions](../AGENTS.md).
-Make focused changes. The previous test suites and CI have been removed; a
-new setup is not installed yet. See the [restart inventory](TestCiRemoval.md)
+Make focused changes. The previous test suites and CI have been removed;
+the new [backend unit-test foundation](BackendTesting.md) provides the backend
+runner and measurement scope. See the [restart inventory](TestCiRemoval.md)
 for retained operating commands, validation limits and external dependencies.
 
 - [Architecture](#architecture)
@@ -68,18 +69,20 @@ These source-backed repository instructions describe the checked checkout.
 
 All commands are scripts in `package.json`; run them with `pnpm run <script>`.
 
-| Script    | What it does                                                                                                                                                                                                                |
-| --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `dev`     | Starts the development server of the static app (Vite). It passes server requests to `dev:api`.                                                                                                                             |
-| `dev:api` | Starts the API's development server (port 5174) with the Pages runtime; `PAGES_DEV_API` tells `dev` another address.                                                                                                        |
-| `build`   | Builds the static app (`ssr: false`) into `build/client` the API into `build/server`, and the independent Node runtimes into `build/local-owner` and `build/runs` with shared `build/runtime-chunks` (`scripts/build.mjs`). |
-| `start`   | Runs the API from `build/` through `server.mjs`; it also serves the static app. Run `build` first. Accepts `--port <number>` and `--config <path>`.                                                                         |
-| `check`   | Generates the React Router route types, type-checks with `tsc --noEmit` and runs `prettier --check`. Checks only; the generated types go to the ignored `.react-router/`.                                                   |
-| `lint`    | Runs ESLint sequentially in bounded file blocks (`scripts/run-lint.mjs`) with `--concurrency=off` and `--max-warnings=0`: any warning fails. Fixes nothing.                                                                 |
-| `format`  | Runs `prettier --write` and rewrites files in place.                                                                                                                                                                        |
-| `clean`   | Deletes the `build/` directory.                                                                                                                                                                                             |
+| Script         | What it does                                                                                                                                                                                                                |
+| -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `dev`          | Starts the development server of the static app (Vite). It passes server requests to `dev:api`.                                                                                                                             |
+| `dev:api`      | Starts the API's development server (port 5174) with the Pages runtime; `PAGES_DEV_API` tells `dev` another address.                                                                                                        |
+| `build`        | Builds the static app (`ssr: false`) into `build/client` the API into `build/server`, and the independent Node runtimes into `build/local-owner` and `build/runs` with shared `build/runtime-chunks` (`scripts/build.mjs`). |
+| `start`        | Runs the API from `build/` through `server.mjs`; it also serves the static app. Run `build` first. Accepts `--port <number>` and `--config <path>`.                                                                         |
+| `check`        | Generates the React Router route types, type-checks with `tsc --noEmit` and runs `prettier --check`. Checks only; the generated types go to the ignored `.react-router/`.                                                   |
+| `lint`         | Runs ESLint sequentially in bounded file blocks (`scripts/run-lint.mjs`) with `--concurrency=off` and `--max-warnings=0`: any warning fails. Fixes nothing.                                                                 |
+| `test:backend` | Runs the independent backend Vitest configuration with V8 coverage, then reads the summary into complete section inventories. An empty test collection fails; behavior tests are added separately.                          |
+| `format`       | Runs `prettier --write` and rewrites files in place.                                                                                                                                                                        |
+| `clean`        | Deletes the `build/` directory.                                                                                                                                                                                             |
 
-There are no repository test scripts or CI workflows. `check` and `lint` remain
+There is no repository CI workflow. `test:backend` is described in
+[Backend unit-test foundation](BackendTesting.md); `check` and `lint` remain
 manual static checks. `postgres:restore-check` verifies an actual backup and
 `db:transfer` performs offline transfer; both are operating commands, described
 in [PostgreSQL operations](PostgresMigration.md).
@@ -100,15 +103,18 @@ prove that an external tool or developer never uses a configuration.
 | `react-router.config.ts`                                | React Router selects static app or API output through `PAGES_ROUTES`. Keep: it is a separate framework contract.                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | `eslint.config.js`                                      | ESLint, invoked by `scripts/run-lint.mjs`, discovers the flat config. Its former rule module is now included directly, preserving the same rules and ignores.                                                                                                                                                                                                                                                                                                                                                                                   |
 | `tsconfig.json`                                         | TypeScript and ESLint project service consume the project and aliases; keep.                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| `vitest.backend.config.ts`                              | Independent Node backend test runner and complete backend V8 measurement; does not load the application's Vite plugins.                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | `prettier.config.mjs`, `.prettierignore`                | Prettier uses formatting options and exclusions for the `format` and `check` scripts; keep.                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | `.gitignore`                                            | Git excludes generated and local files; keep. `.env.example` is an installation template, not a live credential file.                                                                                                                                                                                                                                                                                                                                                                                                                           |
 | `core/Cargo.toml`, `core/Cargo.lock`                    | Cargo builds and resolves the Rust service; keep the manifest and lock separately from pnpm.                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | `opencode.json`                                         | Project-level OpenCode configuration excludes generated directories and `data` from watching and reading, and denies environment-file patterns except examples. Keep the existing rules. `backend/agents/acp/OpenCodeAcpConfiguration.ts` checks other unmanaged configuration locations; it does not establish that every OpenCode invocation uses this project file. Actual use outside the repository is unknown. Removing it could change resource use and read permissions; these rules are tool permissions, not an OS security boundary. |
 
-There is no tracked Vitest configuration or dependency and no current Pages
-behavior suite; the future test setup is a separate assignment. Historical
-reports mentioning removed commands are retained as historical evidence. The
-ignored `build/`, `dist/`, `.react-router/`, `coverage/`, `core/target/` and
+The tracked Vitest configuration and pinned V8 provider now establish the
+backend runner; no behavior test file was added under the implementation's
+validation restrictions. See [Backend unit-test foundation](BackendTesting.md).
+Historical reports mentioning removed commands are retained as historical
+evidence. The ignored `build/`, `dist/`, `.react-router/`, `coverage/`,
+`core/target/` and
 `node_modules/` contain generated output or caches, while `data/`, `.env*`
 (except the template) and logs are local; none is a tracked configuration
 candidate. Do not delete them as part of this inventory.

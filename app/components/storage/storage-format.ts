@@ -26,6 +26,21 @@ export function formatBytes(bytes: number, language: string): string {
 }
 
 /**
+ * Formats a byte limit in binary units, as the limits of Pages are defined.
+ *
+ * @param limitBytes - The limit.
+ * @param language - The language of the view.
+ * @returns For example `1 MiB` or `32 MiB`.
+ */
+export function formatLimit(limitBytes: number, language: string): string {
+  const formatter = new Intl.NumberFormat(language, {
+    maximumFractionDigits: 1,
+  });
+
+  return `${formatter.format(limitBytes / (1024 * 1024))} MiB`;
+}
+
+/**
  * Formats the last change of an item.
  *
  * @param isoTime - ISO time from Drive.
@@ -71,6 +86,23 @@ export function pathText(
   t: TFunction,
 ): string {
   return path.map((entry) => pathEntryLabel(entry, t)).join(" / ");
+}
+
+/**
+ * Checks the Google page of a file before it is offered as a link.
+ *
+ * @param webViewLink - The link Drive named, or `null`.
+ * @returns The link when it is an `https` address, else `null`.
+ */
+export function driveLinkOf(webViewLink: string | null): string | null {
+  if (webViewLink === null) return null;
+
+  try {
+    return new URL(webViewLink).protocol === "https:" ? webViewLink : null;
+  } catch {
+    // An address that does not parse is no link to offer.
+    return null;
+  }
 }
 
 /**

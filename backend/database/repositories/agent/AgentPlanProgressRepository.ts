@@ -14,11 +14,6 @@ import { AgentPlanRecoveryError } from "@/backend/error/AgentPlanRecoveryError";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { planContentDigest } from "@/backend/agents/AgentPlanContentDigest";
 import {
-  allPlanRunResults,
-  hasUnconfirmedLoopCloseout,
-} from "@/definition/AgentPlanLoopResults";
-import { isRemoteCloseoutUnconfirmed } from "@/definition/AgentPlanRemoteCloseout";
-import {
   loopIterationCheckpoints,
   requireImmutableIterations,
 } from "@/backend/service/agents/recovery/AgentPlanLoopCheckpoint";
@@ -41,22 +36,6 @@ interface StoredProgress {
   readonly run: AgentPlanRun;
   readonly revision: number;
   readonly snapshot: unknown;
-}
-
-/** Local sessions and scripts keep their workspace reserved until their processes are confirmed closed. */
-function isLocalCleanupUnconfirmed(step: AgentPlanStepResult): boolean {
-  return [step.session?.closeout, step.script?.closeout].some(
-    (closeout) => closeout === "pending" || closeout === "failed",
-  );
-}
-
-/** Remote work belongs to the runner journal, so a stopped run may release its workspace while it is unconfirmed. */
-function isRemoteCleanupUnconfirmed(step: AgentPlanStepResult): boolean {
-  return (
-    isRemoteCloseoutUnconfirmed(step) ||
-    step.remote?.closeout === "pending" ||
-    step.remote?.closeout === "failed"
-  );
 }
 
 function successfulWorkDigest(step: AgentPlanStepResult): string {
@@ -493,21 +472,9 @@ export class AgentPlanProgressRepository {
         previous_revision: previous.revision,
       },
     );
-    const hasUnconfirmedLocalCleanup =
-      hasUnconfirmedLoopCloseout(run) ||
-      allPlanRunResults(run).some(isLocalCleanupUnconfirmed);
-    const hasUnconfirmedRemoteCleanup = allPlanRunResults(run).some(
-      isRemoteCleanupUnconfirmed,
-    );
-    if (
-      !isActivePlanRun(run.status) &&
-      !hasUnconfirmedLocalCleanup &&
-      (run.stopRequested || !hasUnconfirmedRemoteCleanup)
-    )
-      await transaction.execute(
-        "DELETE FROM agent_plan_workspace_locks WHERE run_id = $id;",
-        { id: run.id },
-      );
+    // Closeout flags alone cannot prove that leases or native owners ended.
+    // The terminal observer and periodic reconciliation use the shared safe
+    // release path; failed and closeout-open runs keep their continuation locks.
     // Observers hear about the write once it is committed, never before.
     transaction.onCommit?.(() => {
       sharedAgentPlanRunObservers().notify(previous.run, run);

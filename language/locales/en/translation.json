@@ -5265,6 +5265,18 @@
     }
   },
   "plans": {
+    "workspaceLocks": {
+      "holder": "Workspace held by run {{run}} · {{status}} · since {{since}} ({{hours}} h {{minutes}} min)",
+      "reason": {
+        "active": "The run is active or paused and retains its workspace.",
+        "resumable": "The ended run retains the workspace for continuation.",
+        "cleanup": "Release is waiting for confirmed resource cleanup."
+      },
+      "overdue": "This resumable reservation is at least 24 hours old. Continue the run or release it after checking.",
+      "release": "Release",
+      "confirm": "Are you sure? This run’s locks will be released once no processes, units or open resources remain.",
+      "released": "The locks have been released."
+    },
     "localState": {
       "stale": "Last known state from {{time}}. It is being updated; until then the plan is read only.",
       "offline": "Pages cannot be reached. Showing the last known state from {{time}}; changes are locked until the connection returns."
@@ -8048,6 +8060,60 @@
         "unreachable": "Google Drive cannot be reached right now."
       }
     },
+    "preview": {
+      "close": "Close",
+      "download": "Download",
+      "modified": "changed {{date}}",
+      "loading": "Loading the preview …",
+      "retry": "Try again",
+      "empty": "The file is empty.",
+      "page": "Page {{n}} of {{total}}",
+      "pageLabel": "Page {{n}}",
+      "kind": {
+        "markdown": "Markdown",
+        "pdf": "PDF",
+        "document": "Document",
+        "spreadsheet": "Spreadsheet",
+        "presentation": "Presentation",
+        "image": "Image",
+        "video": "Video",
+        "audio": "Audio",
+        "archive": "Archive",
+        "code": "Code",
+        "text": "Text",
+        "form": "Form",
+        "drawing": "Drawing",
+        "shortcut": "Shortcut",
+        "folder": "Folder",
+        "file": "File"
+      },
+      "unsupported": {
+        "title": "No preview for this kind of file",
+        "text": "This file cannot be shown here. You can download it."
+      },
+      "tooLarge": {
+        "title": "The file is too large for the preview",
+        "text": "The preview shows files up to {{limit}}. You can download the file."
+      },
+      "unreadable": {
+        "title": "This file cannot be shown",
+        "encrypted": "The file is encrypted or in an older format. You can download it.",
+        "unreadable": "The file is damaged or in a format Pages cannot read. You can download it.",
+        "tooLarge": "The file contains parts that are too large for the preview. You can download it."
+      },
+      "failed": {
+        "title": "The preview could not be loaded",
+        "text": "Google Drive did not deliver the file. Try again."
+      },
+      "forbidden": {
+        "title": "No access to this file",
+        "text": "Your account may not read this file, or the access was withdrawn."
+      },
+      "notFound": {
+        "title": "File not found",
+        "text": "The file was removed or moved and is no longer available."
+      }
+    },
     "list": {
       "name": "Name",
       "modified": "Modified",
@@ -8091,6 +8157,7 @@
       "readOnlyScenario": "This simulation scenario is read-only; changes are not possible."
     },
     "actions": {
+      "open": "Open",
       "menu": "Actions for {{name}}",
       "download": "Download",
       "upload": "Upload",
@@ -8233,21 +8300,6 @@
       "group": "Group",
       "role": "Role",
       "department": "Department",
-      "history": "Storage history",
-      "operations": {
-        "create_folder": "Created folder",
-        "upload": "Uploaded file",
-        "update": "Saved version",
-        "read": "Read file",
-        "download": "Downloaded file",
-        "list": "Listed folder",
-        "stat": "Read metadata",
-        "search": "Searched",
-        "resolve_path": "Resolved path",
-        "confirm": "Prepared confirmation",
-        "grant": "Granted access",
-        "revoke": "Revoked access"
-      },
       "roots": "Shared folders"
     }
   },

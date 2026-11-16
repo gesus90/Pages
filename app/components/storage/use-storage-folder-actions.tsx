@@ -80,6 +80,7 @@ export function useStorageFolderActions(
           mimeType: item.mimeType,
           name: item.name,
           ref: item.id,
+          webViewLink: item.webViewLink,
         }}
       />
     );

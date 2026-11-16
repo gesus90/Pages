@@ -1,4 +1,8 @@
-import { hasEndedOwnedNamespace } from "@/backend/agents/cli/CliOwnedNamespace";
+import { hasInactiveRecordedUnit } from "@/backend/agents/cli/CliWorkerUnit";
+import {
+  hasEndedOwnedNamespace,
+  previousBootNamespaceState,
+} from "@/backend/agents/cli/CliOwnedNamespace";
 import { readScopeSince } from "@/backend/agents/cli/CliProcessScan";
 import { inspectManagedLocalOwner } from "@/backend/agents/local/LocalOwnerControl";
 import { ACP_RELEASE_REASONS } from "@/definition/AcpResource";
@@ -138,6 +142,22 @@ export async function classifyLease(
   record: AcpResourceRecord,
   context: AcpLeaseEvidenceContext,
 ): Promise<AcpLeaseCheckReason> {
+  // Boot evidence must precede the unavailable managed-owner guard: the old owner cannot answer after a reboot.
+  if (record.namespace) {
+    const previousBoot = await previousBootNamespaceState(record.namespace);
+    if (previousBoot === "alive") return "process_alive";
+    if (previousBoot === "dead") {
+      if (hasRunningUnit(record, context.units)) return "unit_active";
+      if (record.workerUnit && context.units === null)
+        throw new Error("Worker units are unreadable");
+      if (
+        record.namespace.unit &&
+        !(await hasInactiveRecordedUnit(record.namespace.unit))
+      )
+        return "unit_active";
+      return "previous_boot";
+    }
+  }
   if (context.isUnverifiedLocal) return "owner_unverified";
   const managed = inspectManagedLocalOwner(record.instanceId);
   if (managed === "owned") return "owner_managed";

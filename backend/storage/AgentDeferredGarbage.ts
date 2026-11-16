@@ -8,6 +8,7 @@ import {
   PLAN_RUN_PURGE_PREFIX,
   purgeEarlierPlanRuns,
 } from "@/backend/database/repositories/agent/AgentPlanRunPurge";
+import { deferPlanRunPurge } from "@/backend/database/repositories/agent/AgentPlanPurgeRetry";
 import { logCaughtError, logEvent } from "@/backend/logging/Logger";
 
 import type { DatabaseTransaction } from "@/backend/database/Database";
@@ -28,6 +29,7 @@ const PENDING_ENTRIES = `
   FROM agent_payload_garbage
   WHERE storage_name NOT LIKE 'agent-payloads/%'
       AND storage_name > $after
+      AND retry_after <= $now
   ORDER BY storage_name
   LIMIT ${BATCH_SIZE};
 `;
@@ -139,14 +141,20 @@ export class AgentDeferredGarbage {
     let hasLeftovers = false;
     try {
       let after = "";
-      let rows = await database.query(PENDING_ENTRIES, { after });
+      let rows = await database.query(PENDING_ENTRIES, {
+        after,
+        now: Date.now(),
+      });
       while (rows.length > 0) {
         const names = rows
           .map(([storageName]) => storageName)
           .filter((name): name is string => typeof name === "string");
         if (await this.collectBatch(database, names)) hasLeftovers = true;
         after = names.at(-1) ?? "\uffff";
-        rows = await database.query(PENDING_ENTRIES, { after });
+        rows = await database.query(PENDING_ENTRIES, {
+          after,
+          now: Date.now(),
+        });
       }
     } catch (error: unknown) {
       logCaughtError("AgentDeferredGarbage", error);
@@ -223,15 +231,7 @@ export class AgentDeferredGarbage {
     keptRunId: string,
   ): Promise<EntryOutcome> {
     const isComplete = await purgeEarlierPlanRuns(database, keptRunId);
-    if (!isComplete)
-      logEvent({
-        level: "info",
-        event: "agent.plan.run_purge.deferred",
-        component: "AgentDeferredGarbage",
-        message:
-          "An earlier run of the plan has not settled; its data is removed by a later attempt.",
-        metadata: { runId: keptRunId },
-      });
+    if (!isComplete) await deferPlanRunPurge(database, keptRunId);
     return isComplete ? "done" : "deferred";
   }
 

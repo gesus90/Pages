@@ -1,13 +1,16 @@
+import { canReleasePlanWorkspaceLocks } from "@/definition/AgentPlanWorkspaceLock";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { canRunPlan } from "@/definition/AgentPlanTeam";
 
+import type { AgentPlanWorkspaceLocks } from "./AgentPlanWorkspaceLocks";
 import type { AgentPlanAccess } from "./AgentPlanAccess";
 import type { AgentPlanRunRepository } from "@/backend/database/repositories/agent/AgentPlanRunRepository";
 import type { AgentWorkspaceCleanupRepository } from "@/backend/database/repositories/agent/AgentWorkspaceCleanupRepository";
 
 interface CleanupDecisionDependencies {
   readonly access: Pick<AgentPlanAccess, "require">;
-  readonly runs: Pick<AgentPlanRunRepository, "release">;
+  readonly runs: Pick<AgentPlanRunRepository, "find">;
+  readonly workspaceLocks?: Pick<AgentPlanWorkspaceLocks, "release">;
   readonly workspaceCleanup?: AgentWorkspaceCleanupRepository;
 }
 
@@ -32,6 +35,13 @@ export async function decideWorkspaceCleanup(
       candidate.ownerId === userId,
   );
   if (!repository || !entry) throw new AgentError("plan_run_unavailable");
-  if (input.action === "release") await dependencies.runs.release(entry.runId);
+  if (input.action === "release") {
+    if (!canReleasePlanWorkspaceLocks(plan, userId))
+      throw new AgentError("plan_access_denied");
+    const run = await dependencies.runs.find(entry.runId);
+    if (!run || !dependencies.workspaceLocks || run.planId !== plan.id)
+      throw new AgentError("plan_run_unavailable");
+    await dependencies.workspaceLocks.release(run);
+  }
   await repository.decide(entry, input.action);
 }

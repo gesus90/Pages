@@ -42,7 +42,9 @@ export function stableIdKey(ids: readonly string[]): string {
 /** Estimates the byte size of a cached value for quota enforcement. */
 function estimateSizeInBytes(value: unknown): number {
   try {
-    return JSON.stringify(value)?.length ?? 64;
+    const serialized = JSON.stringify(value);
+
+    return serialized === undefined ? 64 : Buffer.byteLength(serialized);
   } catch (caughtError: unknown) {
     logCaughtError("ServerCache", caughtError);
 

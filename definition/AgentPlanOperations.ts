@@ -1,3 +1,4 @@
+import type { AgentPlanWorkspaceLock } from "./AgentPlanWorkspaceLock";
 import type { AgentPlanTeamKind } from "./AgentPlanTeam";
 import type { AgentPlanCloneAdjustment } from "./AgentPlanClone";
 import type { AgentPlanSwarm } from "./AgentPlanSwarm";
@@ -593,6 +594,7 @@ export interface AgentPlanControlEntry
   readonly canRestart?: boolean;
   readonly resumeAction?: "paused" | "recovery";
   readonly workspaceWait?: AgentPlanWriterWait;
+  readonly workspaceLocks?: readonly AgentPlanWorkspaceLock[];
   readonly cleanup?: readonly AgentWorkspaceCleanup[];
   readonly planId: string;
   readonly revision: number;

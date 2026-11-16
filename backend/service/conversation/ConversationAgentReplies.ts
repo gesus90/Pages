@@ -379,14 +379,19 @@ export class ConversationAgentReplies {
     memberIds: readonly string[],
     delivery?: ConversationDelivery,
   ): Promise<void> {
+    if (!isAskingMessage(message)) return;
     const accounts = await this.dependencies.directory.read();
     const sender = accounts.find(message.sender.id);
-    if (!sender || !isAskingMessage(message)) return;
-    const conversation = await this.dependencies.conversations.findForMember(
-      message.conversationId,
-      sender.user.id,
-    );
-    if (!conversation) return;
+    const conversation = sender
+      ? await this.dependencies.conversations.findForMember(
+          message.conversationId,
+          sender.user.id,
+        )
+      : null;
+    if (!sender || !conversation) {
+      this.logUnanswerable(message, sender ? "no_membership" : "no_sender");
+      return;
+    }
     const round: ConversationRound = {
       originMessageId: message.id,
       conversation,
@@ -498,7 +503,45 @@ export class ConversationAgentReplies {
     void withBackgroundDatabaseWork("conversation_agent_reply", () =>
       this.answer(message, event.recipientIds, delivery),
     ).catch((error: unknown) => {
-      logCaughtError(COMPONENT, error);
+      this.logStartFailure(message, error);
+    });
+  }
+
+  /**
+   * A stored message whose answer could not be started stays stored and is
+   * not started again; the log names the message and its conversation, never
+   * its text.
+   */
+  private logStartFailure(message: ConversationMessage, error: unknown): void {
+    logEvent({
+      level: "error",
+      event: "conversation.agent_reply.start_failed",
+      component: COMPONENT,
+      message:
+        "The answer to a stored message could not be started; the message is not answered.",
+      metadata: {
+        conversationId: message.conversationId,
+        messageId: message.id,
+      },
+      error,
+    });
+  }
+
+  /** A message that asks for an answer found no account or membership of its sender. */
+  private logUnanswerable(
+    message: ConversationMessage,
+    reason: "no_sender" | "no_membership",
+  ): void {
+    logEvent({
+      level: "warn",
+      event: "conversation.agent_reply.unanswerable",
+      component: COMPONENT,
+      message: "A message that asks for an answer was not answered.",
+      metadata: {
+        conversationId: message.conversationId,
+        messageId: message.id,
+        reason,
+      },
     });
   }
 

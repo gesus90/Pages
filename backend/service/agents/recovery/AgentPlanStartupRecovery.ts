@@ -1,17 +1,8 @@
 import { logCaughtError, logEvent } from "@/backend/logging/Logger";
-import {
-  allPlanRunResults,
-  hasUnconfirmedLoopCloseout,
-} from "@/definition/AgentPlanLoopResults";
-
-import {
-  endInterruptedSession,
-  hasNoSessionProcesses,
-} from "../AgentPlanRecovery";
+import { endInterruptedSession } from "../AgentPlanRecovery";
 import { classifyPlanFailure } from "./AgentPlanFailure";
 import { canResumeAfterRestart } from "../AgentPlanStepDecision";
-import { interruptedLoopRuns, settledLoopRuns } from "./AgentPlanLoopRecovery";
-import { endInterruptedScript } from "../AgentPlanScriptRecovery";
+import { interruptedLoopRuns } from "./AgentPlanLoopRecovery";
 import {
   detachedStopRun,
   endedPlanRun,
@@ -28,14 +19,10 @@ import type { AgentPlanSessionAccess } from "../AgentPlanSessionAccess";
 interface StartupRecoveryDependencies {
   readonly adopt?: (run: AgentPlanRun) => Promise<boolean>;
   readonly unverifiedLocal?: ReadonlySet<string>;
-  readonly runs: Pick<
-    AgentPlanRunRepository,
-    "unfinished" | "interrupt" | "reserving" | "release"
-  > &
+  readonly runs: Pick<AgentPlanRunRepository, "unfinished" | "interrupt"> &
     Partial<Pick<AgentPlanRunRepository, "snapshot" | "update">>;
   readonly sessions?: Pick<AgentPlanSessionAccess, "revoke">;
   readonly endSession?: typeof endInterruptedSession;
-  readonly hasNoProcesses?: typeof hasNoSessionProcesses;
 }
 
 /** What one startup recovery did, as bare counts for the log. */
@@ -46,8 +33,6 @@ interface StartupRecoveryCounts {
   completedRuns: number;
   /** Remote runs whose durable state changed now. */
   remoteSettled: number;
-  reservationsReleased: number;
-  reservationsKept: number;
 }
 
 function interruptedStep(
@@ -105,8 +90,6 @@ export class AgentPlanStartupRecovery {
       interrupted: 0,
       completedRuns: 0,
       remoteSettled: 0,
-      reservationsReleased: 0,
-      reservationsKept: 0,
     };
     // Remote work stays owned by the durable runner journal until reconciliation.
     for (const previous of unfinished.filter(requiresLocalRecovery)) {
@@ -121,7 +104,13 @@ export class AgentPlanStartupRecovery {
     counts.remoteSettled = await this.settleRemoteRuns(
       unfinished.filter((run) => !requiresLocalRecovery(run)),
     );
-    await this.releaseFinishedReservations(retained, counts);
+    // Terminal workspace ownership is reconciled by AgentPlanWorkspaceLocks,
+    // through the same process and transaction checks as an explicit release.
+    // Stop could persist cancelled with a failed closeout or retained owner.
+    // Previously those vetoed release before boot evidence was checked, while
+    // legacy sessions without a namespace were never retried. The lease audit
+    // also excluded plan leases. The original failed Stop itself cannot be
+    // reconstructed from the remaining lock rows alone.
     logEvent({
       level: "info",
       event: "agent.recovery.startup_summary",
@@ -129,44 +118,6 @@ export class AgentPlanStartupRecovery {
       message: "Startup recovery reconciled unfinished plan runs",
       metadata: { runs: unfinished.length, ...counts },
     });
-  }
-
-  private async releaseFinishedReservations(
-    retained: ReadonlySet<string>,
-    counts: StartupRecoveryCounts,
-  ): Promise<void> {
-    for (const reserved of await this.dependencies.runs.reserving()) {
-      const run = await this.reconcileSessions(
-        await this.reconcileScripts(reserved),
-        retained,
-      );
-      if (await this.canRelease(run, retained)) {
-        await this.dependencies.runs.release(run.id);
-        counts.reservationsReleased += 1;
-      } else counts.reservationsKept += 1;
-    }
-  }
-
-  private async canRelease(
-    run: AgentPlanRun,
-    retained: ReadonlySet<string>,
-  ): Promise<boolean> {
-    const results = allPlanRunResults(run);
-    if (
-      results.some(
-        (step) =>
-          step.script?.closeout === "failed" ||
-          step.remote?.closeout === "pending" ||
-          step.remote?.closeout === "failed",
-      ) ||
-      results.some(
-        (step) => step.session && retained.has(step.session.instanceId),
-      )
-    )
-      return false;
-    const hasNoProcesses =
-      this.dependencies.hasNoProcesses ?? hasNoSessionProcesses;
-    return hasNoProcesses(run);
   }
 
   private async recoverLocalRun(
@@ -322,77 +273,6 @@ export class AgentPlanStartupRecovery {
     await this.dependencies.runs.interrupt(reconciled);
     return reconciled;
   }
-
-  /**
-   * Ends the processes an ended run's sessions left behind, so its reservations can be released.
-   * @remarks
-   * A run that ended with an unconfirmed closeout keeps its working copies. A
-   * start used to only look at it, so the lock stayed through every restart.
-   * Now the owned processes are ended and the closeout recorded; only a
-   * process that cannot be ruled out keeps the reservation.
-   */
-  private async reconcileSessions(
-    run: AgentPlanRun,
-    retained: ReadonlySet<string>,
-  ): Promise<AgentPlanRun> {
-    const endSession = this.dependencies.endSession ?? endInterruptedSession;
-    const { runs } = this.dependencies;
-    const results = allPlanRunResults(run);
-    if (
-      !runs.update ||
-      !(
-        hasUnconfirmedLoopCloseout(run) ||
-        results.some((step) => hasOpenCloseout(step))
-      )
-    )
-      return run;
-    const end = async (
-      step: AgentPlanStepResult,
-    ): Promise<AgentPlanStepResult> => {
-      if (!hasOpenCloseout(step) || step.script) return step;
-      if (
-        step.session &&
-        this.dependencies.unverifiedLocal?.has(step.session.instanceId)
-      )
-        return step;
-      return retainUnconfirmed(
-        step,
-        await endSession(step, run.startedAt),
-        retained,
-      );
-    };
-    const steps = await Promise.all(run.steps.map(end));
-    const loops = run.loops ? await settledLoopRuns(run.loops, end) : undefined;
-    const reconciled: AgentPlanRun = {
-      ...run,
-      steps,
-      ...(loops ? { loops } : {}),
-    };
-    await runs.update(reconciled);
-    return reconciled;
-  }
-
-  private async reconcileScripts(run: AgentPlanRun): Promise<AgentPlanRun> {
-    if (
-      !this.dependencies.runs.update ||
-      !run.steps.some(
-        (step) => step.script && step.script.closeout !== "confirmed",
-      )
-    )
-      return run;
-    const steps = await Promise.all(run.steps.map(endInterruptedScript));
-    const reconciled = { ...run, steps };
-    await this.dependencies.runs.update(reconciled);
-    return reconciled;
-  }
-}
-
-function hasOpenCloseout(step: AgentPlanStepResult): boolean {
-  return (
-    step.session !== undefined &&
-    step.session !== null &&
-    (step.session.closeout === "pending" || step.session.closeout === "failed")
-  );
 }
 
 function interruptionCode(step: AgentPlanStepResult): string {

@@ -46,10 +46,11 @@ Suchen in einem freigegebenen Ordner ist erlaubt.
 
 In Storage sehen Mitglieder zunächst **Freigegebene Ordner**. Die Oberfläche
 aktiviert nur erlaubte Aktionen. Der Server prüft jede Anfrage unabhängig davon,
-auch wenn eine Freigabe zwischenzeitlich entzogen wurde. Im **Storage-Verlauf**
-stehen die erfolgreichen Aktionen unter dem Namen des handelnden Kontos.
-Mitglieder sehen ihre eigenen Einträge, Administratoren alle. Der Verlauf enthält
-keine Dateiinhalte oder Zugangsdaten.
+auch wenn eine Freigabe zwischenzeitlich entzogen wurde. Die erfolgreichen
+Aktionen werden unter dem Namen des handelnden Kontos protokolliert und sind
+über `/storage-api/access?view=history` abrufbar; die Storage-Seite zeigt sie
+nicht an. Mitglieder sehen ihre eigenen Einträge, Administratoren alle. Der
+Verlauf enthält keine Dateiinhalte oder Zugangsdaten.
 
 ## Pica- und Agent-Werkzeuge
 

@@ -9,6 +9,8 @@ import {
   ACP_RETAIN_REASONS,
 } from "@/definition/AcpResource";
 
+import { releaseAcpLease } from "./AcpLeaseRelease";
+
 import type { Database } from "@/backend/database/Database";
 import type { AcpResourceStore } from "@/backend/service/agents/resources/AcpResourceStore";
 import type {
@@ -159,33 +161,12 @@ export class AcpResourceRepository implements AcpResourceStore {
 
   /** Deletes only after the scheduler has proved that no process remains. */
   public async remove(instanceId: string): Promise<void> {
-    await this.database.execute(
-      "DELETE FROM acp_resource_leases WHERE instance_id = $instance_id;",
-      { instance_id: instanceId },
-    );
+    await this.deleteLease(instanceId, false);
   }
 
-  /**
-   * Releases an unconfirmed lease only while it is still unconfirmed.
-   * @returns `released`, `absent` when it was already gone, or `changed` when
-   * its state changed meanwhile and the lease stays.
-   */
+  /** Deletes only an unchanged uncertain lease inside a transaction. */
   public async releaseUncertain(instanceId: string): Promise<AcpLeaseRelease> {
-    const deleted = await this.database.query(
-      `
-      DELETE FROM acp_resource_leases
-      WHERE instance_id = $instance_id
-        AND state = 'cleanup_failed'
-      RETURNING instance_id;
-    `,
-      { instance_id: instanceId },
-    );
-    if (deleted.length > 0) return "released";
-    const [remaining] = await this.database.query(
-      "SELECT instance_id FROM acp_resource_leases WHERE instance_id = $instance_id;",
-      { instance_id: instanceId },
-    );
-    return remaining ? "changed" : "absent";
+    return this.deleteLease(instanceId, true);
   }
 
   /** Stores the result of a periodic check on a lease that is still unconfirmed. */
@@ -241,6 +222,21 @@ export class AcpResourceRepository implements AcpResourceStore {
       status: readTextColumn(row, 4, "status"),
     }));
   }
+  private async deleteLease(
+    instanceId: string,
+    isUncertain: boolean,
+  ): Promise<AcpLeaseRelease> {
+    if (!this.database.transaction)
+      throw new Error("Lease release requires a transaction");
+    return this.database.transaction((transaction) =>
+      releaseAcpLease(transaction, {
+        instanceId,
+        isUncertain,
+        reason: isUncertain ? "process_end_confirmed" : "owner_released",
+      }),
+    );
+  }
+
   private async writeRecord(
     executor: Pick<Database, "execute">,
     record: AcpResourceRecord,

@@ -1,3 +1,5 @@
+import { AgentPlanRecoveryError } from "@/backend/error/AgentPlanRecoveryError";
+import { planRecoveryFailure } from "@/app/lib/agent-plan-recovery-response.server";
 import { readAgentJson } from "@/app/lib/agent-json.server";
 import { authenticatedUserContext } from "@/app/lib/auth.server";
 import { getApplicationServices } from "@/app/lib/services.server";
@@ -84,6 +86,16 @@ export async function action({
     if (!user || (origin !== null && origin !== new URL(request.url).origin))
       throw new AgentError("plan_access_denied");
     const input = readAgentObject(await readAgentJson(request));
+    if (input.action === "release_workspace_locks") {
+      if (input.confirm !== true) throw new AgentError("plan_run_unavailable");
+      await (
+        await getApplicationServices()
+      ).agentPlanService.releaseWorkspaceLocks(
+        user.id,
+        readPlanText(input.runId),
+      );
+      return Response.json({ ok: true }, { headers: AGENT_NO_STORE });
+    }
     if (input.action !== "retry" && input.action !== "release")
       throw new AgentError("plan_run_unavailable");
     if (input.action === "release" && input.processEndVerified !== true)
@@ -99,6 +111,8 @@ export async function action({
     return Response.json({ ok: true }, { headers: AGENT_NO_STORE });
   } catch (error: unknown) {
     logCaughtError("agent_workspace_cleanup_decision", error);
+    if (error instanceof AgentPlanRecoveryError)
+      return planRecoveryFailure(error);
     return agentFailureResponse(error, "cleanup-decision");
   }
 }

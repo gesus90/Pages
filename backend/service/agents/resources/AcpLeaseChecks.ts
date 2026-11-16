@@ -1,6 +1,7 @@
-import { hasRunningWorkerUnit } from "@/backend/agents/cli/CliWorkerUnit";
-import { inspectManagedLocalOwner } from "@/backend/agents/local/LocalOwnerControl";
 import { logCaughtError, logEvent } from "@/backend/logging/Logger";
+
+import { classifyLease, isReleaseReason } from "./AcpLeaseEvidence";
+import { listRunningWorkerUnits } from "@/backend/agents/cli/CliWorkerUnit";
 
 import { AcpLeaseAudit } from "./AcpLeaseAudit";
 import { AcpLeaseCleanup } from "./AcpLeaseCleanup";
@@ -17,25 +18,6 @@ import type { AcpResourceStore } from "./AcpResourceStore";
 import type { AcpStartLifecycle } from "./AcpStartLifecycle";
 
 type DescribedLease = AcpResourceSnapshot["active"][number];
-
-async function reconciliationReason(
-  record: AcpResourceRecord,
-  unverifiedLocal: ReadonlySet<string>,
-  hasRunningUnit: (instanceId: string) => Promise<boolean>,
-): Promise<string | null> {
-  if (
-    record.runId !== null ||
-    record.namespace ||
-    unverifiedLocal.has(record.instanceId) ||
-    inspectManagedLocalOwner(record.instanceId) === "owned"
-  )
-    return null;
-  if (record.workerUnit)
-    return (await hasRunningUnit(record.instanceId)) ? null : "unit_inactive";
-  return Date.now() - Date.parse(record.since) >= 15 * 60_000
-    ? "unbound_expired"
-    : null;
-}
 
 /** The scheduler state the lease checks read and change, always inside its serial writes. */
 export interface AcpLeaseCheckHost {
@@ -77,9 +59,7 @@ export class AcpLeaseChecks {
     this.audit = new AcpLeaseAudit(
       {
         candidates: () =>
-          [...host.active.values()].filter(
-            (record) => record.runId === null && this.isIdle(record),
-          ),
+          [...host.active.values()].filter((record) => this.isIdle(record)),
         isUnverifiedLocal: (instanceId) =>
           host.unverifiedLocal().has(instanceId),
         release: (instanceId) => this.release(instanceId),
@@ -189,26 +169,37 @@ export class AcpLeaseChecks {
 
   /** Checks uncertain leases again and returns how many remain. */
   public async reconcile(runId?: string): Promise<number> {
+    await this.forgetReleasedLeases();
     const uncertain = [...this.host.active.values()].filter(
       (record) =>
         record.state === "cleanup_failed" &&
         (runId === undefined || record.runId === runId),
     );
+    if (uncertain.length === 0) return 0;
+    let units: ReadonlySet<string> | null = null;
+    try {
+      units = await listRunningWorkerUnits();
+    } catch (error: unknown) {
+      logCaughtError("AcpLeaseChecks", error);
+    }
     let remaining = 0;
     for (const record of uncertain) {
-      let reason: string | null = null;
+      let reason: AcpLeaseCheckReason;
       try {
-        reason = await reconciliationReason(
-          record,
-          this.host.unverifiedLocal(),
-          this.host.hasRunningUnit ?? hasRunningWorkerUnit,
-        );
-        if (reason && (await this.releaseIfUnchanged(record))) {
+        reason = await classifyLease(record, {
+          isUnverifiedLocal: this.host.unverifiedLocal().has(record.instanceId),
+          units,
+        });
+        if (
+          isReleaseReason(reason) &&
+          (await this.releaseIfUnchanged(record))
+        ) {
           logEvent({
             level: "info",
             event: "agent.acp_lease.released",
             component: "AcpResourceScheduler",
-            message: `Released ACP reservation ${record.instanceId}: ${reason}, age ${Date.now() - Date.parse(record.since)} ms`,
+            message: "Released a confirmed dead ACP reservation",
+            metadata: { runId: record.runId, lock: record.instanceId, reason },
           });
           continue;
         }
@@ -236,6 +227,26 @@ export class AcpLeaseChecks {
     });
     if (released) this.host.wake();
     return released;
+  }
+
+  private async forgetReleasedLeases(): Promise<void> {
+    const hasIdle = [...this.host.active.values()].some((record) =>
+      this.isIdle(record),
+    );
+    if (!hasIdle) return;
+    const removed = await this.host.persist(async () => {
+      const stored = new Set(
+        (await this.host.store.list()).map((record) => record.instanceId),
+      );
+      let count = 0;
+      for (const record of this.host.active.values()) {
+        if (!this.isIdle(record) || stored.has(record.instanceId)) continue;
+        this.host.active.delete(record.instanceId);
+        count += 1;
+      }
+      return count;
+    });
+    if (removed > 0) this.host.wake();
   }
 
   /** Persists lifecycle evidence; the caller spawns only after this resolved. */

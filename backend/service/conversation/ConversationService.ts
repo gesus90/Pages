@@ -1,15 +1,27 @@
+import type { ConversationDelivery } from "@/definition/ConversationLiveAnswer";
+import type {
+  ConversationServiceDependencies,
+  ConversationChangeOptions,
+  ConversationCreation,
+  ConversationSending,
+  ConversationVoiceTicket,
+  ConversationGroupAdoption,
+} from "./ConversationServiceContracts";
 import { randomUUID } from "node:crypto";
 
 import { withBackgroundDatabaseWork } from "@/backend/database/executor/DatabaseWorkContext";
 import { ConversationError } from "@/backend/error/ConversationError";
-import { logCaughtError } from "@/backend/logging/Logger";
+import { logCaughtError, logEvent } from "@/backend/logging/Logger";
 import {
   CONVERSATION_GROUP_MAXIMUM_MEMBERS,
   CONVERSATION_TEXT_MAXIMUM_LENGTH,
 } from "@/definition/Conversation";
 
 import { findConversationMentions } from "./ConversationMentions";
-import { readConversationIdentifier } from "./ConversationReader";
+import {
+  readConversationIdentifier,
+  toConversationMessage,
+} from "./ConversationReader";
 import {
   conversationChangedEvent,
   readConversationGroupName,
@@ -18,14 +30,7 @@ import {
   transcribeConversationVoice,
 } from "./ConversationServiceHelpers";
 
-import type { ConversationDelivery } from "@/definition/ConversationLiveAnswer";
-import type {
-  ConversationMessageRepository,
-  StoredConversationMessage,
-} from "@/backend/database/repositories/conversation/ConversationMessageRepository";
-import type { ConversationRepository } from "@/backend/database/repositories/conversation/ConversationRepository";
-import type { PagesEvent } from "@/backend/service/events/PagesEventPublisher";
-import type { WikiFileStore } from "@/backend/storage/WikiFileStore";
+import type { StoredConversationMessage } from "@/backend/database/repositories/conversation/ConversationMessageRepository";
 import type {
   ConversationKind,
   ConversationMessage,
@@ -33,89 +38,23 @@ import type {
   ConversationSummary,
 } from "@/definition/Conversation";
 import type { User } from "@/definition/User";
-import type {
-  ConversationAccounts,
-  ConversationDirectory,
-} from "./ConversationDirectory";
-import type { ConversationAttachments } from "./content/ConversationAttachments";
-import type { ConversationEvents } from "./ConversationEvents";
-import type { ConversationReader } from "./ConversationReader";
-import type { ConversationTranscriber } from "./ConversationTranscriber";
+import type { ConversationAccounts } from "./ConversationDirectory";
 import type {
   ConversationVoiceDeclaration,
-  ConversationVoiceIntent,
-  ConversationVoiceStore,
   StoredConversationVoiceFile,
 } from "./ConversationVoiceStore";
 
 /** The start of the `clientMessageId` of a system line. */
 export const SYSTEM_LINE_PREFIX = "session-event:";
 
-/** What the writes of conversations use. */
-export interface ConversationServiceDependencies {
-  readonly conversations: ConversationRepository;
-  readonly messages: ConversationMessageRepository;
-  readonly reader: Pick<
-    ConversationReader,
-    "summary" | "readState" | "memberIds" | "messages"
-  >;
-  /** The files of messages. */
-  readonly attachments: Pick<
-    ConversationAttachments,
-    "bind" | "collect" | "collectConversation"
-  >;
-  readonly directory: Pick<ConversationDirectory, "read">;
-  readonly voices: ConversationVoiceStore;
-  /** Opens stored audio for the recognition and removes the audio of a deleted conversation. */
-  readonly files: Pick<WikiFileStore, "open" | "remove">;
-  readonly transcriber: ConversationTranscriber;
-  /** The in-process channel the Pica Mobile connections and the push follow. */
-  readonly events: Pick<ConversationEvents, "publish">;
-  /** Tells the live view of this process about a committed change. */
-  readonly publisher: { publish(event: PagesEvent): void };
-  readonly now?: () => Date;
-  readonly createId?: () => string;
-}
-
-/** Who caused a change; the Pica Mobile connection receives its own answer instead of the event. */
-export interface ConversationChangeOptions {
-  readonly originId?: string;
-  /**
-   * How a person sent a message while agents answered: into their
-   * running answers or after them; absent starts its round as before.
-   */
-  readonly delivery?: ConversationDelivery;
-}
-
-/** The raw input of a new conversation. */
-export interface ConversationCreation {
-  readonly kind: ConversationKind;
-  readonly participantIds: readonly string[];
-  readonly name?: string | null;
-}
-
-/** The raw input of a message. */
-export interface ConversationSending {
-  readonly conversationId: string;
-  readonly clientMessageId: unknown;
-  readonly text: unknown;
-  /** The uploaded attachments the message carries, in their order. */
-  readonly attachmentIds?: unknown;
-}
-
-/** A voice message announced for a conversation, whose audio has yet to arrive. */
-export interface ConversationVoiceTicket {
-  readonly conversationId: string;
-  readonly clientMessageId: string;
-  readonly intent: ConversationVoiceIntent;
-}
-
-/** A group of the web chat page that becomes a shared conversation. */
-export interface ConversationGroupAdoption {
-  readonly id: string;
-  readonly name: string;
-  readonly memberIds: readonly string[];
-}
+export type {
+  ConversationServiceDependencies,
+  ConversationChangeOptions,
+  ConversationCreation,
+  ConversationSending,
+  ConversationVoiceTicket,
+  ConversationGroupAdoption,
+} from "./ConversationServiceContracts";
 
 /**
  * The writes of conversations: new direct conversations and
@@ -610,11 +549,7 @@ export class ConversationService {
       await this.dependencies.voices.discard(message.voice);
     if (outcome.isNew)
       await this.bindAttachments(outcome.message, message.attachmentIds);
-    const [sent] = await this.dependencies.reader.messages(
-      [outcome.message],
-      accounts,
-    );
-    if (!sent) throw new Error("The stored message is missing.");
+    const sent = await this.describeStored(outcome.message, accounts);
     if (!outcome.isNew) return sent;
     this.announce(summary.id, {
       kind: "message",
@@ -627,6 +562,45 @@ export class ConversationService {
     });
     if (outcome.message.voice) this.transcribeLater(outcome.message, memberIds);
     return sent;
+  }
+
+  /**
+   * Turns a stored message into the message the members and the agents hear.
+   * @remarks
+   * Reading its attachments and links happens after the message committed. A
+   * failure there must not keep the message from being announced, or it stays
+   * stored and nobody answers it: a message with text is announced without
+   * that content and the failure is logged with the message and its
+   * conversation, never its text. A message without text lives from its
+   * attachments, so there the failure is thrown.
+   */
+  private async describeStored(
+    stored: StoredConversationMessage,
+    accounts: ConversationAccounts,
+  ): Promise<ConversationMessage> {
+    try {
+      const [described] = await this.dependencies.reader.messages(
+        [stored],
+        accounts,
+      );
+      if (!described) throw new Error("The stored message is missing.");
+      return described;
+    } catch (error: unknown) {
+      logEvent({
+        level: "error",
+        event: "conversation.message.content_failed",
+        component: "ConversationService",
+        message:
+          "The content of a stored message could not be read; it is announced without it.",
+        metadata: {
+          conversationId: stored.conversationId,
+          messageId: stored.id,
+        },
+        error,
+      });
+      if (stored.text.trim() === "") throw error;
+      return toConversationMessage(stored, accounts);
+    }
   }
 
   /** Binds the uploads to a new message; a refused one takes the message back. */

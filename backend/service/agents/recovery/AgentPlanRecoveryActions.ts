@@ -34,6 +34,7 @@ import {
   reviewedRetries,
 } from "./AgentPlanRecoveryPlanning";
 
+import type { AgentPlanWorkspaceLocks } from "../AgentPlanWorkspaceLocks";
 import type { RestartOwners } from "./AgentPlanRestartCleanup";
 import type { PlanRunEnginePort } from "../runs/PlanRunEnginePort";
 import type { AgentPlanRun } from "@/definition/AgentPlan";
@@ -61,6 +62,7 @@ import type { RecoveryFacts } from "./AgentPlanRecoveryPlanning";
 
 /** The boundaries of executing recovery; each check stays on the server. */
 export interface RecoveryActionDependencies {
+  readonly workspaceLocks: Pick<AgentPlanWorkspaceLocks, "release">;
   readonly runs: Pick<AgentPlanService, "run"> &
     Partial<Pick<AgentPlanService, "controlRun" | "readableRun">>;
   readonly remoteExecution?: Pick<AgentPlanRemoteExecution, "stop"> &
@@ -426,20 +428,22 @@ export class AgentPlanRecoveryActions {
       false,
     );
     requireOption(releaseOption(facts));
-    const settled = await this.settleCleanup(facts, false);
+    // Release refuses living writers; it never turns a release decision into Stop.
     const result: AgentPlanRecoveryResult = {
       commandId: randomUUID(),
       revision: request.command.expectedRevision + 1,
       outcome: "released",
     };
-    await this.dependencies.executions.recordAlone(
-      {
-        command: request.command,
-        requestDigest: request.requestDigest,
-        result,
-        execution: this.execution(request, result, null),
-      },
-      settled,
+    await this.dependencies.workspaceLocks.release(
+      facts.run,
+      "user_requested",
+      (transaction) =>
+        this.dependencies.executions.record(transaction, {
+          command: request.command,
+          requestDigest: request.requestDigest,
+          result,
+          execution: this.execution(request, result, null),
+        }),
     );
     return result;
   }

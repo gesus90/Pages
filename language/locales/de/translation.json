@@ -5265,6 +5265,18 @@
     }
   },
   "plans": {
+    "workspaceLocks": {
+      "holder": "Arbeitsbereich gesperrt durch Lauf {{run}} · {{status}} · seit {{since}} ({{hours}} Std. {{minutes}} Min.)",
+      "reason": {
+        "active": "Der Lauf ist aktiv oder pausiert und behält seinen Arbeitsbereich.",
+        "resumable": "Der beendete Lauf hält den Arbeitsbereich für seine Fortsetzung.",
+        "cleanup": "Die Freigabe wartet auf bestätigte Ressourcenbereinigung."
+      },
+      "overdue": "Diese fortsetzbare Sperre besteht seit mindestens 24 Stunden. Bitte fortsetzen oder nach Prüfung freigeben.",
+      "release": "Freigeben",
+      "confirm": "Bist du sicher? Die Sperren dieses Laufs werden freigegeben, sobald keine Prozesse, Einheiten oder offenen Ressourcen mehr bestehen.",
+      "released": "Die Sperren wurden freigegeben."
+    },
     "localState": {
       "stale": "Zuletzt bekannter Stand vom {{time}}. Er wird gerade aktualisiert; bis dahin ist der Plan schreibgeschützt.",
       "offline": "Pages ist nicht erreichbar. Angezeigt wird der zuletzt bekannte Stand vom {{time}}; Änderungen sind gesperrt, bis die Verbindung zurück ist."
@@ -8055,6 +8067,60 @@
         "unreachable": "Google Drive ist gerade nicht erreichbar."
       }
     },
+    "preview": {
+      "close": "Schließen",
+      "download": "Herunterladen",
+      "modified": "geändert {{date}}",
+      "loading": "Vorschau wird geladen …",
+      "retry": "Erneut versuchen",
+      "empty": "Die Datei ist leer.",
+      "page": "Seite {{n}} von {{total}}",
+      "pageLabel": "Seite {{n}}",
+      "kind": {
+        "markdown": "Markdown",
+        "pdf": "PDF",
+        "document": "Dokument",
+        "spreadsheet": "Tabelle",
+        "presentation": "Präsentation",
+        "image": "Bild",
+        "video": "Video",
+        "audio": "Audio",
+        "archive": "Archiv",
+        "code": "Code",
+        "text": "Text",
+        "form": "Formular",
+        "drawing": "Zeichnung",
+        "shortcut": "Verknüpfung",
+        "folder": "Ordner",
+        "file": "Datei"
+      },
+      "unsupported": {
+        "title": "Keine Vorschau für diese Dateiart",
+        "text": "Diese Datei lässt sich hier nicht anzeigen. Du kannst sie herunterladen."
+      },
+      "tooLarge": {
+        "title": "Die Datei ist zu groß für die Vorschau",
+        "text": "Die Vorschau zeigt Dateien bis {{limit}}. Du kannst die Datei herunterladen."
+      },
+      "unreadable": {
+        "title": "Diese Datei lässt sich nicht anzeigen",
+        "encrypted": "Die Datei ist verschlüsselt oder in einem älteren Format. Du kannst sie herunterladen.",
+        "unreadable": "Die Datei ist beschädigt oder in einem Format, das Pages nicht lesen kann. Du kannst sie herunterladen.",
+        "tooLarge": "Die Datei enthält Teile, die für die Vorschau zu groß sind. Du kannst sie herunterladen."
+      },
+      "failed": {
+        "title": "Die Vorschau konnte nicht geladen werden",
+        "text": "Google Drive hat die Datei nicht geliefert. Versuche es noch einmal."
+      },
+      "forbidden": {
+        "title": "Kein Zugriff auf diese Datei",
+        "text": "Dein Konto darf diese Datei nicht lesen, oder die Freigabe wurde entzogen."
+      },
+      "notFound": {
+        "title": "Datei nicht gefunden",
+        "text": "Die Datei wurde entfernt oder verschoben und ist nicht mehr zugänglich."
+      }
+    },
     "list": {
       "name": "Name",
       "modified": "Geändert",
@@ -8098,6 +8164,7 @@
       "readOnlyScenario": "Dieses Simulationsszenario ist schreibgeschützt; Änderungen sind nicht möglich."
     },
     "actions": {
+      "open": "Öffnen",
       "menu": "Aktionen für {{name}}",
       "download": "Herunterladen",
       "upload": "Hochladen",
@@ -8240,21 +8307,6 @@
       "group": "Gruppe",
       "role": "Rolle",
       "department": "Abteilung",
-      "history": "Storage-Verlauf",
-      "operations": {
-        "create_folder": "Ordner angelegt",
-        "upload": "Datei hochgeladen",
-        "update": "Version gespeichert",
-        "read": "Datei gelesen",
-        "download": "Datei heruntergeladen",
-        "list": "Ordner aufgelistet",
-        "stat": "Metadaten gelesen",
-        "search": "Gesucht",
-        "resolve_path": "Pfad aufgelöst",
-        "confirm": "Bestätigung vorbereitet",
-        "grant": "Recht vergeben",
-        "revoke": "Recht entzogen"
-      },
       "roots": "Freigegebene Ordner"
     }
   },

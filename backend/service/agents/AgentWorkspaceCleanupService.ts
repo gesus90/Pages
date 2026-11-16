@@ -9,6 +9,7 @@ import {
   closeRecoveryScripts,
 } from "./recovery/AgentPlanRecoveryScripts";
 
+import type { AgentPlanWorkspaceLocks } from "./AgentPlanWorkspaceLocks";
 import type { AgentWorkspaceCleanupRepository } from "@/backend/database/repositories/agent/AgentWorkspaceCleanupRepository";
 import type { AgentPlanRunRepository } from "@/backend/database/repositories/agent/AgentPlanRunRepository";
 import type { AgentPlanRun } from "@/definition/AgentPlan";
@@ -18,7 +19,8 @@ import type { AgentPlanRemoteExecution } from "./AgentPlanRemoteExecution";
 
 interface CleanupDependencies {
   readonly obligations: AgentWorkspaceCleanupRepository;
-  readonly runs: Pick<AgentPlanRunRepository, "find" | "release">;
+  readonly runs: Pick<AgentPlanRunRepository, "find">;
+  readonly workspaceLocks: Pick<AgentPlanWorkspaceLocks, "release">;
   readonly engine: Pick<PlanRunEnginePort, "stop" | "isActive">;
   readonly remote: Pick<AgentPlanRemoteExecution, "stop" | "withProgress">;
 }
@@ -87,7 +89,7 @@ export class AgentWorkspaceCleanupService {
     entry: AgentWorkspaceCleanup,
     run: AgentPlanRun | null,
   ): Promise<void> {
-    const { runs, engine, remote, obligations } = this.dependencies;
+    const { workspaceLocks, engine, remote, obligations } = this.dependencies;
     if (!run || run.userId !== entry.ownerId) {
       await obligations.failedAttempt(entry, "owner_evidence_unavailable");
       return;
@@ -105,12 +107,7 @@ export class AgentWorkspaceCleanupService {
     );
     const processes = await checkSessionProcesses(checked);
     if (processes.confirmed) {
-      await runs.release(run.id);
-      await obligations.record(
-        entry,
-        "completed",
-        "process_free_files_preserved",
-      );
+      await workspaceLocks.release(run, "workspace_cleanup_confirmed");
       return;
     }
     await obligations.failedAttempt(

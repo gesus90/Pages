@@ -1,3 +1,4 @@
+import type { AgentPlanWorkspaceLock } from "./AgentPlanWorkspaceLock";
 import type { AcpWaitReason } from "./AcpResource";
 import type { AgentPlanWriterWait } from "./AgentPlanExecution";
 import type { AgentWorkspaceCleanup } from "./AgentWorkspaceCleanup";
@@ -57,6 +58,7 @@ export interface AgentPlanResumeBlock {
 
 /** Plan-visible control metadata contains no private prompts, results or session details. */
 export interface AgentPlanControl {
+  readonly workspaceLocks?: readonly AgentPlanWorkspaceLock[];
   readonly runId: string | null;
   readonly status: AgentPlanRun["status"] | "idle";
   readonly canPlay: boolean;
