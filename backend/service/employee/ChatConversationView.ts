@@ -2,7 +2,10 @@ import {
   CONVERSATION_AGENT_SEND_PREFIX,
   CONVERSATION_PREVIEW_SEND_PREFIX,
 } from "@/definition/Conversation";
-import { CONVERSATION_AGENT_INTERIM_PREFIX, CONVERSATION_AGENT_QUESTION_PREFIX } from "@/definition/AgentChatQuestion";
+import {
+  CONVERSATION_AGENT_INTERIM_PREFIX,
+  CONVERSATION_AGENT_QUESTION_PREFIX,
+} from "@/definition/AgentChatQuestion";
 
 import type { ConversationView } from "@/backend/service/conversation/ConversationReader";
 import type {

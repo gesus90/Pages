@@ -1,7 +1,13 @@
 import { data } from "react-router";
 
 import { authenticatedUserContext } from "@/app/lib/auth.server";
-import { CHAT_TASK_INTENTS, CHAT_TASK_STATUS, chatTaskFailure, isChatTaskIntent, runChatTaskIntent } from "@/app/lib/chat-page-tasks.server";
+import {
+  CHAT_TASK_INTENTS,
+  CHAT_TASK_STATUS,
+  chatTaskFailure,
+  isChatTaskIntent,
+  runChatTaskIntent,
+} from "@/app/lib/chat-page-tasks.server";
 import { getApplicationServices } from "@/app/lib/services.server";
 import { AgentEmployeeError } from "@/backend/error/AgentEmployeeError";
 import { ConversationError } from "@/backend/error/ConversationError";
@@ -12,7 +18,10 @@ import { runChatPageIntent } from "./chat-page-intents.server";
 
 import type { AgentChatCommandOutcome } from "@/definition/AgentChatControl";
 import type { ChatTaskIntent } from "@/app/lib/chat-page-tasks.server";
-import type { AgentChatTaskErrorCode, AgentChatTaskView } from "@/definition/AgentChatTask";
+import type {
+  AgentChatTaskErrorCode,
+  AgentChatTaskView,
+} from "@/definition/AgentChatTask";
 import type { ConversationErrorCode } from "@/definition/Conversation";
 import type {
   ConversationDecisionEntry,
@@ -231,7 +240,12 @@ export async function action({
   const services = await getApplicationServices();
   try {
     if (isChatTaskIntent(intent)) {
-      const outcome = await runChatTaskIntent(services.agentChatTaskService, person, intent, formData);
+      const outcome = await runChatTaskIntent(
+        services.agentChatTaskService,
+        person,
+        intent,
+        formData,
+      );
       return data<ChatPageActionData>({ ok: true, intent, ...outcome });
     }
     const outcome = await runChatPageIntent(services, person, intent, formData);

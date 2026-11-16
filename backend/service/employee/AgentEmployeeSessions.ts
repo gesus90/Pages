@@ -27,7 +27,10 @@ import type {
   ChatSteerStatus,
 } from "@/definition/ChatJob";
 import type { User } from "@/definition/User";
-import type { PicaAcpEmployeeRun, PicaAcpStart } from "../chat/acp/PicaAcpService";
+import type {
+  PicaAcpEmployeeRun,
+  PicaAcpStart,
+} from "../chat/acp/PicaAcpService";
 import type { AgentChatScope } from "./AgentEmployeeSessionTypes";
 import type { AgentChatToolScope } from "./AgentChatToolGuard";
 import type { AgentMemoryAudience } from "./AgentMemorySharing";

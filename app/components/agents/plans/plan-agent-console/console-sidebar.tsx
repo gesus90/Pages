@@ -247,9 +247,7 @@ function UsageSection(props: {
       ? unknown
       : numbers.format(context.contextLimit);
   const contextValue =
-    used === null
-      ? unknown
-      : `${numbers.format(used)} / ${contextLimit}`;
+    used === null ? unknown : `${numbers.format(used)} / ${contextLimit}`;
   const codex =
     props.view.provider === "codex_cli"
       ? props.view.codexRunUsage?.steps.find(

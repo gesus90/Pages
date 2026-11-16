@@ -4,7 +4,9 @@ import { resolveDefaultDataDirectory } from "@/backend/config/PagesConfig";
 import { AntigravityPriceCatalog } from "@/backend/service/agents/sessions/AntigravityPriceCatalog";
 
 /** Creates the price catalog in the configured Pages data directory. */
-export function createPriceCatalog(configPath: string): AntigravityPriceCatalog {
+export function createPriceCatalog(
+  configPath: string,
+): AntigravityPriceCatalog {
   return new AntigravityPriceCatalog(
     path.join(
       resolveDefaultDataDirectory(configPath),

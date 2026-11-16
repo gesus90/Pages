@@ -1,4 +1,7 @@
-import { isChatTaskIntent, runChatTaskIntent } from "@/app/lib/chat-page-tasks.server";
+import {
+  isChatTaskIntent,
+  runChatTaskIntent,
+} from "@/app/lib/chat-page-tasks.server";
 import type { AgentChatTaskView } from "@/definition/AgentChatTask";
 import { shareChatGroup } from "@/app/lib/chat-page-conversations.server";
 import { AgentEmployeeError } from "@/backend/error/AgentEmployeeError";
@@ -412,7 +415,12 @@ export async function runChatPageIntent(
     return {};
   }
   if (isChatTaskIntent(intent))
-    return runChatTaskIntent(services.agentChatTaskService, person, intent, formData);
+    return runChatTaskIntent(
+      services.agentChatTaskService,
+      person,
+      intent,
+      formData,
+    );
   return runChatDispatchIntent(services, person, intent, formData);
 }
 
@@ -421,7 +429,10 @@ async function runChatDispatchIntent(
   person: User,
   intent: Exclude<
     ChatPageIntent,
-    (typeof MEMBER_INTENTS)[number] | ContentIntent | AgentControlIntent | ChatTaskIntent
+    | (typeof MEMBER_INTENTS)[number]
+    | ContentIntent
+    | AgentControlIntent
+    | ChatTaskIntent
   >,
   formData: FormData,
 ): Promise<ChatIntentOutcome> {
