@@ -2,9 +2,16 @@
  * What kind of object a live notice names; `project` stands for the tickets
  * of a project, `conversation` for a stored conversation of the chat page,
  * `calendar` for an event of the calendar or the project dates of a project.
+ * `plan` invalidates catalogs anonymously; its id is always `catalog`.
  */
 export type LiveChangeKind =
-  "ticket" | "milestone" | "wiki" | "project" | "conversation" | "calendar";
+  | "ticket"
+  | "milestone"
+  | "wiki"
+  | "project"
+  | "conversation"
+  | "calendar"
+  | "plan";
 
 /**
  * One live notice: which object changed, never what it now contains.
@@ -33,6 +40,7 @@ const LIVE_CHANGE_KINDS: ReadonlySet<string> = new Set([
   "project",
   "conversation",
   "calendar",
+  "plan",
 ]);
 
 function isLiveChangeKind(value: unknown): value is LiveChangeKind {

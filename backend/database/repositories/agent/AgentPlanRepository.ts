@@ -16,6 +16,7 @@ import { fullPlanTeam } from "@/definition/AgentPlanTeam";
 
 import { AgentWorkspaceReferencesRepository } from "./AgentWorkspaceReferencesRepository";
 import { requireReleasedPlanResources } from "./AgentPlanDeletionGuard";
+import { recordPlanChange } from "./AgentPlanChangeNotification";
 import {
   requirePlanConnections,
   requireRemotePlanModels,
@@ -382,6 +383,7 @@ export class AgentPlanRepository {
         await new AgentPlanTeamRepository(transaction).replace(id, [
           fullPlanTeam("department", departmentId),
         ]);
+        await recordPlanChange(transaction);
         return "shared";
       });
     } catch (error: unknown) {
@@ -461,6 +463,7 @@ export class AgentPlanRepository {
         { id, plan_json: stored, updated_by: options.editorId },
       );
       await options.journal?.(transaction);
+      await recordPlanChange(transaction);
       return true;
     });
   }
@@ -519,6 +522,7 @@ export class AgentPlanRepository {
         { id },
       );
       await options?.journal(transaction);
+      await recordPlanChange(transaction);
     });
   }
 }
@@ -557,6 +561,7 @@ async function writePlan(
       plan.teams ?? [],
     );
   await write.journal?.(transaction);
+  await recordPlanChange(transaction);
 }
 
 /** UI, Pica, MCP and agent sessions all store through here, so one check covers every editor. */

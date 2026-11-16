@@ -14,6 +14,7 @@ import {
   withPlanTeam,
 } from "./plan-access-model";
 import { useRequestKey } from "./use-plan-management";
+import { usePlanRevisionState } from "../use-plan-revision-state";
 
 import type { AgentPlanPage, AgentPlanView } from "@/definition/AgentPlan";
 import type { AgentPlanTeam } from "@/definition/AgentPlanTeam";
@@ -60,14 +61,24 @@ export function PlanAccessDialog({
 }): React.ReactElement {
   const { t } = useTranslation();
   const searchId = useId();
-  const [teams, setTeams] = useState<readonly AgentPlanTeam[]>(
-    plan.teams ?? [],
+  const fields = usePlanRevisionState(
+    { teams: plan.teams ?? [], ownerId: plan.ownerId },
+    plan.revision,
   );
-  const [ownerId, setOwnerId] = useState(plan.ownerId);
+  const { teams, ownerId } = fields.current;
+  function setTeams(nextTeams: readonly AgentPlanTeam[]): void {
+    fields.setCurrent({ ...fields.current, teams: nextTeams });
+  }
+  function setOwnerId(nextOwnerId: string): void {
+    fields.setCurrent({ ...fields.current, ownerId: nextOwnerId });
+  }
   const [query, setQuery] = useState("");
   const canManageTeams = plan.rights?.canManageTeams === true;
   const canChangeOwner = plan.rights?.canChangeOwner === true;
-  const request = accessRequest(plan, { teams, ownerId, canManageTeams });
+  const request = accessRequest(
+    { ...plan, revision: fields.revision },
+    { teams, ownerId, canManageTeams },
+  );
   const key = useRequestKey(JSON.stringify(request));
   const choices = canManageTeams
     ? planTeamChoices(page.directory, teams, query)
@@ -83,7 +94,11 @@ export function PlanAccessDialog({
       submitLabel={t("plans.execution.save")}
       isPending={management.isPending}
       isSubmitDisabled={!canManageTeams && !canChangeOwner}
-      error={planRequestError(management.error, t)}
+      error={
+        fields.isOutdated
+          ? t("plans.execution.incomingSettings")
+          : planRequestError(management.error, t)
+      }
       onSubmit={() => management.submit(request, key)}
       onClose={management.close}
     >

@@ -284,14 +284,28 @@ function ContextMeter({
   );
 }
 
-function UsageSection(props: {
+interface UsageSectionProps {
   readonly view: AgentSessionView;
   /** A turn runs now: its tokens arrive with its end. */
   readonly isTurnRunning: boolean;
-}): React.ReactElement {
-  const { t, i18n } = useTranslation();
+}
+
+function UsageSection(props: UsageSectionProps): React.ReactElement {
+  const { t } = useTranslation();
   if (props.view.openCode)
     return <OpenCodeUsageSection {...props.view.openCode} />;
+  return (
+    <SidebarSection title={t("plans.console.terminal.sidebar.usage")}>
+      <UsageFacts view={props.view} isTurnRunning={props.isTurnRunning} />
+      {props.view.claudeUsage ? (
+        <ClaudeUsageDetails usage={props.view.claudeUsage} />
+      ) : null}
+    </SidebarSection>
+  );
+}
+
+function UsageFacts(props: UsageSectionProps): React.ReactElement {
+  const { t, i18n } = useTranslation();
   const key = "plans.console.terminal.sidebar";
   const unknown = t(`${key}.unknown`);
   const numbers = new Intl.NumberFormat(i18n.language);
@@ -324,7 +338,7 @@ function UsageSection(props: {
       ? `${key}.antigravity.providerCost`
       : `${key}.cost`;
   return (
-    <SidebarSection title={t(`${key}.usage`)}>
+    <>
       {codex ? <CodexUsageFacts usage={codex.usage} /> : null}
       <dl className="space-y-1.5">
         <ContextMeter
@@ -345,10 +359,7 @@ function UsageSection(props: {
           />
         ) : null}
       </dl>
-      {props.view.claudeUsage ? (
-        <ClaudeUsageDetails usage={props.view.claudeUsage} />
-      ) : null}
-    </SidebarSection>
+    </>
   );
 }
 

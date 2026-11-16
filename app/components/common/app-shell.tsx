@@ -14,7 +14,12 @@ import {
 } from "lucide-react";
 import { useEffect, useId, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Link, NavLink, useSubmit } from "react-router";
+import {
+  Link,
+  NavLink,
+  type NavLinkRenderProps,
+  useSubmit,
+} from "react-router";
 
 import iconUrl from "@/assets/icon.png";
 import { Button } from "@/app/components/ui/button";
@@ -55,7 +60,6 @@ import type { InstanceBranding } from "@/definition/Instance";
 import type { User } from "@/definition/User";
 import type { AccountAccess } from "@/definition/Authorization";
 import type { RefObject } from "react";
-import type { NavLinkRenderProps } from "react-router";
 import type { SidebarLayout } from "./app-shell/use-sidebar-layout";
 
 /** Viewports from which the permanent sidebar replaces the mobile menu. */
@@ -90,6 +94,10 @@ interface NavigationLinksProps {
   readonly onNavigate?: () => void;
 }
 
+function linkClassName({ isActive }: NavLinkRenderProps): string {
+  return getLinkClassName(isActive);
+}
+
 function getLinkClassName(isActive: boolean): string {
   return cn(
     "flex min-h-12 items-center gap-4 rounded-xl px-5 text-lg font-medium text-muted-foreground transition-colors hover:bg-sidebar-hover hover:text-foreground xl:min-h-10 xl:gap-3 xl:px-3 xl:text-sm",
@@ -97,9 +105,6 @@ function getLinkClassName(isActive: boolean): string {
       "bg-sidebar-active text-foreground inset-shadow-navigation-selection shadow-(--navigation-selection-shadow)",
   );
 }
-
-const navLinkClassName = ({ isActive }: NavLinkRenderProps): string =>
-  getLinkClassName(isActive);
 
 /** The chat page (PAGE-254), open to every signed-in account. */
 function ChatNavigationLink({
@@ -111,9 +116,7 @@ function ChatNavigationLink({
 
   return (
     <NavLink
-      className={({ isActive }: NavLinkRenderProps) =>
-        getLinkClassName(isActive)
-      }
+      className={linkClassName}
       to="/chat"
       prefetch="intent"
       onClick={onNavigate}
@@ -137,9 +140,7 @@ function WikiNavigationLink({
 
   return (
     <NavLink
-      className={({ isActive }: NavLinkRenderProps) =>
-        getLinkClassName(isActive)
-      }
+      className={linkClassName}
       to="/wiki"
       prefetch="intent"
       onClick={onNavigate}
@@ -160,9 +161,7 @@ function AutomationsNavigationLink({
 
   return (
     <NavLink
-      className={({ isActive }: NavLinkRenderProps) =>
-        getLinkClassName(isActive)
-      }
+      className={linkClassName}
       to="/automationen"
       prefetch="intent"
       onClick={onNavigate}
@@ -185,13 +184,7 @@ function StorageNavigationLink({
   const { t } = useTranslation();
 
   return (
-    <NavLink
-      className={({ isActive }: NavLinkRenderProps) =>
-        getLinkClassName(isActive)
-      }
-      to="/storage"
-      onClick={onNavigate}
-    >
+    <NavLink className={linkClassName} to="/storage" onClick={onNavigate}>
       <HardDrive className="size-6 text-primary xl:size-5" aria-hidden="true" />
       {t("navigation.storage")}
     </NavLink>
@@ -213,7 +206,7 @@ function NavigationLinks({
       aria-label={t("navigation.label")}
     >
       <NavLink
-        className={navLinkClassName}
+        className={linkClassName}
         to="/dashboard"
         prefetch="intent"
         onClick={onNavigate}
@@ -227,7 +220,7 @@ function NavigationLinks({
       {canViewProjects ? (
         <>
           <NavLink
-            className={navLinkClassName}
+            className={linkClassName}
             to="/projekte"
             prefetch="intent"
             onClick={onNavigate}
@@ -239,7 +232,7 @@ function NavigationLinks({
             {t("navigation.projects")}
           </NavLink>
           <NavLink
-            className={navLinkClassName}
+            className={linkClassName}
             to="/aufgaben"
             prefetch="intent"
             onClick={onNavigate}
@@ -269,7 +262,7 @@ function NavigationLinks({
       <div className="mt-auto flex flex-col gap-1 pt-2">
         {canViewUsers ? (
           <NavLink
-            className={navLinkClassName}
+            className={linkClassName}
             to="/users"
             prefetch="intent"
             onClick={onNavigate}
@@ -282,7 +275,7 @@ function NavigationLinks({
           </NavLink>
         ) : null}
         <NavLink
-          className={navLinkClassName}
+          className={linkClassName}
           to="/settings"
           prefetch="intent"
           onClick={onNavigate}

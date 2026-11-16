@@ -1,6 +1,8 @@
 import { useTranslation } from "react-i18next";
+import { useRevalidator } from "react-router";
 
 import { DEFAULT_PLAN_NAME } from "@/app/lib/agent-plan-default";
+import { Button } from "@/app/components/ui/button";
 
 import type { AgentPlanOpening } from "@/app/lib/agent-plan-default";
 
@@ -33,6 +35,8 @@ export function PlanCanvasEmpty(props: {
   readonly opening: AgentPlanOpening;
   readonly isEmptyPlan: boolean;
 }): React.ReactElement | null {
+  const { t } = useTranslation();
+  const { revalidate, state } = useRevalidator();
   const text = useEmptyText(props.opening, props.isEmptyPlan);
   if (!text) return null;
   return (
@@ -44,6 +48,17 @@ export function PlanCanvasEmpty(props: {
         <p className="text-sm font-semibold">{text.title}</p>
         {text.hint ? (
           <p className="mt-1 text-sm text-muted-foreground">{text.hint}</p>
+        ) : null}
+        {props.opening === "requestedMissing" ? (
+          <Button
+            className="pointer-events-auto mt-3"
+            variant="outline"
+            size="sm"
+            disabled={state !== "idle"}
+            onClick={() => void revalidate()}
+          >
+            {t("plans.opening.retry")}
+          </Button>
         ) : null}
       </div>
     </div>

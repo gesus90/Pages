@@ -6,6 +6,8 @@ import {
 } from "@/backend/database/RowValue";
 import { ProjectActivityRepository } from "@/backend/database/repositories/project/ProjectActivityRepository";
 
+import { recordPlanChange } from "./AgentPlanChangeNotification";
+
 import type {
   Database,
   DatabaseTransaction,
@@ -215,6 +217,7 @@ export class AgentPlanOneShotRepository {
     await transaction.execute("DELETE FROM agent_plans WHERE id = $plan_id;", {
       plan_id: entry.planId,
     });
+    await recordPlanChange(transaction);
     const [owner] = await transaction.query(
       "SELECT display_name FROM users WHERE id = $owner_id;",
       { owner_id: entry.ownerId },

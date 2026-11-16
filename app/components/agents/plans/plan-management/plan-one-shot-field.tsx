@@ -20,8 +20,16 @@ export interface PlanOneShotChoice {
  *
  * @param initial - Whether the plan is a one-time plan now.
  */
-export function usePlanOneShotChoice(initial: boolean): PlanOneShotChoice {
-  const [isOneShot, setOneShot] = useState(initial);
+export function usePlanOneShotChoice(
+  initial: boolean,
+  controlled?: {
+    readonly isOneShot: boolean;
+    readonly setOneShot: (isOneShot: boolean) => void;
+  },
+): PlanOneShotChoice {
+  const [storedOneShot, commitOneShot] = useState(initial);
+  const isOneShot = controlled?.isOneShot ?? storedOneShot;
+  const setOneShot = controlled?.setOneShot ?? commitOneShot;
   const [isConfirming, setConfirming] = useState(false);
   return {
     isOneShot,

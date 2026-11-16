@@ -5363,6 +5363,7 @@
     "opening": {
       "defaultMissingTitle": "Kein Plan geöffnet",
       "defaultMissing": "Der Standardplan „{{name}}“ ist nicht vorhanden oder nicht zugänglich. Es wurde kein anderer Plan geöffnet.",
+      "retry": "Zugriff erneut prüfen",
       "requestedMissingTitle": "Plan nicht verfügbar",
       "requestedMissing": "Der ausgewählte Plan existiert nicht oder ist nicht zugänglich. Es wurde kein anderer Plan geöffnet.",
       "emptyPlan": "Dieser Plan ist noch leer"
@@ -6897,6 +6898,9 @@
       "host": "Host",
       "advanced": "Weitere Optionen",
       "conflictTitle": "Plan wurde inzwischen geändert",
+      "incomingRevision": "Revision {{revision}} wurde gespeichert. Deine ungespeicherten Änderungen bleiben erhalten. Du kannst weiterarbeiten oder den aktuellen Plan laden und deinen Entwurf verwerfen.",
+      "incomingDiscard": "Den aktuellen gespeicherten Plan übernehmen und deine ungespeicherten Änderungen verwerfen? Laufende oder pausierte Ausführungen bleiben erhalten.",
+      "incomingSettings": "Der gespeicherte Plan wurde geändert. Deine Eingaben bleiben erhalten. Schließe den Dialog und öffne ihn erneut, um aktuelle Einstellungen zu übernehmen. Speichern mit dem alten Stand wird als Konflikt abgelehnt.",
       "conflictHint": "Dein Entwurf basiert auf einem älteren Stand des Plans. Es wurde nichts überschrieben.",
       "conflictPreserved": "Dein Entwurf bleibt erhalten. Lade den aktuellen Plan, um die Änderungen zu vergleichen.",
       "scriptCheckHint": "Verfügbarkeit und Rechte werden vor dem tatsächlichen Start erneut geprüft.",

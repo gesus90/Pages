@@ -5,6 +5,7 @@ import { agentPlanNameKey } from "@/definition/AgentPlanName";
 import { planNameDepartment } from "@/definition/AgentPlanTeam";
 
 import { AgentPlanAuditRepository } from "./AgentPlanAuditRepository";
+import { recordPlanChange } from "./AgentPlanChangeNotification";
 import { AgentPlanScriptApprovalRepository } from "./AgentPlanScriptApprovalRepository";
 import { AgentPlanTeamRepository } from "./AgentPlanTeamRepository";
 
@@ -211,5 +212,6 @@ export async function writePlanAccess(
     { id: change.planId, updated_by: change.actorId },
   );
   await change.journal?.(transaction);
+  await recordPlanChange(transaction);
   return next;
 }

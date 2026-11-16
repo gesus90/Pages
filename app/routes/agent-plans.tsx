@@ -1,4 +1,5 @@
 import { redirect, useLoaderData, useLocation } from "react-router";
+import { useEffect } from "react";
 
 import { PlanRetiredNotice } from "@/app/components/agents/plans/plan-retired-notice";
 import { PlanPage } from "@/app/components/agents/plans/plan-page";
@@ -16,6 +17,7 @@ import {
 import { localState } from "@/app/lib/local-state/local-state-store";
 import { readRouteData } from "@/app/lib/local-state/route-data";
 import { sendToBackend } from "@/app/lib/backend-request";
+import { invalidatePlanCache } from "@/app/lib/live-changes/plan-cache-invalidation";
 
 import type { AgentPlanOpening } from "@/app/lib/agent-plan-default";
 import type { PlanSelectionPreference } from "@/app/lib/agent-plan-selection";
@@ -130,6 +132,9 @@ export default function AgentPlansRoute(): React.ReactElement {
     PLAN_PAGE_STATE,
   );
   const location = useLocation();
+  useEffect(() => {
+    if (page.opening === "requestedMissing") void invalidatePlanCache();
+  }, [page.opening]);
   usePlanSelectionPreference(page.selectionPreference);
   return (
     <>

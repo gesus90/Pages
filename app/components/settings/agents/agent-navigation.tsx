@@ -1,11 +1,10 @@
 import { Bot, ChevronDown } from "lucide-react";
 import { useId, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { NavLink, useLocation } from "react-router";
+import { NavLink, type NavLinkRenderProps, useLocation } from "react-router";
 
 import { cn } from "@/app/lib/cn";
 
-import type { NavLinkRenderProps } from "react-router";
 
 /** Links reusable user agents, execution plans and workspace management. */
 export function AgentNavigation(props: {

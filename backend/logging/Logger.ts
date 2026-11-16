@@ -233,8 +233,13 @@ function controlResponseStatus(error: unknown): number | null {
   }
 }
 
-/** Captures a recovered exception once, before domain code translates or suppresses it. */
-export function logCaughtError(component: string, error: unknown): void {
+/** Captures a recovered exception once, at the requested severity, before the caller translates it. */
+export function logCaughtError(
+  component: string,
+  error: unknown,
+  level: ServerLogEvent["level"] = "debug",
+  fallbackCorrelationId?: string,
+): void {
   if (typeof error === "object" && error !== null && reportedErrors.has(error))
     return;
   const status = controlResponseStatus(error);
@@ -250,10 +255,14 @@ export function logCaughtError(component: string, error: unknown): void {
     return;
   }
   logEvent({
-    level: "debug",
+    level,
     event: "application.exception.caught",
     component,
     message: "Application exception caught; the caller decides recovery",
+    metadata:
+      !currentLogContext().correlationId && fallbackCorrelationId
+        ? { correlationId: fallbackCorrelationId }
+        : undefined,
     error,
   });
 }

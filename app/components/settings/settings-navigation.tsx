@@ -1,11 +1,10 @@
 import { Bot, Plug, Server, UserRound } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { NavLink } from "react-router";
+import { NavLink, type NavLinkRenderProps } from "react-router";
 
 import { cn } from "@/app/lib/cn";
 
 import type { ReactNode } from "react";
-import type { NavLinkRenderProps } from "react-router";
 
 interface SettingsNavigationProps {
   /** Whether the system area is listed. */

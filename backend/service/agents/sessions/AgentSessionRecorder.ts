@@ -5,15 +5,8 @@ import { logCaughtError, logDiagnostic } from "@/backend/logging/Logger";
 import { codexThreadReportSchema } from "@/definition/CodexPlanUsage";
 
 import { codexPromptTokens } from "../usage/CodexPromptTokens";
-import {
-  PROGRESS_TOOL,
-  describeInput,
-  describeOutput,
-  toolText,
-  activityEvent,
-  progressText,
-} from "./AgentSessionRecorderEvents";
-import type { ToolCallState } from "./AgentSessionRecorderEvents";
+import { activityEvent } from "./AgentSessionRecorderEvents";
+import { AgentToolCallEvents } from "./AgentToolCallEvents";
 import { buildPromptUsage } from "./AgentSessionRecorderUsage";
 import { readContinuationCapabilities } from "./AgentSessionContinuation";
 import {
@@ -119,7 +112,7 @@ export class AgentSessionRecorder implements AcpSessionListener {
   private readonly dependencies: AgentSessionRecorderDependencies;
   private readonly clock: () => string;
   private readonly turns = new Map<string, number>();
-  private readonly tools = new Map<string, ToolCallState>();
+  private readonly toolCalls = new AgentToolCallEvents();
   private readonly openCodeSnapshots = new Map<string, string>();
   private attempt: AgentSessionAttemptRecord;
   private message = "";
@@ -217,7 +210,7 @@ export class AgentSessionRecorder implements AcpSessionListener {
     }
     // Like the plan session's own reader, thoughts, tools and plans end the current message.
     if (MESSAGE_BOUNDARIES.has(update.sessionUpdate)) this.flushMessage();
-    const event = this.toolEvent(update) ?? activityEvent(update);
+    const event = this.toolCalls.event(update) ?? activityEvent(update);
     if (event) this.record(event);
   };
 
@@ -238,21 +231,16 @@ export class AgentSessionRecorder implements AcpSessionListener {
     const attempt = this.attempt;
     const { provider, key } = attempt;
     const turn = this.turn();
-    const statusText = isContinued
-      ? `turn ${turn} continued`
-      : `turn ${turn} ended`;
     if (
       provider === "opencode" &&
       attempt.requestedModel?.startsWith("openrouter/")
     ) {
-      this.turns.set(key.attemptId, turn + 1);
-      this.record({ kind: "status", text: statusText, turn });
+      this.endTurn(key.attemptId, turn, isContinued);
       return;
     }
     const delta = this.promptDelta(usage);
     this.lastUsage = usage ?? this.lastUsage;
-    this.turns.set(key.attemptId, turn + 1);
-    this.record({ kind: "status", text: statusText, turn });
+    this.endTurn(key.attemptId, turn, isContinued);
     if (this.shouldSkipPromptUsage(provider, usage, delta)) return;
     const recorded = buildPromptUsage({
       attempt,
@@ -420,11 +408,6 @@ export class AgentSessionRecorder implements AcpSessionListener {
     if (this.hasWriteFailure) throw new AgentError("plan_history_unavailable");
   };
 
-  /**
-   * The event of a tool call: one when it starts, with its command, and one
-   * when it ends, with command and output; updates in between only add to
-   * what the call reported.
-   */
   private promptDelta(usage: Usage | null): TurnTokenDelta | null {
     const provider = this.attempt.provider;
     if (provider === "codex_cli") return codexPromptTokens(usage);
@@ -455,80 +438,6 @@ export class AgentSessionRecorder implements AcpSessionListener {
     return (
       delta === null && provider !== "claude_code" && provider !== "antigravity"
     );
-  }
-
-  private toolEvent(
-    update: SessionUpdate,
-  ): Omit<AgentSessionEventInput, "turn"> | null {
-    if (update.sessionUpdate === "tool_call") {
-      const state: ToolCallState = {
-        title: update.title,
-        kind: update.kind ?? "other",
-        input: describeInput(update.rawInput),
-        ...(PROGRESS_TOOL.test(update.title) ? { raw: update.rawInput } : {}),
-      };
-      this.tools.set(update.toolCallId, state);
-      return this.announcement(update.toolCallId, state);
-    }
-    if (update.sessionUpdate !== "tool_call_update") return null;
-    const state = this.updatedTool(update);
-    if (update.status !== "completed" && update.status !== "failed")
-      return this.announcement(update.toolCallId, state);
-    this.tools.delete(update.toolCallId);
-    const progress =
-      update.status === "completed" ? progressText(state.raw) : null;
-    if (progress !== null)
-      return {
-        kind: "progress",
-        text: progress,
-        dedupeKey: `tool:${update.toolCallId}:progress`,
-      };
-    return {
-      kind: update.status === "completed" ? "tool_completed" : "tool_failed",
-      text: toolText(state, describeOutput(update)),
-      dedupeKey: `tool:${update.toolCallId}:${update.status}`,
-    };
-  }
-
-  /** What a tool call reported so far, with this update applied. */
-  private updatedTool(
-    update: Extract<SessionUpdate, { sessionUpdate: "tool_call_update" }>,
-  ): ToolCallState {
-    const state = this.tools.get(update.toolCallId) ?? {
-      title: "",
-      kind: "other",
-      input: "",
-    };
-    if (update.title) state.title = update.title;
-    if (update.kind) state.kind = update.kind;
-    if (update.rawInput !== undefined)
-      state.input = describeInput(update.rawInput);
-    if (PROGRESS_TOOL.test(state.title) && update.rawInput !== undefined)
-      state.raw = update.rawInput;
-    this.tools.set(update.toolCallId, state);
-    return state;
-  }
-
-  /**
-   * The start of a tool call, once its command or path is known.
-   *
-   * @remarks
-   * OpenCode announces a call before its arguments; its start is recorded
-   * with the first update that names them, so the terminal shows what runs.
-   * A progress report becomes a todo line once Pages took it.
-   */
-  private announcement(
-    toolCallId: string,
-    state: ToolCallState,
-  ): Omit<AgentSessionEventInput, "turn"> | null {
-    if (state.isAnnounced || state.raw !== undefined || state.input === "")
-      return null;
-    state.isAnnounced = true;
-    return {
-      kind: "tool_started",
-      text: toolText(state),
-      dedupeKey: `tool:${toolCallId}:started`,
-    };
   }
 
   private readCodexUsage(update: SessionUpdate): void {
@@ -626,6 +535,15 @@ export class AgentSessionRecorder implements AcpSessionListener {
     const text = this.message;
     this.message = "";
     this.record({ kind: "agent_message", text });
+  }
+
+  private endTurn(attemptId: string, turn: number, isContinued: boolean): void {
+    this.turns.set(attemptId, turn + 1);
+    this.record({
+      kind: "status",
+      text: isContinued ? `turn ${turn} continued` : `turn ${turn} ended`,
+      turn,
+    });
   }
 
   private record(

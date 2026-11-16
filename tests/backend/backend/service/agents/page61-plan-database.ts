@@ -155,6 +155,12 @@ export class PlanDatabase {
       );
       return;
     }
+    // Change notifications of plan writes go to the outbox and pg_notify; these tests check plan rows only.
+    if (
+      statement.includes("INSERT INTO pages_event_outbox") ||
+      statement.includes("pg_notify(")
+    )
+      return;
     if (!statement.includes("INSERT INTO agent_plans"))
       throw new Error(`Unexpected statement: ${statement}`);
     const id = parameter(parameters, "id");

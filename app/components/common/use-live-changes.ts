@@ -3,6 +3,7 @@ import { useLocation, useRevalidator } from "react-router";
 
 import { openLiveConnection } from "@/app/lib/live-changes/live-change-connection";
 import { revalidateLive } from "@/app/lib/live-changes/live-revalidation";
+import { invalidatePlanCache } from "@/app/lib/live-changes/plan-cache-invalidation";
 
 import type { LiveChange, LiveChangeKind } from "@/definition/LiveChange";
 
@@ -19,6 +20,7 @@ const PATHS_BY_KIND: Readonly<Record<LiveChangeKind, readonly string[]>> = {
   project: ["/tasks", "/aufgaben", "/projekte", "/dashboard", "/kalender"],
   conversation: ["/chat"],
   calendar: ["/kalender"],
+  plan: ["/agents/plans"],
 };
 
 function concerns(change: LiveChange, pathname: string): boolean {
@@ -110,10 +112,12 @@ export function useLiveChanges(
     }
     return openLiveConnection(version, {
       onChange: (change) => {
+        if (change.kind === "plan") void invalidatePlanCache();
         if (change.kind === "conversation") onChatChange?.();
         if (concerns(change, pathnameRef.current)) schedule();
       },
       onResync: () => {
+        void invalidatePlanCache();
         schedule();
         onChatChange?.();
       },

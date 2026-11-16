@@ -10,6 +10,10 @@ import type { PlanTeamChoice } from "./plan-access-model";
 export function usePlanTeams(
   directory: AgentProfileDirectory,
   initial: readonly AgentPlanTeam[],
+  controlled?: {
+    readonly teams: readonly AgentPlanTeam[];
+    readonly setTeams: (teams: readonly AgentPlanTeam[]) => void;
+  },
 ): {
   readonly teams: readonly AgentPlanTeam[];
   readonly setTeams: (teams: readonly AgentPlanTeam[]) => void;
@@ -18,7 +22,9 @@ export function usePlanTeams(
   readonly choices: readonly PlanTeamChoice[];
   readonly add: (choice: PlanTeamChoice) => void;
 } {
-  const [teams, setTeams] = useState(initial);
+  const [storedTeams, commitTeams] = useState(initial);
+  const teams = controlled?.teams ?? storedTeams;
+  const setTeams = controlled?.setTeams ?? commitTeams;
   const [query, setQuery] = useState("");
   return {
     teams,
