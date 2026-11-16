@@ -14,8 +14,34 @@ export const SECOND_SECTION_COVERAGE_GLOB =
   "backend/{github,security,setup}/**/*.{ts,tsx,mts,cts,js,mjs,cjs}";
 
 // These are required minimums, not claims about measured coverage.
-const FIRST_SECTION_MINIMUM = 100;
-const SECOND_SECTION_MINIMUM = 100;
+export const BACKEND_COVERAGE_SECTIONS = [
+  {
+    name: "first-section",
+    include: FIRST_SECTION_COVERAGE_GLOB,
+    minimum: 100,
+  },
+  {
+    name: "second-section",
+    include: SECOND_SECTION_COVERAGE_GLOB,
+    minimum: 100,
+  },
+] as const;
+
+const thresholds = Object.fromEntries(
+  BACKEND_COVERAGE_SECTIONS.map(
+    (section) =>
+      [
+        section.include,
+        {
+          perFile: true,
+          statements: section.minimum,
+          branches: section.minimum,
+          functions: section.minimum,
+          lines: section.minimum,
+        },
+      ] as const,
+  ),
+);
 
 export default defineConfig({
   root: fileURLToPath(new URL(".", import.meta.url)),
@@ -40,27 +66,12 @@ export default defineConfig({
       include: [BACKEND_SOURCE_GLOB],
       exclude: BACKEND_COVERAGE_EXCLUDES,
       reportsDirectory: "coverage/backend",
-      reporter: ["text", "json", "json-summary"],
+      reporter: ["json", "json-summary"],
       skipFull: false,
       clean: true,
       reportOnFailure: true,
       processingConcurrency: 2,
-      thresholds: {
-        [FIRST_SECTION_COVERAGE_GLOB]: {
-          perFile: true,
-          statements: FIRST_SECTION_MINIMUM,
-          branches: FIRST_SECTION_MINIMUM,
-          functions: FIRST_SECTION_MINIMUM,
-          lines: FIRST_SECTION_MINIMUM,
-        },
-        [SECOND_SECTION_COVERAGE_GLOB]: {
-          perFile: true,
-          statements: SECOND_SECTION_MINIMUM,
-          branches: SECOND_SECTION_MINIMUM,
-          functions: SECOND_SECTION_MINIMUM,
-          lines: SECOND_SECTION_MINIMUM,
-        },
-      },
+      thresholds,
     },
   },
 });

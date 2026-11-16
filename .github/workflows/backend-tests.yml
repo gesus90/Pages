@@ -42,35 +42,17 @@ jobs:
             echo ""
             echo "Checked-out revision: \`$revision\`"
             echo ""
-            if [ -f coverage/backend/first-section.tsv ]; then
-              echo "### First section (per-module thresholds from the configuration)"
+            if [ -f coverage/backend/adopted-backend.tsv ]; then
+              echo "### Adopted modules (per-file thresholds from the configuration)"
               echo ""
               echo '```'
-              cat coverage/backend/first-section.tsv
+              cat coverage/backend/adopted-backend.tsv
               echo '```'
             else
-              echo "No first-section coverage table was written."
+              echo "No validated adopted-module coverage table was written; check the test step outcome."
             fi
             echo ""
-            if [ -f coverage/backend/second-section.tsv ]; then
-              echo "### Second section (per-module thresholds from the configuration)"
-              echo ""
-              echo '```'
-              cat coverage/backend/second-section.tsv
-              echo '```'
-            else
-              echo "No second-section coverage table was written."
-            fi
-            echo ""
-            if [ -f coverage/backend/remaining-backend.tsv ]; then
-              echo "### Remaining backend (measured, no threshold yet)"
-              echo ""
-              echo '```'
-              cat coverage/backend/remaining-backend.tsv
-              echo '```'
-            else
-              echo "No remaining-backend coverage table was written."
-            fi
+            echo "Full backend measurements and separate inventories, when generated, are retained in the coverage artifact."
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload backend coverage reports

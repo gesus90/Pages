@@ -7,19 +7,12 @@ import { z } from "zod";
 
 import {
   BACKEND_COVERAGE_EXCLUDES,
+  BACKEND_COVERAGE_SECTIONS,
   BACKEND_SOURCE_GLOB,
-  FIRST_SECTION_COVERAGE_GLOB,
-  SECOND_SECTION_COVERAGE_GLOB,
 } from "../vitest.backend.config";
 
 type BackendCoverageSection =
-  "first-section" | "second-section" | "remaining-backend";
-
-const BACKEND_COVERAGE_SECTIONS: readonly BackendCoverageSection[] = [
-  "first-section",
-  "second-section",
-  "remaining-backend",
-];
+  (typeof BACKEND_COVERAGE_SECTIONS)[number]["name"] | "remaining-backend";
 
 const METRIC_NAMES = ["statements", "branches", "functions", "lines"] as const;
 const metricSchema = z.object({
@@ -80,13 +73,11 @@ function isTypeOnlyModule(file: string): boolean {
 }
 
 function sectionForFile(file: string): BackendCoverageEntry["section"] {
-  if (path.matchesGlob(file, FIRST_SECTION_COVERAGE_GLOB)) {
-    return "first-section";
-  }
-  if (path.matchesGlob(file, SECOND_SECTION_COVERAGE_GLOB)) {
-    return "second-section";
-  }
-  return "remaining-backend";
+  return (
+    BACKEND_COVERAGE_SECTIONS.find((section) =>
+      path.matchesGlob(file, section.include),
+    )?.name ?? "remaining-backend"
+  );
 }
 
 function moduleStatus(
@@ -132,7 +123,10 @@ export function buildBackendCoverageInventory(
   });
 }
 
-function formatSection(entries: readonly BackendCoverageEntry[]): string {
+/** Formats all four metrics, retaining absent measurements and zero-item metrics. */
+export function formatBackendCoverageTable(
+  entries: readonly BackendCoverageEntry[],
+): string {
   const rows = entries.map((entry) => {
     const percentages = METRIC_NAMES.map((name) => {
       const metric = entry.metrics?.[name];
@@ -162,11 +156,15 @@ export function writeBackendCoverageInventory(root: string): void {
     path.join(directory, "scope-inventory.json"),
     `${JSON.stringify(entries, null, 2)}\n`,
   );
-  for (const section of BACKEND_COVERAGE_SECTIONS) {
+  const sections: readonly BackendCoverageSection[] = [
+    ...BACKEND_COVERAGE_SECTIONS.map((section) => section.name),
+    "remaining-backend",
+  ];
+  for (const section of sections) {
     const selected = entries.filter((entry) => entry.section === section);
     writeFileSync(
       path.join(directory, `${section}.tsv`),
-      formatSection(selected),
+      formatBackendCoverageTable(selected),
     );
     console.info(
       `[backend coverage] ${section}: ${selected.length} modules, ${selected.filter((entry) => entry.status === "open").length} open; coverage/backend/${section}.tsv`,
@@ -186,6 +184,13 @@ export function writeBackendCoverageInventory(root: string): void {
       `Required modules below complete coverage: ${incomplete.map((entry) => entry.file).join(", ")}`,
     );
   }
+  const adopted = entries.filter(
+    (entry) => entry.section !== "remaining-backend",
+  );
+  const table = formatBackendCoverageTable(adopted);
+  writeFileSync(path.join(directory, "adopted-backend.tsv"), table);
+  console.info("[backend coverage] Adopted modules (per-file thresholds)");
+  console.info(table);
 }
 
 if (

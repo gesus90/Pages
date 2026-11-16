@@ -27,10 +27,14 @@ require separately authorized validation.
 
 ## Measurement scope and artifacts
 
-The full-run command uses V8 coverage and prints the standard per-file table
-for statements, branches, functions and lines, including fully covered files.
-Its explicit include is `backend/**/*.{ts,tsx,mts,cts,js,mjs,cjs}`. Unimported
-modules remain in scope; determining their coverage does not execute them.
+The full-run command uses V8 coverage. After the runner and inventory checks
+succeed, it prints a compact table for the adopted modules with statements,
+branches, functions and lines, including fully covered and unimported files.
+The table is generated from `BACKEND_COVERAGE_SECTIONS`, which also supplies
+the per-file thresholds. Vitest's full-backend text reporter is disabled; its
+JSON reporters retain the complete measurement scope. The explicit include is
+`backend/**/*.{ts,tsx,mts,cts,js,mjs,cjs}`. Unimported modules remain in scope;
+determining their coverage does not execute them.
 Only test files and `.d.ts`/`.d.mts`/`.d.cts` declarations are excluded. There
 are no executable-module exclusions or coverage-ignore comments. The same
 include and exclude constants drive the independent source inventory.
@@ -46,6 +50,7 @@ at the beginning of a run, so old output cannot establish a new result.
 | `first-section.tsv`     | Every first-section module, its status and all four metrics.                                           |
 | `second-section.tsv`    | Every GitHub, security and setup module, its status and all four metrics.                              |
 | `remaining-backend.tsv` | Every remaining backend module, with open work separated from the mandatory sections.                  |
+| `adopted-backend.tsv`   | Validated table of all adopted modules; identical content is printed locally and used by CI.           |
 
 After a successful Vitest process, `scripts/backend-coverage-report.ts` reads
 the summary back, validates its shape and reconciles it against the source
@@ -54,9 +59,11 @@ items in any metric, is `missing` and makes the command fail. An incompletely
 covered module is `open`; complete counters produce `covered`. Remaining
 backend modules have no percentage gate yet, but their measurements must exist.
 The separate inventories contain every source module, not just open ones.
-After writing them, the report also rejects any `open` first- or second-section
-module using its exact counters, independently of the runner's percentage
-thresholds.
+After writing them, the report also rejects any `open` adopted module using
+its exact counters, independently of the runner's percentage thresholds. Only
+after both missing-measurement and completeness checks pass does it write
+`adopted-backend.tsv` and print that table. The remaining backend stays in the
+artifacts, with only a module count and artifact path printed to the log.
 
 Only source files syntactically containing type/interface declarations,
 type-only imports/exports, empty statements or an empty local export can be
@@ -97,19 +104,21 @@ The job uses `ubuntu-latest` with Node.js 24, installs the pnpm version from
 `pnpm run test:backend`. The workflow names no module, source glob or coverage
 threshold: it runs the checked-out configuration, so a module added to the
 measurement scope is measured in the next run without a CI list edit. The
-configuration and the report script remain the single source of scope and
-thresholds.
+`BACKEND_COVERAGE_SECTIONS` array is the single source for adopted sections,
+their thresholds and their report classification.
 
-Vitest writes its usual text table for statements, branches, functions and
-lines to the run log. The following step repeats the complete
-`first-section.tsv`, `second-section.tsv` and `remaining-backend.tsv` tables in
-the GitHub job summary, using the checked-out revision. The remaining backend
-is measured but has no percentage gate yet; both mandatory sections keep their
-per-module thresholds. Type-only modules stay visibly `not-applicable`, and an
-executable module without measurements still fails the report step.
+The report script prints `adopted-backend.tsv` to the run log. The following
+step repeats exactly that table in the GitHub job summary, using the checked-out
+revision. It has no separate list of sections. The remaining backend is measured
+but has no percentage gate yet and no table in the summary. Both adopted
+sections keep their per-file thresholds. Type-only modules stay visibly
+`not-applicable`, and an executable module without measurements still fails
+the report step. If no validated table exists, the summary says so and points
+to the test step outcome; an empty or failed run produces no success table.
 
 The artifact `backend-coverage-<commit>` contains `coverage-final.json`,
-`coverage-summary.json`, `scope-inventory.json`, all three TSV tables and
+`coverage-summary.json`, `scope-inventory.json`, all section TSV tables,
+`remaining-backend.tsv`, `adopted-backend.tsv` (after successful validation) and
 `checked-out-commit.txt` with the Git revision checked out by the job. It is
 uploaded even when the test or report step fails, so a failed run keeps its
 diagnostics. The summary and upload steps do not mask failures: a failed
@@ -133,9 +142,9 @@ The first section covers every executable module below `backend/discord/`,
 - `backend/cache/WorkItemScopeKey.ts`
 - `backend/concurrency/SerialQueue.ts`
 
-`FIRST_SECTION_MINIMUM` sets all four metrics to **100** with `perFile: true`
-on that section's glob, including future modules. The foundation originally
-prepared the gate at zero; the complete first section now requires 100%
+The first `BACKEND_COVERAGE_SECTIONS` entry sets all four metrics to **100**
+with `perFile: true` on that section's glob, including future modules. The
+foundation originally prepared the gate at zero; the complete first section now requires 100%
 statements, branches, functions and lines for each executable module. This
 is an enforced requirement, not a measured coverage achievement. No behavior
 suite or coverage baseline has been collected under the implementation
@@ -167,8 +176,9 @@ The second section covers every executable module below `backend/github/`,
 - `backend/setup/SetupService.ts`
 - `backend/setup/SetupWizardService.ts`
 
-`SECOND_SECTION_MINIMUM` likewise sets all four metrics to **100** with
-`perFile: true` on the second glob, including future additions. The separate
+The second `BACKEND_COVERAGE_SECTIONS` entry likewise sets all four metrics
+to **100** with `perFile: true` on the second glob, including future additions.
+The separate
 [GitHub, security and setup inventory](BackendGitHubSecuritySetup.md) records
 each module's behavior, boundaries, validation state and the open areas.
 
@@ -176,11 +186,14 @@ The [Discord, cache and concurrency inventory](BackendDiscordCacheConcurrency.md
 records the first section's behavior, external boundaries, the cache quota
 correction and its original permitted direct execution evidence.
 
-For later packages, retain the complete backend include, add a scoped per-file
-threshold after the package is proven, and extend the inventory's section
-classification when another separate section is needed. Unfinished sections
-remain visible without acquiring a premature 100% global gate. Keep one Vitest
-configuration and reuse the existing static-rule coverage.
+For later packages, retain the complete backend include and add one entry to
+`BACKEND_COVERAGE_SECTIONS` with a unique section name, its source glob and the
+required minimum of 100. That entry supplies all four per-file thresholds,
+source classification, the separate section TSV and the adopted table in both
+local output and CI. No report-script or workflow list edit is needed.
+Unfinished sections remain in the separate inventories without acquiring a
+premature global gate. Keep one Vitest configuration and reuse the existing
+static-rule coverage.
 
 Tests must use isolated inputs and mock external boundaries before importing
 modules with runtime dependencies. Discord's fetch boundary, cache transaction
@@ -237,6 +250,83 @@ assignment. They have no claimed exit codes or successful results. No live
 service, production data, credential, push, branch switch or rebase was used.
 Functional coverage and both mandatory sections' 100% acceptance remain
 unmeasured.
+
+## Discovery investigation and compact-output verification
+
+Inspected on 2026-11-16 at base revision
+`3499e05d75d15124a2588bb55f0e7d6c8f59a4b1`, with a clean initial working tree
+on the prepared session branch in `/home/igor/Repo/Pages-Session-4`.
+The local implementation commit identifies the resulting configuration and
+report changes. Both adopted sections are present: seven Discord, cache and
+concurrency modules and 19 GitHub, security and setup modules. Their earlier
+implementation inventories explicitly record that no test files were added.
+Completion of those implementations does not establish an executed suite.
+
+The reported checkout `/home/igor/Repo/Pages-2` was inspected read-only with
+`GIT_OPTIONAL_LOCKS=0` for Git commands. At both observations its branch was
+`main`, its revision was the same base revision above and `git status --short`
+was empty. Its original backend configuration matched the session's original
+configuration byte for byte. The package command matched, and both lockfiles
+had the SHA-256 recorded above. No files, index, branch, dependencies or running
+writers in that checkout were changed. These are observations of its current
+state; they cannot reconstruct the unknown revision of the earlier run.
+
+Neither checkout contained a file matching `backend/**/*.{test,spec}.ts`.
+The session's directly imported configuration resolves its root to the
+repository directory independently of the shell's working directory. A direct
+`globSync(BACKEND_TEST_GLOB, { cwd: root })` returned an empty array. No
+discovery-pattern defect was found: there are no matching files to discover.
+The installed Vitest source reports `No test files found, exiting with code 1`
+when `passWithNoTests` is false, as configured here. The package's shell `&&`
+then prevents the inventory postprocessor and its success table from running.
+No test files, discovery bypass or placeholder suite were added. The earlier
+run's exact inputs, environment, filters and cause remain unavailable; absent
+test files explain the currently inspected source population, not a proven
+reproduction of that historical invocation.
+
+The session uses Node `24.22.1` and pnpm `11.23.0`. Its initial dependency tree
+did not contain Vitest. The first `pnpm install --frozen-lockfile --ignore-scripts`
+attempt exited 1 because pnpm required a TTY for replacing that tree.
+`CI=true pnpm install --frozen-lockfile --ignore-scripts` then exited 0,
+installing the pinned dependencies without lifecycle scripts or lockfile changes.
+No test runner or coverage provider was started.
+
+Permitted direct functional invocations used
+`node --import tsx --input-type=module` with inline supplied inputs; both exited 0. They imported only the configuration and inventory script, without loading
+application modules:
+
+- Source enumeration found 1,930 modules. The adopted formatter retained all
+  26 adopted rows and excluded the 1,904 remaining modules from that table.
+  Both threshold objects still had `perFile: true` and 100 for all four metrics.
+  Empty supplied metadata left all 26 executable adopted modules `missing`.
+  Supplied complete counters produced `covered`, partial branch counters
+  produced `open`, a zero-item metric printed `n/a`, and malformed metadata
+  raised `ZodError`.
+- The complete writer was invoked with supplied counters and filesystem writes
+  redirected to an in-memory map. It retained the full 1,930-entry JSON
+  inventory and all three existing TSV inventories, then produced a 26-row
+  `adopted-backend.tsv` identical to its console table. The remaining TSV kept
+  1,904 rows. Repeating that direct invocation with partial or absent counters
+  for `ServerCache.ts` raised the existing completeness or missing-measurement
+  error, respectively, and produced no validated adopted table. These supplied
+  counters are illustrative input, not measured coverage; no coverage artifact
+  was written to disk.
+
+The changed flow was also read from configuration through the package command,
+JSON reporters, source enumeration, dynamic section selection, validation,
+table emission and workflow summary. The full-backend JSON reporters, missing
+measurement check, exact-counter gate, `passWithNoTests: false`, `.only` ban,
+failure propagation, artifact upload and sole push-to-main trigger remain.
+The workflow now reads only the generated adopted table and needs no new list
+when a section is added to the configuration.
+
+`pnpm run test:backend`, tests, coverage, failed-test/threshold runner executions,
+lint, TypeScript checks, `pnpm run check`, build and formatting checks:
+**nicht ausgeführt (Vorgabe Igor)**. Those requested validation activities are
+administratively complete under the assignment override; they have no claimed
+exit code, executed test count or measured percentage. No GitHub Actions run
+was performed or reported as passed. No live services, live data, credentials,
+push, merge, rebase or branch switch were used.
 
 Configuration references: [Vitest coverage](https://vitest.dev/config/coverage),
 [worker limits](https://vitest.dev/config/maxworkers) and
