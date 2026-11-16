@@ -1,5 +1,9 @@
 # PAGE-412 — Gruppen als Sitzungsspeicher
 
+> Historical validation: the former test files and frontend runner referenced
+> below have been removed. Results and commands describe that earlier revision
+> and are not runnable guidance or evidence for this checkout.
+
 Stand: 14.11.2026. Technische Umsetzung auf dem vorbereiteten Session-Branch;
 keine Änderungen an gespeicherten Live-Plänen, Diensten oder Zugangsdaten.
 

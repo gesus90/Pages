@@ -6,6 +6,10 @@ clean. No branch switch, rebase, push, merge, deployment, credential change or
 live-data operation was performed. The resulting revision is the local commit
 containing this inventory (`git log -1 --format=%H -- docs/TestCiRemoval.md`).
 
+This is a historical removal record, not a description of the current CI or
+test foundation. The current [backend foundation](BackendTesting.md) and
+[documentation audit](TestCiDocumentationAudit.md) describe subsequent work.
+
 ## Inventory and disposition
 
 The inventory covered all 7,149 tracked files, hidden configuration, source

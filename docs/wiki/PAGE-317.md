@@ -78,7 +78,7 @@ Im Kopf des Gruppenchats öffnet **„Wer antwortet?“** einen Dialog. Alle Mit
 - Schreibt danach eine Person, startet Pages die gespeicherten Übergaben automatisch, jede genau einmal, mit allen Nachrichten seit der letzten Nachricht des Agents. Übergaben, die vor einem Neustart gespeichert oder reserviert, aber nie begonnen wurden, werden beim Start ebenso angehalten und so fortgesetzt.
 - Bündeln: Spricht ein Agent andere mit @ an, sammelt Pages deren Antworten mit @ an ihn, bis alle geantwortet haben oder drei Minuten vergangen sind. Dann antwortet er einmal auf alle; fehlende Antworten werden genannt. Gebündelte Antworten starten ihn nicht zusätzlich. Eine verspätete Antwort nach dem Bündel weckt ihn als eigene Übergabe.
 - Einen Hinweis „Abstimmung beendet, Grenze erreicht“ gibt es nicht mehr. Ein schon gespeicherter Hinweis dieser Art (`round_limit`) wird im Chat nicht angezeigt.
-- Datenbankprüfung: `pnpm run postgres:conversation-check` prüft Migration 057 auf Stand 056 und den atomaren Doppelschutz gegen eine eigene, temporäre PostgreSQL-Instanz.
+- Die frühere Datenbankprüfung für Migration 057 und den atomaren Doppelschutz wurde mit der alten Testinfrastruktur entfernt und steht nicht mehr zur Verfügung.
 
 ## Chat-Einstellung über die Schnittstelle
 

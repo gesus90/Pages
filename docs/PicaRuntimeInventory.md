@@ -118,7 +118,11 @@ ausdrücklich nicht live belegt. Die verlangte CLI-Katalogprüfung und der
 freigegebene Modellaufruf wurden vor dem unten beschriebenen Blocker nicht
 ausgeführt. Kein Schlüssel wurde gelesen, kopiert oder ausgegeben.
 
-## Vorhandene Tests und echter Auftragskonflikt
+## Historischer Auftragskonflikt
+
+Die nachstehend genannten Tests und Fixtures wurden inzwischen entfernt. Der
+damalige Konflikt und die Auftragsklärung beschreiben ausschließlich den
+dokumentierten Ausgangsstand, keine aktuelle Arbeitsanweisung.
 
 Der Auftrag verbietet neue oder geänderte automatisierte Tests, Fixtures,
 Mocks und Harnesses und erlaubt lediglich eine zwingend erforderliche minimale

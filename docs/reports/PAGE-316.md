@@ -1,5 +1,9 @@
 # PAGE-316 – Laufbericht
 
+> Historical validation: the former test files and frontend runner referenced
+> below have been removed. Results and commands describe that earlier revision
+> and are not runnable guidance or evidence for this checkout.
+
 ## Belegter Ausgangsbefund
 
 Die Belege beziehen sich auf den Session-Ausgangsstand vor PAGE-316:

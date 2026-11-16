@@ -79,15 +79,16 @@ No new screenshot was captured and no competitor image was imported.
 | Design themes (PAGE-36)                                 | [docs/UserGuide.md](UserGuide.md#design-themes)                                                        |
 | Server logging (PAGE-67)                                | [docs/RequestCorrelation.md](RequestCorrelation.md#server-logging)                                     |
 | Commands                                                | [docs/Development.md](Development.md#commands)                                                         |
-| CI test tags (`PAGE-290`)                               | [tests/README.md](../tests/README.md#ci-test-tags-page-290)                                            |
 | Sequential block linting (`PAGE-192`)                   | [docs/Development.md](Development.md#sequential-block-linting)                                         |
-| Unit tests                                              | [tests/README.md](../tests/README.md#choosing-a-scope)                                                 |
-| Browser tests (PAGE-172)                                | [tests/README.md](../tests/README.md#browser-suite)                                                    |
 | Pica Mobile WebSocket endpoint (PAGE-148)               | [docs/PicaMobileWebSocket.md](PicaMobileWebSocket.md#einrichtung-durch-einen-administrator)            |
 | Pica Mobile                                             | [docs/PicaMobileWebSocket.md](PicaMobileWebSocket.md)                                                  |
 | Repository layout                                       | [docs/Development.md](Development.md#repository-layout)                                                |
 | Security notes                                          | [README.md](../README.md#security-notes)                                                               |
 | License                                                 | [README.md](../README.md#license)                                                                      |
+
+The former test-guide links in this historical mapping were removed when their
+target disappeared. The [backend foundation](BackendTesting.md) documents the
+current runner and workflow.
 
 ## Reconciliation against code
 

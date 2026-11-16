@@ -12,8 +12,8 @@ those writes unless an explicit reconciliation is performed.
 The [local quickstart](../README.md#getting-started) needs an empty database
 before the first wizard completion. Use a dedicated development PostgreSQL
 cluster or an explicitly separate database and role on a development server;
-never point the wizard at production. PostgreSQL 18 is the version used by
-`scripts/postgres-check/temporary-instance.ts` and CI, not a tested minimum
+never point the wizard at production. The former database regression checks
+used PostgreSQL 18. They have been removed; this is not a tested minimum
 version claim for every PostgreSQL release.
 
 For example, in `psql` as the administrator of that **development** cluster:
