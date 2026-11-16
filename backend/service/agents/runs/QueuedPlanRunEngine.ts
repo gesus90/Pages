@@ -1,5 +1,6 @@
 import { setTimeout as wait } from "node:timers/promises";
 
+import { registerLocalOwnerSettlement } from "@/backend/agents/local/LocalOwnerControl";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { SerialQueue } from "@/backend/concurrency/SerialQueue";
 import { AgentPlanRunRepository } from "@/backend/database/repositories/agent/AgentPlanRunRepository";
@@ -16,6 +17,7 @@ import {
   notifyRuns,
   queryRunOwnership,
   releaseRunsStartResources,
+  settleRunsLocalOwner,
 } from "./RunsSocket";
 
 import type {
@@ -56,6 +58,9 @@ export class QueuedPlanRunEngine implements PlanRunEnginePort {
     this.runs = new AgentPlanRunRepository(database);
     this.commands = new PlanRunCommandRepository(database);
     this.socketPath = socketPath;
+    registerLocalOwnerSettlement((instanceId) =>
+      settleRunsLocalOwner(socketPath, instanceId),
+    );
   }
 
   /** Commits the frozen run, reservation and start command together. */

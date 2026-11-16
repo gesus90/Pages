@@ -69,6 +69,22 @@ export async function queryRunOwnership(
   return pagesRunsOwnershipReplySchema.parse(reply.result).active;
 }
 
+/** Requests local-owner settlement from the elected Runs process. */
+export async function settleRunsLocalOwner(
+  socketPath: string,
+  instanceId: string,
+): Promise<boolean | null> {
+  const reply = pagesRunnerReplySchema.parse(
+    await socketRequest(socketPath, "/v1/engine", {
+      version: 1,
+      operation: "local_owner",
+      instanceId,
+    }),
+  );
+  if (!reply.ok) throw new Error("Local owner settlement unavailable");
+  return z.boolean().nullable().parse(reply.result);
+}
+
 /** Hands forced start cleanup to the process that owns the native sessions. */
 export async function releaseRunsStartResources(
   socketPath: string,

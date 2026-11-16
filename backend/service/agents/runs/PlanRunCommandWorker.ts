@@ -2,9 +2,11 @@ import { setTimeout as wait } from "node:timers/promises";
 
 import {
   pagesRunsOwnershipSchema,
+  pagesRunsLocalOwnerSchema,
   pagesRunsSwarmSchema,
   pagesRunsStartResourcesSchema,
 } from "@/definition/PagesRuns";
+import { settleManagedLocalOwner } from "@/backend/agents/local/LocalOwnerControl";
 import { withBackgroundDatabaseWork } from "@/backend/database/executor/DatabaseWorkContext";
 import { PlanRunCommandRepository } from "@/backend/database/repositories/agent/PlanRunCommandRepository";
 import { AgentPlanRunRepository } from "@/backend/database/repositories/agent/AgentPlanRunRepository";
@@ -58,6 +60,14 @@ export class PlanRunCommandWorker {
       socketPath,
       () => this.wake(),
       (input) => {
+        const owner = pagesRunsLocalOwnerSchema.safeParse(input);
+        if (owner.success)
+          return settleManagedLocalOwner(owner.data.instanceId).catch(
+            (error: unknown) => {
+              logCaughtError("PlanRunCommandWorker", error);
+              throw error;
+            },
+          );
         const start = pagesRunsStartResourcesSchema.safeParse(input);
         if (start.success)
           return this.engine.prepareStartResources(

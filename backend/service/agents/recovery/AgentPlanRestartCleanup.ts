@@ -1,4 +1,5 @@
 import { settleManagedLocalOwner } from "@/backend/agents/local/LocalOwnerControl";
+import { logCaughtError, logEvent } from "@/backend/logging/Logger";
 import { AgentPlanRecoveryError } from "@/backend/error/AgentPlanRecoveryError";
 import { allPlanRunResults } from "@/definition/AgentPlanLoopResults";
 import { isRemoteCloseoutUnconfirmed } from "@/definition/AgentPlanRemoteCloseout";
@@ -27,6 +28,7 @@ export async function retryRestartCleanup<Result>(
       if (attempt < 3) continue;
       if (error instanceof AgentPlanRecoveryError && error.cleanupFailure)
         throw error;
+      logCaughtError("AgentPlanRestartCleanup", error);
       throw new AgentPlanRecoveryError("cleanup_unconfirmed", {
         stepId: step,
         kind: "local_session",
@@ -133,10 +135,33 @@ async function checkRestartProcesses(
     !dependencies.remoteExecution
   )
     throw new Error("Remote cleanup unavailable");
+  await settleRestartOwners(localOwners, proven);
+}
+
+async function settleRestartOwners(
+  localOwners: readonly string[],
+  proven: ReadonlySet<string>,
+): Promise<void> {
   for (const instanceId of localOwners) {
     if (proven.has(instanceId)) continue;
-    if ((await settleManagedLocalOwner(instanceId)) !== true)
-      throw new Error("Local owner unconfirmed");
+    const settled = await settleManagedLocalOwner(instanceId);
+    if (settled !== true) {
+      logEvent({
+        level: "warn",
+        event: "agent.restart.local_owner_unconfirmed",
+        component: "AgentPlanRestartCleanup",
+        message: "Recorded local owner settlement was not confirmed",
+        metadata: {
+          reason:
+            settled === null ? "owner_unavailable" : "cleanup_unconfirmed",
+        },
+      });
+      throw new Error(
+        settled === null
+          ? "Local owner settlement unavailable for recorded owner"
+          : "Local owner cleanup was not confirmed",
+      );
+    }
   }
 }
 

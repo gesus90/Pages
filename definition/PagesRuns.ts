@@ -61,6 +61,15 @@ export const pagesRunsOwnershipReplySchema = z
   .object({ active: z.boolean() })
   .strict();
 
+/** Requests settlement from the process that owns local session state. */
+export const pagesRunsLocalOwnerSchema = z
+  .object({
+    version: z.literal(1),
+    operation: z.literal("local_owner"),
+    instanceId: z.string().min(1).max(200),
+  })
+  .strict();
+
 /** An already authorized fresh start asks the elected owner to retire conflicting writers before admission. */
 export const pagesRunsStartResourcesSchema = z
   .object({
