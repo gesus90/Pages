@@ -457,22 +457,10 @@ What Pages sets for a session, and nothing else:
   model and the effort are confirmed before the prompt; the model the adapter
   reports with its first usage update must equal the stored one.
 
-Check an installation, as the account of the Pages server and from the folder
-of the repository, with a throw-away workspace:
-
-```sh
-pnpm acp:smoke --provider claude_code --data ~/.pages/data \
-  --connection <connection id> --workspace /tmp/smoke-workspace \
-  --mode read_only --model <exact model id> --effort low
-```
-
-It starts the node exactly like a plan does (connection sign-in, adapter,
-isolation, mode), sends a short prompt and prints what the run record would
-hold: adapter and model as reported, session mode, events, closing report and
-whether any process of the session is left. `--stop-after <seconds>` stops the
-node like the stop button and `--timeout <minutes>` applies a deadline. The
-session has no Pages tools: the plan bridge accepts only the bearer of an
-active step, which the server issues to the session of that step.
+The former standalone ACP smoke command has been removed with the previous
+test infrastructure. There is currently no replacement provider-validation
+command; see the [restart inventory](TestCiRemoval.md). Production agent
+execution and the step-bound plan bridge remain available.
 
 The server keeps a bearer only as a SHA-256 hash in `agent_plan_bridge_grants`,
 next to the step credential sealed with a key that only the bearer yields.

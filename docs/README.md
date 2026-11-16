@@ -37,8 +37,8 @@ a Pages instance or its private wiki. Some specialized guides are in German.
 
 - [Development and architecture](Development.md), [coding guidelines](../GUIDELINES.md)
   and [coding-agent instructions](../AGENTS.md).
-- [Unit scopes and CI test tags](../tests/README.md), [Backend evidence](../tests/backend/README.md),
-  [Frontend evidence](../tests/frontend/README.md) and [browser suite](../tests/browser/README.md).
+- [Test and CI restart inventory](TestCiRemoval.md): removed suites, retained
+  operating functions, validation evidence and external dependencies.
 - [Script runtime](../backend/service/agents/ScriptRuntime.md),
   [plan retries](../backend/service/agents/PlanRetries.md),
   [branching](../backend/service/agents/branching/README.md),

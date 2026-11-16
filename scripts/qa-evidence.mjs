@@ -1,65 +1,19 @@
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { existsSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { withCommandTemporaryDirectory } from "./command-temporary-directory.mjs";
-import { runStep } from "./run-browser-tests.mjs";
+import { runStep } from "./command-step.mjs";
 
 import { isFingerprintedFile, walkFiles } from "./source-population.mjs";
-
-/** The four metrics that must be complete in every coverage scope. */
-const METRICS = ["statements", "branches", "functions", "lines"];
 
 /** Exit code of a command that was called in an unsupported way. */
 const USAGE_EXIT_CODE = 2;
 
 /** Files of a repository manifest that must never count as source. */
 const TICKET_ASSET_PREFIX = ".pages-assets-";
-
-/** The last report block, read exactly as Pages reads it for its acceptance. */
-const REPORT_BLOCK = /```pages-report[^\n]*\n([\s\S]*?)\n```/gu;
-
-/** The coverage scopes a QA report must name. */
-const REPORT_COVERAGE_SCOPES = {
-  pages: ["backend", "frontend"],
-};
-
-/**
- * The production files of each coverage scope, as in its Vitest configuration.
- * A unit test compares the two, so a summary cannot shrink its own population.
- */
-export const COVERAGE_POPULATIONS = {
-  backend: {
-    directory: ".",
-    include: [
-      "backend/**/*.ts",
-      "scripts/runner/**/*.mjs",
-      "app/**/*.server.{ts,tsx}",
-      "app/lib/**/*.{ts,tsx}",
-      "app/routes/**/*.{ts,tsx}",
-      "app/root.tsx",
-      "app/routes.ts",
-      "definition/**/*.ts",
-      "language/**/*.ts",
-    ],
-    exclude: [],
-  },
-  frontend: {
-    directory: ".",
-    include: [
-      "app/components/**/*.{ts,tsx}",
-      "app/lib/**/*.{ts,tsx}",
-      "app/routes/**/*.tsx",
-      "app/root.tsx",
-      "app/routes.ts",
-      "definition/**/*.ts",
-      "language/**/*.ts",
-    ],
-    exclude: ["app/**/*.server.{ts,tsx}"],
-  },
-};
 
 /** Package directories with their own lockfile and modules. */
 const PACKAGES = { pages: "." };
@@ -87,218 +41,6 @@ export function buildManifest(files, readHash, runtime) {
     manifest,
     fileCount: sorted.length,
   };
-}
-
-function isCount(value) {
-  return Number.isSafeInteger(value) && value >= 0;
-}
-
-/** What is wrong with one raw counter; `null` for a valid one. */
-function counterIssue(counter) {
-  if (counter === undefined || counter === null) return "missing";
-  if (!isCount(counter.total) || !isCount(counter.covered)) return "invalid";
-  if (counter.covered > counter.total) return "invalid";
-  if (counter.skipped !== undefined && !isCount(counter.skipped)) {
-    return "invalid";
-  }
-  return null;
-}
-
-function metricIssues(counter, metric, prefix) {
-  const issue = counterIssue(counter);
-  if (issue !== null) return [`${prefix}metric_${issue}:${metric}`];
-  const issues = [];
-  if (counter.covered !== counter.total) {
-    issues.push(`${prefix}incomplete:${metric}`);
-  }
-  if ((counter.skipped ?? 0) !== 0) issues.push(`${prefix}skipped:${metric}`);
-  return issues;
-}
-
-function sumOf(files, metric, field) {
-  return files.reduce((sum, [, entry]) => sum + entry[metric][field], 0);
-}
-
-/** Totals that are not the sum of their files were not measured. */
-function aggregateIssues(total, files) {
-  if (files.length === 0) return [];
-  const isValid = files.every(([, entry]) =>
-    METRICS.every((metric) => counterIssue(entry?.[metric]) === null),
-  );
-  if (!isValid) return [];
-  return METRICS.filter(
-    (metric) =>
-      counterIssue(total[metric]) === null &&
-      (sumOf(files, metric, "covered") !== total[metric].covered ||
-        sumOf(files, metric, "total") !== total[metric].total),
-  ).map((metric) => `aggregate_mismatch:${metric}`);
-}
-
-function fileGap(file, entry) {
-  return {
-    file,
-    uncovered: Object.fromEntries(
-      METRICS.map((metric) => [
-        metric,
-        (entry?.[metric]?.total ?? 0) - (entry?.[metric]?.covered ?? 0),
-      ]),
-    ),
-  };
-}
-
-/**
- * Checks raw coverage counters; a rounded percentage proves nothing.
- *
- * @param summary - The parsed `coverage-summary.json`.
- * @returns The totals, per-file gaps and every reason the scope is not complete.
- *
- * @remarks
- * Fails closed: a count must be a finite whole number of at least 0 with
- * `covered <= total`, in the total and in every file, and the total must be the
- * sum of its files.
- */
-export function evaluateCoverage(summary) {
-  const total = summary?.total;
-  if (!total) return { totals: null, gaps: [], issues: ["summary_invalid"] };
-  const issues = METRICS.flatMap((metric) =>
-    metricIssues(total[metric], metric, ""),
-  );
-  const totals = Object.fromEntries(
-    METRICS.filter((metric) => counterIssue(total[metric]) === null).map(
-      (metric) => [
-        metric,
-        {
-          covered: total[metric].covered,
-          total: total[metric].total,
-          skipped: total[metric].skipped ?? 0,
-        },
-      ],
-    ),
-  );
-  if (totals.statements?.total === 0) issues.push("population_empty");
-  const files = Object.entries(summary).filter(([file]) => file !== "total");
-  const gaps = [];
-  for (const [file, entry] of files) {
-    const fileIssues = METRICS.flatMap((metric) =>
-      metricIssues(entry?.[metric], metric, `file:${file}:`),
-    );
-    if (fileIssues.length > 0) gaps.push(fileGap(file, entry));
-    issues.push(
-      ...fileIssues.filter((issue) => !/:incomplete:[a-z]+$/u.test(issue)),
-    );
-  }
-  issues.push(...aggregateIssues(total, files));
-  return { totals, gaps, issues };
-}
-
-/**
- * Compares the files of a coverage summary with the files its scope must have.
- *
- * @param summaryFiles - Absolute paths in the summary, without `total`.
- * @param files - Repository-relative paths of the checkout.
- * @param scope - A key of {@link COVERAGE_POPULATIONS}.
- * @param root - The checkout.
- */
-export function populationIssues(summaryFiles, files, scope, root) {
-  const population = COVERAGE_POPULATIONS[scope];
-  const expected = files.filter(
-    (file) =>
-      population.include.some((glob) => path.matchesGlob(file, glob)) &&
-      !population.exclude.some((glob) => path.matchesGlob(file, glob)),
-  );
-  const present = new Set(
-    summaryFiles.map((file) => path.relative(root, file).replaceAll("\\", "/")),
-  );
-  const wanted = new Set(expected);
-  return [
-    ...expected
-      .filter((file) => !present.has(file))
-      .map((file) => `population_missing:${file}`),
-    ...[...present]
-      .filter((file) => !wanted.has(file))
-      .map((file) => `population_extra:${file}`),
-  ];
-}
-
-function readLeadingStatus(text) {
-  const [firstLine = ""] = text.trim().split("\n", 1);
-  const fence = /^```json[^\n]*\n([\s\S]*?)\n```/u.exec(text.trim());
-  try {
-    return JSON.parse(fence ? fence[1] : firstLine)?.status ?? null;
-  } catch {
-    return null;
-  }
-}
-
-function readReportIssues(text) {
-  const last = [...text.matchAll(REPORT_BLOCK)].at(-1);
-  if (!last) return ["report_missing"];
-  let report;
-  try {
-    report = JSON.parse(last[1]);
-  } catch {
-    return ["report_invalid"];
-  }
-  if (!Array.isArray(report?.todos) || !Array.isArray(report?.criteria)) {
-    return ["report_invalid"];
-  }
-  return [
-    ...report.todos
-      .filter((todo) => todo?.status !== "done")
-      .map((todo) => `todo_open:${todo?.id}`),
-    ...report.criteria
-      .filter((entry) => entry?.met !== true || !entry?.evidence)
-      .map((entry) => `criterion_unmet:${entry?.id}`),
-  ];
-}
-
-function readCoverageIssues(text, scope) {
-  const line = new RegExp(`^coverage-${scope}: (.+)$`, "mu").exec(text)?.[1];
-  if (!line) return [`coverage_missing:${scope}`];
-  let totals;
-  try {
-    totals = JSON.parse(line);
-  } catch {
-    return [`coverage_invalid:${scope}`];
-  }
-  return evaluateCoverage({ total: totals }).issues.map(
-    (issue) => `coverage_${scope}:${issue}`,
-  );
-}
-
-/**
- * Decides whether a QA report releases Git; everything else blocks it.
- *
- * @param text - The whole report as the QA step answered.
- * @param report - `pages`.
- * @param currentFingerprint - The fingerprint of the checkout now.
- * @returns Every reason the report does not release Git; empty when it does.
- *
- * @remarks
- * A report names `<report>-fingerprint: <hash>` and one line
- * `coverage-<scope>: <totals of the coverage command>` per scope, so stale
- * evidence and counters below their total are found without reading prose.
- */
-export function evaluateHandoff(text, report, currentFingerprint) {
-  const issues = [];
-  const status = readLeadingStatus(text);
-  if (status !== "done") issues.push(`status:${status}`);
-  issues.push(...readReportIssues(text));
-  const named = new RegExp(
-    `^${report}-fingerprint: ([0-9a-f]{64})$`,
-    "mu",
-  ).exec(text)?.[1];
-  if (!named) issues.push("fingerprint_missing");
-  else if (named !== currentFingerprint) issues.push("fingerprint_stale");
-  for (const scope of REPORT_COVERAGE_SCOPES[report]) {
-    issues.push(...readCoverageIssues(text, scope));
-  }
-  return issues;
-}
-
-/** Whether a coverage summary predates the newest source file it should cover. */
-export function isSummaryStale(summaryTime, newestSourceTime) {
-  return summaryTime < newestSourceTime;
 }
 
 /**
@@ -402,54 +144,6 @@ function fingerprintCommand(root, scope, manifestFile) {
   return 0;
 }
 
-function newestSourceTime(root) {
-  return Math.max(
-    ...listRepositoryFiles(root, gitTrackedFiles)
-      .map((file) => path.join(root, file))
-      .filter((file) => existsSync(file))
-      .map((file) => statSync(file).mtimeMs),
-  );
-}
-
-function coverageCommand(root, input) {
-  const summary = readJsonOptional(input.summary);
-  if (summary === null) {
-    console.error(`[qa] FAILED: no coverage summary at ${input.summary}.`);
-    return 1;
-  }
-  const result = evaluateCoverage(summary);
-  if (isSummaryStale(statSync(input.summary).mtimeMs, newestSourceTime(root))) {
-    result.issues.push("summary_stale");
-  }
-  if (input.population) {
-    const base = path.join(
-      root,
-      COVERAGE_POPULATIONS[input.population].directory,
-    );
-    const files = walkFiles(base, isFingerprintedFile);
-    result.issues.push(
-      ...populationIssues(
-        Object.keys(summary).filter((file) => file !== "total"),
-        files.filter((file) => existsSync(path.join(base, file))),
-        input.population,
-        base,
-      ),
-    );
-  }
-  if (input.gaps)
-    writeFileSync(input.gaps, JSON.stringify(result.gaps, null, 2));
-  console.info(
-    JSON.stringify({
-      summary: input.summary,
-      totals: result.totals,
-      filesWithGaps: result.gaps.length,
-      issues: result.issues.slice(0, 50),
-      issueCount: result.issues.length,
-    }),
-  );
-  return result.issues.length === 0 && result.gaps.length === 0 ? 0 : 1;
-}
-
 async function preflightCommand(root, scope, shouldInstall, signal) {
   const directory = PACKAGES[scope];
   let issues = dependencyIssues(root, directory);
@@ -476,32 +170,6 @@ async function preflightCommand(root, scope, shouldInstall, signal) {
   return issues.length === 0 ? 0 : 1;
 }
 
-/**
- * Binds a QA report to the checkout as it is now.
- *
- * @returns Every reason the report does not release Git.
- */
-export function handoffIssues(
-  root,
-  report,
-  text,
-  listTracked = gitTrackedFiles,
-) {
-  return evaluateHandoff(
-    text,
-    report,
-    currentManifest(root, report, listTracked).fingerprint,
-  );
-}
-
-function handoffCommand(root, report, file) {
-  const issues = handoffIssues(root, report, readFileSync(file, "utf8"));
-  console.info(
-    JSON.stringify({ report, released: issues.length === 0, issues }),
-  );
-  return issues.length === 0 ? 0 : 1;
-}
-
 function readOption(args, name) {
   const index = args.indexOf(name);
   return index === -1 ? undefined : args[index + 1];
@@ -514,20 +182,9 @@ async function main(args, signal) {
   const scope = readOption(args, "--scope");
   if (!Object.hasOwn(PACKAGES, scope ?? "")) {
     console.error(
-      "Usage: qa-evidence.mjs preflight --scope pages [--install] | fingerprint --scope pages [--manifest <file>] | coverage --scope pages --summary <file> [--gaps <file>] [--population backend|frontend] | verify-handoff --scope pages --file <report>",
+      "Usage: qa-evidence.mjs preflight --scope pages [--install] | fingerprint --scope pages [--manifest <file>]",
     );
     return USAGE_EXIT_CODE;
-  }
-  if (command === "coverage" && readOption(args, "--summary")) {
-    return coverageCommand(root, {
-      scope,
-      summary: readOption(args, "--summary"),
-      gaps: readOption(args, "--gaps"),
-      population: readOption(args, "--population"),
-    });
-  }
-  if (command === "verify-handoff" && readOption(args, "--file")) {
-    return handoffCommand(root, scope, readOption(args, "--file"));
   }
   if (command === "preflight") {
     return preflightCommand(root, scope, args.includes("--install"), signal);

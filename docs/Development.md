@@ -3,9 +3,9 @@
 [Documentation index](README.md). Start with the
 [local quickstart](../README.md#getting-started), then read the mandatory
 [coding guidelines](../GUIDELINES.md) and [agent instructions](../AGENTS.md).
-Make focused changes and include relevant behavior tests with external
-boundaries mocked. Detailed unit scopes and CI instructions live in
-[tests/README.md](../tests/README.md).
+Make focused changes. The previous test suites and CI have been removed; a
+new setup is not installed yet. See the [restart inventory](TestCiRemoval.md)
+for retained operating commands, validation limits and external dependencies.
 
 - [Architecture](#architecture)
 - [Tech stack](#tech-stack)
@@ -55,41 +55,39 @@ These source-backed repository instructions describe the checked checkout.
 
 ## Tech stack
 
-| Area      | Technology                                                     |
-| --------- | -------------------------------------------------------------- |
-| UI        | React 19, TypeScript, Tailwind CSS 4, Radix UI, Lucide         |
-| Framework | React Router 8 static app and API server                       |
-| Runtime   | Node.js; Vite 7 for development/build                          |
-| Database  | PostgreSQL (`pg`); PostgreSQL 18 used by repository test tools |
-| Text      | i18next (German/English), Tiptap                               |
-| Tooling   | pnpm, ESLint, Prettier, Vitest, Playwright                     |
+| Area      | Technology                                             |
+| --------- | ------------------------------------------------------ |
+| UI        | React 19, TypeScript, Tailwind CSS 4, Radix UI, Lucide |
+| Framework | React Router 8 static app and API server               |
+| Runtime   | Node.js; Vite 7 for development/build                  |
+| Database  | PostgreSQL (`pg`); PostgreSQL 18 backup utilities      |
+| Text      | i18next (German/English), Tiptap                       |
+| Tooling   | pnpm, ESLint, Prettier                                 |
 
 ## Commands
 
 All commands are scripts in `package.json`; run them with `pnpm run <script>`.
 
-| Script          | What it does                                                                                                                                                                                                                |
-| --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `dev`           | Starts the development server of the static app (Vite). It passes server requests to `dev:api`.                                                                                                                             |
-| `dev:api`       | Starts the API's development server (port 5174) with the Pages runtime; `PAGES_DEV_API` tells `dev` another address.                                                                                                        |
-| `build`         | Builds the static app (`ssr: false`) into `build/client` the API into `build/server`, and the independent Node runtimes into `build/local-owner` and `build/runs` with shared `build/runtime-chunks` (`scripts/build.mjs`). |
-| `start`         | Runs the API from `build/` through `server.mjs`; it also serves the static app. Run `build` first. Accepts `--port <number>` and `--config <path>`.                                                                         |
-| `check`         | Generates the React Router route types, type-checks with `tsc --noEmit` and runs `prettier --check`. Checks only; the generated types go to the ignored `.react-router/`.                                                   |
-| `lint`          | Runs ESLint sequentially in bounded file blocks (`scripts/run-lint.mjs`) with `--concurrency=off` and `--max-warnings=0`: any warning fails. Fixes nothing.                                                                 |
-| `format`        | Runs `prettier --write` and rewrites files in place.                                                                                                                                                                        |
-| `test:backend`  | Backend unit tests with coverage (see [Unit tests](../tests/README.md#choosing-a-scope)).                                                                                                                                   |
-| `test:frontend` | Frontend unit tests with coverage (see [Unit tests](../tests/README.md#choosing-a-scope)).                                                                                                                                  |
-| `browser:test`  | Builds, then runs the browser and visual regression suite of the ticket image viewer in a real Chromium (see [Browser tests](../tests/README.md#browser-suite)).                                                            |
-| `clean`         | Deletes the `build/` directory.                                                                                                                                                                                             |
+| Script    | What it does                                                                                                                                                                                                                |
+| --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `dev`     | Starts the development server of the static app (Vite). It passes server requests to `dev:api`.                                                                                                                             |
+| `dev:api` | Starts the API's development server (port 5174) with the Pages runtime; `PAGES_DEV_API` tells `dev` another address.                                                                                                        |
+| `build`   | Builds the static app (`ssr: false`) into `build/client` the API into `build/server`, and the independent Node runtimes into `build/local-owner` and `build/runs` with shared `build/runtime-chunks` (`scripts/build.mjs`). |
+| `start`   | Runs the API from `build/` through `server.mjs`; it also serves the static app. Run `build` first. Accepts `--port <number>` and `--config <path>`.                                                                         |
+| `check`   | Generates the React Router route types, type-checks with `tsc --noEmit` and runs `prettier --check`. Checks only; the generated types go to the ignored `.react-router/`.                                                   |
+| `lint`    | Runs ESLint sequentially in bounded file blocks (`scripts/run-lint.mjs`) with `--concurrency=off` and `--max-warnings=0`: any warning fails. Fixes nothing.                                                                 |
+| `format`  | Runs `prettier --write` and rewrites files in place.                                                                                                                                                                        |
+| `clean`   | Deletes the `build/` directory.                                                                                                                                                                                             |
 
-There is no `test` script. CI runs `check` and `lint` on pushes to `main` and
-on pull requests; it runs no tests and no browser suite there. Only a pushed
-`ci_test` tag runs them (see [CI test tags](../tests/README.md#ci-test-tags-page-290)).
+There are no repository test scripts or CI workflows. `check` and `lint` remain
+manual static checks. `postgres:restore-check` verifies an actual backup and
+`db:transfer` performs offline transfer; both are operating commands, described
+in [PostgreSQL operations](PostgresMigration.md).
 
-### Sequential block linting (`PAGE-192`)
+### Sequential block linting
 
 `pnpm run lint` (`node scripts/run-lint.mjs`) is the single standard entry point
-for developers, CI and agents. It discovers all non-ignored `.js`, `.mjs`,
+for developers and agents. It discovers all non-ignored `.js`, `.mjs`,
 `.cjs`, `.ts`, `.mts`, `.cts` and `.tsx` files from the repository root using
 the active Flat Config (`eslint.config.js`, which excludes `build/**`,
 `**/coverage/**`, `.react-router/**` and `**/dist/**`), partitions
@@ -120,7 +118,7 @@ enables `projectService: true` for typed rules. Even a small block (for example
 per-process peak usage is `~1.35–1.50 GiB` V8 heap and `~1.60–1.70 GiB` RSS.
 `--max-old-space-size` bounds only V8 old-space heap, not total process RSS
 (which includes V8 code/new space, C++ allocations and shared libraries) and not
-concurrent memory from agents or test workers. If the root `tsconfig.json`
+concurrent memory from other processes. If the root `tsconfig.json`
 program grows beyond the per-process heap budget even for small block sizes,
 the next structural step is splitting `tsconfig.json` into smaller TypeScript
 project references rather than disabling typed rules.
@@ -133,8 +131,7 @@ project references rather than disabling typed rules.
 | `backend/`    | Services, repositories, migrations, configuration, server runtime, auth |
 | `definition/` | Shared types and contracts                                              |
 | `language/`   | i18next setup and the German and English translations                   |
-| `tests/`      | Unit-test scopes and setup                                              |
-| `scripts/`    | Maintenance and proof scripts (`acp:smoke`)                             |
+| `scripts/`    | Build, dependency setup, maintenance and remote runner scripts          |
 | `assets/`     | Logo, README banner and the Pica mascot (`assets/pica/`)                |
 | `server.mjs`  | Entry point of the production server                                    |
 
@@ -144,5 +141,4 @@ Further documentation:
   rules a tool can check
 - [AGENTS.md](../AGENTS.md): working rules for AI coding agents, including
   architecture boundaries and database migrations
-- [tests/README.md](../tests/README.md): unit-test scopes and coverage
 - [.env.example](../.env.example): optional environment variables

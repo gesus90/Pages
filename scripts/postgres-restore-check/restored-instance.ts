@@ -13,11 +13,11 @@ import {
   processesNaming,
   runProgram,
   startOwnedPostgres,
-} from "../postgres-check/temporary-instance";
+} from "./postgres-programs";
 import { WORK_DIRECTORY_PREFIX } from "./backup-location";
 import { RestoreCheckFailure } from "./restore-check-failure";
 
-import type { OwnedPostgres } from "../postgres-check/temporary-instance";
+import type { OwnedPostgres } from "./postgres-programs";
 
 /** Replaying a day of WAL can take long; a failed recovery ends the server at once. */
 const RECOVERY_TIMEOUT_SECONDS = 3600;

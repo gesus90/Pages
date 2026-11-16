@@ -27,12 +27,7 @@ const SOURCE_EXTENSIONS = new Set([
 ]);
 
 /** Root directories of local runtime state; only source files in them count. */
-const RUNTIME_ROOT_DIRECTORIES = new Set([
-  "data",
-  "Results",
-  ".claude",
-  "tests/browser/results",
-]);
+const RUNTIME_ROOT_DIRECTORIES = new Set(["data", "Results", ".claude"]);
 
 /** Whether a directory, relative to the root, holds only generated output. */
 export function isGeneratedDirectory(relativePath) {
@@ -76,10 +71,7 @@ function isLocalState(relativePath) {
  * source can change unnoticed behind an ignore rule.
  */
 export function isFingerprintedFile(relativePath) {
-  return (
-    !isLocalState(relativePath) &&
-    !relativePath.startsWith("tests/browser/results/")
-  );
+  return !isLocalState(relativePath);
 }
 
 /**

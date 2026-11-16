@@ -1,5 +1,14 @@
-import { POSTGRES_TYPE_OF_DUCKDB_TYPE } from "../postgres-check/legacy-schema-shape";
 import { TransferRefusal } from "./transfer-refusal";
+
+/** The PostgreSQL column type behind each DuckDB type, see `docs/PostgresMigration.md`. */
+const POSTGRES_TYPE_OF_DUCKDB_TYPE: Readonly<Record<string, string>> = {
+  VARCHAR: "text",
+  BIGINT: "bigint",
+  BOOLEAN: "boolean",
+  INTEGER: "integer",
+  DOUBLE: "double precision",
+  BLOB: "bytea",
+};
 
 /** A column as a catalog describes it. */
 export interface TableColumn {

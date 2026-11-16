@@ -12,15 +12,9 @@
     "format": "prettier --write .",
     "lint": "PAGES_ROUTES=all react-router typegen && node scripts/run-lint.mjs",
     "check": "PAGES_ROUTES=all react-router typegen && NODE_OPTIONS=--max-old-space-size=4096 tsc --noEmit && prettier --check .",
-    "test:backend": "vitest run --config vitest.backend.config.ts --coverage",
-    "test:frontend": "vitest run --config vitest.frontend.config.ts --coverage",
-    "browser:test": "node scripts/run-browser-tests.mjs",
-    "postgres:check": "tsx scripts/postgres-check.ts",
-    "postgres:conversation-check": "tsx scripts/postgres-conversation-check.ts",
     "postgres:restore-check": "tsx scripts/postgres-restore-check.ts",
     "db:transfer": "tsx scripts/db-transfer.ts",
-    "clean": "node -e \"require('node:fs').rmSync('build', { recursive: true, force: true })\"",
-    "acp:smoke": "tsx scripts/acp-smoke.ts"
+    "clean": "node -e \"require('node:fs').rmSync('build', { recursive: true, force: true })\""
   },
   "dependencies": {
     "@agentclientprotocol/sdk": "^1.7.0",
@@ -78,30 +72,24 @@
   },
   "devDependencies": {
     "@duckdb/node-api": "1.5.5-r.5",
-    "@playwright/test": "1.63.0",
     "@react-router/dev": "^8.4.0",
     "@tailwindcss/vite": "^4.3.3",
-    "@testing-library/dom": "^10.4.2",
-    "@testing-library/react": "^16.3.3",
     "@types/hast": "3.0.5",
     "@types/mdast": "^4.0.4",
     "@types/node": "^24.13.6",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@types/ws": "^8.18.2",
-    "@vitest/coverage-v8": "5.0.3",
     "eslint": "^10.11.0",
     "eslint-plugin-jsdoc": "^64.5.4",
     "eslint-plugin-react-hooks": "^7.1.1",
     "globals": "^17.12.0",
-    "jsdom": "29.1.1",
     "prettier": "^3.9.9",
     "tailwindcss": "^4.3.3",
     "tsx": "^4.23.15",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.70.1",
-    "vite": "^7.3.6",
-    "vitest": "5.0.3"
+    "vite": "^7.3.6"
   },
   "engines": {
     "node": ">=22.22.0",
