@@ -131,8 +131,8 @@ export function decidePicaHelperPermission(
 /**
  * The instruction a Claude Code turn receives for the helper of that turn.
  * @param helperPath - The absolute path of the helper of this turn.
- * @param access - The access of the session. An agent employee on
- * "Arbeitsplatz" or YOLO runs with "yolo": the helper is
+ * @param access - The access of the session. An agent employee in YOLO
+ * runs with "yolo": the helper is
  * then only the way to the Pages tools and it uses every other tool, program
  * and MCP server of the host as well. Everyone else is told, and held by
  * {@link decidePicaHelperPermission}, to run nothing but the helper.

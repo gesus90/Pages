@@ -1,3 +1,4 @@
+import { AGENT_ACCESS_POLICY_VERSION } from "@/definition/AgentAccessMode";
 import { isPlanRetryCode } from "@/backend/agents/AgentProviderFailure";
 import {
   PLAN_BLOCKER_RETRIES,
@@ -84,19 +85,35 @@ export function hasToolActivity(session: AgentPlanSessionRecord): boolean {
 /**
  * The native session a further attempt continues over ACP, or `null`.
  * @param session - The record of the last attempt.
- * @returns The session ID when the adapter confirmed it can resume it.
+ * @returns The session ID when the adapter confirmed it can resume it and
+ * the session ran under the current meaning of its mode.
+ * @remarks
+ * The mode and its policy version belong to the identity of a session: a
+ * session recorded under an earlier meaning of "Lesend" or YOLO is never
+ * continued with the current rights; the next attempt starts a new one.
  */
 export function resumableSessionId(
   session: Pick<
     AgentPlanSessionRecord,
-    "sessionId" | "continuationCapabilities"
+    "sessionId" | "continuationCapabilities" | "effective"
   > | null,
 ): string | null {
   return typeof session?.sessionId === "string" &&
     session.sessionId.length > 0 &&
-    session.continuationCapabilities?.canResume === true
+    session.continuationCapabilities?.canResume === true &&
+    hasCurrentAccessPolicy(session)
     ? session.sessionId
     : null;
+}
+
+function hasCurrentAccessPolicy(
+  session: Pick<AgentPlanSessionRecord, "effective">,
+): boolean {
+  const policy = session.effective?.accessPolicy;
+  return (
+    typeof policy === "string" &&
+    policy.endsWith(` v${AGENT_ACCESS_POLICY_VERSION}`)
+  );
 }
 
 /**

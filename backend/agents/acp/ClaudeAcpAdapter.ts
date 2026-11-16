@@ -79,14 +79,7 @@ export function planClaudeAcpLaunch(
     mcpServers: pagesMcpServers(mcp),
     sessionMeta: {
       claudeCode: {
-        options: specification.isFullEnvironment
-          ? {
-              ...profile.options,
-              settingSources: ["user", "project", "local"],
-              strictMcpConfig: false,
-              extraArgs: {},
-            }
-          : profile.options,
+        options: profile.options,
         ...((specification.purpose ?? "plan") === "plan"
           ? { emitRawSDKMessages: [{ type: "assistant" }, { type: "result" }] }
           : {}),

@@ -1,5 +1,6 @@
 import { useTranslation } from "react-i18next";
 
+import { planVerdictDetail } from "./plan-decision-verdict";
 import { planStatusKey } from "./plan-status";
 
 import type { TFunction } from "i18next";
@@ -57,10 +58,12 @@ export function PlanStatusHistory(props: {
       )}
       {step.verdict ? (
         <p data-plan-verdict-reason="" className="wrap-anywhere">
-          {t("plans.decision.reason", { reason: step.verdict.reason })}
-          {step.verdict.isCorrected
-            ? ` · ${t("plans.decision.corrected")}`
-            : ""}
+          {[
+            planVerdictDetail(t, step.verdict),
+            step.verdict.isCorrected ? t("plans.decision.corrected") : null,
+          ]
+            .filter(Boolean)
+            .join(" · ")}
         </p>
       ) : null}
       {history.length > 0 ? (
@@ -88,9 +91,7 @@ export function PlanStatusHistory(props: {
                       }),
                   entry.verdict === undefined
                     ? null
-                    : t("plans.decision.reason", {
-                        reason: entry.verdict.reason,
-                      }),
+                    : planVerdictDetail(t, entry.verdict),
                 ]
                   .filter(Boolean)
                   .join(" · ")}

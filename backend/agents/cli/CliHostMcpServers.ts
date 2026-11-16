@@ -154,9 +154,11 @@ function transportOf(server: McpServer): AgentMcpTransport {
  * Codex in `$CODEX_HOME/config.toml` or `~/.codex/config.toml`
  * (`codex mcp add`), OpenCode in `$XDG_CONFIG_HOME/opencode/opencode.json`
  * and Antigravity in `~/.gemini/antigravity/mcp_config.json` beside the
- * Gemini settings. Pages starts every CLI with the credential folder of its
- * connection as home, so the CLI itself never sees these files; Pages reads
- * them and hands the servers to the session.
+ * Gemini settings. Pages starts every CLI with the sign-in folder of its
+ * connection as its configuration folder, so the CLI itself may not read
+ * these files; Pages reads them and hands the servers to every YOLO session,
+ * chat, plan node and swarm alike, with their authentication unchanged and
+ * never in a log.
  */
 function configFiles(
   provider: AgentProviderId,
@@ -217,6 +219,40 @@ async function readOptionalFile(file: string): Promise<string | null> {
       return null;
     throw error;
   }
+}
+
+/**
+ * Whether a YOLO session of the provider reads the host's MCP configuration itself.
+ * @remarks
+ * OpenCode keeps only its sign-in in the connection folder and reads its
+ * configuration from the real home in YOLO, so Pages hands it no server of
+ * that file a second time. Every other CLI reads its configuration from the
+ * connection folder and receives the host's servers from Pages.
+ */
+export function readsHostMcpConfiguration(provider: AgentProviderId): boolean {
+  return provider === "opencode";
+}
+
+/**
+ * Adds the host's MCP servers to the servers Pages names for a session.
+ * @param base - The servers of Pages, such as its tools or its browser; they keep their place.
+ * @param host - The servers configured on the host.
+ * @returns Every server once: a host server whose name is already taken, or
+ * whose name belongs to the Pages tools, is left out, so it can neither
+ * replace the account-bound Pages bridge nor start twice.
+ */
+export function mergeHostMcpServers(
+  base: readonly McpServer[],
+  host: readonly McpServer[],
+): readonly McpServer[] {
+  const names = new Set(base.map((server) => server.name));
+  const merged = [...base];
+  for (const server of host) {
+    if (names.has(server.name) || RESERVED_NAMES.has(server.name)) continue;
+    names.add(server.name);
+    merged.push(server);
+  }
+  return merged;
 }
 
 /**

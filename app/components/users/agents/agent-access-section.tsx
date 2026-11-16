@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { cn } from "@/app/lib/cn";
+import { isLegacyAgentAccess } from "@/definition/AgentAccessMode";
 import { AGENT_EMPLOYEE_ACCESS_MODES } from "@/definition/AgentEmployee";
 import { agentToolPolicy } from "@/definition/AgentToolGroups";
 
@@ -28,7 +29,7 @@ interface AgentAccessSectionProps {
   /** Whether the person may change the level: an administrator in active admin mode. */
   readonly canChange: boolean;
   readonly canAssignYolo?: boolean;
-  /** `null` while a new agent is created, which starts on "Nur Pages". */
+  /** `null` while a new agent is created, which starts on "Lesend". */
   readonly environment: AgentAccessEnvironment | null;
 }
 
@@ -121,12 +122,31 @@ function DetectedMcpServers({
 interface AccessNoticesProps {
   readonly canChange: boolean;
   readonly environment: AgentAccessEnvironment | null;
+  readonly value: AgentEmployeeAccess;
 }
 
-/** The notices above the level choice: a new agent, a missing admin mode or a missing isolation. */
+/** A warning line of the access tab. */
+function AccessWarning({
+  text,
+}: {
+  readonly text: string;
+}): React.ReactElement {
+  return (
+    <p
+      className="flex items-start gap-2 rounded-xl bg-warning-subtle px-3 py-2 text-sm text-warning"
+      role="status"
+    >
+      <ShieldAlert aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
+      {text}
+    </p>
+  );
+}
+
+/** The notices above the level choice: a new agent, a missing admin mode, the host's facts and an earlier level. */
 function AccessNotices({
   canChange,
   environment,
+  value,
 }: AccessNoticesProps): React.ReactElement {
   const { t } = useTranslation();
   return (
@@ -141,14 +161,14 @@ function AccessNotices({
           {t("agentEmployees.accessTab.adminOnly")}
         </p>
       ) : null}
+      {isLegacyAgentAccess(value) ? (
+        <AccessWarning text={t("agentEmployees.accessTab.legacyLevel")} />
+      ) : null}
       {environment !== null && !environment.isIsolationAvailable ? (
-        <p
-          className="flex items-start gap-2 rounded-xl bg-warning-subtle px-3 py-2 text-sm text-warning"
-          role="status"
-        >
-          <ShieldAlert aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
-          {t("agentEmployees.accessTab.isolationMissing")}
-        </p>
+        <AccessWarning text={t("agentEmployees.accessTab.isolationMissing")} />
+      ) : null}
+      {environment !== null && !environment.isNativeHostAvailable ? (
+        <AccessWarning text={t("agentEmployees.accessTab.nativeHostMissing")} />
       ) : null}
     </>
   );
@@ -159,17 +179,18 @@ interface AccessLevelFieldsetProps {
   readonly savedValue: AgentEmployeeAccess | null;
   readonly canAssignYolo: boolean;
   readonly isLocked: boolean;
-  readonly isIsolationAvailable: boolean;
+  /** Whether YOLO can start natively on this host. */
+  readonly isNativeHostAvailable: boolean;
   readonly onSelect: (level: AgentEmployeeAccess) => void;
 }
 
-/** The radio group of the access levels; a level the person may not take is disabled. */
+/** The radio group of the two modes; a mode the person may not take is disabled. */
 function AccessLevelFieldset({
   value,
   savedValue,
   canAssignYolo,
   isLocked,
-  isIsolationAvailable,
+  isNativeHostAvailable,
   onSelect,
 }: AccessLevelFieldsetProps): React.ReactElement {
   const { t } = useTranslation();
@@ -185,9 +206,9 @@ function AccessLevelFieldset({
           isChecked={value === level}
           isDisabled={
             isLocked ||
-            (level === "workspace" &&
-              !isIsolationAvailable &&
-              savedValue !== "workspace")
+            (level === "yolo" &&
+              !isNativeHostAvailable &&
+              savedValue !== "yolo")
           }
           key={level}
           level={level}
@@ -199,13 +220,16 @@ function AccessLevelFieldset({
 }
 
 /**
- * The tab "Zugriff": the three access levels of the agent's
- * chats, the isolation of the host and the MCP servers Pages detected.
+ * The tab "Zugriff": the two modes of the agent, "Lesend" and "YOLO", with
+ * the same meaning in chats, in its own jobs and in plans, the facts of the
+ * host and the MCP servers Pages detected.
  *
  * @remarks
  * Only an administrator in active admin mode changes the level; the server
- * checks that again on saving. YOLO is taken only after a confirmation, and
- * "Arbeitsplatz" cannot be chosen on a host without the isolation.
+ * checks that again on saving. YOLO is taken only after a confirmation and
+ * only where the host confirms the process ownership of native sessions. An
+ * agent with the earlier "Arbeitsplatz" keeps it until one of the two modes
+ * is chosen and runs no session until then.
  */
 export function AgentAccessSection({
   value,
@@ -217,7 +241,7 @@ export function AgentAccessSection({
 }: AgentAccessSectionProps): React.ReactElement {
   const { t } = useTranslation();
   const [isConfirming, setConfirming] = useState(false);
-  const isIsolationAvailable = environment?.isIsolationAvailable ?? false;
+  const isNativeHostAvailable = environment?.isNativeHostAvailable ?? false;
   const isLocked = !canChange || environment === null;
 
   function select(level: AgentEmployeeAccess): void {
@@ -235,7 +259,11 @@ export function AgentAccessSection({
       <p className="text-sm text-muted-foreground">
         {t("agentEmployees.accessTab.intro")}
       </p>
-      <AccessNotices canChange={canChange} environment={environment} />
+      <AccessNotices
+        canChange={canChange}
+        environment={environment}
+        value={value}
+      />
       <p className="text-sm text-foreground" role="status">
         {t(BROWSER_GRANTS[agentToolPolicy(savedValue ?? value).browser])}
       </p>
@@ -244,7 +272,7 @@ export function AgentAccessSection({
         savedValue={savedValue}
         canAssignYolo={canAssignYolo}
         isLocked={isLocked}
-        isIsolationAvailable={isIsolationAvailable}
+        isNativeHostAvailable={isNativeHostAvailable}
         onSelect={select}
       />
       {savedValue !== null && savedValue !== value ? (

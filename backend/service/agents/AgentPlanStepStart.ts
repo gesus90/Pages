@@ -44,11 +44,6 @@ import type {
 
 /** A working directory is a separate process contract, never a prompt convention. */
 export interface AgentPlanExecutionInput extends TextExecutionInput {
-  /** Server-authorized host owner; absent for every isolated node and conversation. */
-  readonly fullEnvironment?: {
-    readonly ownerId: string;
-    readonly ownerName: string;
-  };
   /** Server-created identity of the attempt whose real native owner records this turn. */
   readonly recording?: AgentSessionStart;
   readonly runnerWorkspaceId?: string;
@@ -105,10 +100,7 @@ interface StartDependencies {
   readonly profiles: Pick<AgentProfileService, "resolveDefinition">;
   readonly parameters: Pick<AgentParameterService, "prepare"> &
     Partial<Pick<AgentParameterService, "readTicketAssets">>;
-  readonly access: Pick<AgentPlanAccess, "require"> &
-    Partial<
-      Pick<AgentPlanAccess, "requireFullEnvironment" | "fullEnvironmentOwner">
-    >;
+  readonly access: Pick<AgentPlanAccess, "require">;
   readonly tasks: Pick<AgentPlanTasks, "snapshot">;
   /** Reads `AGENT.md`; without it the frozen template is used. */
   readonly files?: Pick<AgentDefinitionFiles, "read">;
@@ -239,10 +231,6 @@ export class AgentPlanStepStart {
       resolved.assignment.connection.provider,
       template.run,
     );
-    const fullEnvironment =
-      options.access === "full_environment"
-        ? await this.fullEnvironment(run, snapshot, step)
-        : undefined;
     const directory = planStepDirectory(step);
     const beforeStart = async (): Promise<void> => {
       await this.reauthorize(run, snapshot, step, {
@@ -259,7 +247,6 @@ export class AgentPlanStepStart {
       input: {
         agent: resolved.assignment,
         userId: run.userId,
-        fullEnvironment,
         directory: directory?.path ?? null,
         runnerWorkspaceId: directory?.id ?? step.prepared.workspace.id,
         runnerTimeoutSeconds: options.timeoutMinutes * 60,
@@ -299,27 +286,6 @@ export class AgentPlanStepStart {
       throw new AgentError("plan_context_changed");
   }
 
-  private async fullEnvironment(
-    run: AgentPlanRun,
-    snapshot: AgentPlanSnapshot,
-    step: AgentPlanStepSnapshot,
-  ): Promise<{ readonly ownerId: string; readonly ownerName: string }> {
-    const { access } = this.dependencies;
-    if (!access.requireFullEnvironment || !access.fullEnvironmentOwner)
-      throw new AgentError("plan_full_environment_forbidden");
-    await access.requireFullEnvironment(run.userId, {
-      ...snapshot.plan,
-      nodes: [step.step],
-    });
-    const current = await this.dependencies.access.require(
-      run.userId,
-      snapshot.plan.id,
-    );
-    if (current.ownerId !== snapshot.plan.ownerId)
-      throw new AgentError("plan_context_changed");
-    return access.fullEnvironmentOwner(run.userId, current.ownerId);
-  }
-
   private async readDefinition(step: AgentPlanStepSnapshot): Promise<{
     readonly template: AgentPlanTemplate;
     readonly definition: PreparedPlanStep["definition"];
@@ -355,8 +321,6 @@ export class AgentPlanStepStart {
     context: StartContext,
   ): Promise<void> {
     await this.dependencies.access.require(run.userId, snapshot.plan.id);
-    if (step.template.run?.access === "full_environment")
-      await this.fullEnvironment(run, snapshot, step);
     const current = await this.dependencies.profiles.resolveDefinition(
       run.userId,
       {

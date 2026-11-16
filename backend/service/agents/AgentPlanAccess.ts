@@ -1,6 +1,4 @@
 import { UserPolicyService } from "@/backend/auth/UserPolicyService";
-import { withInheritedPlanTarget } from "@/definition/AgentPlanTarget";
-import { allPlanSteps } from "@/definition/AgentPlanGroup";
 import { AGENT_PLAN_TEAM_LIMIT } from "@/definition/AgentPlanTeam";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { AgentPlanReadDenied } from "@/backend/error/AgentPlanReadDenied";
@@ -11,7 +9,6 @@ import type { AgentViewer } from "@/backend/auth/AgentProfilePolicy";
 import type { AgentPlanRepository } from "@/backend/database/repositories/agent/AgentPlanRepository";
 import type {
   AgentPlan,
-  AgentPlanInput,
   AgentPlanSummary,
   AgentPlanView,
 } from "@/definition/AgentPlan";
@@ -275,51 +272,6 @@ export class AgentPlanAccess {
       projectId: workspace?.projectId ?? null,
       departmentIds: viewer.actor.departments,
       departmentId: this.sharing.teamDepartment(viewer),
-    };
-  }
-
-  /** Rejects full host access unless the caller is an active human administrator. */
-  public async requireFullEnvironment(
-    userId: string,
-    plan: AgentPlanInput,
-  ): Promise<void> {
-    if (
-      !allPlanSteps(plan).some(
-        (step) =>
-          step.configuration?.template.run?.access === "full_environment",
-      )
-    )
-      return;
-    if (!this.sharing.isAdministrator(await this.sharing.viewer(userId)))
-      throw new AgentError("plan_full_environment_forbidden");
-    if (
-      allPlanSteps(withInheritedPlanTarget(plan)).some(
-        (step) =>
-          step.configuration?.template.run?.access === "full_environment" &&
-          step.executionTarget?.kind === "remote",
-      )
-    )
-      throw new AgentError("plan_full_environment_local_only");
-  }
-
-  /** Resolves the explicitly bound host owner without using another plan owner's authority. */
-  public async fullEnvironmentOwner(
-    userId: string,
-    ownerId: string,
-  ): Promise<{ readonly ownerId: string; readonly ownerName: string }> {
-    if (!this.sharing.isAdministrator(await this.sharing.viewer(userId)))
-      throw new AgentError("plan_full_environment_forbidden");
-    const owner = await this.sharing.viewer(ownerId);
-    if (
-      !owner.actor.isAdmin ||
-      owner.actor.isAgent ||
-      ownerId !== process.env.PAGES_FULL_ENVIRONMENT_OWNER_ID
-    )
-      throw new AgentError("plan_full_environment_owner_unavailable");
-    return {
-      ownerId,
-      ownerName:
-        `${owner.actor.firstName} ${owner.actor.lastName}`.trim() || ownerId,
     };
   }
 

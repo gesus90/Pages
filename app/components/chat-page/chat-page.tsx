@@ -21,7 +21,7 @@ import { useConfidential } from "./chat-page-confidential";
 import { ChatPageDropZone } from "./chat-page-drop-zone";
 import { ChatPageHeader } from "./chat-page-header";
 import { ChatPageHistory } from "./chat-page-history";
-import { ChatPageLiveTools } from "./chat-page-tool-uses";
+import { ChatPageLiveTools } from "./chat-page-tool-strip";
 import { ChatPageList } from "./chat-page-list";
 import { ChatPagePicker } from "./chat-page-picker";
 import { CardOverlay } from "./content/card-panel";

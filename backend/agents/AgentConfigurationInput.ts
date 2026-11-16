@@ -2,6 +2,7 @@ import { AgentError } from "@/backend/error/AgentErrors";
 import {
   AGENT_RUN_TIMEOUT_MINUTES,
   emptyAgentConfiguration,
+  normalizedAgentRunOptions,
 } from "@/definition/AgentConfiguration";
 import { isAgentParameterName } from "@/definition/AgentParameters";
 import { isAgentProfileTargetKind } from "@/definition/AgentProfile";
@@ -157,25 +158,17 @@ function readRunOptions(input: unknown): AgentRunOptions {
   };
 }
 
-function readConfigurationRun(
-  input: unknown,
-  options?: { readonly isPlanNode?: boolean },
-): AgentRunOptions | undefined {
+// An explicitly stored or imported `full_environment` is YOLO; `workspace_write` stays and needs a choice.
+function readConfigurationRun(input: unknown): AgentRunOptions | undefined {
   if (input === undefined) return undefined;
-  const run = readRunOptions(input);
-  if (run.access === "full_environment" && !options?.isPlanNode)
-    throw new AgentError("plan_full_environment_forbidden");
-  return run;
+  return normalizedAgentRunOptions(readRunOptions(input));
 }
 
 /** Parses stored and external task sections; references remain identifiers. */
-export function readAgentConfiguration(
-  input: unknown,
-  options?: { readonly isPlanNode?: boolean },
-): AgentConfiguration {
+export function readAgentConfiguration(input: unknown): AgentConfiguration {
   const configuration = readAgentObject(input);
   const sharing = readAgentObject(configuration.sharing);
-  const run = readConfigurationRun(configuration.run, options);
+  const run = readConfigurationRun(configuration.run);
   if (
     !isAgentProfileTargetKind(configuration.scope) ||
     (configuration.accessMode !== "personal" &&

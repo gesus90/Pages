@@ -1,5 +1,10 @@
+import {
+  agentAccessSessionProfile,
+  effectiveAgentAccess,
+} from "@/definition/AgentAccessMode";
 import { acpRunOptions } from "@/definition/AgentConfiguration";
-import { hasHostTools } from "@/definition/AgentEmployee";
+import { employeeAccessMode } from "@/definition/AgentEmployee";
+import { ChatError } from "@/backend/error/ChatErrors";
 
 import { picaAcpRunner } from "./PicaAcpRunners";
 
@@ -10,17 +15,17 @@ import type { AgentEmployeeAccess } from "@/definition/AgentEmployee";
 import type { PicaAcpProvider, PicaAcpRunner } from "./PicaAcpRunners";
 
 /**
- * The run mode of the runner for an access level.
- * @remarks
- * "Nur Pages" runs in "Nur Lesen", where the runner offers nothing but the
- * Pages tools and Pages refuses every other request. "Arbeitsplatz" and
- * YOLO both run the runner without an approval step; they differ only in
- * the isolation the session starts in.
+ * The run mode of the runner for an access level: the same two modes as for
+ * plan nodes and swarms.
+ * @throws {ChatError} `accessModeRequired` for the earlier `workspace`,
+ * which never runs until "Lesend" or "YOLO" is chosen.
  */
 export function employeeRunMode(
   access: AgentEmployeeAccess,
 ): AcpPermissionMode {
-  return hasHostTools(access) ? "yolo" : "read_only";
+  const mode = employeeAccessMode(access);
+  if (mode === null) throw new ChatError("accessModeRequired");
+  return mode;
 }
 
 /**
@@ -29,29 +34,29 @@ export function employeeRunMode(
  * @remarks
  * Claude Code always uses the Pages helper and Antigravity always the bridge.
  * The native Pica builds of Codex and OpenCode refuse every built-in tool, so
- * host tools run their stock runner and reach the Pages tools over the
- * bridge instead.
+ * YOLO runs their stock runner and reaches the Pages tools over the bridge
+ * instead.
  */
 function hasEmployeeBridgeMcp(
   provider: PicaAcpProvider,
-  access: AgentEmployeeAccess,
+  mode: AcpPermissionMode,
 ): boolean {
   if (provider === "claude_code") return false;
-  return provider === "antigravity" || hasHostTools(access);
+  return provider === "antigravity" || mode === "yolo";
 }
 
 /**
- * The runner of one job of an agent employee.
+ * The runner of one job of an agent employee, in a chat or in a run of its own.
  * @param agent - The assignment resolved from the agent's model.
  * @param access - The access level the agent is stored with.
  * @param hostMcpServers - The MCP servers configured on the host for the
- * agent's CLI; only "Arbeitsplatz" and YOLO pass any.
- * @returns Pica's runner of the provider, with a profile of its own per
- * level, so a session of one level is never continued with another, the
- * run options of the level, the host servers and, for YOLO, the start
- * without isolation.
+ * agent's CLI; only YOLO passes any, see {@link effectiveAgentAccess}.
+ * @returns Pica's runner of the provider, with a profile of its own per mode
+ * and policy version, so a session of one mode is never continued with
+ * another, the run options of the mode and the host servers. A YOLO session
+ * starts natively on the host like every YOLO plan node.
  * @throws {ChatError} `acpProviderUnsupported` for a provider without a chat
- * adapter.
+ * adapter, `accessModeRequired` for the earlier `workspace`.
  */
 export function employeeAcpRunner(
   agent: ResolvedAgentAssignment,
@@ -59,13 +64,15 @@ export function employeeAcpRunner(
   hostMcpServers: readonly McpServer[] = [],
 ): PicaAcpRunner {
   const base = picaAcpRunner(agent);
-  const options = acpRunOptions(employeeRunMode(access), 0);
+  const mode = employeeRunMode(access);
+  const options = acpRunOptions(mode, 0);
   return {
     ...base,
-    profile: `employee-${base.provider}-${access}-1`,
-    hasBridgeMcp: hasEmployeeBridgeMcp(base.provider, access),
-    hostMcpServers: hasHostTools(access) ? hostMcpServers : [],
-    isUnisolated: access === "yolo",
+    profile: agentAccessSessionProfile(`employee-${base.provider}`, mode),
+    hasBridgeMcp: hasEmployeeBridgeMcp(base.provider, mode),
+    hostMcpServers: effectiveAgentAccess(mode).hostMcpServers
+      ? hostMcpServers
+      : [],
     runOptions: () => options,
   };
 }

@@ -29,6 +29,10 @@ import {
   createSimulation,
 } from "./agent-execution-runtime.server";
 import { createPlanAgentConfiguration } from "./plan-agent-configuration.server";
+import {
+  createChatDecisionSettings,
+  createDecisionModelCalls,
+} from "./chat-decision-services.server";
 
 import type { AgentToolManagerService } from "@/backend/service/agents/tools/AgentToolManagerService";
 import type { Database } from "@/backend/database/Database";
@@ -63,6 +67,8 @@ export type PlanAgentServices = Pick<
   | "remoteWorkspaceService"
   | "runnerService"
   | "runnerOpenRouterService"
+  | "chatDecisionSettingsService"
+  | "decisionModelCalls"
 >;
 
 /** Plan runtime resources drained after the engine stops and before the database closes. */
@@ -117,14 +123,7 @@ export function createPlanAgentServices(
     remote,
     configuration,
   });
-  const access = new AgentConnectionAccess({
-    connections: repository,
-    claudeBudget: new ClaudeMonthlyBudget(
-      new ClaudeMonthlyBudgetRepository(database),
-    ),
-    authorization: new AuthorizationRepository(database),
-    groups: new UserGroupRepository(database),
-  });
+  const { access, groups } = createConnectionAccess(database, repository);
   const simulation = createSimulation(tokenKey, ticketAssets);
   const execution = createPlanExecution({
     ...cli,
@@ -162,7 +161,33 @@ export function createPlanAgentServices(
     agentConnectionAccess: access,
     agentSimulation: simulation.simulation,
     agentPlanAssetReferences: simulation.references,
+    chatDecisionSettingsService: createChatDecisionSettings({
+      database,
+      connections: repository,
+      groups,
+    }),
+    decisionModelCalls: createDecisionModelCalls({
+      connections: repository,
+      cipher,
+    }),
   };
+}
+
+/** Builds the connection access of the plan engine together with its group repository. */
+function createConnectionAccess(
+  database: Database,
+  connections: AgentConnectionRepository,
+): { access: AgentConnectionAccess; groups: UserGroupRepository } {
+  const groups = new UserGroupRepository(database);
+  const access = new AgentConnectionAccess({
+    connections,
+    claudeBudget: new ClaudeMonthlyBudget(
+      new ClaudeMonthlyBudgetRepository(database),
+    ),
+    authorization: new AuthorizationRepository(database),
+    groups,
+  });
+  return { access, groups };
 }
 
 /** Periodic file cleanup runs independently of further plan starts, also in the separate runs process. */

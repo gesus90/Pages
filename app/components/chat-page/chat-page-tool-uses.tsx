@@ -2,6 +2,7 @@ import { Ban, CircleStop, LoaderCircle, Terminal, Zap } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import { Button } from "@/app/components/ui/button";
+import { cn } from "@/app/lib/cn";
 
 import type { VirtualToolUse } from "@/definition/VirtualChat";
 
@@ -64,64 +65,70 @@ export function formatToolDuration(durationMs: number): string {
     : `${Math.floor(seconds / 60)} min ${Math.round(seconds % 60)} s`;
 }
 
-/** The short description and the duration of a call beside its name. */
-function ToolFacts({
-  use,
-}: {
-  readonly use: VirtualToolUse;
-}): React.ReactElement {
-  return (
-    <>
-      {use.summary ? (
-        <span className="min-w-0 truncate font-sans text-muted-foreground">
-          {use.summary}
-        </span>
-      ) : null}
-      {use.durationMs === undefined ? null : (
-        <span className="shrink-0 text-muted-foreground tabular-nums">
-          {formatToolDuration(use.durationMs)}
-        </span>
-      )}
-    </>
-  );
+/** How long a call ran: the given label, else its stored duration. */
+function durationText(
+  use: VirtualToolUse,
+  durationLabel: string | undefined,
+): string | undefined {
+  if (durationLabel !== undefined) return durationLabel;
+  return use.durationMs === undefined
+    ? undefined
+    : formatToolDuration(use.durationMs);
 }
 
 /**
- * One tool call of an agent: the tool or command with its short
- * description and duration in the summary, input and result when
- * opened, and a cancel button while it runs.
+ * One tool call of an agent in one line of 28 px: the tool or
+ * command with its short description and, at the right, its duration and a
+ * cancel button while it runs; opened, its input and result.
  */
 export function ChatPageToolUse({
   use,
   onCancel,
   durationLabel,
+  isRow = false,
 }: {
   readonly use: VirtualToolUse;
   /** Cancels the running call; absent for a call of a stored answer. */
   readonly onCancel?: () => void;
-  /** How long the call ran, such as "1,2 s"; absent where unknown. */
+  /** How long the call ran, such as "1,2 s"; the stored duration otherwise. */
   readonly durationLabel?: string;
+  /** A line of a list on one surface rather than a card of its own. */
+  readonly isRow?: boolean;
 }): React.ReactElement {
   const { t } = useTranslation();
   const status = t(`chatPage.toolStatus.${use.status ?? "completed"}`);
+  const duration = durationText(use, durationLabel);
   const hasDetails =
     (use.input ?? "") !== "" || (use.output ?? "") !== "" || use.detail !== "";
   return (
-    <li className="min-w-0 rounded-lg bg-surface text-xs text-foreground shadow-xs">
+    <li
+      className={cn(
+        "min-w-0 shrink-0 text-xs text-foreground",
+        !isRow && "rounded-lg bg-surface shadow-xs",
+      )}
+      data-tool-use={use.callId}
+    >
       <details className="group">
-        <summary className="flex cursor-pointer items-center gap-1.5 px-2 py-1 font-mono">
+        <summary className="flex h-7 min-w-0 cursor-pointer items-center gap-1.5 overflow-hidden px-2 font-mono whitespace-nowrap">
           <StatusIcon use={use} />
-          <span className="min-w-0 shrink-0 truncate">{use.name}</span>
-          <ToolFacts use={use} />
+          <span className="min-w-0 shrink truncate">{use.name}</span>
+          {use.summary ? (
+            <span className="min-w-0 flex-1 truncate font-sans text-muted-foreground">
+              {use.summary}
+            </span>
+          ) : null}
           <span className="sr-only">{status}</span>
-          {durationLabel === undefined ? null : (
-            <span className="ml-auto shrink-0 text-muted-foreground">
-              {durationLabel}
+          {duration === undefined ? null : (
+            <span className="ml-auto shrink-0 pl-1 text-muted-foreground tabular-nums">
+              {duration}
             </span>
           )}
           {use.status === "running" && onCancel ? (
             <Button
-              className="ml-auto h-6 px-2 text-xs"
+              className={cn(
+                "h-6 shrink-0 px-2 text-xs",
+                duration === undefined && "ml-auto",
+              )}
               onClick={(event) => {
                 event.preventDefault();
                 onCancel();
@@ -148,36 +155,5 @@ export function ChatPageToolUse({
         )}
       </details>
     </li>
-  );
-}
-
-/** The tool calls of the answer an agent is working on now. */
-export function ChatPageLiveTools({
-  tools,
-  onCancel,
-}: {
-  readonly tools: readonly VirtualToolUse[];
-  readonly onCancel: () => void;
-}): React.ReactElement | null {
-  const { t } = useTranslation();
-  if (tools.length === 0) return null;
-  return (
-    <section
-      aria-label={t("chatPage.liveTools")}
-      className="flex shrink-0 flex-col gap-1.5"
-    >
-      <h3 className="text-[13px] font-semibold text-muted-foreground">
-        {t("chatPage.liveTools")}
-      </h3>
-      <ul className="flex max-h-72 flex-col gap-1.5 overflow-auto">
-        {tools.map((use) => (
-          <ChatPageToolUse
-            key={use.callId ?? use.name}
-            use={use}
-            onCancel={onCancel}
-          />
-        ))}
-      </ul>
-    </section>
   );
 }

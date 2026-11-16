@@ -33,7 +33,7 @@ const EMPLOYEE_ERROR_CODES: Readonly<
 > = {
   accessUnsupported: "invalid_request",
   accessAdminRequired: "forbidden",
-  isolationUnavailable: "invalid_request",
+  accessModeRequired: "invalid_request",
   busy: "running",
   conflict: "conflict",
   forbidden: "forbidden",

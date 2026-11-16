@@ -1,6 +1,4 @@
 import { AgentError } from "@/backend/error/AgentErrors";
-import { isAcpProvider } from "@/definition/AgentConfiguration";
-import { isAgentProvider } from "@/definition/AgentConnection";
 import {
   PLAN_DECISION_CASES,
   PLAN_DECISION_CASE_NAME_LENGTH,
@@ -39,22 +37,23 @@ function readIdentifier(input: unknown): string {
   return text;
 }
 
-function readModel(input: unknown): AgentPlanDecisionModel {
+/**
+ * Reads the decision model of a decision.
+ * @returns The model, or nothing for a text model of an ACP connection that
+ * an older decision was saved with: it is no longer asked, the decision
+ * follows the decision model of the instance, and the next save drops it.
+ */
+function readModel(input: unknown): {
+  readonly model?: AgentPlanDecisionModel;
+} {
   const model = readAgentObject(input);
-  const provider = model.provider;
-  const effort = model.reasoningEffort;
-  if (
-    typeof provider !== "string" ||
-    !isAgentProvider(provider) ||
-    !isAcpProvider(provider) ||
-    (effort !== null && typeof effort !== "string")
-  )
-    throw new AgentError("plan_invalid");
+  if (model.provider !== undefined || model.reasoningEffort !== undefined)
+    return {};
   return {
-    connectionId: readIdentifier(model.connectionId),
-    provider,
-    model: readText(model.model, 300).trim(),
-    reasoningEffort: effort === null ? null : readText(effort, 40),
+    model: {
+      connectionId: readIdentifier(model.connectionId),
+      model: readText(model.model, 300).trim(),
+    },
   };
 }
 
@@ -134,7 +133,7 @@ function readModelSettings(
     ...(node.question === undefined
       ? {}
       : { question: readText(node.question, PLAN_DECISION_QUESTION_LENGTH) }),
-    ...(node.model === undefined ? {} : { model: readModel(node.model) }),
+    ...(node.model === undefined ? {} : readModel(node.model)),
     ...(output === undefined ? {} : { output }),
     ...(node.cases === undefined ? {} : { cases: readCases(node.cases) }),
     ...(node.input === undefined

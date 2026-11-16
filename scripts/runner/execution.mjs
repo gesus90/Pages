@@ -16,6 +16,7 @@ import {
 } from "./revocation.mjs";
 export { cancellationFor, cancelJob } from "./revocation.mjs";
 import { cleanup } from "./processes.mjs";
+import { canOwnNativeJobs, isNativeJob } from "./native.mjs";
 export { interpreters, interpreterCatalog } from "./interpreters.mjs";
 import { spawnCli, cliEnvironment } from "./cli.mjs";
 import {
@@ -62,8 +63,15 @@ function safeOutput(output, secrets = knownSecrets) {
     .replace(credentials, "[redacted]");
 }
 
+/** Whether a launch record names a boundary that owns every process of its job. */
+function isOwnedBoundary(launch) {
+  return (
+    launch?.boundary === "pid_namespace" || launch?.boundary === "worker_unit"
+  );
+}
+
 function publicLaunch(launch) {
-  if (!launch || launch.boundary !== "pid_namespace") return null;
+  if (!isOwnedBoundary(launch)) return null;
   return {
     id: launch.id,
     ...(launch.isolationVersion === 1
@@ -145,10 +153,7 @@ export async function observeJob(directory, job) {
   let history;
   let historyLength;
   try {
-    if (
-      job.outputJournalVersion === 2 &&
-      launch?.boundary === "pid_namespace"
-    ) {
+    if (job.outputJournalVersion === 2 && isOwnedBoundary(launch)) {
       const index = await readRecord(
         join(folder, "history", "events", "index.json"),
       );
@@ -190,7 +195,7 @@ export async function observeJob(directory, job) {
     };
   }
   if (
-    launch?.boundary === "pid_namespace" &&
+    isOwnedBoundary(launch) &&
     (await identity(launch.processId)) === launch.identity
   ) {
     if (
@@ -299,12 +304,14 @@ export async function refuseQueuedJob(
 let hasProvenNamespace = false;
 
 /**
- * Proves that this host can create the PID namespace every job runs in.
+ * Proves that this host can own the processes of a job: the scope unit of a
+ * native YOLO job, or the PID namespace every other job runs in.
  *
  * Without it no worker may start, because its process tree could not be owned.
  * Only a success is remembered, so a host that is repaired is used again.
  */
-export async function canIsolateJobs() {
+export async function canIsolateJobs(job) {
+  if (isNativeJob(job)) return canOwnNativeJobs();
   if (hasProvenNamespace) return true;
   const isCreated = await new Promise((resolve) => {
     const probe = spawn(
@@ -619,8 +626,7 @@ async function executeWorker(folder) {
   const provider = await readRecord(join(privateRoot, "openrouter.json"));
   knownSecrets = [provider?.apiKey].filter(Boolean);
   const launch = await readRecord(join(folder, "launch.json"));
-  if (!launch || launch.boundary !== "pid_namespace")
-    throw new Error("Worker ownership unavailable");
+  if (!isOwnedBoundary(launch)) throw new Error("Worker ownership unavailable");
   const controller = workerControl(folder, job, launch);
   let result;
   let isPreparingPages = false;

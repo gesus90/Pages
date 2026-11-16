@@ -300,6 +300,7 @@ const AGENT_CONTROL_INTENTS = [
   "cancel-tool",
   "cancel-group-tool",
   "resume-agents",
+  "retry-answer",
 ] as const;
 
 type AgentControlIntent = (typeof AGENT_CONTROL_INTENTS)[number];
@@ -310,7 +311,7 @@ function isAgentControlIntent(
   return AGENT_CONTROL_INTENTS.some((candidate) => candidate === intent);
 }
 
-/** Stops the answer of an agent or one of its tool calls, or lets paused agents go on. */
+/** Stops the answer of an agent or one of its tool calls, lets paused agents go on, or starts a failed answer again. */
 async function runAgentControlIntent(
   services: ChatServices,
   person: User,
@@ -348,6 +349,12 @@ async function runAgentControlIntent(
       await services.conversationAgentGuard.resume(
         person,
         String(formData.get("conversationId") ?? ""),
+      );
+      return;
+    case "retry-answer":
+      await services.conversationAgentReplies.retry(
+        person,
+        String(formData.get("messageId") ?? ""),
       );
   }
 }

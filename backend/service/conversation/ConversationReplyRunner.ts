@@ -43,6 +43,8 @@ const COMPONENT = "ConversationAgentReplies";
 
 /** How long an answer waits for an agent that is busy before it tries again. */
 const BUSY_RETRY_MILLISECONDS = 5_000;
+/** How long an answer that failed to start waits before it starts again. */
+const RETRY_PAUSE_MILLISECONDS = 1_000;
 /** How long a message waits for a busy agent at most: it is queued, never refused. */
 const BUSY_WAIT_MAXIMUM_MILLISECONDS = 6 * 3_600_000;
 
@@ -422,18 +424,20 @@ export class ConversationReplyRunner {
     },
   ): Promise<string> {
     const deadline = this.nowMilliseconds() + BUSY_WAIT_MAXIMUM_MILLISECONDS;
-    let hasRetriedCancellation = false;
+    let hasRetried = false;
     for (;;) {
       try {
         return await this.ask(job, agent, context);
       } catch (error: unknown) {
+        // A cancellation or a passing start failure starts the answer once more, unseen.
         if (
           error instanceof AgentJobAnswerError &&
-          error.isCancelled &&
+          (error.isCancelled || error.isTransient) &&
           !context.signal.aborted &&
-          !hasRetriedCancellation
+          !hasRetried
         ) {
-          hasRetriedCancellation = true;
+          hasRetried = true;
+          await this.prepareRetry(job, error);
           continue;
         }
         const isBusy =
@@ -442,6 +446,27 @@ export class ConversationReplyRunner {
         await (this.dependencies.wait ?? defaultWait)(BUSY_RETRY_MILLISECONDS);
       }
     }
+  }
+
+  /** Logs the repeat of an answer and gives a passing start failure a moment to clear. */
+  private async prepareRetry(
+    job: ConversationReplyJob,
+    error: AgentJobAnswerError,
+  ): Promise<void> {
+    logEvent({
+      level: "info",
+      event: "conversation.agent_reply.retried",
+      component: COMPONENT,
+      message: "An agent answer failed once and starts again.",
+      metadata: {
+        conversationId: job.round.conversation.id,
+        agentId: job.agentId,
+        code: error.failureCode,
+        stage: error.detail?.stage ?? null,
+      },
+    });
+    if (error.isTransient)
+      await (this.dependencies.wait ?? defaultWait)(RETRY_PAUSE_MILLISECONDS);
   }
 
   /** Shows the answered message as queued for the agent of the job. */

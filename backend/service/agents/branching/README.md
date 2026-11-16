@@ -63,9 +63,12 @@ a decision bound to a parameter, a ticket or a text result needs a sequence
 input (`decisionSequence`). A decision with an agent's boolean edge and no
 sequence input starts as soon as the agent has succeeded, as before; with a
 sequence input both must have arrived. Wrong source kinds for the mode are
-`decisionInput`; a model decision without question, ACP model or a valid value
-list is `decisionQuestion`, `decisionModel` or `decisionCases`; an edge from an
-output the decision no longer has is `port`.
+`decisionInput`; a model decision without question, with an incomplete
+decision model or without a valid value list is `decisionQuestion`,
+`decisionModel` or `decisionCases`; an edge from an output the decision no
+longer has is `port`. A model decision without a model of its own asks the
+decision model of the instance; when none is set either, preparation refuses
+the start with `decisionModel` on that decision.
 
 **Where it stands.** At the top level, in a group (`group.decisions`) or in a
 loop (`loop.decisions`; a decision of a group inside a loop belongs to the
@@ -109,23 +112,32 @@ A **model** decision is work the scheduler dispatches like a script
 (`AgentPlanDecisionModel`). It reads its source anew (a ticket through
 `AgentPlanTasks.snapshot` with the executor's rights, a result from the current
 start of its node without the closing report; above 100000 characters it is
-refused, never shortened) and opens a short ACP session of its own through
-`PlanExecution.open` with purpose `decision`: the existing path with connection
-lock, resource scheduler lease (run and node named) and isolation, in an empty
-temporary directory, read-only, without MCP server; the OpenCode profile
-`pages-decision` denies every tool. It never runs in another node's or a
-group's session. The prompt holds only the question, the allowed values and
-the source. The answer must be exactly one JSON object
-`{"decision": <value>, "reason": "..."}`: a JSON boolean for yes/no, exactly
-one value name for a classification, a non-empty reason, no other fields or
-text. An invalid answer is corrected once in the same session with the
-concrete problem; a second invalid answer fails the node with
-`plan_decision_answer_invalid`. A technical failure of the session counts as
-`infrastructure` and starts again after 10 s, 60 s and 300 s, then the node
-fails with that code and `failureStop` (blocked). Result:
-`verdict = { decision, caseId?, reason, model, sourceStepId, sourceActivation?, isCorrected }`,
-and `output` names decision and reason for the run report. No failure ever
-activates an output.
+refused, never shortened) and asks a decision model of OpenRouter, a model
+whose catalog states `decisions` among its outputs, directly through
+`POST /api/alpha/decisions` (`DecisionModelCalls`, `OpenRouterDecisionsClient`):
+on the server, with the key of the model's OpenRouter connection, a fixed
+time limit of two minutes, and without an ACP session, working directory or
+tool. Text models are never asked. The model is the decision's own one
+(`{ connectionId, model }`, without reasoning level) when the executor may
+use it, otherwise, for a decision without one, the decision model of the
+instance (`PlanDecisionModels`); a text model an older decision was saved with
+is not read any longer and drops out at the next save. The source is the
+`state`; the question of the decision, together with the notice that the
+state is data and its instructions are not followed, is the `instructions` of
+one question: `noul` for yes/no, yes from a probability of 0.5 on, or `choice`
+for a classification, with the value names as `criteria` keys and
+descriptions. A missing or mistyped answer, an answer of type `refusal` and
+every HTTP error fail the node with a code of its own
+(`plan_decision_answer_invalid`, `plan_decision_refused`,
+`plan_decision_key_invalid`, `plan_decision_no_credit`,
+`plan_decision_unsupported`, `plan_decision_timeout`,
+`plan_decision_unreachable`, `plan_decision_provider_failed`,
+`plan_decision_model_missing`, `plan_decision_model_unavailable`); no call is
+repeated. Result:
+`verdict = { decision, caseId?, reason, probability?, confidence?, costUsd?, model, sourceStepId, sourceActivation?, isCorrected }`
+with an empty `reason`, because a decision model gives none, and `output`
+names the value with probability, confidence and the cost from `usage.cost`
+for the run report. No failure ever activates an output.
 - **Dead paths.** The edge of the branch that was not taken is dead, and so is
   every edge out of a skipped node. A node whose every incoming edge is dead is
   `skipped` and spreads that along the branch; a node with at least one

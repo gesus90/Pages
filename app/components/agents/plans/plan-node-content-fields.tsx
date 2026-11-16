@@ -1,17 +1,12 @@
-import { useContext } from "react";
 import { useTranslation } from "react-i18next";
 
 import { AgentParameterFields } from "@/app/components/settings/agents/agent-parameter-fields";
 import { AgentRunOptionsFields } from "@/app/components/settings/agents/agent-run-options-fields";
 import { Input } from "@/app/components/ui/input";
 import { Textarea } from "@/app/components/ui/textarea";
-import { effectivePlanTarget } from "@/definition/AgentPlanTarget";
 import { emptyAgentConfiguration } from "@/definition/AgentConfiguration";
 
-import {
-  PlanFullEnvironmentContext,
-  PlanFullEnvironmentEditorNotice,
-} from "./plan-full-environment";
+import { PlanAccessNotice } from "./plan-access-notice";
 
 import type { AgentPlanExecutionTarget } from "@/definition/AgentPlanExecution";
 import type { AgentConfiguration } from "@/definition/AgentConfiguration";
@@ -30,7 +25,6 @@ export function PlanNodeContentFields(props: {
 }): React.ReactElement {
   const { t } = useTranslation();
   const { step, configuration } = props;
-  const fullEnvironment = useContext(PlanFullEnvironmentContext);
   function changeTemplate(next: AgentConfiguration): void {
     const removed = new Set(
       configuration.template.parameters
@@ -62,7 +56,7 @@ export function PlanNodeContentFields(props: {
   };
   return (
     <div className="space-y-4">
-      <PlanFullEnvironmentEditorNotice access={template.run?.access} />
+      <PlanAccessNotice access={template.run?.access} />
       <label className="block space-y-1 text-sm">
         <span>{t("plans.nodeMarkdown")}</span>
         <Textarea
@@ -100,11 +94,6 @@ export function PlanNodeContentFields(props: {
           onChange={changeTemplate}
         />
         <AgentRunOptionsFields
-          canSelectFullEnvironment={
-            fullEnvironment.canSelect &&
-            effectivePlanTarget(step, { executionTarget: props.planTarget })
-              .kind !== "remote"
-          }
           configuration={template}
           provider={configuration.provider}
           disabled={props.disabled}

@@ -1,7 +1,6 @@
 import { useTranslation } from "react-i18next";
 
 import { PlanPanelContext } from "./plan-panel-context";
-import { PlanPanelIssueList } from "./plan-panel-issues";
 import { PlanReloadButton } from "./plan-reload-button";
 import { PlanWorkspaceConflict } from "./plan-workspace-conflict";
 import { recoveryErrorText } from "./plan-recovery-panel";
@@ -10,28 +9,30 @@ import { PlanRunLog } from "./plan-run-log/plan-run-log";
 import type { usePlanRecovery } from "./use-plan-recovery";
 import type { AgentPlanPage, AgentPlanRun } from "@/definition/AgentPlan";
 import type { AgentPlanControl } from "@/definition/AgentPlanControl";
-import type { PlanPanelIssue } from "./plan-panel-issues";
 import type { usePlanEditor } from "./use-plan-editor";
 
-/** The longer explanations of the run state that the status line names briefly. */
-function PlanPanelNotes({
-  control,
+/**
+ * What keeps the plan from starting or continuing, as one short line.
+ * @remarks
+ * The status line names the state; graph findings stay at their nodes, so
+ * this never lists them. A code the refused action already reports is not
+ * repeated.
+ */
+function PlanPanelBlock({
+  code,
+  error,
 }: {
-  readonly control: AgentPlanControl | undefined;
+  readonly code: string | null;
+  readonly error: string | null;
 }): React.ReactElement | null {
   const { t } = useTranslation();
-  const notes = [
-    control?.status === "pausing" ? t("plans.panel.pausingHint") : null,
-    control?.status === "paused" ? t("plans.panel.pausedHint") : null,
-    control?.status === "stopping" ? t("plans.panel.stoppingHint") : null,
-  ].filter((note) => note !== null);
-  if (notes.length === 0) return null;
+  if (!code || code === error) return null;
   return (
-    <div className="space-y-1 text-xs text-muted-foreground">
-      {notes.map((note) => (
-        <p key={note}>{note}</p>
-      ))}
-    </div>
+    <p className="text-xs wrap-anywhere text-status-active">
+      {t(`settings.agents.error.${code}`, {
+        defaultValue: t("plans.panel.error"),
+      })}
+    </p>
   );
 }
 
@@ -73,14 +74,14 @@ function PlanPanelRecoveryAlert({
 
 /**
  * The expanded part of the panel: the plan choice and the log of the shown run.
- *
  * @remarks
  * Below the controls it holds „Plan öffnen“ and the „Laufprotokoll“ only.
- * What keeps the plan from starting or continuing now, a refused action and
- * the notes of a pausing or stopping run stay above them while they apply;
- * consumption, earlier start refusals, cleanups and other runs are read
- * elsewhere. Opening it changes neither the plan nor the run, and hiding
- * something here deletes nothing and lifts no block.
+ * What keeps the plan from starting or continuing now and a refused action
+ * stay above them as short lines while they apply; graph findings are read
+ * at their nodes, the run state in the status line, and consumption,
+ * earlier start refusals, cleanups and other runs elsewhere. Opening it
+ * changes neither the plan nor the run, and hiding something here deletes
+ * nothing and lifts no block.
  */
 export function PlanPanelDetails(props: {
   /** @deprecated The upper run controls own recovery; retained for callers of the details projection. */
@@ -93,27 +94,21 @@ export function PlanPanelDetails(props: {
   readonly control: AgentPlanControl | undefined;
   /** The run the canvas shows; the log holds its messages only. */
   readonly run?: AgentPlanRun | null;
-  readonly issues: readonly PlanPanelIssue[];
+  /** What keeps the plan from starting or continuing, as an error code. */
+  readonly code: string | null;
   /** A refusal that no finding explains, as an error code. */
   readonly error: string | null;
 }): React.ReactElement {
-  const { t } = useTranslation();
   const { page, error } = props;
   return (
     <div id={props.id} className="space-y-4 border-t border-border px-4 py-3.5">
-      <PlanPanelIssueList issues={props.issues} />
       <PlanPanelRecoveryAlert
         recoveryRunId={props.recoveryRunId}
         recovery={props.recovery}
       />
       <PlanWorkspaceConflict conflict={props.control?.workspaceConflict} />
+      <PlanPanelBlock code={props.code} error={error} />
       <PlanPanelError error={error} />
-      {page.selected?.canEdit === false ? (
-        <p className="text-xs wrap-anywhere text-muted-foreground">
-          {t("plans.flow.storage.readOnly")}
-        </p>
-      ) : null}
-      <PlanPanelNotes control={props.control} />
       <PlanPanelContext page={page} />
       <PlanRunLog run={props.run ?? null} />
     </div>

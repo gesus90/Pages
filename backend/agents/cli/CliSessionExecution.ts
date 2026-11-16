@@ -14,13 +14,18 @@ import { acpDriverFor } from "@/backend/agents/acp/AcpDrivers";
 import { AcpCleanupUnconfirmedError } from "@/backend/error/AcpCleanupUnconfirmedError";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { AgentPlanCancelledError } from "@/backend/error/AgentPlanCancelledError";
+import { effectiveAgentAccess } from "@/definition/AgentAccessMode";
 import {
   isAcpPermissionMode,
   nativeAcpProvider,
 } from "@/definition/AgentConfiguration";
 import { logCaughtError, logDiagnostic } from "@/backend/logging/Logger";
 
-import { verifyFullEnvironmentStart } from "./CliFullEnvironment";
+import {
+  mergeHostMcpServers,
+  readsHostMcpConfiguration,
+} from "./CliHostMcpServers";
+import { nativeHostRequest, readNativeHost } from "./CliNativeHost";
 import {
   describeOpenCodeAgent,
   openCodeAgentObserver,
@@ -33,7 +38,7 @@ import {
   cleanupSessionAssets,
 } from "./CliAssetWorkspace";
 import { CliIsolationGate } from "./CliIsolationGate";
-import { attachPlanWorkerTemporaryDirectory } from "./CliFullEnvironmentTemporaryDirectory";
+import { attachPlanTemporaryDirectory } from "./CliPlanTemporaryDirectory";
 import { CliPlanIsolation } from "./CliPlanIsolation";
 import { ACP_WORKER_LIMITS } from "./CliWorkerUnit";
 import { cleanupFailedAcpStart } from "./CliAcpStartCleanup";
@@ -61,7 +66,7 @@ import {
 } from "./CliAcpSessionSetup";
 
 import type { VerifiedStart } from "./CliSessionChecks";
-import type { CliFullEnvironment } from "./CliFullEnvironment";
+import type { HostMcpDiscovery } from "./CliHostMcpServers";
 import type { AcpPermissionMode } from "@/definition/AgentConfiguration";
 import type { AgentToolManagerService } from "@/backend/service/agents/tools/AgentToolManagerService";
 import type { AgentToolId } from "@/definition/AgentTools";
@@ -133,6 +138,11 @@ interface SessionDependencies {
   readonly github?: Pick<CliGitHubCredentials, "prepare">;
   /** Prepares the private transcript home of a Claude plan session; defaults to the real folders. */
   readonly claudeHome?: typeof prepareClaudePlanSessionHome;
+  /**
+   * The MCP servers configured on the host for the CLI of a provider; a YOLO
+   * plan node receives them like a YOLO chat, absent passes none.
+   */
+  readonly hostMcp?: HostMcpDiscovery;
 }
 
 /**
@@ -143,7 +153,9 @@ interface SessionDependencies {
  * checked and the executor is authorized again right before the process
  * starts; the prompt and every credential stay out of the argument list.
  * Codex, Claude Code and OpenCode run as ACP sessions, each in
- * one of its two modes; there is no fallback to another runner.
+ * one of its two modes; there is no fallback to another runner. Plan nodes,
+ * swarm sessions and the sessions of agent employees all start here, so
+ * "Lesend" and YOLO mean the same wherever an agent runs.
  */
 export class CliSessionExecution implements PlanSessionRunner {
   private readonly dependencies: SessionDependencies;
@@ -171,9 +183,9 @@ export class CliSessionExecution implements PlanSessionRunner {
    * `codex_permission_mode_required` for options the runner cannot enforce,
    * `cli_not_logged_in` without a confirmed sign-in, the missing-adapter code
    * of the runner or `plan_codex_configuration_unmanaged` before an ACP
-   * session, `plan_yolo_isolation_unavailable` for YOLO without the
-   * namespace, or a start failure; {@link AgentPlanCancelledError} after a
-   * stop.
+   * session, `agent_native_host_unavailable` or `acp_worker_unit_unavailable`
+   * for a YOLO session whose host or process ownership cannot be confirmed,
+   * or a start failure; {@link AgentPlanCancelledError} after a stop.
    */
   public async open(
     input: AgentPlanSessionInput,
@@ -250,11 +262,7 @@ export class CliSessionExecution implements PlanSessionRunner {
         tools?.supervisor.release(input.instanceId);
       await cleanupSessionAssets(assets, error);
       const provider = nativeAcpProvider(input.agent.connection.provider);
-      if (
-        hasVerified &&
-        provider !== null &&
-        input.options.access !== "full_environment"
-      )
+      if (hasVerified && provider !== null)
         await this.dependencies.store
           .secure(input.agent.connection.id, provider)
           .catch((secureError: unknown) => {
@@ -277,11 +285,6 @@ export class CliSessionExecution implements PlanSessionRunner {
     if (provider === null) throw new AgentError("provider_invalid");
     const unsupported = sessionRunOptionError(input);
     if (unsupported !== null) throw new AgentError(unsupported);
-    if (input.options.access === "full_environment")
-      return verifyFullEnvironmentStart(input, signal, {
-        locator: this.dependencies.locator,
-        locations,
-      });
     const { store, locator } = this.dependencies;
     const home = await store.prepare(id, provider);
     try {
@@ -311,16 +314,15 @@ export class CliSessionExecution implements PlanSessionRunner {
           : null;
       await input.beforeStart?.();
       if (signal.aborted) throw new AgentPlanCancelledError();
+      const adapterVersion = agentToolAdapterVersion(provider, locations);
       return {
+        ...(await this.optionalStartParts(input, signal, locations)),
         provider,
         home,
         file: location.path,
         adapter: acpAdapter,
-        adapterVersion: agentToolAdapterVersion(provider, locations),
+        adapterVersion,
         credentials: status.credentials,
-        browser: locations
-          ? await agentPlaywrightServer(input, locations)
-          : null,
       };
     } catch (error: unknown) {
       logCaughtError("CliSessionExecution", error);
@@ -330,7 +332,28 @@ export class CliSessionExecution implements PlanSessionRunner {
     }
   }
 
-  /** Finds the adapter and refuses configuration files Pages does not manage. */
+  /** Resolves the native host and the browser server a session may add, in the original order. */
+  private async optionalStartParts(
+    input: AgentPlanSessionInput,
+    signal: AbortSignal,
+    locations?: ReadonlyMap<AgentToolId, AgentToolLocation>,
+  ): Promise<Pick<VerifiedStart, "host" | "browser">> {
+    const host =
+      input.options.access === "read_only"
+        ? undefined
+        : await readNativeHost(input.directory, signal);
+    return {
+      ...(host ? { host } : {}),
+      browser: locations ? await agentPlaywrightServer(input, locations) : null,
+    };
+  }
+
+  /**
+   * Finds the adapter and, in "Lesend", refuses configuration files Pages does not manage.
+   * @remarks
+   * Such a file could widen a reading session. YOLO uses the configuration
+   * of the host and of the workspace as it is.
+   */
   private async verifyAcp(
     driver: AcpDriver,
     input: AgentPlanSessionInput,
@@ -346,7 +369,8 @@ export class CliSessionExecution implements PlanSessionRunner {
       ? { path: pinned.file }
       : await this.dependencies.locator.locate(driver.binary);
     if (!location.path) throw new AgentError(driver.errors.adapterMissing);
-    await driver.requireManagedConfiguration(home, input.directory);
+    if (input.options.access === "read_only")
+      await driver.requireManagedConfiguration(home, input.directory);
     return location.path;
   }
 
@@ -363,12 +387,11 @@ export class CliSessionExecution implements PlanSessionRunner {
   /**
    * Starts the ACP adapter of the runner and its session in the stored mode.
    * @remarks
-   * "Nur Lesen" also gets its working copy read-only in the namespace. YOLO
-   * runs the runner without an approval step, so only the namespace keeps it
-   * inside its workspace and away from the instance folders and other
-   * credentials; without the namespace YOLO does not start. An explicitly
-   * authorized full-environment node keeps owner access with only a private
-   * temporary mount and a PID namespace for process cleanup.
+   * "Lesend" runs inside the read-only namespace, which mounts the whole host
+   * read-only and hides only the instance folders of Pages. YOLO runs as a
+   * native process of the account, with its real home, its login PATH and
+   * the MCP servers configured on the host, framed only by its worker unit,
+   * which confirms its process ownership and ends every child.
    */
   private async spawnAcp(
     driver: AcpDriver,
@@ -378,7 +401,8 @@ export class CliSessionExecution implements PlanSessionRunner {
   ): Promise<PlanSession> {
     const { mode, scoped, adapter, github, protocol } =
       await this.prepareAcpStart(driver, input, start);
-    const { profile, launch, channel, redact } = protocol;
+    const { profile, channel, redact } = protocol;
+    const launch = await this.withHostMcpServers(protocol.launch, input, mode);
     let child: CliSessionProcess | null = null;
     let limited: LimitedRequest | null = null;
     let containment: CliSessionContainment = "none";
@@ -410,17 +434,17 @@ export class CliSessionExecution implements PlanSessionRunner {
           signal: control.signal,
           onLine: (line) =>
             channel.receive(
-              start.owner ? redactAcpJsonLine(line, redact) : redact(line),
+              start.host ? redactAcpJsonLine(line, redact) : redact(line),
             ),
         }),
         scoped,
         input,
-        start.owner,
+        start,
       );
       limited = await this.limit(request, input);
       containment = sessionContainment(isIsolated, limited.request);
       if (control.signal.aborted) throw new AgentPlanCancelledError();
-      if (start.owner) await input.beforeStart?.();
+      if (start.host) await input.beforeStart?.();
       await control.lifecycle?.beforeSpawn(limited.request.unit?.name);
       child = this.dependencies.runner.startSession(limited.request);
       return await this.attachAcpSession({
@@ -487,7 +511,8 @@ export class CliSessionExecution implements PlanSessionRunner {
     readonly protocol: ReturnType<typeof prepareAcpProtocol>;
   }> {
     const mode = requireAcpMode(driver, input);
-    const scoped = start.owner
+    // A native session has no namespace that could hold a private transcript home.
+    const scoped = start.host
       ? null
       : await prepareScopedClaudeHome(
           driver,
@@ -496,9 +521,12 @@ export class CliSessionExecution implements PlanSessionRunner {
           this.dependencies.claudeHome,
         );
     const adapter = requireAdapter(start.adapter, driver);
-    const github = start.owner
-      ? null
-      : await prepareCliGitHubAccess(this.dependencies, input, start, mode);
+    const github = await prepareCliGitHubAccess(
+      this.dependencies,
+      input,
+      start,
+      mode,
+    );
     return {
       mode,
       scoped,
@@ -529,44 +557,70 @@ export class CliSessionExecution implements PlanSessionRunner {
     return openCliAcpSession({
       ...context,
       secure: () =>
-        context.start.owner
-          ? Promise.resolve()
-          : secureCliAcpAccess(
-              this.dependencies.store,
-              context.input,
-              context.start,
-              context.github,
-            ),
+        secureCliAcpAccess(
+          this.dependencies.store,
+          context.input,
+          context.start,
+          context.github,
+        ),
     });
   }
 
   /**
-   * Wraps a worker in the namespace, or refuses it where the namespace is required.
+   * Gives a YOLO plan session the MCP servers configured on the host.
    * @remarks
-   * An explicitly authorized full-environment plan node and the YOLO chat
-   * of an agent employee run on the host itself. Every other session keeps
-   * the rules of {@link requireAcpIsolation}.
+   * A chat brings its own servers, the host's among them, so only a plan or
+   * swarm session reads them here. The Pages servers of the launch keep
+   * their place; a host server of the same name is left out.
+   */
+  private async withHostMcpServers(
+    launch: ReturnType<typeof prepareAcpProtocol>["launch"],
+    input: AgentPlanSessionInput,
+    mode: AcpPermissionMode,
+  ): Promise<ReturnType<typeof prepareAcpProtocol>["launch"]> {
+    const { hostMcp } = this.dependencies;
+    if (
+      !hostMcp ||
+      input.chat ||
+      input.purpose === "decision" ||
+      input.purpose === "observer" ||
+      !effectiveAgentAccess(mode).hostMcpServers ||
+      readsHostMcpConfiguration(input.agent.connection.provider)
+    )
+      return launch;
+    const servers = await hostMcp.servers(input.agent.connection.provider);
+    return {
+      ...launch,
+      mcpServers: mergeHostMcpServers(
+        launch.mcpServers,
+        servers.map((entry) => entry.server),
+      ),
+    };
+  }
+
+  /**
+   * Starts a YOLO worker natively, or wraps a "Lesend" worker in the read-only namespace.
+   * @remarks
+   * YOLO never runs in bubblewrap and does not need it installed. "Lesend"
+   * keeps the rules of {@link requireAcpIsolation}.
    */
   private async isolateWorker(
     worker: CliSessionRequest,
     scoped: ClaudePlanSessionHome | null,
     input: AgentPlanSessionInput,
-    owner?: CliFullEnvironment,
+    start: VerifiedStart,
   ): Promise<{
     readonly request: CliSessionRequest;
     readonly isIsolated: boolean;
   }> {
     const mode = input.options.access;
-    const attached = await attachPlanWorkerTemporaryDirectory(
-      worker,
-      input,
-      owner,
-    );
-    if (attached.fullEnvironment) return attached.fullEnvironment;
-    worker = attached.worker;
-    if (input.chat?.isUnisolated === true && mode === "yolo")
-      return { request: worker, isIsolated: false };
-    const isolated = await this.gate.isolateSession(worker, scoped);
+    const attached = await attachPlanTemporaryDirectory(worker, input);
+    if (start.host)
+      return {
+        request: nativeHostRequest(attached, start.host),
+        isIsolated: false,
+      };
+    const isolated = await this.gate.isolateSession(attached, scoped);
     if (isAcpPermissionMode(mode))
       requireAcpIsolation(isolated.isIsolated, mode, input);
     return isolated;
@@ -575,9 +629,11 @@ export class CliSessionExecution implements PlanSessionRunner {
   /**
    * Starts the worker in a limited unit of the service manager.
    * @remarks
-   * Pica's conversations never start without one. A plan node starts
-   * without it, as before, where the host has no service manager for the
-   * server account; one warning says so.
+   * Pica's conversations and every YOLO session never start without one: a
+   * native process has no namespace, so only the unit confirms its process
+   * ownership, ends its children and stdio MCP servers and proves their end.
+   * A "Lesend" plan node starts without it, as before, where the host has no
+   * service manager for the server account; one warning says so.
    */
   private async limit(
     request: CliSessionRequest,
@@ -591,7 +647,7 @@ export class CliSessionExecution implements PlanSessionRunner {
         label: `unit ${wrapped.unit.name}: memory ${ACP_WORKER_LIMITS.memoryMax}, swap ${ACP_WORKER_LIMITS.memorySwapMax}, tasks ${ACP_WORKER_LIMITS.tasksMax}, CPU ${ACP_WORKER_LIMITS.cpuQuota}, OOM score ${ACP_WORKER_LIMITS.oomScoreAdjust}`,
       };
     }
-    if (input.chat || input.options.access === "full_environment")
+    if (input.chat || input.options.access !== "read_only")
       throw new AgentError("acp_worker_unit_unavailable");
     if (!this.hasWarnedWithoutUnits) {
       this.hasWarnedWithoutUnits = true;

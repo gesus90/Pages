@@ -1,4 +1,7 @@
-import { isAcpProvider } from "@/definition/AgentConfiguration";
+import {
+  isAcpProvider,
+  isAgentWriteAccess,
+} from "@/definition/AgentConfiguration";
 import {
   agentSwarmOperations,
   agentSwarmTools,
@@ -84,9 +87,7 @@ export function planSessionReach(
   options: AgentRunOptions,
 ): AgentRunReach {
   if (!isAcpProvider(provider)) return "tickets";
-  return options.access === "yolo" || options.access === "full_environment"
-    ? "full"
-    : "read";
+  return isAgentWriteAccess(options.access) ? "full" : "read";
 }
 
 /** Builds the same least-privilege Pages scope for local and remote attempts. */

@@ -1,3 +1,5 @@
+import { AGENT_ACCESS_MODES } from "./AgentAccessMode";
+
 import type { AcpProviderId } from "./AgentConfiguration";
 import type { AgentPlanExecutionTarget } from "./AgentPlanExecution.js";
 import type { AgentPlanSwarmMemorySetting } from "./AgentPlanSwarmMemory";
@@ -41,20 +43,27 @@ export const PLAN_SWARM_TEXT_LENGTH = {
 export const PLAN_SWARM_TASK_BINDING = "task";
 
 /**
- * What a helper may do in the shared working directory.
- * @remarks
- * ACP runners know only "Nur Lesen" and YOLO. `workspace_write` runs the CLI
- * so it can write files, but limits its Pages access to reading; `yolo` also
- * gives it every Pages operation of the executor.
+ * The modes the main agent and the helpers of a swarm can be given: the two
+ * modes of {@link AGENT_ACCESS_MODES}, with the same meaning as for agent
+ * employees and plan nodes, for the native tools and the Pages tools alike.
  */
-export const PLAN_SWARM_ACCESS_MODES = [
+export const PLAN_SWARM_ACCESS_MODES = AGENT_ACCESS_MODES;
+
+/**
+ * Every access a stored swarm may name.
+ * @remarks
+ * `workspace_write` is an earlier value: it stays readable, but a session
+ * with it does not start until "Lesend" or "YOLO" is chosen; it never runs as
+ * YOLO.
+ */
+export const PLAN_SWARM_STORED_ACCESS = [
   "read_only",
   "workspace_write",
   "yolo",
 ] as const;
 
-/** One of {@link PLAN_SWARM_ACCESS_MODES}. */
-export type AgentPlanSwarmAccess = (typeof PLAN_SWARM_ACCESS_MODES)[number];
+/** One of {@link PLAN_SWARM_STORED_ACCESS}. */
+export type AgentPlanSwarmAccess = (typeof PLAN_SWARM_STORED_ACCESS)[number];
 
 /** Connection, model and reasoning, as the model choice of an agent node names them. */
 export interface AgentPlanSwarmModel {

@@ -112,11 +112,13 @@ export function isSpeechOutputModel(
  * @param entry - One raw model entry of a provider listing.
  * @param provider - The provider that listed the entry.
  * @returns `true` for an OpenRouter model that states `decisions` among its
- * outputs ({@link isDecisionModel}).
+ * outputs and accepts text ({@link isDecisionModel}); other providers list
+ * no decision models.
  * @remarks
  * {@link isTextModel} drops such a model, because it does not answer in text;
- * it is kept for the decisions of group chats only. Its stored modalities rule
- * out chatting, so Pica, agents and plan nodes leave it out.
+ * it is kept for the decisions of group chats and the model decisions of
+ * plans only. Its stored modalities rule out chatting, so Pica, agents and
+ * agent nodes leave it out.
  */
 export function isDecisionOutputModel(
   entry: unknown,
@@ -125,6 +127,7 @@ export function isDecisionOutputModel(
   if (provider !== "openrouter") return false;
   const architecture = readAgentObject(readAgentObject(entry).architecture);
   return isDecisionModel({
+    inputModalities: statedModalities(architecture.input_modalities),
     outputModalities: statedModalities(architecture.output_modalities),
   });
 }

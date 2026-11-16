@@ -62,10 +62,8 @@ export interface AgentToolkitJobInput {
   readonly agentId: string;
   readonly root: string;
   readonly policy: AgentToolPolicy;
-  /** "Arbeitsplatz" isolates shell commands; YOLO does not. */
-  readonly isIsolated: boolean;
-  /** Folders the isolation hides, such as the data and agent folders. */
-  readonly hiddenDirectories?: readonly string[];
+  /** Folders the file tools never reach in "Lesend", such as the data folder; YOLO passes none. */
+  readonly protectedDirectories?: readonly string[];
   readonly launcher?: AgentShellLauncher;
   readonly readPage?: AgentWebPageReader;
   /** The interim messages and questions bound to the job's chat. */
@@ -87,13 +85,10 @@ export function createAgentToolkitJob(
     agentId: input.agentId,
     root: input.root,
     policy: input.policy,
-    launcher:
-      input.launcher ??
-      createAgentShellLauncher(input.isIsolated, {
-        ...(input.hiddenDirectories
-          ? { hiddenDirectories: input.hiddenDirectories }
-          : {}),
-      }),
+    launcher: input.launcher ?? createAgentShellLauncher(),
+    ...(input.protectedDirectories
+      ? { protectedDirectories: input.protectedDirectories }
+      : {}),
     shellJobs: new AgentShellJobs(),
     readPage: input.readPage ?? readPublicWebPage,
     ...(input.interactions ? { interactions: input.interactions } : {}),

@@ -1,3 +1,4 @@
+import { AGENT_ACCESS_POLICY_VERSION } from "@/definition/AgentAccessMode";
 import { agentRunOptionsFor } from "@/definition/AgentConfiguration";
 import { RUNNER_TOOL_PROVIDERS } from "@/definition/RunnerExecution";
 import { readAgentObject } from "@/backend/agents/AgentPayload";
@@ -96,7 +97,10 @@ function remoteAgentResult(
         mcp: remote.command.pagesAccess === 1,
         directory: remote.target.path,
       },
-      effective: null,
+      // The runner protocol carries only the two modes; the policy belongs to the session's identity.
+      effective: {
+        accessPolicy: `${options.access === "read_only" ? "read_only" : "yolo"} v${AGENT_ACCESS_POLICY_VERSION}`,
+      },
       definition: null,
       contract,
       acceptance,

@@ -4,7 +4,11 @@ import { isValidDecisionRules } from "@/definition/ConversationDecision";
 import { isApiProvider } from "@/definition/AgentConnection";
 import { canUseAgentConnection } from "../agents/AgentConnectionAccess";
 import { requireAgentAdministrator } from "../agents/AgentServiceAccess";
-import { findDecisionModel, listDecisionModels } from "./ChatDecisionModels";
+import {
+  findDecisionModel,
+  isTextModelSelection,
+  listDecisionModels,
+} from "./ChatDecisionModels";
 
 import type { AgentViewer } from "@/backend/auth/AgentProfilePolicy";
 import type { AgentConnectionRepository } from "@/backend/database/repositories/AgentConnectionRepository";
@@ -16,6 +20,7 @@ import type { AgentModelSelection } from "@/definition/AgentModelSelection";
 import type {
   ChatDecisionAdministration,
   ChatDecisionEmptyReason,
+  ChatDecisionSettings,
   ChatDecisionStatus,
   ConversationDecisionModelView,
   ConversationDecisionRules,
@@ -57,14 +62,16 @@ function statusOf(
 /**
  * The decision model of the instance: the one OpenRouter
  * decision model that judges which agent a message of a group chat means,
- * together with the default thresholds of the groups.
+ * together with the default thresholds of the groups. The same model is the
+ * default of every model decision of a plan without a model of its own.
  * @remarks
  * It is one setting of the instance next to the speech recognition. Only an
  * administrator in the active admin mode reads the form and saves. The model
  * comes from the OpenRouter models whose catalog states `decisions` among the
  * outputs (the rule `decision` of `modelConsumerRefusal`); it runs no tool
  * and no action, because it only gives probabilities. A saved model the
- * catalog no longer lists keeps its value and counts as unavailable.
+ * catalog no longer lists keeps its value and counts as unavailable; a text
+ * model saved before counts as not set.
  */
 export class ChatDecisionSettingsService {
   private readonly dependencies: ChatDecisionSettingsDependencies;
@@ -85,7 +92,7 @@ export class ChatDecisionSettingsService {
     requireAgentAdministrator(actor);
     const viewer = await this.viewer(actor);
     const [settings, models] = await Promise.all([
-      this.dependencies.settings.read(),
+      this.read(),
       listDecisionModels(this.dependencies, viewer),
     ]);
     return {
@@ -139,7 +146,7 @@ export class ChatDecisionSettingsService {
    * "Nur @".
    */
   public async resolve(): Promise<ResolvedDecisionModel | null> {
-    const { selection } = await this.dependencies.settings.read();
+    const { selection } = await this.read();
     if (selection === null) return null;
     const models = await listDecisionModels(this.dependencies, null);
     if (findDecisionModel(models, selection) === null) return null;
@@ -159,7 +166,7 @@ export class ChatDecisionSettingsService {
    * @returns Its state and name; it names no connection detail.
    */
   public async modelView(): Promise<ConversationDecisionModelView> {
-    const { selection } = await this.dependencies.settings.read();
+    const { selection } = await this.read();
     if (selection === null) return { status: "noModel", name: null };
     const model = findDecisionModel(
       await listDecisionModels(this.dependencies, null),
@@ -173,6 +180,18 @@ export class ChatDecisionSettingsService {
   /** Public health state without model names, connection details or credentials. */
   public async currentStatus(): Promise<ChatDecisionStatus> {
     return (await this.modelView()).status;
+  }
+
+  /** The stored setting; a text model saved before only decision models were offered counts as not set. */
+  private async read(): Promise<ChatDecisionSettings> {
+    const settings = await this.dependencies.settings.read();
+    const { selection } = settings;
+    if (
+      selection === null ||
+      !(await isTextModelSelection(this.dependencies.connections, selection))
+    )
+      return settings;
+    return { ...settings, selection: null };
   }
 
   private async emptyReason(

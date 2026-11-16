@@ -8,6 +8,7 @@ import { cn } from "@/app/lib/cn";
 
 import { MentionMarkdown } from "./mentions/mention-markdown";
 import { useMentionDirectory } from "./mentions/mention-context";
+import { ChatPageAnswerFailure } from "./chat-page-answer-failure";
 import { ParticipantAvatar } from "./chat-page-avatar";
 import { participantColors } from "./chat-page-colors";
 import { ChatPageDecision } from "./chat-page-decision";
@@ -190,6 +191,13 @@ function AnswerNotice({
           <CircleAlert aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
           {t(`chatPage.notice.${message.notice}`, { name: author.name })}
         </p>
+        {message.notice === "agent_failed" &&
+        message.createdAt !== undefined ? (
+          <ChatPageAnswerFailure
+            messageId={message.id}
+            reason={message.content}
+          />
+        ) : null}
       </Bubble>
     );
   if (!message.voice) return null;
@@ -555,7 +563,7 @@ export function ChatPageHistory({
       ref={viewport}
       aria-label={t("chatPage.history", { name })}
       containerClassName="min-h-40 flex-1"
-      className="flex flex-col gap-4 py-6 pr-1"
+      className="flex flex-col gap-4 px-4 py-6"
       role="log"
     >
       <OlderButton older={older} />

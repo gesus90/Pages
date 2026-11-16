@@ -34,6 +34,7 @@ export type CloneReferenceDependencies = Pick<
   | "remoteExecution"
   | "remoteTargets"
   | "planAssets"
+  | "decisionModels"
 >;
 
 /** Repairs external selections while preserving the graph, instructions and parameter declarations. */
@@ -43,6 +44,7 @@ export class AgentPlanCloneReferences {
   private readonly adjustments: AgentPlanCloneAdjustment[];
   private agents: readonly AgentDefinitionChoice[] = [];
   private models: readonly PageAgentModel[] = [];
+  private decisionModels: readonly PageAgentModel[] = [];
   private projectId = "";
   private planTarget: AgentPlanExecutionTarget | undefined;
   private workspaceIds: ReadonlySet<string> = new Set();
@@ -61,14 +63,17 @@ export class AgentPlanCloneReferences {
   public async prepare(plan: AgentPlanInput): Promise<AgentPlanInput> {
     this.projectId = plan.projectId ?? "";
     this.planTarget = plan.executionTarget;
-    const [agents, models, remote, workspaces, targets] = await Promise.all([
-      this.dependencies.profiles.catalog(this.userId, this.projectId),
-      this.dependencies.profiles.planModels(this.userId, this.projectId),
-      this.dependencies.remoteExecution?.sources(this.userId, this.projectId),
-      this.dependencies.workspaces.choices(this.userId),
-      this.dependencies.remoteTargets?.list(this.userId, this.projectId),
-    ]);
+    const [agents, models, remote, workspaces, targets, decisionModels] =
+      await Promise.all([
+        this.dependencies.profiles.catalog(this.userId, this.projectId),
+        this.dependencies.profiles.planModels(this.userId, this.projectId),
+        this.dependencies.remoteExecution?.sources(this.userId, this.projectId),
+        this.dependencies.workspaces.choices(this.userId),
+        this.dependencies.remoteTargets?.list(this.userId, this.projectId),
+        this.dependencies.decisionModels?.list(this.userId),
+      ]);
     this.agents = agents;
+    this.decisionModels = decisionModels ?? [];
     this.models = [...models, ...(remote?.models ?? [])];
     this.workspaceIds = new Set([
       ...workspaces
@@ -343,9 +348,10 @@ export class AgentPlanCloneReferences {
   ): Promise<typeof node> {
     const saved = node.model;
     let model = saved;
+    // A decision asks a decision model; the person who copies has to be allowed to use it.
     if (
       saved &&
-      !this.models.some(
+      !this.decisionModels.some(
         (entry) =>
           entry.connectionId === saved.connectionId &&
           entry.model === saved.model,

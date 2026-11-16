@@ -6,6 +6,7 @@ import { constants } from "node:fs";
 import { containsWorkspacePath } from "@/backend/service/agents/AgentWorkspacePath";
 
 import { AgentToolFiles } from "./AgentToolFiles";
+import { AgentToolHealthGate } from "./AgentToolHealthGate";
 import { AgentToolHealthService } from "./AgentToolHealthService";
 import { AgentToolInstaller } from "./AgentToolInstaller";
 import { AgentToolManagerService } from "./AgentToolManagerService";
@@ -61,11 +62,9 @@ export function createAgentToolManager(input: {
       runner: input.runner,
       resolve,
     }),
-    health: new AgentToolHealthService({
-      files,
-      runner: input.runner,
-      resolve,
-    }),
+    health: new AgentToolHealthGate(
+      new AgentToolHealthService({ files, runner: input.runner, resolve }),
+    ),
   });
 }
 

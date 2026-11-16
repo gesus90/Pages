@@ -95,8 +95,6 @@ export function remoteModelCommand(
       RUNNER_TOOL_PROVIDERS[route.tool],
       configuration.template.run,
     );
-    if (options.access === "full_environment")
-      throw new AgentError("plan_full_environment_local_only");
     if (options.access === "workspace_write")
       throw new AgentError("plan_context_changed");
     const isReadOnly = options.access === "read_only";

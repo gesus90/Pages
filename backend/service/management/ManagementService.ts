@@ -78,7 +78,7 @@ function employeeFailure(error: AgentEmployeeError): AgentOperationError {
     case "usernameTaken":
     case "modelNotAllowed":
     case "accessUnsupported":
-    case "isolationUnavailable":
+    case "accessModeRequired":
     case "templateNameTaken":
     case "inactive":
     case "busy":

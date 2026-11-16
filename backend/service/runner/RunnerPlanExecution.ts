@@ -331,7 +331,6 @@ export class RunnerPlanExecution implements PlanExecution {
     const bridge = control.session?.mcp?.token;
     return {
       promptFile,
-      ownerId: input.fullEnvironment?.ownerId,
       connectionId: input.runnerTarget ? undefined : input.agent.connection.id,
       files: await this.fileBasis(input),
       ...(bridge

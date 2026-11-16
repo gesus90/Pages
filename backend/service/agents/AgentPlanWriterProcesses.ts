@@ -55,7 +55,10 @@ function checkedStep(
           session: {
             ...step.session,
             closeout: "confirmed" as const,
-            containment: "pid_namespace" as const,
+            // A native YOLO session had no namespace; its unit alone proves the end.
+            ...(step.session.effective?.execution === undefined
+              ? { containment: "pid_namespace" as const }
+              : {}),
           },
         }
       : {}),

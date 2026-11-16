@@ -50,15 +50,22 @@ export const OPENCODE_PICA_PERMISSIONS: Readonly<Record<string, string>> = {
   ...Object.fromEntries(OPENCODE_BUILT_IN_TOOLS.map((name) => [name, "deny"])),
 };
 
-/** Native rules, including explicit secret-file denials that full tool access does not override. */
+/**
+ * The native rules of a mode.
+ * @remarks
+ * YOLO allows every tool on every path the account may reach, with no ban of
+ * file names. "Lesend" denies every tool but reading, listing, searching and
+ * the web, also outside the working folder; reading `.env` files stays
+ * denied there, because a reading session has no task that needs a secret.
+ */
 export function openCodePlanPermissions(
   mode: AcpPermissionMode,
 ): Readonly<Record<string, unknown>> {
-  const read = { "*": "allow", "*.env": "deny", "*.env.*": "deny" };
-  if (mode === "yolo") return { "*": "allow", read };
+  if (mode === "yolo") return { "*": "allow" };
   return {
     "*": "deny",
-    read,
+    read: { "*": "allow", "*.env": "deny", "*.env.*": "deny" },
+    external_directory: "allow",
     list: "allow",
     glob: "allow",
     grep: "allow",
@@ -81,11 +88,18 @@ function planProfile(mode: AcpPermissionMode): AcpSessionProfile {
         mode === "yolo"
           ? "all available native tools and authorized Pages MCP tools"
           : "native reading tools and read-only Pages MCP tools",
-      files: mode === "yolo" ? "workspace write" : "read only",
+      files:
+        mode === "yolo" ? "every path of the account" : "read only, host-wide",
       shell: mode === "yolo" ? "on" : "off",
       web: "on",
-      settings: "Pages managed only",
-      mcpServers: "Pages only",
+      settings:
+        mode === "yolo"
+          ? "configuration, skills and plugins of the host, model of the connection"
+          : "Pages managed only",
+      mcpServers:
+        mode === "yolo"
+          ? "Pages and the MCP servers of the host"
+          : "Pages only",
       permissionRules: JSON.stringify(openCodePlanPermissions(mode)),
     },
     reportedOptions: {
@@ -116,6 +130,7 @@ function planProfile(mode: AcpPermissionMode): AcpSessionProfile {
       },
     ],
     decide: (request) => {
+      // "Lesend" never approves a request: a rule that asks is a change.
       if (mode === "read_only") return refusePermission(request);
       const decision = approvePermission(request);
       return { ...decision, isDenied: decision.outcome.outcome !== "selected" };
@@ -124,33 +139,33 @@ function planProfile(mode: AcpPermissionMode): AcpSessionProfile {
 }
 
 /**
- * The conversation of an agent employee with full access: the YOLO rules of a
- * plan node with every native tool inside the bubblewrap isolation, on the
- * stock runner instead of the native Pages build, and the Pages tools of the
- * agent's account over Pica's turn-bound bridge.
+ * The conversation of an agent employee in YOLO: the YOLO rules of a plan
+ * node with every native tool on the host, on the stock runner instead of the
+ * native Pages build, and the Pages tools of the agent's account over Pica's
+ * turn-bound bridge.
  */
 function chatFullAccessProfile(): AcpSessionProfile {
   const yolo = planProfile("yolo");
   return {
     ...yolo,
     unattended:
-      "Native OpenCode ACP for an agent employee with full access, inside the bubblewrap isolation; managed permission rules and automatic ACP decisions, no interactive approvals",
+      "Native OpenCode ACP for an agent employee in YOLO; managed permission rules and automatic ACP decisions, no interactive approvals",
     permissions: {
       ...yolo.permissions,
       tools:
         "all available native tools and the Pages tools of the agent's account",
       pagesTools: "Pica bridge with the rights of the agent's account",
-      mcpServers: "Pica bridge only",
+      mcpServers: "Pica bridge and the MCP servers of the host",
     },
   };
 }
 
 /**
  * The profile of one Pages mode.
- * @param mode - "Nur Lesen" or "YOLO", as the agent stores it.
+ * @param mode - "Lesend" or "YOLO", as the agent stores it.
  * @param purpose - A Pica conversation takes the chat profile; the caller
  * decides beforehand which stored mode it accepts for it. Only an agent
- * employee with full access reaches the chat purpose in YOLO. A decision
+ * employee in YOLO reaches the chat purpose in YOLO. A decision
  * model and the group observer take the profile without any
  * tool, whatever the mode.
  * @returns The plan profile of the mode, Pica's narrower read-only profile, or

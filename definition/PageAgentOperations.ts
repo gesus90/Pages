@@ -38,7 +38,11 @@ export type PageAgentSharingOperator =
  * here because the MCP package type-checks this file on its own.
  */
 export interface PageAgentRunOptions {
-  /** Native access level; full_environment is writable only through administrator-authorized plan nodes. */
+  /**
+   * The mode: `read_only` ("Lesend") or `yolo` ("YOLO"). `workspace_write`
+   * is an earlier value that needs a choice before the next start; a stored
+   * `full_environment` runs as `yolo`.
+   */
   readonly access:
     "workspace_write" | "read_only" | "yolo" | "full_environment";
   readonly shell: boolean;

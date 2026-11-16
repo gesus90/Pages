@@ -114,8 +114,6 @@ export type AcpSessionPurpose = "plan" | "chat" | "decision" | "observer";
 
 /** What starting the adapter for one session needs; nothing of it is free user input. */
 export interface AcpLaunchSpecification {
-  /** Explicitly authorized local host environment; leaves default profiles unchanged. */
-  readonly isFullEnvironment?: boolean;
   readonly instanceId: string;
   /** The CLI of the connection, which holds its sign-in. */
   readonly runnerFile: string;

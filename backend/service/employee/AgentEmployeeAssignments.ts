@@ -1,8 +1,7 @@
 import { AgentEmployeeError } from "@/backend/error/AgentEmployeeError";
 import { logCaughtError } from "@/backend/logging/Logger";
 import { acpRunOptions } from "@/definition/AgentConfiguration";
-
-import { employeeRunMode } from "../chat/acp/EmployeeAcpRunners";
+import { employeeAccessMode } from "@/definition/AgentEmployee";
 
 import type { StoredAgentEmployee } from "@/backend/database/repositories/employee/AgentEmployeeRepository";
 import type { ResolvedAgentAssignment } from "../agents/AgentAssignmentResolution";
@@ -17,17 +16,18 @@ import type {
  * @param models - The model resolver of the employee sessions.
  * @param employee - The stored employee the job runs for.
  * @param override - The model the job asks for, when it has one.
+ * @throws {AgentEmployeeError} `accessModeRequired` for the earlier
+ * `workspace`, which needs a choice of "Lesend" or "YOLO" first.
  */
 export async function employeeAssignment(
   models: AgentEmployeeSessionDependencies["models"],
   employee: StoredAgentEmployee,
   override: AgentJobRequest["modelOverride"],
 ): Promise<ResolvedAgentAssignment> {
+  const mode = employeeAccessMode(employee.access);
+  if (mode === null) throw new AgentEmployeeError("accessModeRequired");
   const resolved = await resolveAgentModel(models, employee, override);
-  return {
-    ...resolved,
-    run: acpRunOptions(employeeRunMode(employee.access), 0),
-  };
+  return { ...resolved, run: acpRunOptions(mode, 0) };
 }
 
 /**

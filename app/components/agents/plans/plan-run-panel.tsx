@@ -13,15 +13,9 @@ import {
 import { PlanManagementDialogs } from "./plan-management/plan-management-dialogs";
 import { usePlanManagement } from "./plan-management/use-plan-management";
 import { PlanOpenRunStartDialog } from "./plan-open-run-start-dialog";
-import { PlanFullEnvironmentRunNotice } from "./plan-full-environment";
 import { PlanPanelDetails } from "./plan-panel-details";
 import { PlanStartFailure } from "./plan-start-failure";
 import { PlanPanelHeading } from "./plan-panel-heading";
-import {
-  PlanPanelIssueList,
-  planPanelIssues,
-  planWarningEntries,
-} from "./plan-panel-issues";
 import { PlanPanelStatus } from "./plan-panel-status";
 import { planPanelAttention, planPanelState } from "./plan-panel-status-model";
 import { recoverableRunId, recoveryErrorText } from "./plan-recovery-panel";
@@ -259,19 +253,12 @@ function useRunDecisions(
   readonly setRecoveryAction: (action: PlanRunDecision | null) => void;
   readonly action: (intent: PlanRunIntent) => void;
   readonly resolveBlock: (action: AgentPlanResumeAction) => void;
-  readonly warnings: ReturnType<typeof planWarningEntries>;
 } {
-  const { t } = useTranslation();
-  const [warnings, setWarnings] = useState<
-    ReturnType<typeof planWarningEntries>
-  >([]);
   const [recoveryAction, setRecoveryAction] = useState<PlanRunDecision | null>(
     null,
   );
   const { control } = props;
   function action(intent: PlanRunIntent): void {
-    if (intent === "play-plan")
-      setWarnings(planWarningEntries(props.editor, t));
     if (intent === "resume-plan" && control?.resumeAction === "recovery")
       setRecoveryAction("resume");
     else if (intent !== "play-plan") submitRunAction(props, intent);
@@ -305,7 +292,7 @@ function useRunDecisions(
     else if (blockAction === "admin_mode")
       void switchToAdminMode().then(props.onRecoveryDecided);
   }
-  return { recoveryAction, setRecoveryAction, action, resolveBlock, warnings };
+  return { recoveryAction, setRecoveryAction, action, resolveBlock };
 }
 
 function PlanRunNotices({
@@ -314,14 +301,12 @@ function PlanRunNotices({
   recovery,
   startOwners,
   run,
-  warnings,
 }: {
   readonly isOpen: boolean;
   readonly recoveryRunId: string | null;
   readonly recovery: ReturnType<typeof usePlanRecovery>;
   readonly startOwners: ReturnType<typeof usePlanStartOwners>;
   readonly run: AgentPlanRun | null;
-  readonly warnings: ReturnType<typeof planWarningEntries>;
 }): React.ReactElement {
   const { t } = useTranslation();
   return (
@@ -334,11 +319,6 @@ function PlanRunNotices({
         <p role="alert" className="px-4 py-2 text-xs text-destructive">
           {t(`settings.agents.error.${startOwners.error}`)}
         </p>
-      ) : null}
-      {warnings.length > 0 ? (
-        <div role="status" className="px-3 py-2">
-          <PlanPanelIssueList issues={warnings} />
-        </div>
       ) : null}
     </>
   );
@@ -360,11 +340,11 @@ function isPanelPending(
 
 /**
  * Fixed within the editor, independent of graph position, viewport and zoom.
- *
  * @remarks
- * Collapsed, the panel shows the heading and the status marker only; notes,
- * hints and the recovery refusal wait for the open panel, and the marker
- * carries a dot while any of them is a warning or an error.
+ * Collapsed, the panel shows the heading and the status marker only; blocks
+ * and the recovery refusal wait for the open panel, and the marker carries a
+ * dot while any of them is a warning or an error. Graph findings never form
+ * a list here: each node names its own behind its warning symbol.
  */
 export function PlanRunPanel(props: PlanRunPanelProps): React.ReactElement {
   const { t } = useTranslation();
@@ -385,7 +365,7 @@ export function PlanRunPanel(props: PlanRunPanelProps): React.ReactElement {
   });
   const presentation = panelPresentation(props);
   const state = panelState(props, presentation.error);
-  const { recoveryAction, setRecoveryAction, action, resolveBlock, warnings } =
+  const { recoveryAction, setRecoveryAction, action, resolveBlock } =
     useRunDecisions(props, recovery, startOwners);
   return (
     <>
@@ -420,9 +400,7 @@ export function PlanRunPanel(props: PlanRunPanelProps): React.ReactElement {
           recovery={recovery}
           startOwners={startOwners}
           run={props.run}
-          warnings={warnings}
         />
-        <PlanFullEnvironmentRunNotice run={props.run} />
         <PlanPanelStatus
           state={state}
           isOpen={isOpen}
@@ -437,12 +415,7 @@ export function PlanRunPanel(props: PlanRunPanelProps): React.ReactElement {
             editor={editor}
             control={control}
             run={props.run}
-            issues={planPanelIssues({
-              control,
-              editor,
-              code: presentation.code,
-              translate: t,
-            })}
+            code={presentation.code}
             error={presentation.error}
           />
         ) : null}

@@ -1,6 +1,6 @@
 import { planGroupAgents } from "@/definition/AgentPlanGroupLoop";
 import { withPortlessPlanGroups } from "@/definition/AgentPlanGroupUpgrade";
-import { allPlanSteps, expandPlanGroups } from "@/definition/AgentPlanGroup";
+import { expandPlanGroups } from "@/definition/AgentPlanGroup";
 import {
   expandPlanLoops,
   planLoopEdges,
@@ -17,6 +17,10 @@ import {
   isAcpProvider,
 } from "@/definition/AgentConfiguration";
 import { executablePlan, planStartIssues } from "@/definition/AgentPlanStart";
+import {
+  allPlanDecisions,
+  planDecisionMode,
+} from "@/definition/AgentPlanDecision";
 import { AgentPlanValidationError } from "@/backend/error/AgentPlanValidationError";
 import {
   planTargetIssues,
@@ -45,7 +49,6 @@ import type {
   AgentPlanRemoteExecution,
   RemotePlanStep,
 } from "./AgentPlanRemoteExecution";
-import type { AgentPlanAccess } from "./AgentPlanAccess";
 import type { AgentPlanRemoteTargets } from "./AgentPlanRemoteTargets";
 import type { AgentPlanWorkspaces } from "./AgentPlanWorkspaces";
 import type { AgentPlanIssue } from "@/definition/AgentPlanGraph";
@@ -64,13 +67,13 @@ import type {
 } from "./AgentPlanScriptPreparation";
 import type { AgentPlanTaskSnapshot } from "./AgentPlanBindings";
 import type { PlanAssetService } from "./assets/PlanAssetService";
+import type { PlanDecisionModels } from "./branching/PlanDecisionModels";
 import type {
   AgentPlanSnapshot,
   AgentPlanStepSnapshot,
 } from "./AgentPlanSnapshot";
 
 interface PreparationDependencies {
-  readonly access?: Pick<AgentPlanAccess, "requireFullEnvironment">;
   readonly workspaceCatalog?: AgentPlanWorkspaces;
   readonly remoteExecution?: AgentPlanRemoteExecution;
   readonly remoteTargets?: AgentPlanRemoteTargets;
@@ -83,6 +86,8 @@ interface PreparationDependencies {
     PlanAssetService,
     "describe" | "read" | "isReadable"
   >;
+  /** Whether the instance has a decision model for decisions without one of their own. */
+  readonly decisionModels?: Pick<PlanDecisionModels, "hasDefault">;
 }
 
 interface StepPreparationContext {
@@ -128,10 +133,10 @@ export class AgentPlanPreparation {
     userId: string,
     plan: AgentPlan,
   ): Promise<AgentPlanSnapshot> {
-    await this.requireFullEnvironmentAccess(userId, plan);
     const issues = planStartIssues(plan);
     if (issues.length > 0) throw new AgentPlanValidationError(issues);
     plan = executablePlan(plan);
+    await this.requireDecisionModels(plan);
     const failures = new AgentPlanPreparationFailures();
     await this.dependencies.workspaceCatalog?.resolve(userId, plan);
     plan = withInheritedPlanTarget(plan);
@@ -214,19 +219,6 @@ export class AgentPlanPreparation {
     );
   }
 
-  private async requireFullEnvironmentAccess(
-    userId: string,
-    plan: AgentPlan,
-  ): Promise<void> {
-    const requiresFullEnvironment = allPlanSteps(plan).some(
-      (step) => step.configuration?.template.run?.access === "full_environment",
-    );
-    if (!requiresFullEnvironment) return;
-    if (!this.dependencies.access)
-      throw new AgentError("plan_full_environment_forbidden");
-    await this.dependencies.access.requireFullEnvironment(userId, plan);
-  }
-
   private async finish(
     snapshot: AgentPlanSnapshot,
     context: {
@@ -259,6 +251,27 @@ export class AgentPlanPreparation {
       runnerProtocolVersion: 1,
       preparationFailures: context.failures.snapshot(),
     });
+  }
+  /**
+   * A model decision without a model of its own asks the decision model of
+   * the instance; without either, the plan does not start and the check
+   * names the decision.
+   */
+  private async requireDecisionModels(plan: AgentPlan): Promise<void> {
+    const models = this.dependencies.decisionModels;
+    if (!models) return;
+    const unset = allPlanDecisions(plan).filter(
+      (decision) =>
+        planDecisionMode(decision) === "model" && decision.model === undefined,
+    );
+    if (unset.length === 0 || (await models.hasDefault())) return;
+    throw new AgentPlanValidationError(
+      unset.map((decision): AgentPlanIssue => ({
+        nodeId: decision.id,
+        port: "model",
+        reason: "decisionModel",
+      })),
+    );
   }
 
   private async requireRemoteSupport(

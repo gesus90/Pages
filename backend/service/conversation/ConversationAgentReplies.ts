@@ -11,6 +11,8 @@ import {
   isAskingMessage,
 } from "./ConversationAnswerableMessage";
 import { isAgentChainPaused } from "./ConversationAgentChain";
+import { reopenFailedAnswer } from "./ConversationAnswerRetry";
+import { logPausedHandoff, logRoundLimit } from "./ConversationReplyLogs";
 import { ConversationReplyRunner } from "./ConversationReplyRunner";
 import { ConversationRoundFollowUps } from "./ConversationRoundFollowUps";
 
@@ -23,7 +25,6 @@ import type {
   ConversationRepository,
 } from "@/backend/database/repositories/conversation/ConversationRepository";
 import type { ConversationReplySettingsRepository } from "@/backend/database/repositories/conversation/ConversationReplySettingsRepository";
-import type { ConversationHandoffRequest } from "@/backend/database/repositories/conversation/ConversationHandoffRepository";
 import type { ConversationRoundRepository } from "@/backend/database/repositories/conversation/ConversationRoundRepository";
 import type { PagesEvent } from "@/backend/service/events/PagesEventPublisher";
 import type { AgentMessageQueue } from "@/definition/AgentSessionLimits";
@@ -142,7 +143,12 @@ export interface ConversationAgentRepliesDependencies {
   >;
   readonly messages: Pick<
     ConversationMessageRepository,
-    "find" | "history" | "insert" | "contextCount"
+    | "find"
+    | "findById"
+    | "history"
+    | "insert"
+    | "contextCount"
+    | "removeFailureNotice"
   >;
   readonly directory: Pick<ConversationDirectory, "read">;
   readonly runner: ConversationAgentRunner;
@@ -287,7 +293,7 @@ export class ConversationAgentReplies {
     const paused = await rounds.handoffs.pauseUnstarted(
       startedAt.toISOString(),
     );
-    for (const handoff of paused) this.logPaused(handoff, "restart");
+    for (const handoff of paused) logPausedHandoff(handoff, "restart");
     const interrupted = await rounds.interruptStale(startedAt.toISOString());
     await this.followUps.recover();
     if (interrupted > 0)
@@ -366,6 +372,27 @@ export class ConversationAgentReplies {
       (await this.dependencies.runner.cancelTool?.(agentId, conversationId)) ??
       false
     );
+  }
+
+  /**
+   * Starts the failed answer of an agent once more on a member's request;
+   * its hint goes and the answer runs in the background.
+   * @returns Whether the answer starts again; `false` when it already did.
+   * @throws {ConversationError} `not_found` for a message that is no hint of
+   * a failed answer in a conversation of the person.
+   */
+  public async retry(person: User, messageId: string): Promise<boolean> {
+    const job = await reopenFailedAnswer(
+      { ...this.dependencies, followUps: this.followUps },
+      { person, messageId, now: this.now() },
+    );
+    if (!job) return false;
+    void withBackgroundDatabaseWork("conversation_agent_reply", async () => {
+      const answer = await this.replies.run(job);
+      if (job.round.conversation.kind === "group" && answer)
+        await this.handOver(job.round, answer);
+    }).catch((error: unknown) => logCaughtError(COMPONENT, error));
+    return true;
   }
 
   /**
@@ -572,7 +599,7 @@ export class ConversationAgentReplies {
       limits: conversationRoundLimits(settings),
     });
     if (outcome !== "claimed") {
-      if (outcome === "limit") this.logLimit(round, request.agentId);
+      if (outcome === "limit") logRoundLimit(round, request.agentId);
       return;
     }
     const answer = await this.replies.run({
@@ -746,7 +773,7 @@ export class ConversationAgentReplies {
       }));
     const stored = await this.dependencies.rounds.handoffs.request(handoffs);
     if (isPaused) {
-      for (const handoff of stored) this.logPaused(handoff, "agent_streak");
+      for (const handoff of stored) logPausedHandoff(handoff, "agent_streak");
       return;
     }
     await this.dispatchAll(
@@ -761,36 +788,6 @@ export class ConversationAgentReplies {
         handoff: "pending",
       })),
     );
-  }
-
-  /** A stored @ hand-over waits for a message of a person; nothing shows in the chat. */
-  private logPaused(
-    handoff: ConversationHandoffRequest,
-    reason: "agent_streak" | "restart",
-  ): void {
-    logEvent({
-      level: "info",
-      event: "conversation.agent_reply.paused",
-      component: COMPONENT,
-      message: "A hand-over with @ was stored and waits until a person writes.",
-      metadata: {
-        conversationId: handoff.conversationId,
-        agentId: handoff.agentId,
-        triggerMessageId: handoff.triggerMessageId,
-        reason,
-      },
-    });
-  }
-
-  private logLimit(round: ConversationRound, agentId: string): void {
-    logEvent({
-      level: "info",
-      event: "conversation.agent_reply.limit",
-      component: COMPONENT,
-      message:
-        "The limit of contributions without @ of a round held back a further answer.",
-      metadata: { conversationId: round.conversation.id, agentId },
-    });
   }
 
   private now(): string {

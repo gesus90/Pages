@@ -1,4 +1,5 @@
 import { spawn } from "node:child_process";
+import { setTimeout as wait } from "node:timers/promises";
 import { randomUUID } from "node:crypto";
 
 import type { ChildProcess } from "node:child_process";
@@ -97,6 +98,10 @@ function startRun(launch: AgentShellLaunch, limitMs: number): Run {
   return run;
 }
 
+/** How long the end of a process group is awaited before the stop counts as unconfirmed. */
+const GROUP_END_TIMEOUT_MS = 5_000;
+const GROUP_END_POLL_MS = 50;
+
 /** Ends the whole process group of a run, so no child of the shell outlives it. */
 function stopProcess(child: ChildProcess): void {
   if (child.exitCode !== null || child.pid === undefined) return;
@@ -104,6 +109,35 @@ function stopProcess(child: ChildProcess): void {
     process.kill(-child.pid, "SIGKILL");
   } catch {
     child.kill("SIGKILL");
+  }
+}
+
+function hasVanished(error: unknown): boolean {
+  return error instanceof Error && "code" in error && error.code === "ESRCH";
+}
+
+/**
+ * Ends every process of a run's group, the children a finished shell left
+ * behind included, and confirms that none is left.
+ * @throws {Error} When a process of the group is still there after the wait.
+ * @remarks
+ * The group is the one the run's own `detached` spawn created, so no process
+ * outside the run is signalled.
+ */
+async function endProcessGroup(child: ChildProcess): Promise<void> {
+  const groupId = child.pid;
+  if (groupId === undefined) return;
+  const deadline = Date.now() + GROUP_END_TIMEOUT_MS;
+  for (;;) {
+    try {
+      process.kill(-groupId, "SIGKILL");
+    } catch (error: unknown) {
+      if (hasVanished(error)) return;
+      throw error;
+    }
+    if (Date.now() >= deadline)
+      throw new Error("A shell process group did not end");
+    await wait(GROUP_END_POLL_MS);
   }
 }
 
@@ -132,6 +166,8 @@ export class AgentShellJobs {
     signal: AbortSignal,
   ): Promise<AgentShellResult> {
     const run = startRun(launch, timeoutMs);
+    // Kept with the job, so a process the command left behind ends with it.
+    this.runs.set(randomUUID(), run);
     const abort = (): void => {
       run.state = "killed";
       stopProcess(run.process);
@@ -189,7 +225,10 @@ export class AgentShellJobs {
     };
   }
 
-  /** Ends a background run; returns whether the ID was known. */
+  /**
+   * Ends a background run and every process it left; returns whether the ID was known.
+   * @throws {Error} When the end of the run's processes cannot be confirmed.
+   */
   public async stop(id: string): Promise<boolean> {
     const run = this.runs.get(id);
     if (!run) return false;
@@ -197,11 +236,12 @@ export class AgentShellJobs {
       run.state = "killed";
       stopProcess(run.process);
     }
+    await endProcessGroup(run.process);
     await run.finished;
     return true;
   }
 
-  /** Ends every run still going; the job that owned them ended. */
+  /** Ends every run and every process a run left behind; the job that owned them ended. */
   public async close(): Promise<void> {
     await Promise.all([...this.runs.keys()].map((id) => this.stop(id)));
     this.runs.clear();

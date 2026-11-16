@@ -5,7 +5,10 @@ import {
   readTextColumn,
 } from "@/backend/database/RowValue";
 import { CHAT_JOB_STATES } from "@/definition/ChatJob";
-import { readChatJobEvent } from "@/definition/ChatJobReader";
+import {
+  readChatJobEvent,
+  readChatJobFailureDetail,
+} from "@/definition/ChatJobReader";
 
 import type { Database, DatabaseValue } from "@/backend/database/Database";
 import type {
@@ -14,6 +17,7 @@ import type {
   ChatJob,
   ChatJobEntry,
   ChatJobEvent,
+  ChatJobFailureDetail,
   ChatJobState,
   ChatTokenUsage,
 } from "@/definition/ChatJob";
@@ -63,7 +67,8 @@ const JOB_COLUMNS = `
     ) AS unreported_turns,
     chat_jobs.cost_is_estimated,
     chat_jobs.cost_scope,
-    chat_jobs.message_id`;
+    chat_jobs.message_id,
+    chat_jobs.error_detail`;
 
 function nullableCount(
   row: readonly DatabaseValue[],
@@ -112,6 +117,16 @@ function readTokens(row: readonly DatabaseValue[]): ChatTokenUsage | null {
   };
 }
 
+function readErrorDetail(stored: string | null): ChatJobFailureDetail | null {
+  if (stored === null) return null;
+  try {
+    return readChatJobFailureDetail(JSON.parse(stored));
+  } catch {
+    // An unreadable detail only loses the explanation, never the job.
+    return null;
+  }
+}
+
 function readJob(row: readonly DatabaseValue[]): ChatJob {
   return {
     id: readTextColumn(row, 0, "id"),
@@ -119,6 +134,9 @@ function readJob(row: readonly DatabaseValue[]): ChatJob {
     messageId: readTextColumn(row, 16, "message_id"),
     state: readState(readTextColumn(row, 2, "state")),
     errorCode: readNullableTextColumn(row, 3, "error_code"),
+    errorDetail: readErrorDetail(
+      readNullableTextColumn(row, 17, "error_detail"),
+    ),
     createdAt: readTextColumn(row, 4, "created_at"),
     endedAt: readNullableTextColumn(row, 5, "ended_at"),
     usage: {
@@ -176,11 +194,18 @@ export class ChatJobRepository {
     );
   }
 
-  /** Ends a running job once; an ended job keeps its first end. */
+  /**
+   * Ends a running job once; an ended job keeps its first end.
+   * @param id - The job.
+   * @param state - How it ended.
+   * @param errorCode - The stable code of a failure, otherwise `null`.
+   * @param errorDetail - Where and why a failed job stopped, when known.
+   */
   public async finish(
     id: string,
     state: Exclude<ChatJobState, "running">,
     errorCode: string | null,
+    errorDetail: ChatJobFailureDetail | null = null,
   ): Promise<void> {
     await this.database.execute(
       `
@@ -188,11 +213,17 @@ export class ChatJobRepository {
       SET
           state = $state,
           error_code = $error_code,
+          error_detail = $error_detail,
           ended_at = utc_now()
       WHERE id = $id
           AND state = 'running';
     `,
-      { id, state, error_code: errorCode },
+      {
+        id,
+        state,
+        error_code: errorCode,
+        error_detail: errorDetail === null ? null : JSON.stringify(errorDetail),
+      },
     );
   }
 

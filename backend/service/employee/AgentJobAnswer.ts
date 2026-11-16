@@ -53,7 +53,11 @@ export async function awaitAgentJobAnswer(
     );
     if (current && current.state !== "running") {
       if (current.state !== "completed")
-        throw new AgentJobAnswerError(current.state, current.errorCode);
+        throw new AgentJobAnswerError(
+          current.state,
+          current.errorCode,
+          current.errorDetail ?? null,
+        );
       break;
     }
     if (waiting.isWaitingForPerson?.() === true)

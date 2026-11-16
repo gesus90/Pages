@@ -152,8 +152,13 @@ export class ConversationChatDecisions {
       await this.dependencies.defaults.rules(),
       request.settings.overrides,
     );
-    const settled = settleDecision(await this.ask(request, candidates), rules);
-    await this.store(request, settled);
+    const input = await this.ask(request, candidates);
+    const settled = settleDecision(input, rules);
+    await this.store(
+      request,
+      settled,
+      input.kind === "answer" ? input.costUsd : null,
+    );
     const reason = reasonText(settled, request.accounts);
     await rounds.finishRouting(request.message.id, {
       state: this.routingState(settled),
@@ -216,6 +221,7 @@ export class ConversationChatDecisions {
         kind: "answer",
         model: answer.model,
         probabilities: answer.probabilities,
+        costUsd: answer.costUsd,
       };
     } catch (error: unknown) {
       const isNoModel =
@@ -265,6 +271,7 @@ export class ConversationChatDecisions {
   private async store(
     request: ConversationDecisionRequest,
     settled: SettledDecision,
+    costUsd: number | null,
   ): Promise<void> {
     await this.dependencies.decisions.record({
       messageId: request.message.id,
@@ -276,6 +283,7 @@ export class ConversationChatDecisions {
       answerProbability: settled.answerProbability,
       choices: settled.options,
       createdAt: this.now(),
+      costUsd,
     });
     this.dependencies.publisher.publish({
       type: "conversation.changed",

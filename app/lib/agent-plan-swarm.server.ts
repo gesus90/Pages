@@ -1,6 +1,12 @@
 import { AgentPlanSwarmMemoryRepository } from "@/backend/database/repositories/agent/AgentPlanSwarmMemoryRepository";
+import { currentAgentSimulationMode } from "@/backend/agents/simulation/AgentSimulationMode";
+import { SimulatedPlanDecision } from "@/backend/agents/simulation/SimulatedPlanDecision";
+import { AgentConnectionRepository } from "@/backend/database/repositories/AgentConnectionRepository";
+import { AuthorizationRepository } from "@/backend/database/repositories/AuthorizationRepository";
+import { UserGroupRepository } from "@/backend/database/repositories/UserGroupRepository";
 import { AgentPlanSwarmRepository } from "@/backend/database/repositories/agent/AgentPlanSwarmRepository";
 import { AgentPlanDecisionModel } from "@/backend/service/agents/branching/AgentPlanDecisionModel";
+import { PlanDecisionModels } from "@/backend/service/agents/branching/PlanDecisionModels";
 import { AgentPlanSwarmRunner } from "@/backend/service/agents/swarm/AgentPlanSwarmRunner";
 import { PROCESS_SWARM_REGISTRY } from "@/backend/service/agents/swarm/SwarmRegistry";
 import { MAX_ACP_SESSIONS } from "@/definition/AcpResource";
@@ -16,13 +22,35 @@ interface ModelNodeServices {
   readonly database: Database;
   readonly agents: Pick<
     PlanAgentServices,
-    "acpResourceScheduler" | "agentProfileService" | "agentWorkspaceService"
+    | "acpResourceScheduler"
+    | "agentProfileService"
+    | "agentWorkspaceService"
+    | "chatDecisionSettingsService"
+    | "decisionModelCalls"
   > & { readonly agentPlanExecution: PlanExecution };
 }
 
 /**
- * Builds the runners of the nodes that ask models in sessions of their own:
- * model decisions and swarms.
+ * Builds the decision models of plans: the models a decision may choose and
+ * the one an activation asks.
+ * @param input - The database and the decision model setting of the instance.
+ */
+export function createPlanDecisionModels(input: {
+  readonly database: Database;
+  readonly agents: Pick<PlanAgentServices, "chatDecisionSettingsService">;
+}): PlanDecisionModels {
+  return new PlanDecisionModels({
+    connections: new AgentConnectionRepository(input.database),
+    authorization: new AuthorizationRepository(input.database),
+    groups: new UserGroupRepository(input.database),
+    settings: input.agents.chatDecisionSettingsService,
+    isSimulation: currentAgentSimulationMode().isActive,
+  });
+}
+
+/**
+ * Builds the runners of the nodes that ask models of their own: model
+ * decisions, which call the decisions interface, and swarms.
  */
 export function createModelNodeRunners(
   input: ModelNodeServices,
@@ -35,13 +63,25 @@ export function createModelNodeRunners(
   readonly swarms: AgentPlanSwarmRunner;
 } {
   return {
-    decisions: new AgentPlanDecisionModel({
-      execution: input.agents.agentPlanExecution,
-      profiles: input.agents.agentProfileService,
-      tasks: parts.tasks,
-    }),
+    decisions: createDecisionRunner(input, parts.tasks),
     swarms: createSwarmRunner({ ...input, ...parts }),
   };
+}
+
+/** Builds the runner of model decisions, which calls the decisions interface directly. */
+function createDecisionRunner(
+  input: ModelNodeServices,
+  tasks: AgentPlanTasks,
+): AgentPlanDecisionModel {
+  const simulation = currentAgentSimulationMode();
+  return new AgentPlanDecisionModel({
+    tasks,
+    models: createPlanDecisionModels(input),
+    calls: input.agents.decisionModelCalls,
+    simulation: simulation.isActive
+      ? new SimulatedPlanDecision(simulation)
+      : null,
+  });
 }
 
 /**

@@ -89,6 +89,7 @@ const INPUT_FAILURES: ReadonlySet<ChatError["code"]> = new Set([
 /** The failure of an agent chat a chat error of its session stands for. */
 function codeOf(error: ChatError): AgentEmployeeError["code"] {
   if (error.code === "acpPermissionModeUnsupported") return "accessUnsupported";
+  if (error.code === "accessModeRequired") return "accessModeRequired";
   return INPUT_FAILURES.has(error.code) ? "invalidInput" : "unavailable";
 }
 

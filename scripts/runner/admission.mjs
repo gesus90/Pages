@@ -79,17 +79,16 @@ function sharesSwarmWorkspace(job, lease) {
 export async function isLeaseActive(lease) {
   const launch = await readOwnedLaunch(lease.folder);
   if (!launch || launch.boundary === "preparing") return true;
+  const isOwned =
+    launch.boundary === "pid_namespace" || launch.boundary === "worker_unit";
   if (
     launch.boundary !== "not_started" &&
-    (launch.boundary !== "pid_namespace" ||
+    (!isOwned ||
       !Number.isSafeInteger(launch.processId) ||
       typeof launch.identity !== "string")
   )
     return true;
-  if (
-    launch.boundary === "pid_namespace" &&
-    (await identity(launch.processId)) === launch.identity
-  )
+  if (isOwned && (await identity(launch.processId)) === launch.identity)
     return true;
   const result = await readRecord(join(lease.folder, "result.json"));
   return result?.result?.closeout !== "confirmed";

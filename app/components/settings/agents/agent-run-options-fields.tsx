@@ -7,6 +7,7 @@ import {
   acpRunOptions,
   defaultAgentRunOptions,
   isAcpProvider,
+  isAgentWriteAccess,
 } from "@/definition/AgentConfiguration";
 
 import { CodexCostLimitField } from "./agent-run-options-fields/codex-cost-limit-field";
@@ -27,12 +28,11 @@ import type { AgentProviderId } from "@/definition/AgentConnection";
 /**
  * Edits how CLI runners may work in a plan workspace; no free command or argument is offered.
  * @remarks
- * A Codex CLI, Claude Code or OpenCode agent offers only its two modes, "Nur Lesen" and
- * YOLO, and no separate switches that could mix them. Every other runner keeps
- * its access, shell and web switches. The timeout applies to all.
+ * A Codex CLI, Claude Code or OpenCode agent offers only its two modes, "Lesend" and
+ * YOLO, and no separate switches that could mix or narrow them. Every other
+ * runner keeps its access, shell and web switches. The timeout applies to all.
  */
 export function AgentRunOptionsFields(props: {
-  readonly canSelectFullEnvironment?: boolean;
   readonly configuration: AgentConfiguration;
   /** The provider of the chosen model; `null` while none is chosen. */
   readonly provider: AgentProviderId | null;
@@ -49,7 +49,7 @@ export function AgentRunOptionsFields(props: {
   function change(next: Partial<AgentRunOptions>): void {
     props.onChange({ ...props.configuration, run: { ...options, ...next } });
   }
-  function chooseMode(mode: AcpPermissionMode | "full_environment"): void {
+  function chooseMode(mode: AcpPermissionMode): void {
     props.onChange({
       ...props.configuration,
       run: {
@@ -59,7 +59,7 @@ export function AgentRunOptionsFields(props: {
           : { monthlyCostLimitUsd: options.monthlyCostLimitUsd }),
         ...(options.browser === undefined
           ? {}
-          : { browser: mode !== "read_only" && options.browser }),
+          : { browser: mode === "yolo" && options.browser }),
       },
     });
   }
@@ -74,11 +74,6 @@ export function AgentRunOptionsFields(props: {
       <div className="grid gap-4 sm:grid-cols-2">
         {isAcp ? (
           <AcpModeField
-            canSelectFullEnvironment={
-              props.canSelectFullEnvironment &&
-              props.provider !== "openrouter" &&
-              props.provider !== "zai"
-            }
             options={options}
             disabled={props.disabled}
             onChange={chooseMode}
@@ -98,8 +93,7 @@ export function AgentRunOptionsFields(props: {
       <p className="text-xs text-muted-foreground">
         {t("settings.agents.run.timeoutHint")}
       </p>
-      {isAcp &&
-      (options.access === "yolo" || options.access === "full_environment") ? (
+      {isAcp && isAgentWriteAccess(options.access) ? (
         <label className="flex items-center gap-2 text-sm">
           <Checkbox
             checked={options.browser === true}

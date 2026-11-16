@@ -2,6 +2,7 @@ import { useTranslation } from "react-i18next";
 
 import { cn } from "@/app/lib/cn";
 
+import { planVerdictDetail } from "../plan-decision-verdict";
 import { usePlanFlowContext } from "../plan-flow-context";
 import { planNodeLabel } from "../plan-layout";
 import { PLAN_NODE_TEXT } from "../plan-node-text";
@@ -53,7 +54,7 @@ function ConditionLine(props: {
   );
 }
 
-/** What the model of a decision answered in the shown run, and why. */
+/** What the model of a decision answered in the shown run, with its reason or its probability and confidence. */
 function VerdictLines(props: {
   readonly result: AgentPlanStepResult;
 }): React.ReactElement | null {
@@ -61,6 +62,7 @@ function VerdictLines(props: {
   const verdict = props.result.verdict;
   const name = useReadName(verdict?.sourceStepId);
   if (!verdict) return null;
+  const detail = planVerdictDetail(t, verdict);
   return (
     <div
       data-plan-verdict={String(verdict.decision)}
@@ -72,9 +74,11 @@ function VerdictLines(props: {
           name,
         })}
       </p>
-      <p className="line-clamp-3 text-muted-foreground" title={verdict.reason}>
-        {t("plans.decision.reason", { reason: verdict.reason })}
-      </p>
+      {detail === null ? null : (
+        <p className="line-clamp-3 text-muted-foreground" title={detail}>
+          {detail}
+        </p>
+      )}
     </div>
   );
 }

@@ -1,7 +1,7 @@
 import { AgentError } from "@/backend/error/AgentErrors";
 import { isAcpProvider } from "@/definition/AgentConfiguration";
 import { acpDriverFor } from "@/backend/agents/acp/AcpDrivers";
-import { isPlanPermissionMode } from "@/definition/AgentConfiguration";
+import { storedAgentAccessMode } from "@/definition/AgentAccessMode";
 
 import type { AgentPlanSessionInput } from "@/backend/agents/AgentPlanExecution";
 import type { AgentErrorCode } from "@/backend/error/AgentErrors";
@@ -30,21 +30,17 @@ export interface CliSessionMcp {
  * @param options - The run options of the agent, resolved for its provider.
  * @returns The refusal, or `null` when the runner enforces every option.
  * @remarks
- * Every CLI plan agent runs only in "Nur Lesen" or YOLO. An earlier write
- * mode is never raised to YOLO on its own; it blocks until a mode is chosen.
+ * Every CLI agent runs only in "Lesend" or YOLO, the API connections that
+ * OpenCode runs included. An earlier write mode is never raised to YOLO on its
+ * own; it blocks until a mode is chosen.
  */
 export function unsupportedRunOption(
   provider: AcpProviderId,
   options: AgentRunOptions,
 ): AgentErrorCode | null {
-  if (
-    (provider === "openrouter" || provider === "zai") &&
-    options.access === "full_environment"
-  )
-    return "plan_run_option_unsupported";
-  return isPlanPermissionMode(options.access)
-    ? null
-    : acpDriverFor(provider).errors.modeRequired;
+  return storedAgentAccessMode(options.access) === null
+    ? acpDriverFor(provider).errors.modeRequired
+    : null;
 }
 
 /**
@@ -53,8 +49,8 @@ export function unsupportedRunOption(
  * @returns The refusal, or `null` when the runner enforces every option.
  * @remarks
  * A conversation runs in both modes like a plan node: Pica's own runners pass
- * only "Nur Lesen", and only an agent employee with full access reaches a
- * conversation in YOLO, with the chat profile of its runner.
+ * only "Lesend", and an agent employee in YOLO reaches a conversation in YOLO,
+ * with the same native start as a plan node.
  */
 export function sessionRunOptionError(
   input: AgentPlanSessionInput,
@@ -64,13 +60,22 @@ export function sessionRunOptionError(
   return unsupportedRunOption(provider, input.options);
 }
 
-/** OpenCode, YOLO and Pica's conversations start only inside the namespace. */
+/**
+ * Refuses a "Lesend" session that cannot be held to reading.
+ * @remarks
+ * Codex and Claude Code enforce their read-only profile themselves, so a
+ * plan node of theirs also starts where the read-only namespace does not
+ * work. OpenCode, Antigravity and Pica's conversations rely on the namespace
+ * to keep the host read-only, so they never start without it as "Lesend";
+ * the session is refused with the missing capability instead of starting
+ * with wider rights. YOLO never needs the namespace.
+ */
 export function requireAcpIsolation(
   isIsolated: boolean,
   mode: AcpPermissionMode,
   input: AgentPlanSessionInput,
 ): void {
-  if (isIsolated) return;
+  if (isIsolated || mode === "yolo") return;
   if (
     input.chat ||
     ["opencode", "openrouter", "zai", "antigravity"].includes(
@@ -78,5 +83,4 @@ export function requireAcpIsolation(
     )
   )
     throw new AgentError("cli_isolation_unavailable");
-  if (mode === "yolo") throw new AgentError("plan_yolo_isolation_unavailable");
 }

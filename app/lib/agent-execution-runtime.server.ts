@@ -30,6 +30,7 @@ import { PlanAssetReferences } from "@/backend/service/agents/assets/PlanAssetRe
 import { CliSessionExecution } from "@/backend/agents/cli/CliSessionExecution";
 import { antigravityContextBinding } from "@/backend/agents/cli/AntigravityContextBinding";
 import { CliWorkerUnits } from "@/backend/agents/cli/CliWorkerUnit";
+import { CliHostMcpServers } from "@/backend/agents/cli/CliHostMcpServers";
 import {
   isLocalSessionOwner,
   localSessionOwnerDirectory,
@@ -276,6 +277,7 @@ export function createDirectCliExecution(
     tools: input.tools,
     resources: isLocalSessionOwner() ? undefined : input.resources,
     github: input.github,
+    hostMcp: new CliHostMcpServers(),
     units: new CliWorkerUnits(
       localSessionOwnerDirectory()
         ? path.join(
@@ -296,7 +298,8 @@ export function createDirectCliExecution(
           "node_modules",
         ),
       ],
-      hiddenDirectories: [homedir()],
+      // "Lesend" reads the whole host; only the instance folder of Pages stays hidden.
+      hiddenDirectories: [path.join(homedir(), ".pages")],
     },
   });
 }

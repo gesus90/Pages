@@ -52,6 +52,42 @@ function providerEnvironment(
   }
 }
 
+// Switches that only keep updates and the publishing of sessions off; they forbid no tool.
+const OPENCODE_NATIVE_SWITCHES = {
+  OPENCODE_DISABLE_AUTOUPDATE: "1",
+  OPENCODE_DISABLE_SHARE: "1",
+} as const;
+
+/**
+ * The provider variables of a native YOLO session.
+ * @param home - The folders of the model connection.
+ * @param provider - The runner of the connection.
+ * @returns Only the sign-in and session folder of the connection and the
+ * switches against self-updates; skills, plugins, project and user
+ * configuration of the host stay available, unlike in
+ * {@link createCliEnvironment}.
+ */
+export function nativeProviderEnvironment(
+  home: CliHome,
+  provider: CliProviderId,
+): Record<string, string> {
+  switch (provider) {
+    case "codex_cli":
+      return { CODEX_HOME: home.config };
+    case "claude_code":
+      return {
+        CLAUDE_CONFIG_DIR: home.config,
+        DISABLE_AUTOUPDATER: "1",
+        CLAUDE_CODE_DISABLE_MODEL_ACCESS_FALLBACK: "1",
+        CLAUDE_CODE_DISABLE_LEGACY_MODEL_REMAP: "1",
+      };
+    case "antigravity":
+      return { GEMINI_HOME: home.config };
+    case "opencode":
+      return { XDG_DATA_HOME: home.config, ...OPENCODE_NATIVE_SWITCHES };
+  }
+}
+
 const PROXY_VARIABLES = [
   "HTTPS_PROXY",
   "HTTP_PROXY",
@@ -105,15 +141,22 @@ export function createCliEnvironment(
   };
 }
 
-/** Preserves the shared toolchain even when a credential wrapper adds its own PATH. */
+/**
+ * The environment a run starts with.
+ * @remarks
+ * A native YOLO worker brings its complete host environment, see
+ * `CliNativeHost`; every other run gets the allowlist of
+ * {@link createCliEnvironment}, with the shared toolchain kept in front even
+ * when a credential wrapper adds its own PATH.
+ */
 export function createCliRequestEnvironment(
   request: Pick<
     CliRunRequest,
     "home" | "provider" | "file" | "toolFile" | "environment"
-  > & { readonly fullEnvironment?: Readonly<Record<string, string>> },
+  > & { readonly hostEnvironment?: Readonly<Record<string, string>> },
 ): Record<string, string> {
-  if (request.fullEnvironment)
-    return { ...request.fullEnvironment, ...request.environment };
+  if (request.hostEnvironment)
+    return { ...request.hostEnvironment, ...request.environment };
   const environment = {
     ...createCliEnvironment(
       request.home,

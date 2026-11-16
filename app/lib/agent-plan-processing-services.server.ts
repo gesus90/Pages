@@ -89,6 +89,7 @@ export async function createProcessingCore(
     readonly parameters: PlanDependencies["parameters"];
     readonly workspaces: PlanDependencies["workspaces"];
     readonly scripts: PlanDependencies["scripts"];
+    readonly decisionModels?: PlanDependencies["decisionModels"];
   },
 ): Promise<{
   readonly dependencies: PlanDependencies;
@@ -110,7 +111,7 @@ export async function createProcessingCore(
     pageAgentSessions: parts.pageAgentSessions,
   });
   const preparation = createPlanPreparation(input, {
-    access: parts.access,
+    decisionModels: parts.decisionModels,
     workspaceCatalog: parts.workspaceCatalog,
     remoteExecution: parts.remoteExecution,
     remoteTargets: parts.remoteTargets,
@@ -141,6 +142,7 @@ export async function createProcessingCore(
     engine,
     sessions: parts.sessions,
     scripts: parts.scripts,
+    decisionModels: parts.decisionModels,
   });
   return {
     dependencies,
@@ -212,6 +214,7 @@ function planDependencies(options: {
   readonly engine: PlanDependencies["engine"];
   readonly sessions: PlanDependencies["sessions"];
   readonly scripts: PlanDependencies["scripts"];
+  readonly decisionModels: PlanDependencies["decisionModels"];
 }): PlanDependencies {
   return {
     workspaceLocks: options.workspaceLocks,
@@ -232,5 +235,6 @@ function planDependencies(options: {
     engine: options.engine,
     sessions: options.sessions,
     scripts: options.scripts,
+    decisionModels: options.decisionModels,
   };
 }

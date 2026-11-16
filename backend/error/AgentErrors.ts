@@ -8,6 +8,10 @@ export const AGENT_ERROR_MESSAGES = {
     "The plan owner must be the explicitly bound Linux host owner; check PAGES_FULL_ENVIRONMENT_OWNER_ID and the login shell.",
   plan_full_environment_local_only:
     "Full environment requires a local node on the explicitly bound owner's host.",
+  agent_native_host_unavailable:
+    "YOLO runs natively under the Linux account of the server, but its login environment could not be read, or the account is root. Check the login shell of the account; nothing was started.",
+  agent_access_mode_required:
+    "This agent still has an earlier access level that no longer runs. Choose “Lesend” or “YOLO” for it; nothing was started.",
   codex_price_mapping_invalid:
     "Invalid Codex to OpenRouter model price mapping.",
   codex_monthly_cost_limit: "The agent reached its monthly Codex cost limit.",
@@ -249,8 +253,6 @@ export const AGENT_ERROR_MESSAGES = {
     "The ACP adapter does not offer or confirm the permission mode of the agent, so it cannot be enforced; nothing was sent. For Claude Code, a managed or workspace Claude setting that disables bypassPermissions, or a server account running as root, causes this. The run record names what the adapter reported.",
   plan_terminal_question:
     "The CLI of the node asked a question or waited for an approval, and nobody answers in a plan run, so the node failed at once. The run and the terminal log show the question.",
-  plan_yolo_isolation_unavailable:
-    "YOLO runs without an approval step of the runner, so it starts only inside the bubblewrap isolation, which does not work for the server account. Install bubblewrap (apt install bubblewrap), allow unprivileged user namespaces for the account, and start the node again; Pages probes the isolation again within a minute.",
   plan_codex_configuration_unmanaged:
     "A Codex configuration file (config.toml) outside Pages could change this run. Remove it from the connection folder or the workspace.",
   plan_acp_session_failed:
@@ -336,7 +338,25 @@ export const AGENT_ERROR_MESSAGES = {
   plan_decision_input_invalid:
     "A decision found no valid value for this activation: its input is missing, of the wrong kind or not readable, or its settings are incomplete. No output was activated, and the decision is never treated as false.",
   plan_decision_answer_invalid:
-    "The model of the decision did not answer with exactly one valid JSON object, also not after one correction. No output was activated.",
+    "The decision model gave an unexpected answer: an answer is missing, has another type than asked or names no value of the decision. No output was activated.",
+  plan_decision_model_missing:
+    "Choose a decision model: the decision has no model of its own, and the instance has no decision model. No output was activated.",
+  plan_decision_model_unavailable:
+    "The decision model of the decision is no longer available to the person who runs the plan. No output was activated, and no other model was asked.",
+  plan_decision_key_invalid:
+    "OpenRouter refused the key of the connection of the decision model. No output was activated.",
+  plan_decision_no_credit:
+    "The OpenRouter account of the decision model has no credit left. No output was activated.",
+  plan_decision_unsupported:
+    "The decision model cannot serve this request. No output was activated.",
+  plan_decision_timeout:
+    "The decision model did not answer within two minutes. No output was activated.",
+  plan_decision_unreachable:
+    "OpenRouter could not be reached for the decision. No output was activated.",
+  plan_decision_provider_failed:
+    "OpenRouter answered the decision with an error. No output was activated.",
+  plan_decision_refused:
+    "The decision model refused to answer the question. No output was activated.",
   plan_event_prompt_empty:
     "The result sent to the event input of this agent holds no usable new information, so the agent was not started again. Nothing was replaced by an empty or invented prompt.",
   plan_event_prompt_too_large:
@@ -489,7 +509,7 @@ export const AGENT_ERROR_MESSAGES = {
   cli_isolation_unavailable:
     "CLI agents need an isolated environment, which this server cannot provide.",
   acp_worker_unit_unavailable:
-    "Pica's agents start only in a limited service unit, which the service manager of the server account does not provide. No model was called.",
+    "YOLO sessions and Pica's agents start only in a limited service unit, which confirms their process ownership and ends every child process; the service manager of the server account does not provide one. No model was called.",
   acp_worker_limit:
     "The agent process exceeded its memory or process limit and was ended inside its own unit. Other runs and services were not affected.",
   acp_output_overflow:

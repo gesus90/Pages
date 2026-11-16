@@ -4,7 +4,7 @@ import { AgentError } from "@/backend/error/AgentErrors";
 import { ACP_PROVIDERS } from "@/definition/AgentConfiguration";
 import { planExecutionTargetSchema } from "@/definition/AgentPlanExecution";
 import {
-  PLAN_SWARM_ACCESS_MODES,
+  PLAN_SWARM_STORED_ACCESS,
   PLAN_SWARM_TEXT_LENGTH,
   PLAN_SWARM_WORKER_LIMIT,
   planSwarmSaveIssue,
@@ -30,7 +30,7 @@ const modelSchema = z
 
 const workerSchema = z.strictObject({
   model: modelSchema,
-  access: z.enum(PLAN_SWARM_ACCESS_MODES),
+  access: z.enum(PLAN_SWARM_STORED_ACCESS),
 });
 
 const instruction = z
@@ -55,7 +55,7 @@ const swarmSchema = z.strictObject({
   ]),
   main: z.strictObject({
     model: modelSchema,
-    access: z.enum(PLAN_SWARM_ACCESS_MODES),
+    access: z.enum(PLAN_SWARM_STORED_ACCESS),
     instruction,
   }),
   workers: z.strictObject({

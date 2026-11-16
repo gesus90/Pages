@@ -5,6 +5,12 @@ import { freezeScope, stopScope } from "./cgroups.mjs";
 import { cleanupPagesFiles } from "./pages.mjs";
 import { removeRunnerTemporaryDirectory } from "./temporary.mjs";
 import { identity, readRecord, readOwnedLaunch, store } from "./journal.mjs";
+import {
+  freezeNativeUnit,
+  nativeUnitProcesses,
+  ownUnitProcesses,
+  signalNativeUnit,
+} from "./native.mjs";
 
 export const STOP_TERM_MILLISECONDS = 2000;
 export const STOP_KILL_MILLISECONDS = 3000;
@@ -38,6 +44,36 @@ export async function rememberOwnership(folder) {
   await store(join(folder, "ownership.json"), { ancestors });
 }
 
+/** The process IDs of the supervisor and every ancestor, which a scan never signals. */
+async function ancestorIds() {
+  const ancestors = new Set();
+  let pid = process.pid;
+  while (pid > 0) {
+    ancestors.add(pid);
+    pid = (await processRecord(pid)).parent;
+  }
+  return ancestors;
+}
+
+/** The live processes of the supervisor's own scope unit, apart from itself. */
+async function unitProcesses(launch) {
+  if (launch?.boundary !== "worker_unit")
+    throw new Error("Runner unit ownership unavailable");
+  const ancestors = await ancestorIds();
+  const owned = [];
+  let isUncertain = false;
+  for (const pid of await ownUnitProcesses(launch.unit)) {
+    if (ancestors.has(pid)) continue;
+    try {
+      const record = await processRecord(pid);
+      if (record.isAlive && record.start) owned.push(record);
+    } catch (error) {
+      if (!vanished(error)) isUncertain = true;
+    }
+  }
+  return { owned, isUncertain };
+}
+
 async function namespaceProcesses(launch) {
   const current = await readlink("/proc/self/ns/pid");
   const procNamespace = await readlink("/proc/1/ns/pid");
@@ -49,12 +85,7 @@ async function namespaceProcesses(launch) {
     current === launch.parentNamespace
   )
     throw new Error("Runner namespace ownership unavailable");
-  const ancestors = new Set();
-  let pid = process.pid;
-  while (pid > 0) {
-    ancestors.add(pid);
-    pid = (await processRecord(pid)).parent;
-  }
+  const ancestors = await ancestorIds();
   const owned = [];
   let isUncertain = false;
   for (const entry of await readdir("/proc")) {
@@ -102,6 +133,50 @@ async function settleSupervisor(folder, launch, options) {
   return "confirmed";
 }
 
+/**
+ * Ends a native job from the host side: first its supervisor, as for a
+ * namespace, then everything its scope unit still holds, and confirms that
+ * the unit holds nothing any more before the runtime files go.
+ */
+async function settleUnit(folder, launch, options) {
+  if (typeof launch.unit !== "string")
+    return failedCleanup(options, "process_scan_unavailable");
+  const supervisor = await settleSupervisor(folder, launch, {
+    ...options,
+    removeRuntime: false,
+  });
+  if (supervisor !== "confirmed") return supervisor;
+  const began = Date.now();
+  const deadline = began + STOP_TERM_MILLISECONDS + STOP_KILL_MILLISECONDS;
+  for (;;) {
+    let remaining;
+    try {
+      remaining = await nativeUnitProcesses(launch.unit);
+    } catch {
+      return failedCleanup(options, "process_scan_unavailable");
+    }
+    if (remaining.length === 0) break;
+    if (Date.now() >= deadline) return failedCleanup(options, "exit_timeout");
+    try {
+      await signalNativeUnit(
+        launch.unit,
+        Date.now() - began < STOP_TERM_MILLISECONDS ? "SIGTERM" : "SIGKILL",
+      );
+    } catch {
+      return failedCleanup(options, "signal_denied");
+    }
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+  if (options.removeRuntime !== false) {
+    await cleanupPagesFiles(folder);
+    await rm(join(folder, "runtime"), { recursive: true, force: true });
+    await removeRunnerTemporaryDirectory(
+      await readRecord(join(folder, "claim.json")),
+    );
+  }
+  return "confirmed";
+}
+
 function failedCleanup(options, failure) {
   options.onFailure?.(failure);
   return "failed";
@@ -136,11 +211,12 @@ async function signalOwned(records, signal) {
   return isConfirmed;
 }
 
-/** Signals only processes in the owned namespace; legacy jobs remain unconfirmed. */
+/** Signals only processes in the owned namespace or scope unit; legacy jobs remain unconfirmed. */
 export async function cleanup(folder, jobId, options = {}) {
   if (typeof jobId !== "string" || !jobId)
     return failedCleanup(options, "process_scan_unavailable");
-  const isNamespace = process.env.PAGES_RUNNER_JOB_NAMESPACE === "1";
+  const isUnit = process.env.PAGES_RUNNER_JOB_BOUNDARY === "worker_unit";
+  const isNamespace = process.env.PAGES_RUNNER_JOB_NAMESPACE === "1" || isUnit;
   const launch = isNamespace
     ? await readRecord(join(folder, "launch.json"))
     : await readOwnedLaunch(folder);
@@ -164,6 +240,8 @@ export async function cleanup(folder, jobId, options = {}) {
     }
     return settleSupervisor(folder, launch, options);
   }
+  if (launch?.boundary === "worker_unit" && !isNamespace)
+    return settleUnit(folder, launch, options);
   if (!isNamespace) return failedCleanup(options, "process_scan_unavailable");
   const tracked = new Map();
   let isConfirmed = true;
@@ -171,7 +249,9 @@ export async function cleanup(folder, jobId, options = {}) {
   const deadline = began + STOP_TERM_MILLISECONDS + STOP_KILL_MILLISECONDS;
   let emptySince = null;
   do {
-    const scan = await namespaceProcesses(launch);
+    const scan = isUnit
+      ? await unitProcesses(launch)
+      : await namespaceProcesses(launch);
 
     for (const record of scan.owned) tracked.set(record.pid, record);
     const remaining = [];
@@ -218,7 +298,10 @@ export async function pauseExecution(folder, isPaused) {
     return previous;
   let state = "unavailable";
   try {
-    if (launch.cgroup)
+    if (launch.boundary === "worker_unit") {
+      await freezeNativeUnit(launch.unit, isPaused);
+      state = isPaused ? "frozen" : "thawed";
+    } else if (launch.cgroup)
       state = await freezeScope(
         launch.cgroup,
         folder.split("/").at(-1),

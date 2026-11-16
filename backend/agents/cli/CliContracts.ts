@@ -71,8 +71,8 @@ export interface CliRunRequest {
 export interface CliSessionRequest {
   /** Host disk directory mounted as /tmp for a plan node. */
   readonly temporaryDirectory?: string;
-  /** Full owner environment replaces the isolated allowlist only after server authorization. */
-  readonly fullEnvironment?: Readonly<Record<string, string>>;
+  /** The complete host environment of a native YOLO worker; it replaces the allowlist of every other run. */
+  readonly hostEnvironment?: Readonly<Record<string, string>>;
   readonly file: string;
   /** The tool itself when `file` is a wrapper that starts it. */
   readonly toolFile?: string;

@@ -25,11 +25,13 @@ export type AgentToolkitParameters = Readonly<Record<string, unknown>>;
 export interface AgentToolkitJob {
   /** The account of the agent whose job runs, for the audit. */
   readonly agentId: string;
-  /** The working folder: the agent's workspace or the folder of the chat session. */
+  /** The working folder, where relative paths and commands start: the agent's workspace or the folder of the chat session. */
   readonly root: string;
   readonly policy: AgentToolPolicy;
-  /** Starts shell commands: inside the isolation for "Arbeitsplatz", directly for YOLO. */
+  /** Starts shell commands natively on the host; only YOLO offers the shell. */
   readonly launcher: AgentShellLauncher;
+  /** Folders the file tools never reach, also through a link; absent in YOLO. */
+  readonly protectedDirectories?: readonly string[];
   /** The background runs of this job; they end with it. */
   readonly shellJobs: AgentShellJobs;
   /** Fetches a public web page; the default pins the address and refuses private hosts. */

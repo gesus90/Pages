@@ -13,6 +13,35 @@ export const CHAT_JOB_STATES = [
 ] as const;
 export type ChatJobState = (typeof CHAT_JOB_STATES)[number];
 
+/** Where a failed job stopped: preparing, starting the agent session, in its first turn or in a later one. */
+export const CHAT_JOB_FAILURE_STAGES = [
+  "prepare",
+  "start",
+  "turn",
+  "followUp",
+] as const;
+export type ChatJobFailureStage = (typeof CHAT_JOB_FAILURE_STAGES)[number];
+
+/**
+ * Why a job failed beyond its code: where it stopped and, for a refused tool
+ * or a failed step, which one and with which safe code.
+ * @remarks
+ * Every value is a stable machine code; it never carries provider text.
+ */
+export interface ChatJobFailureDetail {
+  readonly stage: ChatJobFailureStage;
+  /** The failed part of the start or turn, such as `connection_status`. */
+  readonly step?: string;
+  /** The safe code that part reported. */
+  readonly cause?: string;
+  /** The tool that was not ready. */
+  readonly tool?: string;
+  /** The status of that tool, such as `failed`. */
+  readonly toolStatus?: string;
+  /** Why that tool was not ready, such as `handshake_failed`. */
+  readonly diagnostic?: string;
+}
+
 /**
  * What became of a message sent while Pica was answering.
  * @remarks
@@ -236,6 +265,8 @@ export interface ChatJob {
   readonly messageId?: string;
   readonly state: ChatJobState;
   readonly errorCode: string | null;
+  /** Where and why a failed job stopped; absent or `null` without a known detail. */
+  readonly errorDetail?: ChatJobFailureDetail | null;
   readonly createdAt: string;
   readonly endedAt: string | null;
   readonly usage: ChatJobUsage;

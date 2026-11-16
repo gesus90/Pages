@@ -26,7 +26,7 @@ export function agentChatRefusal(error: AgentEmployeeError): ConversationError {
     case "modelNotAllowed":
     case "accessUnsupported":
     case "accessAdminRequired":
-    case "isolationUnavailable":
+    case "accessModeRequired":
     case "templateNameTaken":
     case "stopped":
       return new ConversationError("invalid");

@@ -72,7 +72,7 @@ export class AgentBrowserSessions {
 
   /**
    * Issues at most one private session per job, and only for an agent whose
-   * access level and tool groups allow the browser: "Nur Lesen"
+   * access level and tool groups allow the browser: "Lesend"
    * gets it with the reading browser tools only, a switched-off browser group
    * gets none.
    */

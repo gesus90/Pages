@@ -83,7 +83,10 @@ export async function closePlanSession(
         endedAt: new Date().toISOString(),
         leftovers: 0,
         isConfirmed: true,
-        containment: "pid_namespace",
+        // A native YOLO session had no namespace; its unit alone proves the end.
+        ...(record?.effective?.execution === undefined
+          ? { containment: "pid_namespace" as const }
+          : {}),
       },
     };
   }

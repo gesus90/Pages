@@ -190,7 +190,7 @@ function DecisionModel(props: {
       >
         {decision.model
           ? t("plans.decision.modelLine", { model: decision.model.model })
-          : t("plans.decision.noModel")}
+          : t("plans.decision.instanceModel")}
       </p>
     </div>
   );

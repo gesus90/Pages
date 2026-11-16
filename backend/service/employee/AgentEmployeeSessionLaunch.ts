@@ -1,12 +1,9 @@
 import { withBackgroundDatabaseWork } from "@/backend/database/executor/DatabaseWorkContext";
 import { ChatError } from "@/backend/error/ChatErrors";
 import { logCaughtError } from "@/backend/logging/Logger";
-import { agentToolPolicy } from "@/definition/AgentToolGroups";
-import { createAgentToolkitJob } from "../chat/toolkit/AgentToolkit";
 import { chatInteractionsFor } from "./AgentEmployeeJobRun";
-import { hasHostTools } from "@/definition/AgentEmployee";
 
-import { employeeAcpRunner } from "../chat/acp/EmployeeAcpRunners";
+import { employeeAccessRun } from "./AgentEmployeeAccessRun";
 import { createAgentEmployeeInstructions } from "./AgentEmployeeInstructions";
 import { agentIdentity } from "./AgentEmployeeAssignments";
 import {
@@ -165,9 +162,8 @@ export function recordEmployeeAnswer(
 }
 
 /**
- * The runner of a job with the agent's access level: the host's
- * MCP servers, read anew for every job, and the file tools only with host
- * tools.
+ * The runner of a chat job with the agent's access level, see
+ * {@link employeeAccessRun}, which a job of the agent's own shares.
  */
 export async function buildEmployeeRun(
   dependencies: AgentEmployeeSessionDependencies,
@@ -189,14 +185,14 @@ export async function buildEmployeeRun(
 ): Promise<NonNullable<PicaAcpStart["employee"]>> {
   const { agent, employee } = account;
   const { assignment, audience, keptSession, chat } = job;
-  const { access } = employee;
-  const policy = agentToolPolicy(access, employee.disabledToolGroups);
-  const hostServers =
-    (await dependencies.accessEnvironment?.chatServers(
-      assignment.connection.provider,
-      access,
-    )) ?? [];
-  const { hostFiles } = dependencies;
+  const access = await employeeAccessRun(
+    dependencies,
+    { agent, employee },
+    {
+      assignment,
+      chatTools: chatInteractionsFor(dependencies, agent, chat),
+    },
+  );
   return {
     // The chat tools stay bound to the job's chat: a confidential chat keeps
     // its own session and `chat_lesen` reads only that chat.
@@ -221,25 +217,7 @@ export async function buildEmployeeRun(
     ...(keptSession ? { keptSession } : {}),
     // A run of the agent's own is short and carries no chat.
     ...(keptSession ? {} : { isFreshSession: true }),
-    runner: employeeAcpRunner(assignment, access, hostServers),
-    hasBrowser: policy.browser !== "off",
-    toolkit: (directory) =>
-      createAgentToolkitJob({
-        agentId: agent.id,
-        root: directory,
-        policy,
-        isIsolated: access !== "yolo",
-        ...chatInteractionsFor(dependencies, agent, chat),
-        ...(dependencies.toolkitHiddenDirectories
-          ? { hiddenDirectories: dependencies.toolkitHiddenDirectories }
-          : {}),
-      }),
-    ...(hostFiles && hasHostTools(access) && policy.pages === "full"
-      ? {
-          attachFile: (directory, target, file) =>
-            hostFiles.attach(agent, { directory, file, target }),
-        }
-      : {}),
+    ...access,
     requireCurrent,
     requireConnection: (connectionId) =>
       connectionId === job.connectionId

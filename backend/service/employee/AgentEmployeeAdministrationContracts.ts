@@ -9,6 +9,7 @@ import type {
 } from "@/definition/AgentEmployeePage";
 import type { Department, UserRole } from "@/definition/Authorization";
 
+import type { PicaAcpSessionPool } from "../chat/acp/PicaAcpSessionPool";
 import type { AgentAccessEnvironmentService } from "./AgentAccessEnvironmentService";
 import type { AgentActivityService } from "./AgentActivityService";
 import type { AgentEmployeeInput } from "./AgentEmployeeInput";
@@ -27,6 +28,8 @@ export interface AgentEmployeeAdministrationDependencies {
   readonly activity: AgentActivityService;
   /** Isolation and MCP servers of the host for the access levels; absent offers no isolation. */
   readonly accessEnvironment?: AgentAccessEnvironmentService;
+  /** The resting chat sessions of agents, which a change of the access level ends; absent without ACP chat. */
+  readonly sessions?: Pick<PicaAcpSessionPool, "closeForAgent">;
 }
 
 /** The agents tab: rows, the model choice and whether the person may create. */

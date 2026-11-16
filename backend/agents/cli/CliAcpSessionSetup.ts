@@ -109,7 +109,7 @@ export function openCliAcpSession(
     }),
     observer: control.observer,
     signal: control.signal,
-    isolation: `${start.owner ? "full environment: full host owner access, private disk /tmp" : isolationLabel(isIsolated, mode, driver)}; ${limited.label}`,
+    isolation: `${isolationLabel(isIsolated, mode, driver)}; ${limited.label}`,
     containment,
     github: github?.status,
     redact,
@@ -159,7 +159,8 @@ export async function prepareScopedClaudeHome(
  *
  * @remarks
  * The directly spawned process is the namespace init or, for a session
- * without a namespace such as a YOLO chat, the client of its worker unit.
+ * without a namespace such as every native YOLO session, the client of its
+ * worker unit, whose control group holds every child and MCP server.
  * Its PID, start, owner and boot together with the unit
  * name let a later check prove the end of exactly this instance and let its
  * lease leave `spawning`.

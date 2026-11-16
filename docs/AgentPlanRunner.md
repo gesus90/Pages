@@ -11,88 +11,83 @@ descriptions below describe the legacy department default; explicit
 - [Remote runner](PagesRunner.md)
 - [Script runtime](../backend/service/agents/ScriptRuntime.md)
 - [Runtime installation and adapters](AgentRuntime.md)
-- [Full environment: full host owner access](#full-environment-full-host-owner-access)
+- [Access modes: Lesend and YOLO](#access-modes-lesend-and-yolo)
 
-## Full environment: full host owner access
+## Access modes: Lesend and YOLO
 
-An administrator can explicitly choose **Full environment / Volle Umgebung** on
-an individual local ACP agent node, alongside Read only and YOLO. It is stored
-as `full_environment`; absent settings and both existing modes keep their
-current isolation. Reusable agent definitions do not grant this access level.
-Save, clone, template insertion/import and start recheck administrator authority
-on the server, including agents inside groups and loops. A non-administrator
-cannot save or start such a node, even through a direct API request. Removing
-the full-environment choice restores the normal mode-specific rules.
+Agent employees in direct and group chats and in their own jobs, plan nodes,
+the main agent of a swarm and its helpers know exactly two modes with the same
+meaning everywhere: `read_only` (**Lesend**) and `yolo` (**YOLO**). The
+contract lives in `definition/AgentAccessMode.ts`; `effectiveAgentAccess()`
+resolves the effective rights for every caller, and every ACP session —
+chat, own job, plan node, swarm — starts through `CliSessionExecution`. The
+place an agent runs in changes only the context adapter (chat rounds, plan
+attempts, journal), never the rights.
 
-Full environment runs the native CLI in YOLO mode **without bubblewrap**. It has
-no hidden directories, read-only mounts, path protection or network isolation.
-The real home is writable. Owner logins and configuration for Claude Code,
-Codex, OpenCode, Antigravity (`agy`), GitHub CLI, Git and SSH are available;
-`/run/user/<uid>`, the user bus, `systemd-run --user` and Docker have the same
-access as that Linux account. The node workspace is the working directory.
-There is deliberately no protected list: `~/.pages`, `/opt/pages`,
-`~/.openclaw`, `~/Agents`, live databases and live services are accessible.
-A full-environment step can alter or destroy them and can use the owner's
-credentials to act on external accounts.
+| Fact              | Lesend                                                                                                                                               | YOLO                                                                                                                               |
+| ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| Process           | provider read-only profile; inside the read-only bubblewrap namespace where it works                                                                 | native process of the executing Linux account, no bubblewrap, no namespace, no container                                           |
+| Files             | read every path the account may read, also outside the workspace; only the Pages instance folder (`~/.pages`) and the data/agent folders stay hidden | read, create, change, delete wherever the account may; absolute paths, other repositories, home files and links work               |
+| Shell, sudo       | refused before execution                                                                                                                             | available; `sudo` only by task, password only on stdin                                                                             |
+| HOME / PATH       | connection allowlist                                                                                                                                 | real home, PATH of the account's login shell (`$SHELL -lc`), started from a minimal environment so no Pages service variable leaks |
+| Host MCP servers  | none (not classified as reading)                                                                                                                     | handed to chats, own jobs, plan nodes and swarms alike; the Pages bridge keeps its name                                            |
+| Provider settings | managed only                                                                                                                                         | Codex apps on, Claude user/project/local settings, OpenCode skills/plugins/user config, no `.env` ban                              |
+| Pages tools       | read                                                                                                                                                 | every tool, always with the rights of the acting account; YOLO grants no Pages administrator role                                  |
 
-### Binding the host owner
+The earlier values are readable but never run: `workspace` (agent
+employees), `workspace_write` (plan nodes, swarms) need a choice of Lesend or
+YOLO before the next start and never become YOLO on their own. An explicitly
+stored `full_environment` is read as YOLO; migration
+`069_agent_access_two_modes.sql` rewrites it in stored plans and profiles.
+Run records keep the rights they were recorded with. Every stored `yolo`
+takes the native meaning with this version.
 
-Pages users are application identities, not Linux accounts. The operator must
-explicitly bind one Pages owner ID with `PAGES_FULL_ENVIRONMENT_OWNER_ID` in the
-Pages service environment. Pages itself must run as that owner's non-root Linux
-account. This setting is an identity binding, never an implicit grant to a
-node: an active human administrator must still select the level and authorize
-every save and start. A different, inactive or non-administrator owner is
-refused. Pages does not use sudo, impersonate another OS user, create credentials
-or modify shell startup files. Remote targets refuse this level rather than
-substituting a different environment.
+### Provider and start-path matrix
 
-The runner reads the account's home and login shell from the OS account record,
-loads its exported environment using that shell's `-lc` startup and preserves
-the resulting PATH. The runner CLI is found in that login PATH first; if absent,
-Pages uses the same provider tool resolution as an isolated step: the pinned
-Pages-managed tool, or `CliLocator` when no tool is pinned. Only when neither
-lookup finds it does startup fail with `cli_not_executable`.
-Pages does not forward systemd-owned service variables (invocation and process
-identity, notification/watchdog, journal, memory pressure and socket activation
-state) to the local owner's environment file, the login shell or the worker's
-environment file. Each new unit keeps its own systemd identity.
-It sets HOME and XDG_RUNTIME_DIR to that account and uses
-its user D-Bus address. The trusted local session owner carries the host
-environment only for this explicit level. The ACP worker receives this
-environment instead of the isolated connection allowlist. No connection-home
-redirect, private Claude transcript home or project GitHub wrapper shadows the
-owner's logins. Native model and reasoning selections remain pinned. OpenCode's
-full profile allows every native tool, including reads of environment files;
-Codex apps and Claude user/project/local settings are available.
+| Start path                                | Codex CLI                                                                | Claude Code           | OpenCode (incl. OpenRouter, z.AI) | Antigravity           |
+| ----------------------------------------- | ------------------------------------------------------------------------ | --------------------- | --------------------------------- | --------------------- |
+| Agent chat (`AgentEmployeeSessionLaunch`) | shared launcher, native in YOLO                                          | shared launcher       | shared launcher                   | shared launcher       |
+| Agent own job (`AgentEmployeeJobRun`)     | same as chat via `employeeAccessRun`                                     | same                  | same                              | same                  |
+| Local plan node, swarm main and helpers   | `CliSessionExecution`                                                    | `CliSessionExecution` | `CliSessionExecution`             | `CliSessionExecution` |
+| Durable local owner session               | same launcher inside the owner unit                                      | same                  | same                              | same                  |
+| Remote runner (`scripts/runner`)          | YOLO in a `systemd-run --user --scope` unit; Lesend in the job namespace | same                  | same                              | same                  |
 
-### Lifecycle, visibility and secrets
+OpenCode reads its host configuration (MCP servers included) natively in YOLO,
+so Pages hands it no host server a second time. Lesend for OpenCode,
+Antigravity and Pica conversations needs the read-only namespace; without it
+the session is refused (`cli_isolation_unavailable`) instead of starting with
+wider rights.
 
-The worker still starts in its own transient systemd user unit, with the same
-runtime, resource limits, cancellation and closeout as existing YOLO workers.
-This unit is mandatory for full environment. Stop signals all processes in
-that worker cgroup and confirms unit settlement; failed cleanup remains
-unconfirmed and retains its reservation. Pause, continuation and timeout use
-the existing plan lifecycle and recheck current authorization. A service or
-container deliberately created through a host daemon is outside that cgroup;
-full host access cannot guarantee cleanup of deliberately detached external
-work. The agent must remove those resources itself, as a human shell user must.
-There is no security boundary against that behavior.
+### Process ownership, pause and stop without a namespace
 
-The node, its editor and the running-step panel show **Full environment – full
-access with the rights of <owner>**. The journal records the choice before
-startup and each native session records the absence of isolation. Owner names
-are frozen for the running attempt. These records contain no environment dump
-or credential file contents.
+A YOLO session never starts without a transient systemd user unit
+(`acp_worker_unit_unavailable` otherwise). The unit is recorded before the
+spawn; its control group holds every child, grandchild and stdio MCP server
+(`KillMode=control-group`). Pause and continue freeze and thaw the unit, stop
+kills the whole unit and confirms its end; a reservation is released only
+after a confirmed end. Such sessions are recorded with containment
+`worker_unit`; no `pid_namespace` marker is written for them. The remote
+runner does the same with one scope unit per YOLO job and refuses the job
+where the user service manager cannot start one. Shell runs of the Pages
+toolkit end their whole process group, also leftovers of a finished command,
+and confirm the end when the job ends.
 
-Existing credential redaction remains active. Full-environment output also
-masks credential-bearing exported variables and recognizable GitHub tokens,
-JWTs, private keys and credential assignments before recording ACP text.
-Login-shell failure output is discarded and replaced with a stable error code.
-Redaction is not a complete inventory of every arbitrary secret on the host:
-the agent must never print credentials or copy them into reports, logs or
-tickets. The unisolated owner can also write files directly, so this level
-cannot enforce that instruction as a host security policy.
+The access mode and its policy version (`AGENT_ACCESS_POLICY_VERSION`) belong
+to the identity of a session: chat sessions carry it in their profile, plan
+records in `effective.accessPolicy`. A session of another mode or an earlier
+meaning is never resumed. A change of an agent's level ends its resting
+sessions and their bridge credentials at once; a round that is still running
+ends after it instead of resting.
+
+### Secrets
+
+Output of a YOLO session masks the values of secret-named host variables and
+recognizable tokens, keys and credential assignments before it is recorded.
+Login-shell failures are replaced with a stable error code. The run contract
+and the agent instructions tell the agent that a task-named credential file
+may be used, never copied into chat, tickets, wiki, commits, process
+arguments or logs, and that sudo reads a password only from stdin.
+Attachment and publication functions keep their own secret checks.
 
 The repository wiki wording is in [the wiki notes](wiki/PAGE-407.md); its design
 context is in [the feature notes](reports/PAGE-407.md).
@@ -717,9 +712,10 @@ Pages prefixes their catalog model IDs with `openrouter/` or `zai/` and supplies
 only the selected connection's verified key in the isolated child environment.
 z.AI keeps its saved API or coding-plan endpoint. The editor, run panel, usage
 and journal retain OpenRouter or z.AI and the unprefixed catalog ID. Both offer
-Read only and YOLO with OpenCode's isolation, native files, shell, TODO events,
-pause, resume and stop. Full environment is unavailable for these two providers,
-so inherited host logins cannot add other provider keys. Other API providers
+Lesend and YOLO with the same meaning as every other ACP agent, native files,
+shell, TODO events, pause, resume and stop. YOLO keeps `enabled_providers` on
+the connection's model provider, so host logins cannot switch the session to
+another provider key. Other API providers
 remain requests without tools; chat and Pica keep their existing API policy.
 
 Migration 061 moves editable definitions, nodes in all saved plans (including
@@ -751,30 +747,27 @@ earlier runner. Every runner works unattended:
 nothing waits for a person, and an action the options do not allow is refused
 instead of asked.
 
-A local ACP agent chooses Read only, YOLO or the administrator-only Full environment
-on its Agent Plan node. The following isolation rules describe Read only and YOLO;
-Full environment follows the explicit host-access contract above. **Read only** reads the workspace and Pages content
-and may search the web, but creates, changes and deletes no files, runs no
+A local ACP agent chooses Lesend or YOLO on its Agent Plan node, with the
+meaning of [Access modes](#access-modes-lesend-and-yolo). **Lesend** reads
+Pages content, the workspace and every other readable path of the host, and
+may search the web, but creates, changes and deletes no files, runs no
 commands and calls only reading Pages tool operations; the server offers no
-changing tool to it, and inside bubblewrap the workspace is mounted read-only.
-For Claude Code the model gets no tool but Read, Glob, Grep, WebSearch and
-WebFetch, so no file change and no command exists for it, and Pages answers
-every remaining request itself. Codex reads files only through its shell,
-which Read only switches off, so a Codex node in Read only works with Pages
-content and the web; give it YOLO, or Claude Code, when it has to read the
-workspace. **YOLO** gives the session every tool of the runner without
-approval prompts: files in the workspace, shell, web and the full Pages tool
-catalog with the executor's rights. It starts only inside the bubblewrap
-isolation, which keeps the instance folders and the other credentials out of
-reach. An agent without run options reads only; an agent saved with the earlier
-workspace write mode does not start until one of the two modes is chosen, and
-it never becomes YOLO on its own. A Codex configuration file Pages does not
+changing tool to it, and inside bubblewrap the whole host is mounted
+read-only. For Claude Code the model gets no tool but Read, Glob, Grep,
+WebSearch and WebFetch, which Pages approves on any path, so no file change
+and no command exists for it, and Pages refuses every other request. Codex
+reads files only through its shell, which Lesend switches off, so a Codex node
+in Lesend works with Pages content and the web; give it YOLO, or Claude Code,
+when it has to read files. In Lesend a Codex configuration file Pages does not
 manage (`config.toml` in the connection's Codex folder, or `.codex/config.toml`
 of the workspace's project) blocks the start, because it could add servers or
-providers the agent does not name. A Claude session ignores the user and
-workspace settings of Claude Code (`settingSources` is empty), reaches only its
-own Pages MCP server (the account's connectors and user MCP servers stay out),
-keeps no session history and switches off the automatic model fallback.
+providers; a Claude session ignores user and workspace settings and reaches
+only its own Pages MCP server. **YOLO** runs natively on the host and gives the
+session every tool of the runner without approval prompts, the user and
+project configuration of the runner, the host MCP servers and the full Pages
+tool catalog with the executor's rights. An agent without run options reads
+only; an agent saved with the earlier workspace write mode does not start
+until one of the two modes is chosen, and it never becomes YOLO on its own.
 
 Codex CLI, Claude Code and OpenCode YOLO plan nodes can use the GitHub connection stored
 in the selected workspace's Pages project. Pages rechecks the executor's

@@ -6,7 +6,7 @@ import {
   AGENT_TODO_TEXT_LENGTH,
 } from "./AgentPlanAgentTodos";
 import {
-  PLAN_SWARM_ACCESS_MODES,
+  PLAN_SWARM_STORED_ACCESS,
   PLAN_SWARM_WORKER_LIMIT,
 } from "./AgentPlanSwarm";
 import {
@@ -98,7 +98,7 @@ export const planSwarmWorkerSchema = z.strictObject({
   id: workerId,
   provider: text(40),
   model: text(200),
-  access: z.enum(PLAN_SWARM_ACCESS_MODES),
+  access: z.enum(PLAN_SWARM_STORED_ACCESS),
   status: z.enum(PLAN_SWARM_WORKER_STATUSES),
   taskId: text(40).nullable(),
   /** Why it failed or did not start, such as `acp_worker_limit`. */

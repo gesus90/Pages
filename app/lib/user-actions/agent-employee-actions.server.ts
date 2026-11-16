@@ -30,7 +30,7 @@ const AGENT_ERRORS: Readonly<
   modelNotAllowed: { code: "modelNotAllowed", status: 400 },
   accessUnsupported: { code: "accessUnsupported", status: 400 },
   accessAdminRequired: { code: "accessAdminRequired", status: 403 },
-  isolationUnavailable: { code: "isolationUnavailable", status: 409 },
+  accessModeRequired: { code: "accessModeRequired", status: 409 },
   templateNameTaken: { code: "templateNameTaken", status: 409 },
   inactive: { code: "invalidInput", status: 400 },
   busy: { code: "invalidInput", status: 409 },

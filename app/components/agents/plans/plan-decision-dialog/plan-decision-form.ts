@@ -1,4 +1,3 @@
-import { isAcpProvider } from "@/definition/AgentConfiguration";
 import {
   planConditionSource,
   planContainedEdges,
@@ -20,6 +19,7 @@ import {
 } from "@/definition/AgentPlanDecisionEdit";
 import { expandPlanGroups } from "@/definition/AgentPlanGroup";
 import { expandPlanLoops } from "@/definition/AgentPlanLoop";
+import { agentModelKey } from "@/definition/AgentPlanConfiguration";
 
 import { planNodeLabel } from "../plan-layout";
 
@@ -63,20 +63,11 @@ export interface PlanDecisionInputChoice {
 const SOURCE_PREFIX = "source:";
 const RESULT_PREFIX = "result:";
 
-/** The models a decision may ask: those Pages offers over its own ACP connections. */
+/** The models a decision may ask: the decision models of OpenRouter, never a text model. */
 export function planDecisionModels(
   sources: AgentPlanSources,
 ): readonly PageAgentModel[] {
-  return sources.models ?? [];
-}
-
-/** Why a listed model cannot decide: only a model of an ACP connection runs a decision session. */
-export function planDecisionModelRefusal(model: PageAgentModel): boolean {
-  return (
-    !model.connectionId ||
-    model.runnerRoute !== undefined ||
-    !isAcpProvider(model.provider)
-  );
+  return sources.decisionModels ?? [];
 }
 
 /** The encoded data input of a decision, as the dialog's choice names it. */
@@ -103,13 +94,17 @@ export function planDecisionFormOf(
     mode: planDecisionMode(decision),
     input: planDecisionInputValue(draft, decision),
     question: decision.question ?? "",
+    // A saved model the list no longer offers keeps its key, so Apply keeps it.
     modelId:
       models.find(
         (model) =>
           saved !== undefined &&
           model.connectionId === saved.connectionId &&
           model.model === saved.model,
-      )?.id ?? "",
+      )?.id ??
+      (saved === undefined
+        ? ""
+        : agentModelKey(saved.connectionId, saved.model)),
     output: decision.output ?? "boolean",
     cases: decision.cases ?? [],
   };
@@ -220,19 +215,27 @@ function withInput(
     : setPlanDecisionCondition(plan, decision.id, value);
 }
 
-/** The model a decision asks, when the chosen one runs over an ACP connection. */
+/**
+ * The decision model a decision asks; none follows the decision model of the instance.
+ * @remarks
+ * A text model an older decision was saved with is not read back, so the
+ * next save drops it.
+ */
 function modelSetting(
-  model: PageAgentModel | undefined,
+  modelId: string,
+  input: {
+    readonly models: readonly PageAgentModel[];
+    readonly current: AgentPlanDecision;
+  },
 ): Pick<AgentPlanDecision, "model"> {
-  if (!model?.connectionId || !isAcpProvider(model.provider)) return {};
-  return {
-    model: {
-      connectionId: model.connectionId,
-      provider: model.provider,
-      model: model.model,
-      reasoningEffort: null,
-    },
-  };
+  const model = input.models.find((entry) => entry.id === modelId);
+  if (model?.connectionId)
+    return { model: { connectionId: model.connectionId, model: model.model } };
+  const saved = input.current.model;
+  return saved !== undefined &&
+    modelId === agentModelKey(saved.connectionId, saved.model)
+    ? { model: saved }
+    : {};
 }
 
 /**
@@ -255,7 +258,6 @@ export function appliedPlanDecisionForm(
 ): AgentPlanInput {
   const { form } = input;
   const current = findPlanDecision(plan, decision.id)?.decision ?? decision;
-  const model = input.models.find((entry) => entry.id === form.modelId);
   const name = form.name.trim();
   const cases = form.cases.map((entry) => ({
     ...entry,
@@ -278,7 +280,7 @@ export function appliedPlanDecisionForm(
       ? { mode: form.mode }
       : {}),
     ...(form.question.trim() === "" ? {} : { question: form.question }),
-    ...modelSetting(model),
+    ...modelSetting(form.modelId, { models: input.models, current }),
     ...(form.output === "classification" || current.output !== undefined
       ? { output: form.output }
       : {}),

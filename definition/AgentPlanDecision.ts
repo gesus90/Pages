@@ -1,6 +1,5 @@
 import { planContainedNodes } from "./AgentPlanGroupLoop";
 
-import type { AcpProviderId } from "./AgentConfiguration";
 import type {
   AgentPlanBinding,
   AgentPlanDecision,
@@ -12,9 +11,10 @@ import type {
  * How a decision decides.
  * @remarks
  * `boolean` reads a boolean parameter or the boolean result of an agent and
- * calls no model. `model` asks a model of an ACP connection one question about
- * one source in a short session of its own. Absent means `boolean`, the only
- * kind of decision before this field existed.
+ * calls no model. `model` asks an OpenRouter decision model one typed
+ * question about one source through the decisions interface, without a
+ * session. Absent means `boolean`, the only kind of decision before this
+ * field existed.
  */
 export type AgentPlanDecisionMode = "boolean" | "model";
 
@@ -28,28 +28,42 @@ export interface AgentPlanDecisionCase {
   readonly name: string;
 }
 
-/** The model a decision asks, as the model choice of an agent node names it. */
+/**
+ * The decision model a decision asks: a model of an OpenRouter connection
+ * whose catalog states `decisions` among its outputs.
+ * @remarks
+ * Decision models have no reasoning level. A decision without a model of its
+ * own asks the decision model of the instance.
+ */
 export interface AgentPlanDecisionModel {
   readonly connectionId: string;
-  readonly provider: AcpProviderId;
   readonly model: string;
-  readonly reasoningEffort: string | null;
 }
 
-/** The answer of a model decision and why, as the run shows it. */
+/** The answer of a model decision, as the run shows it. */
 export interface AgentPlanDecisionVerdict {
   /** `true`/`false` for yes or no, the name of the value for a classification. */
   readonly decision: boolean | string;
   /** The value of a classification; absent for yes or no. */
   readonly caseId?: string;
+  /** Why the model answered so; empty for a decision model, which gives no reason. */
   readonly reason: string;
+  /**
+   * The probability the decision model gave the answer, 0 to 1: of yes for
+   * yes or no, of the chosen value for a classification; absent when it gave none.
+   */
+  readonly probability?: number;
+  /** How sure the decision model was, 0 to 1; absent when it stated nothing. */
+  readonly confidence?: number;
+  /** What the call cost in US dollars; absent when the provider stated no cost. */
+  readonly costUsd?: number;
   /** The model that answered, as the decision named it. */
   readonly model: string;
   /** The node the decision read: a ticket node, an agent or a script. */
   readonly sourceStepId: string;
   /** Which start of the agent or script delivered the text; absent for a ticket. */
   readonly sourceActivation?: number;
-  /** Whether the model had to correct its first answer. */
+  /** Whether the model had to correct its first answer; never for a decision model, which is asked once. */
   readonly isCorrected: boolean;
 }
 
@@ -67,6 +81,12 @@ export const PLAN_DECISION_QUESTION_LENGTH = 4_000;
 
 /** The longest reason a run keeps of an answer. */
 export const PLAN_DECISION_REASON_LENGTH = 2_000;
+
+/** From this probability of yes on, a yes/no decision answers yes; fixed, not configurable. */
+export const PLAN_DECISION_YES_THRESHOLD = 0.5;
+
+/** The longest wait for the decisions interface in a plan, in milliseconds. */
+export const PLAN_DECISION_TIMEOUT_MS = 120_000;
 
 /** The longest source text a model decision hands over; Pages never shortens it. */
 export const PLAN_DECISION_SOURCE_LIMIT = 100_000;
@@ -168,79 +188,4 @@ export function allPlanDecisions(
   plan: Pick<AgentPlanInput, "nodes">,
 ): readonly AgentPlanDecision[] {
   return planContainedNodes(plan).filter((node) => node.type === "decision");
-}
-
-/** What one answer of a model says, or why it is no valid answer. */
-export type PlanDecisionAnswer =
-  | {
-      readonly isValid: true;
-      readonly decision: boolean | string;
-      readonly caseId?: string;
-      readonly reason: string;
-    }
-  | { readonly isValid: false; readonly problem: string };
-
-function invalid(problem: string): PlanDecisionAnswer {
-  return { isValid: false, problem };
-}
-
-function parsedObject(text: string): Record<string, unknown> | string {
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(text.trim());
-  } catch {
-    return "The answer is not exactly one JSON object; text or code fences around it are not allowed.";
-  }
-  if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed))
-    return "The answer is JSON but not an object.";
-  return Object.fromEntries(Object.entries(parsed));
-}
-
-/**
- * Checks the answer of a model decision against its contract.
- *
- * @param text - The whole final answer of the session.
- * @param decision - The decision with its output kind and values.
- * @returns The decision and reason, or the concrete problem the model is told once.
- *
- * @remarks
- * The answer is exactly one JSON object with `decision` and `reason` and
- * nothing else. Yes or no takes a JSON boolean, a classification exactly
- * one of the names of its values. A problem is never read as `false` or as
- * one of the values.
- */
-export function readPlanDecisionAnswer(
-  text: string,
-  decision: Pick<AgentPlanDecision, "mode" | "output" | "cases">,
-): PlanDecisionAnswer {
-  const answer = parsedObject(text);
-  if (typeof answer === "string") return invalid(answer);
-  const keys = Object.keys(answer).sort();
-  if (keys.length !== 2 || keys[0] !== "decision" || keys[1] !== "reason")
-    return invalid(
-      'The object must have exactly the two fields "decision" and "reason".',
-    );
-  const reason = answer.reason;
-  if (typeof reason !== "string" || reason.trim().length === 0)
-    return invalid('"reason" must be a non-empty string.');
-  if (reason.length > PLAN_DECISION_REASON_LENGTH)
-    return invalid(
-      `"reason" must be at most ${PLAN_DECISION_REASON_LENGTH} characters.`,
-    );
-  const value = answer.decision;
-  if (planDecisionOutput(decision) === "boolean")
-    return typeof value === "boolean"
-      ? { isValid: true, decision: value, reason: reason.trim() }
-      : invalid('"decision" must be the JSON boolean true or false.');
-  const match = (decision.cases ?? []).find((entry) => entry.name === value);
-  if (typeof value !== "string" || !match)
-    return invalid(
-      `"decision" must be exactly one of the allowed values: ${JSON.stringify((decision.cases ?? []).map((entry) => entry.name))}.`,
-    );
-  return {
-    isValid: true,
-    decision: match.name,
-    caseId: match.id,
-    reason: reason.trim(),
-  };
 }

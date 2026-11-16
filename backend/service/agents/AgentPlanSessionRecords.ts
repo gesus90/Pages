@@ -85,17 +85,11 @@ export function createSessionRecord(
       mcp: start.usesMcp,
       directory: isRequest ? null : directory,
     },
-    effective: start.prepared.input.fullEnvironment
-      ? { fullEnvironmentOwner: start.prepared.input.fullEnvironment.ownerName }
-      : null,
+    effective: null,
     definition: start.prepared.definition,
     contract: start.contract,
     acceptance: null,
-    events: start.prepared.input.fullEnvironment
-      ? [
-          `Full environment – full access with the rights of ${start.prepared.input.fullEnvironment.ownerName}; no isolation`,
-        ]
-      : [],
+    events: [],
   };
 }
 

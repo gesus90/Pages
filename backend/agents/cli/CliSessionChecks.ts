@@ -1,9 +1,8 @@
 import { AgentError } from "@/backend/error/AgentErrors";
 import { AgentPlanCancelledError } from "@/backend/error/AgentPlanCancelledError";
-import {
-  isAcpPermissionMode,
-  nativeAcpProvider,
-} from "@/definition/AgentConfiguration";
+import { AgentStepFailedError } from "@/backend/error/AgentStepFailedError";
+import { storedAgentAccessMode } from "@/definition/AgentAccessMode";
+import { nativeAcpProvider } from "@/definition/AgentConfiguration";
 import { openCodeModelProvider } from "@/definition/AgentConnection";
 
 import { createCliEnvironment } from "./CliEnvironment";
@@ -16,7 +15,7 @@ import type {
   AcpPermissionMode,
   NativeAcpProviderId,
 } from "@/definition/AgentConfiguration";
-import type { CliFullEnvironment } from "./CliFullEnvironment";
+import type { CliNativeHost } from "./CliNativeHost";
 import type {
   CliHome,
   CliCredentialAccess,
@@ -35,7 +34,8 @@ import type { AgentCliRuntime } from "./AgentCliRuntime";
 
 /** What a session start has verified about its connection. */
 export interface VerifiedStart {
-  readonly owner?: CliFullEnvironment;
+  /** The host of a native YOLO session; absent in "Lesend". */
+  readonly host?: CliNativeHost;
   readonly provider: CliProviderId;
   readonly home: CliHome;
   readonly file: string;
@@ -46,7 +46,13 @@ export interface VerifiedStart {
   readonly browser?: Awaited<ReturnType<typeof agentPlaywrightServer>>;
 }
 
-/** A PID namespace contains everything; otherwise only a worker unit frames the session. */
+/**
+ * How the processes of a session are framed, as they really are.
+ * @remarks
+ * Only a session inside bubblewrap has a PID namespace; a native YOLO
+ * session is framed by its worker unit alone and is never marked as a
+ * namespace.
+ */
 export function sessionContainment(
   isIsolated: boolean,
   request: CliSessionRequest,
@@ -55,15 +61,17 @@ export function sessionContainment(
   return request.unit ? "worker_unit" : "none";
 }
 
-/** The stored run mode of an ACP start; a start without one is refused. */
+/**
+ * The mode of an ACP start; an earlier value without a mode is refused.
+ * @remarks
+ * A stored `full_environment` runs as YOLO; `workspace_write` never does.
+ */
 export function requireAcpMode(
   driver: AcpDriver,
   input: AgentPlanSessionInput,
 ): AcpPermissionMode {
-  const mode =
-    input.options.access === "full_environment" ? "yolo" : input.options.access;
-  if (!isAcpPermissionMode(mode))
-    throw new AgentError(driver.errors.modeRequired);
+  const mode = storedAgentAccessMode(input.options.access);
+  if (mode === null) throw new AgentError(driver.errors.modeRequired);
   return mode;
 }
 
@@ -143,13 +151,18 @@ export function validateSessionStatus(
 ): void {
   const provider = input.agent.connection.provider;
   if (signal.aborted) throw new AgentPlanCancelledError();
-  if (!status.outcome.ok)
-    throw new AgentError(
+  if (!status.outcome.ok) {
+    if (
       provider === "opencode" ||
-        status.outcome.errorCode === "cli_not_logged_in"
-        ? status.outcome.errorCode
-        : "plan_step_failed",
+      status.outcome.errorCode === "cli_not_logged_in"
+    )
+      throw new AgentError(status.outcome.errorCode);
+    // The chat log and notice name the failed sign-in check and its code.
+    throw new AgentStepFailedError(
+      "connection_status",
+      status.outcome.errorCode,
     );
+  }
   if (
     provider === "opencode" &&
     !status.credentials?.modelProviders.includes(
@@ -172,7 +185,7 @@ export async function prepareGitHubAccess(
   },
 ): Promise<CliGitHubAccess | null> {
   const { start, mode } = options;
-  if (start.owner || !dependencies.github) return null;
+  if (!dependencies.github) return null;
   const access =
     mode === "yolo" && input.github
       ? await input.github()

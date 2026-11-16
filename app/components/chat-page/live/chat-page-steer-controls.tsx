@@ -23,10 +23,9 @@ interface ChatPageSteerControlsProps {
 }
 
 /**
- * The foot of the input while an agent answers: the hint
- * "Enter lenkt um · ⇧Enter neue Zeile", a round stop button and the main
- * button "Umlenken ↵", whose arrow opens "Umlenken", "Danach senden" and
- * "Anhalten".
+ * The foot of the input while an agent answers: a round stop button and the
+ * main button "Umlenken ↵", whose arrow opens "Umlenken", "Danach senden" and
+ * "Anhalten"; the hint "Enter lenkt um · ⇧Enter neue Zeile" is read out only.
  */
 export function ChatPageSteerControls({
   name,
@@ -37,10 +36,8 @@ export function ChatPageSteerControls({
 }: ChatPageSteerControlsProps): React.ReactElement {
   const { t } = useTranslation();
   return (
-    <div className="ml-auto flex min-w-0 items-center gap-2">
-      <span className="hidden truncate text-xs text-muted-foreground xl:inline">
-        {t("chatPage.liveAnswer.steerHint")}
-      </span>
+    <div className="flex min-w-0 items-center justify-end gap-2">
+      <span className="sr-only">{t("chatPage.liveAnswer.steerHint")}</span>
       <Button
         aria-label={t("chatPage.liveAnswer.halt")}
         className="size-11 shrink-0 rounded-full p-0 xl:size-9"

@@ -34,8 +34,11 @@ export class AgentAccessLevelChanges {
 
   /**
    * Refuses a change of the access level by anyone but an administrator in
-   * active admin mode, and "Arbeitsplatz" on a host without the isolation
-   * it runs in. An unchanged level needs neither.
+   * active admin mode, a change to the earlier "Arbeitsplatz", which is no
+   * mode any more, and YOLO on a host whose service manager cannot confirm
+   * the process ownership of a native session. An unchanged level needs
+   * none of it, so an agent that still has "Arbeitsplatz" keeps it through
+   * unrelated changes until "Lesend" or "YOLO" is chosen.
    */
   public async requireChange(
     actor: AccountAccess,
@@ -43,6 +46,7 @@ export class AgentAccessLevelChanges {
     to: AgentEmployeeAccess,
   ): Promise<void> {
     if (from === to) return;
+    if (to === "workspace") throw new AgentEmployeeError("accessModeRequired");
     if (
       to === "yolo" &&
       this.policy.isManagement(actor) &&
@@ -52,10 +56,10 @@ export class AgentAccessLevelChanges {
     if (!this.policy.hasGlobalAccess(actor))
       throw new AgentEmployeeError("accessAdminRequired");
     if (
-      to === "workspace" &&
-      !(await this.accessEnvironment?.isIsolationAvailable())
+      to === "yolo" &&
+      !((await this.accessEnvironment?.isNativeHostAvailable()) ?? true)
     )
-      throw new AgentEmployeeError("isolationUnavailable");
+      throw new AgentEmployeeError("accessUnsupported");
   }
 
   /**

@@ -55,8 +55,8 @@ function AttentionDot({
  * @remarks
  * The marker opens the details like the chevron does; opening them changes
  * neither the plan nor the run. Collapsed, only the marker is shown, with a
- * dot when the panel hides a warning or an error. Lists and causes
- * stay in the details.
+ * dot when the panel hides a warning or an error. Short causes stay in the
+ * details; graph findings stay at their nodes.
  */
 export function PlanPanelStatus(props: {
   readonly state: PlanPanelState;

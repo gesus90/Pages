@@ -213,6 +213,35 @@ export class PicaAcpSessionPool {
   }
 
   /**
+   * Ends every session of an agent whose access level changed.
+   * @param agentId - The agent whose sessions end.
+   * @throws {AcpCleanupUnconfirmedError} When the end of a resting process is not confirmed.
+   * @remarks
+   * A resting session ends now, with its process, its children and its MCP
+   * servers, and its bridge credential closes. A session that still runs a
+   * round finishes that round with the meaning it started with and then ends
+   * instead of resting, so no later round continues it with its earlier
+   * rights.
+   */
+  public async closeForAgent(agentId: string): Promise<void> {
+    const entries = [...this.entries.values()].filter(
+      (entry) => entry.session.agentId === agentId,
+    );
+    const resting = entries.filter((entry) => {
+      if (!entry.isLent) return true;
+      entry.isEnding = true;
+      return false;
+    });
+    const closed = await Promise.all(
+      resting.map(async (entry) =>
+        entry.native ? this.release(entry, "configuration") : null,
+      ),
+    );
+    if (closed.some((outcome) => outcome !== null && !outcome.isConfirmed))
+      throw new AcpCleanupUnconfirmedError();
+  }
+
+  /**
    * Ends the session of a chat, such as before the chat is deleted.
    * @throws {AcpCleanupUnconfirmedError} When the release is not confirmed, so
    * the caller keeps what the process may still use.

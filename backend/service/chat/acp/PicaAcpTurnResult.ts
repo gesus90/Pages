@@ -2,12 +2,17 @@ import { AgentError } from "@/backend/error/AgentErrors";
 import { ChatError } from "@/backend/error/ChatErrors";
 import { PicaAcpJobError } from "@/backend/error/PicaAcpJobError";
 import { AgentExecutionError } from "@/backend/error/AgentExecutionErrors";
+import { AgentStepFailedError } from "@/backend/error/AgentStepFailedError";
+import { AgentToolReadinessError } from "@/backend/service/agents/tools/AgentToolReadinessError";
 import { redactCredentials } from "@/backend/security/AgentTextSafety";
-import { logDiagnostic } from "@/backend/logging/Logger";
+import { logDiagnostic, logEvent } from "@/backend/logging/Logger";
 import { CHAT_LIMITS } from "@/definition/Chat";
 
 import type { PlanSessionTurn } from "@/backend/agents/AgentPlanExecution";
+import type { DatabaseLogSummary } from "@/backend/logging/DatabaseLogMetrics";
 import type {
+  ChatJobFailureDetail,
+  ChatJobFailureStage,
   ChatJobState,
   ChatJobTurnEvent,
   ChatJobUsage,
@@ -18,6 +23,8 @@ import type {
 export interface PicaAcpOutcome {
   readonly state: Exclude<ChatJobState, "running">;
   readonly errorCode: string | null;
+  /** Where and why a failed job stopped; absent for any other end. */
+  readonly detail?: ChatJobFailureDetail;
 }
 
 /** The journal entry of a turn that began; a follow-up turn carries its start so its elapsed time is its own. */
@@ -80,9 +87,11 @@ export function picaAcpOutcome(
   cancellation: {
     readonly signal: AbortSignal;
     readonly isStopRequested: boolean;
+    /** Where the job was when it failed. */
+    readonly stage: ChatJobFailureStage;
   },
 ): PicaAcpOutcome {
-  const { signal, isStopRequested } = cancellation;
+  const { signal, isStopRequested, stage } = cancellation;
   if (signal.aborted) {
     if (signal.reason === "stepLimit")
       return { state: "failed", errorCode: "stepLimit" };
@@ -95,10 +104,64 @@ export function picaAcpOutcome(
       ? { state: "stopped", errorCode: null }
       : { state: "interrupted", errorCode: "interrupted" };
   }
+  const detail = failureDetail(error, stage);
   const code = errorCodeOf(error);
-  if (code !== null) return { state: "failed", errorCode: code };
+  if (code !== null) return { state: "failed", errorCode: code, detail };
   logDiagnostic("PicaAcpJob", "error", "[pages] A Pica job failed.", error);
-  return { state: "failed", errorCode: "general" };
+  return { state: "failed", errorCode: "general", detail };
+}
+
+/** Where a job failed and, for a refused tool or a failed step, which one and why. */
+function failureDetail(
+  error: unknown,
+  stage: ChatJobFailureStage,
+): ChatJobFailureDetail {
+  if (error instanceof AgentToolReadinessError)
+    return {
+      stage,
+      tool: error.tool,
+      toolStatus: error.status,
+      diagnostic: error.diagnostic,
+    };
+  if (error instanceof AgentStepFailedError)
+    return {
+      stage,
+      step: error.step,
+      ...(error.cause === null ? {} : { cause: error.cause }),
+    };
+  return { stage };
+}
+
+/** Logs the start of a job. */
+export function logPicaJobStart(): void {
+  logEvent({
+    level: "info",
+    event: "pica.job.started",
+    component: "PicaAcpJob",
+    message: "Pica job started",
+  });
+}
+
+/**
+ * Logs the end of a job; a failure names where it stopped and, for a refused
+ * tool or a failed step, which one with its safe code.
+ */
+export function logPicaJobEnd(
+  outcome: PicaAcpOutcome,
+  metrics: DatabaseLogSummary,
+): void {
+  logEvent({
+    level: outcome.state === "failed" ? "error" : "info",
+    event: "pica.job.completed",
+    component: "PicaAcpJob",
+    message: "Pica job ended and cleanup attempted",
+    metadata: {
+      status: outcome.state,
+      code: outcome.errorCode,
+      ...(outcome.detail ?? {}),
+      ...metrics,
+    },
+  });
 }
 
 /**

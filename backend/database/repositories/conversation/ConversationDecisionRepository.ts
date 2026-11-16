@@ -30,6 +30,8 @@ export interface StoredConversationDecision {
   readonly answerProbability: number | null;
   readonly choices: readonly StoredDecisionChoice[];
   readonly createdAt: string;
+  /** What the call of the model cost in US dollars; absent or `null` when it was not asked or stated none. */
+  readonly costUsd?: number | null;
 }
 
 /** A stored decision with the text of its message, for the list of a group. */
@@ -134,7 +136,8 @@ export class ConversationDecisionRepository {
             model,
             answer_probability,
             choices,
-            created_at
+            created_at,
+            cost_usd
         )
         VALUES (
             $message_id,
@@ -145,7 +148,8 @@ export class ConversationDecisionRepository {
             $model,
             $answer_probability,
             $choices,
-            $created_at
+            $created_at,
+            $cost_usd
         )
         ON CONFLICT (message_id) DO NOTHING;
       `,
@@ -159,6 +163,7 @@ export class ConversationDecisionRepository {
         answer_probability: decision.answerProbability,
         choices: JSON.stringify(decision.choices),
         created_at: decision.createdAt,
+        cost_usd: decision.costUsd ?? null,
       },
     );
   }

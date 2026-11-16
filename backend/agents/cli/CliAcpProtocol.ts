@@ -1,8 +1,7 @@
 import { AcpLineChannel } from "@/backend/agents/acp/AcpLineChannel";
-import {
-  fullEnvironmentProfile,
-  redactFullEnvironment,
-} from "./CliFullEnvironment";
+import { AGENT_ACCESS_POLICY_VERSION } from "@/definition/AgentAccessMode";
+
+import { nativeHostProfile, redactNativeHost } from "./CliNativeHost";
 import { describeOpenCodeAgent } from "./OpenCodeAgentModel";
 import { planAcpLaunch } from "./CliAcpLaunch";
 import { acpSessionSecrets, createAcpRedactor } from "./CliAcpRedaction";
@@ -32,16 +31,19 @@ export function prepareAcpProtocol(
 ): AcpProtocol {
   const mode = input.options.access === "read_only" ? "read_only" : "yolo";
   const purpose = input.chat ? "chat" : (input.purpose ?? "plan");
-  const nativeProfile = driver.profile(mode, purpose);
-  const profile = start.owner
-    ? fullEnvironmentProfile(
-        nativeProfile,
-        input.fullEnvironment?.ownerName ?? "",
-      )
-    : {
-        ...nativeProfile,
-        unattended: describeOpenCodeAgent(input, nativeProfile.unattended),
-      };
+  const providerProfile = driver.profile(mode, purpose);
+  const described = {
+    ...providerProfile,
+    unattended: describeOpenCodeAgent(input, providerProfile.unattended),
+    // The policy version shows in the run which meaning of the mode a session ran under.
+    permissions: {
+      ...providerProfile.permissions,
+      accessPolicy: `${mode} v${AGENT_ACCESS_POLICY_VERSION}`,
+    },
+  };
+  const profile = start.host
+    ? nativeHostProfile(described, start.host)
+    : described;
   const launch = planAcpLaunch(driver, input, start.file, profile);
   const channel = new AcpLineChannel(
     input.chat !== undefined &&
@@ -54,6 +56,6 @@ export function prepareAcpProtocol(
     tokens: acpSessionSecrets(input, launch),
   });
   const redact = (text: string): string =>
-    redactFullEnvironment(redactSession(text), start.owner);
+    redactNativeHost(redactSession(text), start.host);
   return { profile, launch, channel, redact };
 }

@@ -172,14 +172,7 @@ const CONFIGURATION: PropertySchema = {
           minProperties: 1,
           additionalProperties: false,
           properties: {
-            access: {
-              enum: [
-                "read_only",
-                "workspace_write",
-                "yolo",
-                "full_environment",
-              ],
-            },
+            access: { enum: ["read_only", "yolo"] },
             shell: { type: "boolean" },
             web: { type: "boolean" },
             timeoutMinutes: { type: "integer", minimum: 0, maximum: 120 },
@@ -278,7 +271,7 @@ const NODE_FIELDS: ToolProperties = {
   mode: {
     enum: ["count", "while", "boolean", "model"],
     description:
-      "loop: count or while. decision: boolean (default; reads a boolean parameter or an agent's passed-out without a model) or model (asks the chosen ACP model the question about one ticket or text result).",
+      "loop: count or while. decision: boolean (default; reads a boolean parameter or an agent's passed-out without a model) or model (asks an OpenRouter decision model the question about one ticket or text result through the decisions interface).",
   },
   question: {
     type: "string",
@@ -289,23 +282,12 @@ const NODE_FIELDS: ToolProperties = {
   model: {
     type: "object",
     description:
-      "decision in model mode: the model of an ACP connection, as list_agent_models names it.",
+      'decision in model mode: a decision model of an OpenRouter connection (catalog output "decisions"), without reasoning level. Omit it to ask the decision model of the instance; text models are not accepted.',
     properties: {
       connectionId: PLAN_NODE_IDENTIFIER_SCHEMA,
-      provider: {
-        enum: [
-          "codex_cli",
-          "claude_code",
-          "opencode",
-          "antigravity",
-          "openrouter",
-          "zai",
-        ],
-      },
       model: { type: "string", minLength: 1, maxLength: 300 },
-      reasoningEffort: { type: ["string", "null"], maxLength: 40 },
     },
-    required: ["connectionId", "provider", "model", "reasoningEffort"],
+    required: ["connectionId", "model"],
     additionalProperties: false,
   },
   output: {

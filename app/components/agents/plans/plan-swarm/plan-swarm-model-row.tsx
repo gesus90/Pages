@@ -5,6 +5,7 @@ import { ModelPicker } from "@/app/components/agents/model-picker";
 import { ReasoningField } from "@/app/components/agents/model-picker/model-field";
 import { Select } from "@/app/components/ui/select";
 import { reasoningOptions } from "@/app/lib/reasoning-options";
+import { isAgentAccessMode } from "@/definition/AgentAccessMode";
 import { PLAN_SWARM_ACCESS_MODES } from "@/definition/AgentPlanSwarm";
 
 import {
@@ -25,6 +26,15 @@ export interface PlanSwarmModelChoice {
   readonly access: AgentPlanSwarmAccess;
 }
 
+/** The two modes, and an earlier stored value only while it is still the current one. */
+function swarmAccessOptions(
+  value: AgentPlanSwarmAccess,
+): readonly AgentPlanSwarmAccess[] {
+  return isAgentAccessMode(value)
+    ? PLAN_SWARM_ACCESS_MODES
+    : [value, ...PLAN_SWARM_ACCESS_MODES];
+}
+
 /** The access select of a helper or the main model. */
 export function PlanSwarmAccessSelect(props: {
   readonly value: AgentPlanSwarmAccess;
@@ -41,7 +51,7 @@ export function PlanSwarmAccessSelect(props: {
       ariaLabel={props.label}
       value={props.value}
       disabled={props.isDisabled}
-      options={PLAN_SWARM_ACCESS_MODES.map((access) => ({
+      options={swarmAccessOptions(props.value).map((access) => ({
         value: access,
         label: t(`plans.swarm.access.${access}`),
       }))}

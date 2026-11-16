@@ -41,6 +41,7 @@ export const localLaunchSchema = z.object({
   attemptId: identifier,
   turnId: identifier,
   isInstruction: z.boolean(),
+  /** Written by earlier versions; a native YOLO owner reads its host environment itself. */
   isFullEnvironment: z.boolean().optional(),
   instanceId: identifier,
   userId: identifier,
@@ -423,7 +424,6 @@ export function createLocalSessionLaunch(
     attemptId: recording.key.attemptId,
     turnId: isInstruction ? randomUUID() : recording.key.attemptId,
     isInstruction,
-    ...(input.fullEnvironment ? { isFullEnvironment: true } : {}),
     instanceId,
     userId: input.userId,
     prompt: input.prompt,

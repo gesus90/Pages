@@ -95,4 +95,6 @@ export interface AgentToolHealthChecks {
     signal: AbortSignal,
     cli?: AgentToolLocation,
   ): Promise<AgentToolHealth>;
+  /** Drops kept results of a tool before an explicit check or change. */
+  forget?(id: AgentToolId): void;
 }

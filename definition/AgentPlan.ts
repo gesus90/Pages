@@ -356,6 +356,10 @@ export interface AgentPlanSources {
   readonly remoteTargets?: readonly AgentPlanRemoteTarget[];
   readonly remoteStatus?: readonly AgentPlanRemoteStatus[];
   readonly models?: readonly PageAgentModel[];
+  /** The decision models a model decision may choose; text models are never among them. */
+  readonly decisionModels?: readonly PageAgentModel[];
+  /** The name of the decision model of the instance, which a decision without a model of its own asks; `null` while none is set. */
+  readonly defaultDecisionModel?: string | null;
   readonly agents: readonly AgentDefinitionChoice[];
   readonly tasks: readonly AgentPlanTask[];
   /** The workflow of the plan's project in board order; absent before a workspace is chosen. */

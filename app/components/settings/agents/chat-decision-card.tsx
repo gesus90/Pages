@@ -40,7 +40,9 @@ interface ChatDecisionCardProps {
  * state `decisions` as their output, and the default thresholds and the most
  * answering agents of the groups. The model only gives probabilities for
  * which agent a message of a group chat means; Pages decides with the
- * thresholds, and the model has no tools and runs no action. Saving is
+ * thresholds, and the model has no tools and runs no action. The same model
+ * is the default of the model decisions of plans without a model of their
+ * own, which the card states. Saving is
  * allowed to administrators in the admin mode only, which the server checks
  * again.
  */
@@ -158,6 +160,9 @@ function ChatDecisionForm({
           onChange={draft.selectModel}
         />
       </ModelFieldRow>
+      <p className="text-xs text-muted-foreground">
+        {t("chatDecision.planDefault")}
+      </p>
       <div className="space-y-2">
         <h3 className="text-sm font-semibold text-foreground">
           {t("chatDecision.defaults.title")}

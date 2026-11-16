@@ -136,6 +136,14 @@ interface ComposerFooterActionsProps {
   readonly onSubmit: (after: boolean) => void;
 }
 
+/**
+ * The foot of the input: "+" and the microphone at the left, at the right
+ * the context rings and the buttons in an area of a fixed 248 px.
+ * @remarks
+ * The area holds "Senden" or, while agents answer, stop, "Umlenken ↵" and
+ * the arrow; its width never changes, so the rings stay where they are.
+ * Below 768 px the rings move into a line above the buttons, at the right.
+ */
 function ComposerFooterActions({
   canAttach,
   uploads,
@@ -150,7 +158,10 @@ function ComposerFooterActions({
   const { t } = useTranslation();
   const hasAside = aside !== undefined && aside !== null;
   return (
-    <div className="mt-2 flex flex-wrap items-center gap-2">
+    <div
+      className="mt-2 flex flex-wrap items-center gap-2"
+      data-composer-footer=""
+    >
       <ChatPageAttachMenu
         canAttach={canAttach}
         onFiles={uploads.add}
@@ -164,28 +175,42 @@ function ComposerFooterActions({
           recordRef={recordRef}
         />
       ) : null}
-      {aside}
-      {answering ? (
-        <ChatPageSteerControls
-          name={answering.name}
-          canSend={canSend}
-          onSteer={() => onSubmit(false)}
-          onAfter={() => onSubmit(true)}
-          onStop={answering.onStop}
-        />
-      ) : (
-        <Button
-          className={cn(
-            "h-11 gap-1 px-1.5 text-sm xl:h-9 xl:gap-1.5 xl:px-3",
-            !hasAside && "ml-auto",
-          )}
-          disabled={!canSend}
-          onClick={() => onSubmit(false)}
+      <div
+        className="ml-auto flex max-w-full min-w-0 items-center gap-2 max-md:flex-col max-md:items-end max-md:gap-1"
+        data-composer-end=""
+      >
+        {hasAside ? (
+          <div
+            className="ml-auto flex min-w-0 items-center justify-end gap-1.5"
+            data-composer-rings=""
+          >
+            {aside}
+          </div>
+        ) : null}
+        <div
+          className="flex w-[248px] max-w-full shrink-0 items-center justify-end"
+          data-composer-actions=""
         >
-          <SendHorizontal aria-hidden="true" className="size-4" />
-          {t("chatPage.send")}
-        </Button>
-      )}
+          {answering ? (
+            <ChatPageSteerControls
+              name={answering.name}
+              canSend={canSend}
+              onSteer={() => onSubmit(false)}
+              onAfter={() => onSubmit(true)}
+              onStop={answering.onStop}
+            />
+          ) : (
+            <Button
+              className="h-11 gap-1 px-1.5 text-sm xl:h-9 xl:gap-1.5 xl:px-3"
+              disabled={!canSend}
+              onClick={() => onSubmit(false)}
+            >
+              <SendHorizontal aria-hidden="true" className="size-4" />
+              {t("chatPage.send")}
+            </Button>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

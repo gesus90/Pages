@@ -2,6 +2,7 @@ import { lstat, mkdir, realpath } from "node:fs/promises";
 import path from "node:path";
 
 import { containsWorkspacePath } from "@/backend/service/agents/AgentWorkspacePath";
+import { isAgentWriteAccess } from "@/definition/AgentConfiguration";
 
 import { AgentToolReadinessError } from "./AgentToolReadinessError";
 
@@ -16,10 +17,7 @@ export async function agentPlaywrightServer(
   locations: ReadonlyMap<AgentToolId, AgentToolLocation>,
 ): Promise<McpServerStdio | null> {
   if (input.options.browser !== true || input.chat) return null;
-  if (
-    input.options.access !== "yolo" &&
-    input.options.access !== "full_environment"
-  )
+  if (!isAgentWriteAccess(input.options.access))
     throw new AgentToolReadinessError(
       "playwright_mcp",
       "unsupported",

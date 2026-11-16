@@ -9,9 +9,10 @@ import type {
 } from "@/definition/VirtualChat";
 
 /** Pixel sizes of avatars on the chat page. */
-type AvatarSize = 22 | 26 | 28 | 32 | 40;
+type AvatarSize = 18 | 22 | 26 | 28 | 32 | 40;
 
 const AVATAR_SIZES: Record<AvatarSize, { box: string; ring: string }> = {
+  18: { box: "size-4.5 text-[10px]", ring: "border-[1.5px]" },
   22: { box: "size-5.5 text-[11px]", ring: "border-[1.5px]" },
   26: { box: "size-6.5 text-xs", ring: "border-[1.5px]" },
   28: { box: "size-7 text-xs", ring: "border-2" },

@@ -29,9 +29,15 @@ import type { AgentRunDiagnosisStores } from "./diagnosis/AgentRunDiagnosisStore
 import type { AgentPlanAccessRepository } from "@/backend/database/repositories/agent/AgentPlanAccessRepository";
 import type { AgentPlanAuditRepository } from "@/backend/database/repositories/agent/AgentPlanAuditRepository";
 import type { AgentPlanScriptApprovalRepository } from "@/backend/database/repositories/agent/AgentPlanScriptApprovalRepository";
+import type { PlanDecisionModels } from "./branching/PlanDecisionModels";
 
 /** What the plan service and its parts work with. */
 export interface PlanDependencies {
+  /** The decision models model decisions may choose, and the default of the instance. */
+  readonly decisionModels?: Pick<
+    PlanDecisionModels,
+    "list" | "defaultName" | "hasDefault"
+  >;
   readonly workspaceLocks?: AgentPlanWorkspaceLocks;
   /** Durable accounting read projection, separate from run controls. */
   readonly usage?: Pick<AgentSessionStore, "listRunUsage">;

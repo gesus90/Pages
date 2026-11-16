@@ -157,16 +157,20 @@ function matcher(text: string, isRegex: boolean): (line: string) => boolean {
   return (line) => expression.test(line);
 }
 
-/** The real working folder; every path the agent sees is relative to it. */
+/** The real working folder; a path inside it is shown relative to it, every other one absolute. */
 async function realRoot(job: AgentToolkitJob): Promise<string> {
-  return await resolveToolkitPath(job.root, ".");
+  return await resolveToolkitPath(job.root, ".", job.protectedDirectories);
 }
 
 async function readFileTool(
   parameters: z.infer<typeof READ_SCHEMA>,
   job: AgentToolkitJob,
 ): Promise<ReturnType<typeof toolkitResult>> {
-  const file = await resolveToolkitPath(job.root, parameters.path);
+  const file = await resolveToolkitPath(
+    job.root,
+    parameters.path,
+    job.protectedDirectories,
+  );
   const text = await readTextFile(file);
   if (text === null) return toolkitRefusal("NOT_A_TEXT_FILE");
   const lines = text.split("\n");
@@ -190,7 +194,11 @@ async function searchFilesTool(
   job: AgentToolkitJob,
 ): Promise<ReturnType<typeof toolkitResult>> {
   const root = await realRoot(job);
-  const folder = await resolveToolkitPath(job.root, parameters.path ?? ".");
+  const folder = await resolveToolkitPath(
+    job.root,
+    parameters.path ?? ".",
+    job.protectedDirectories,
+  );
   let isMatch: (line: string) => boolean;
   try {
     isMatch = matcher(parameters.text, parameters.isRegex === true);
@@ -227,7 +235,11 @@ async function editFileTool(
   parameters: z.infer<typeof EDIT_SCHEMA>,
   job: AgentToolkitJob,
 ): Promise<ReturnType<typeof toolkitResult>> {
-  const file = await resolveToolkitPath(job.root, parameters.path);
+  const file = await resolveToolkitPath(
+    job.root,
+    parameters.path,
+    job.protectedDirectories,
+  );
   const text = await readTextFile(file);
   if (text === null) return toolkitRefusal("NOT_A_TEXT_FILE");
   const count = text.split(parameters.oldText).length - 1;
@@ -265,19 +277,21 @@ function guarded<Input>(
 }
 
 /**
- * The file tools of the toolkit: read, list and search in every
- * mode that allows files, write, change and delete only with full access.
+ * The file tools of the toolkit: read, list and search in both modes, write,
+ * change and delete only in YOLO.
  * @remarks
- * Every path is resolved inside the working folder of the job; a path that
- * leaves it, also through a link, is refused with `OUTSIDE_WORKSPACE`.
- * Deleting is a consequential step the person approves first.
+ * A relative path starts at the working folder of the job; an absolute path
+ * reaches the whole host as far as the account's Linux rights allow. In
+ * "Lesend" the instance folders of Pages stay out of reach, also through a
+ * link, with `PROTECTED_PATH`. Deleting is a consequential step the person
+ * approves first.
  */
 export const AGENT_FILE_TOOLS: readonly AgentToolkitTool[] = [
   defineToolkitTool({
     id: "datei_lesen",
     group: "files",
     isWrite: false,
-    description: `Read a text file of your working folder. path is relative to the folder; offset (first line, from 1) and limit (lines, default 2000) read a part of a long file. ${UNTRUSTED_CONTENT_NOTE}`,
+    description: `Read a text file. path is relative to your working folder or absolute anywhere on the host; offset (first line, from 1) and limit (lines, default 2000) read a part of a long file. ${UNTRUSTED_CONTENT_NOTE}`,
     inputSchema: READ_SCHEMA,
     execute: guarded(readFileTool),
   }),
@@ -286,11 +300,15 @@ export const AGENT_FILE_TOOLS: readonly AgentToolkitTool[] = [
     group: "files",
     isWrite: false,
     description:
-      "List a folder of your working folder: path (default the folder itself) and depth (1 to 5, default 1). Returns path, type and size of each entry, at most 500.",
+      "List a folder, relative to your working folder or absolute: path (default the working folder) and depth (1 to 5, default 1). Returns path, type and size of each entry, at most 500.",
     inputSchema: LIST_SCHEMA,
     execute: guarded(async (parameters, job) => {
       const root = await realRoot(job);
-      const folder = await resolveToolkitPath(job.root, parameters.path ?? ".");
+      const folder = await resolveToolkitPath(
+        job.root,
+        parameters.path ?? ".",
+        job.protectedDirectories,
+      );
       const entries = await listFolder(root, folder, parameters.depth ?? 1);
       return toolkitResult({
         entries,
@@ -302,7 +320,7 @@ export const AGENT_FILE_TOOLS: readonly AgentToolkitTool[] = [
     id: "dateien_suchen",
     group: "files",
     isWrite: false,
-    description: `Search the text files below a folder of your working folder for a text (isRegex: true for a regular expression); fileName keeps files whose name contains it. Returns path, line and text of each match, at most 200. ${UNTRUSTED_CONTENT_NOTE}`,
+    description: `Search the text files below a folder (relative to your working folder or absolute) for a text (isRegex: true for a regular expression); fileName keeps files whose name contains it. Returns path, line and text of each match, at most 200. ${UNTRUSTED_CONTENT_NOTE}`,
     inputSchema: SEARCH_SCHEMA,
     execute: guarded(searchFilesTool),
   }),
@@ -311,10 +329,14 @@ export const AGENT_FILE_TOOLS: readonly AgentToolkitTool[] = [
     group: "files",
     isWrite: true,
     description:
-      "Write a text file in your working folder with the complete content; missing folders are created, an existing file is replaced.",
+      "Write a text file with the complete content; path is relative to your working folder or absolute; missing folders are created, an existing file is replaced.",
     inputSchema: WRITE_SCHEMA,
     execute: guarded(async (parameters, job) => {
-      const file = await resolveToolkitPath(job.root, parameters.path);
+      const file = await resolveToolkitPath(
+        job.root,
+        parameters.path,
+        job.protectedDirectories,
+      );
       await mkdir(path.dirname(file), { recursive: true });
       await writeFile(file, parameters.content, "utf8");
       return toolkitResult({
@@ -328,7 +350,7 @@ export const AGENT_FILE_TOOLS: readonly AgentToolkitTool[] = [
     group: "files",
     isWrite: true,
     description:
-      "Change a text file of your working folder: replace oldText exactly by newText. oldText must occur once, or set replaceAll: true to replace every occurrence. Read the file first.",
+      "Change a text file (relative to your working folder or absolute): replace oldText exactly by newText. oldText must occur once, or set replaceAll: true to replace every occurrence. Read the file first.",
     inputSchema: EDIT_SCHEMA,
     execute: guarded(editFileTool),
   }),
@@ -337,13 +359,17 @@ export const AGENT_FILE_TOOLS: readonly AgentToolkitTool[] = [
     group: "files",
     isWrite: true,
     description:
-      "Delete a file or folder of your working folder. A consequential step: Pages first returns CONFIRMATION_REQUIRED; ask the person in the chat and repeat the identical call after they approved it.",
+      "Delete a file or folder (relative to your working folder or absolute); never the working folder itself. A consequential step: Pages first returns CONFIRMATION_REQUIRED; ask the person in the chat and repeat the identical call after they approved it.",
     inputSchema: DELETE_SCHEMA,
     isConsequential: () => true,
     execute: guarded(async (parameters, job) => {
       const root = await realRoot(job);
-      const target = await resolveToolkitPath(job.root, parameters.path);
-      if (target === root) return toolkitRefusal("OUTSIDE_WORKSPACE");
+      const target = await resolveToolkitPath(
+        job.root,
+        parameters.path,
+        job.protectedDirectories,
+      );
+      if (target === root) return toolkitRefusal("PROTECTED_PATH");
       await stat(target);
       await rm(target, { recursive: true });
       return toolkitResult({

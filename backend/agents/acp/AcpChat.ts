@@ -85,16 +85,10 @@ export interface AcpSessionListener {
 export interface AcpChatOptions {
   /**
    * The only MCP servers of the session, in place of the Pages MCP process of
-   * a plan node: Pica's bridge and, for an agent employee with host tools,
-   * the MCP servers configured on the host.
+   * a plan node: Pica's bridge and, for an agent employee in YOLO, the MCP
+   * servers configured on the host.
    */
   readonly mcpServers?: readonly McpServer[];
-  /**
-   * The session of an agent employee on YOLO runs without the bubblewrap
-   * isolation, with the rights of the server account; every other
-   * conversation starts only inside it.
-   */
-  readonly isUnisolated?: boolean;
   /** Private own-account runtime mount for Playwright; never the working folder. */
   readonly browserStateDirectory?: string;
   /** The protocol session to continue with `session/resume`; `null` starts a new one. */

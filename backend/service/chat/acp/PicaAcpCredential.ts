@@ -57,7 +57,7 @@ export function bridgeServers(
 export class PicaAcpCredential {
   private readonly directory: string;
   private readonly isClaude: boolean;
-  /** An agent employee on "Arbeitsplatz" or YOLO uses every tool of the host beside the Pages tools. */
+  /** An agent employee in YOLO uses every tool of the host beside the Pages tools. */
   private readonly access: AgentRunAccess;
   /** Opened when the job runs, so a job that never ran leaves no token behind. */
   private lease: PicaBridgeLease | null = null;

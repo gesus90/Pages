@@ -154,17 +154,24 @@ export function probabilityPercent(probability: number): number {
 /**
  * Whether a catalog model is a decision model.
  * @param model - The modalities its catalog states.
- * @returns `true` only when the catalog states `decisions` among the outputs.
+ * @returns `true` only when the catalog states `decisions` among the outputs
+ * and, where it states inputs at all, text among them.
  * @remarks
  * OpenRouter lists these models only under `output_modalities=decisions` and
  * runs them through `POST /api/alpha/decisions`
- * (https://openrouter.ai/docs/guides/community/multimodal-decisions). A model
- * whose catalog states no modalities never counts as one.
+ * (https://openrouter.ai/docs/guides/community/multimodal-decisions). Pages
+ * hands them text alone, so a model that states inputs without text is no
+ * decision model of Pages. A model whose catalog states no output modalities
+ * never counts as one.
  */
 export function isDecisionModel(
-  model: Pick<AgentCatalogModel, "outputModalities">,
+  model: Pick<AgentCatalogModel, "inputModalities" | "outputModalities">,
 ): boolean {
-  return model.outputModalities?.includes("decisions") === true;
+  return (
+    model.outputModalities?.includes("decisions") === true &&
+    (model.inputModalities === undefined ||
+      model.inputModalities.includes("text"))
+  );
 }
 
 /** How a group decides who answers; stored per group. */

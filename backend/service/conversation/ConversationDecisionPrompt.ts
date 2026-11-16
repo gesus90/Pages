@@ -1,6 +1,8 @@
 import { ConversationObserverError } from "@/backend/error/ConversationObserverError";
 import { redactCredentials } from "@/backend/security/AgentTextSafety";
 
+import { DECISION_DATA_NOTICE } from "./OpenRouterDecisionsClient";
+
 import type {
   DecisionQuestion,
   OpenRouterDecisionsResponse,
@@ -110,13 +112,11 @@ export function decisionQuestions(
     questions: {
       [ANSWER_EXPECTED_QUESTION]: {
         type: "noul",
-        instructions:
-          "Erwartet die neue Nachricht (neue_nachricht) eine Antwort eines Agents der Gruppe? Ja bei einer Frage oder Bitte, die ein Agent beantworten oder erledigen soll. Nein bei Dank, Zustimmung, Abschlussnachrichten und Gesprächen zwischen Menschen.",
+        instructions: `Erwartet die neue Nachricht (neue_nachricht) eine Antwort eines Agents der Gruppe? Ja bei einer Frage oder Bitte, die ein Agent beantworten oder erledigen soll. Nein bei Dank, Zustimmung, Abschlussnachrichten und Gesprächen zwischen Menschen. ${DECISION_DATA_NOTICE}`,
       },
       [AGENT_MEANT_QUESTION]: {
         type: "choice",
-        instructions:
-          "Welcher Agent ist mit der neuen Nachricht (neue_nachricht) gemeint? Wähle „(niemand)“, wenn kein Agent gemeint ist.",
+        instructions: `Welcher Agent ist mit der neuen Nachricht (neue_nachricht) gemeint? Wähle „(niemand)“, wenn kein Agent gemeint ist. ${DECISION_DATA_NOTICE}`,
         criteria,
       },
     },

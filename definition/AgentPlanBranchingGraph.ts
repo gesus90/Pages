@@ -3,7 +3,6 @@ import {
   planGroupContent,
   planContainedNodes,
 } from "./AgentPlanGroupLoop";
-import { isAcpProvider } from "./AgentConfiguration";
 import { expandPlanGroups, planStepAdapter } from "./AgentPlanGroup";
 import {
   expandPlanLoops,
@@ -463,7 +462,13 @@ function inputIssues(
   return problem ? [{ nodeId: decision.id, port, reason: problem }] : [];
 }
 
-/** What a model decision needs besides its input: a question, an ACP model and, to classify, a valid list. */
+/**
+ * What a model decision needs besides its input: a question, a complete
+ * decision model where it names one and, to classify, a valid list.
+ * @remarks
+ * A decision without a model of its own asks the decision model of the
+ * instance; whether one is set is checked when the run is prepared.
+ */
 function modelIssues(decision: AgentPlanDecision): AgentPlanIssue[] {
   if (planDecisionMode(decision) !== "model") return [];
   const issues: AgentPlanIssue[] = [];
@@ -475,7 +480,7 @@ function modelIssues(decision: AgentPlanDecision): AgentPlanIssue[] {
       reason: "decisionQuestion",
     });
   const model = decision.model;
-  if (!model?.connectionId || !model.model || !isAcpProvider(model.provider))
+  if (model !== undefined && (!model.connectionId || !model.model))
     issues.push({
       nodeId: decision.id,
       port: "model",

@@ -16,13 +16,18 @@ import { activeAccount, findAccount } from "../AdministrationAccess";
 import { AgentAccessLevelChanges } from "./AgentAccessLevelChanges";
 import { AgentEmployeeDirectory } from "./AgentEmployeeDirectory";
 import { employeeChange } from "./AgentEmployeeInput";
+import {
+  requireDepartments,
+  requireIdle,
+  requireRole,
+  sameDepartments,
+} from "./AgentEmployeeRules";
 
 import type { ActorChannel } from "@/backend/auth/McpActorContext";
 import type {
   AuthorizationRepository,
   AuthorizationSnapshot,
 } from "@/backend/database/repositories/AuthorizationRepository";
-import type { EmployeeStore } from "@/backend/database/repositories/employee/EmployeeStore";
 import type { AccountAccess, UserRole } from "@/definition/Authorization";
 import type {
   AgentAccessEnvironment,
@@ -50,48 +55,12 @@ export type {
   AgentEmployeeUpdate,
 };
 
-/** What a host without an access environment offers: no isolation, no server. */
+/** What a host without an access environment offers: no isolation, no confirmed native start, no server. */
 const NO_ACCESS_ENVIRONMENT: AgentAccessEnvironment = {
   isIsolationAvailable: false,
+  isNativeHostAvailable: false,
   mcpServers: [],
 };
-
-function requireRole(
-  snapshot: AuthorizationSnapshot,
-  roleId: string,
-): UserRole {
-  const role = snapshot.roles.find((candidate) => candidate.id === roleId);
-  if (!role) throw new AgentEmployeeError("invalidInput");
-  return role;
-}
-
-function requireDepartments(
-  snapshot: AuthorizationSnapshot,
-  ids: readonly string[],
-): void {
-  if (
-    ids.some(
-      (id) => !snapshot.departments.some((department) => department.id === id),
-    )
-  )
-    throw new AgentEmployeeError("invalidInput");
-}
-
-function sameDepartments(
-  left: readonly string[],
-  right: readonly string[],
-): boolean {
-  return left.length === right.length && left.every((id) => right.includes(id));
-}
-
-/** Refuses a change of an agent that works in a plan or a session right now. */
-async function requireIdle(
-  store: EmployeeStore,
-  agentId: string,
-): Promise<void> {
-  if (await store.removals().isRunning(agentId))
-    throw new AgentEmployeeError("busy");
-}
 
 /**
  * Creates, changes and removes agent employees in the user administration.
@@ -233,6 +202,9 @@ export class AgentEmployeeAdministration {
               isIsolationAvailable:
                 (await this.dependencies.accessEnvironment?.isIsolationAvailable()) ??
                 false,
+              isNativeHostAvailable:
+                (await this.dependencies.accessEnvironment?.isNativeHostAvailable()) ??
+                false,
               mcpServers: [],
             }
           : ((await this.dependencies.accessEnvironment?.environment(
@@ -333,6 +305,10 @@ export class AgentEmployeeAdministration {
    * Saves the panel of an agent when nobody changed it since it was read.
    * @throws {AgentEmployeeError} `conflict` for a stale revision, `busy` for
    * the deactivation of a running agent, or a refused right, role, department or model.
+   * @remarks
+   * A changed access level ends the agent's resting sessions, so no session
+   * keeps the rights of the earlier level, see
+   * `PicaAcpSessionPool.closeForAgent`.
    */
   public async update(
     actorId: string,
@@ -344,9 +320,17 @@ export class AgentEmployeeAdministration {
       actorId,
       change.input.settings,
     );
-    await this.write((repository) =>
-      this.writeAgentUpdate(repository, actorId, agentId, { change, avatar }),
-    );
+    let hasAccessChanged = false;
+    await this.write(async (repository) => {
+      hasAccessChanged = await this.writeAgentUpdate(
+        repository,
+        actorId,
+        agentId,
+        { change, avatar },
+      );
+    });
+    if (hasAccessChanged)
+      await this.dependencies.sessions?.closeForAgent(agentId);
     // A lowered limit applies at once.
     await this.dependencies.memory.fitToLimits(agentId);
   }
@@ -513,6 +497,7 @@ export class AgentEmployeeAdministration {
     readonly target: AccountAccess;
     readonly role: UserRole;
     readonly previousAccess: AgentEmployeeUpdate["input"]["settings"]["access"];
+    readonly previousGroups: AgentEmployeeUpdate["input"]["settings"]["disabledToolGroups"];
   }> {
     const snapshot = await repository.snapshot();
     const actor = accountForChannel(
@@ -547,10 +532,19 @@ export class AgentEmployeeAdministration {
       previous?.disabledToolGroups ?? [],
       input.settings.disabledToolGroups,
     );
-    return { actor, target, role, previousAccess };
+    return {
+      actor,
+      target,
+      role,
+      previousAccess,
+      previousGroups: previous?.disabledToolGroups ?? [],
+    };
   }
 
-  /** Persists the checked agent profile, role, access level, memory and avatar. */
+  /**
+   * Persists the checked agent profile, role, access level, memory and avatar.
+   * @returns Whether the access level or the switched-off tool groups changed.
+   */
   private async writeAgentUpdate(
     repository: AuthorizationRepository,
     actorId: string,
@@ -559,10 +553,10 @@ export class AgentEmployeeAdministration {
       readonly change: AgentEmployeeUpdate;
       readonly avatar: AgentAvatarUpload | null;
     },
-  ): Promise<void> {
+  ): Promise<boolean> {
     const { change, avatar } = payload;
     const { input } = change;
-    const { actor, target, role, previousAccess } =
+    const { actor, target, role, previousAccess, previousGroups } =
       await this.requireAgentUpdateAccess(repository, actorId, agentId, input);
     const store = repository.employees();
     await store.identities().updateAgent(agentId, {
@@ -605,6 +599,11 @@ export class AgentEmployeeAdministration {
     if (avatar) await this.storeAvatar(repository, agentId, avatar);
     if (change.isActive !== undefined && change.isActive !== target.isActive)
       await this.applyActive(repository, agentId, change.isActive);
+    return (
+      previousAccess !== input.settings.access ||
+      JSON.stringify(previousGroups) !==
+        JSON.stringify(input.settings.disabledToolGroups)
+    );
   }
 
   /** Runs an aggregate write and translates the shared refusals. */

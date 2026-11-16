@@ -100,7 +100,7 @@ function DeliveryBadge({
   return (
     <p
       className={cn(
-        "inline-flex items-center gap-1 text-xs",
+        "inline-flex items-center gap-1 text-[11px]",
         isInjected ? "text-primary" : "text-muted-foreground",
       )}
       role="status"
@@ -129,7 +129,10 @@ export function PreviewSentBadge(): React.ReactElement {
   );
 }
 
-/** The frame of an own message sent during an answer: orange when it went in, dashed while it waits. */
+/**
+ * The frame of an own message sent during an answer, around its bubble
+ * only: orange when it went in, dashed while it waits.
+ */
 const DELIVERY_FRAMES: Readonly<Record<MessageDelivery["kind"], string>> = {
   injected:
     "rounded-[16px] ring-2 ring-primary ring-offset-2 ring-offset-background",
@@ -141,6 +144,35 @@ const DELIVERY_FRAMES: Readonly<Record<MessageDelivery["kind"], string>> = {
 const OWN_BUBBLE =
   "max-w-[62%] min-w-0 rounded-[14px] rounded-br-[4px] bg-primary px-4 py-2.5 text-primary-foreground";
 
+/**
+ * Puts the frame of a delivery around one bubble: the frame takes the
+ * width of the bubble and stands at the right, the bubble fills it.
+ */
+function FramedBubble({
+  frame,
+  isWide = false,
+  children,
+}: {
+  readonly frame: string;
+  /** A voice message, which may take the whole width of the history. */
+  readonly isWide?: boolean;
+  readonly children: React.ReactNode;
+}): React.ReactElement {
+  if (frame === "") return <>{children}</>;
+  return (
+    <div
+      className={cn(
+        "w-fit min-w-0 self-end",
+        isWide ? "max-w-full" : "max-w-[62%]",
+        frame,
+      )}
+      data-delivery-frame=""
+    >
+      {children}
+    </div>
+  );
+}
+
 /** One own message: its text in primary bubbles, its cards between and below. */
 function OwnMessage({
   message,
@@ -151,6 +183,7 @@ function OwnMessage({
 }): React.ReactElement {
   const { t } = useTranslation();
   const delivery = deliveryOf(message, live);
+  const frame = delivery ? DELIVERY_FRAMES[delivery.kind] : "";
   return (
     <article
       aria-label={t("chatPage.you")}
@@ -160,18 +193,15 @@ function OwnMessage({
       data-delivery={delivery?.kind}
       tabIndex={-1}
     >
-      <div
-        className={cn(
-          "flex w-full min-w-0 flex-col items-end gap-2",
-          delivery ? DELIVERY_FRAMES[delivery.kind] : undefined,
-        )}
-      >
+      <div className="flex w-full min-w-0 flex-col items-end gap-2">
         {message.voice ? (
-          <ChatPageVoice
-            senderName={t("chatPage.cards.you")}
-            text={message.content}
-            voice={message.voice}
-          />
+          <FramedBubble frame={frame} isWide>
+            <ChatPageVoice
+              senderName={t("chatPage.cards.you")}
+              text={message.content}
+              voice={message.voice}
+            />
+          </FramedBubble>
         ) : (
           <MessageContentView
             message={message}
@@ -180,11 +210,17 @@ function OwnMessage({
               createdAt: message.createdAt,
             }}
             renderText={(text) => (
-              <MentionMarkdown
-                className={cn(OWN_BUBBLE, "text-[15px]")}
-                isDisplayableImage={hideImages}
-                source={text}
-              />
+              <FramedBubble frame={frame}>
+                <MentionMarkdown
+                  className={cn(
+                    OWN_BUBBLE,
+                    frame !== "" && "max-w-full",
+                    "text-[15px]",
+                  )}
+                  isDisplayableImage={hideImages}
+                  source={text}
+                />
+              </FramedBubble>
             )}
           />
         )}

@@ -292,6 +292,7 @@ function assembleEmployeeServices(
       memory: parts.memory,
       activity: parts.activity,
       accessEnvironment: parts.accessEnvironment,
+      ...(input.pool ? { sessions: input.pool } : {}),
     }),
     agentDeletionService: createDeletionService(input, authorization),
     agentTemplateService: new AgentTemplateService({

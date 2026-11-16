@@ -202,3 +202,30 @@ export function isAgentToolAction(input: unknown): input is AgentToolAction {
     "rebind",
   ].some((action) => action === input);
 }
+
+/** Diagnostics a repeated check cannot change: the tool is missing or disabled, needs a sign-in or a permission, or its version is not supported. */
+const LASTING_AGENT_TOOL_DIAGNOSTICS: ReadonlySet<string> =
+  new Set<AgentToolDiagnostic>([
+    "not_installed",
+    "version_unsupported",
+    "authentication_required",
+    "permission_denied",
+    "removed",
+    "disabled",
+    "settings_unavailable",
+    "root_not_allowed",
+    "browser_permission_required",
+    "browser_sandbox_unavailable",
+    "workspace_unavailable",
+  ]);
+
+/**
+ * Whether a failed tool check may succeed when it is repeated shortly after,
+ * such as a probe that could not start under load or did not answer in time.
+ * @param diagnostic - The diagnostic of the failed check; an unknown one counts as transient.
+ */
+export function isTransientAgentToolFailure(diagnostic: string): boolean {
+  return (
+    diagnostic !== "ready" && !LASTING_AGENT_TOOL_DIAGNOSTICS.has(diagnostic)
+  );
+}

@@ -102,6 +102,36 @@ function readCondition(input: unknown): AgentPlanDecisionInput {
   };
 }
 
+/** A number of a verdict that holds: a probability or confidence 0 to 1, or a cost of at least 0. */
+function readVerdictNumber(
+  input: unknown,
+  maximum: number,
+): number | undefined {
+  if (input === undefined) return undefined;
+  if (
+    typeof input !== "number" ||
+    !Number.isFinite(input) ||
+    input < 0 ||
+    input > maximum
+  )
+    throw invalid();
+  return input;
+}
+
+/** The probability, confidence and cost a decision model gave, each only where it gave one. */
+function readVerdictMeasures(
+  verdict: Record<string, unknown>,
+): Pick<AgentPlanDecisionVerdict, "probability" | "confidence" | "costUsd"> {
+  const probability = readVerdictNumber(verdict.probability, 1);
+  const confidence = readVerdictNumber(verdict.confidence, 1);
+  const costUsd = readVerdictNumber(verdict.costUsd, Number.MAX_VALUE);
+  return {
+    ...(probability === undefined ? {} : { probability }),
+    ...(confidence === undefined ? {} : { confidence }),
+    ...(costUsd === undefined ? {} : { costUsd }),
+  };
+}
+
 /** Reads what the model of a decision answered. */
 function readVerdict(input: unknown): AgentPlanDecisionVerdict {
   const verdict = readAgentObject(input);
@@ -120,6 +150,7 @@ function readVerdict(input: unknown): AgentPlanDecisionVerdict {
       ? {}
       : { caseId: readPlanText(verdict.caseId) }),
     reason,
+    ...readVerdictMeasures(verdict),
     model: readPlanText(verdict.model, 300),
     sourceStepId: readPlanText(verdict.sourceStepId),
     ...(verdict.sourceActivation === undefined

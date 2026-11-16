@@ -504,6 +504,33 @@ export class ConversationMessageRepository {
     });
   }
 
+  /**
+   * Deletes the hint of a failed answer of an agent when the answer starts again.
+   * @param message - The hint and the agent it speaks for.
+   * @param event - The live event that commits with the deletion.
+   * @returns Whether the hint was deleted.
+   */
+  public async removeFailureNotice(
+    message: { readonly id: string; readonly senderId: string },
+    event: PagesEventRecord,
+  ): Promise<boolean> {
+    return this.database.transaction(async (transaction) => {
+      const rows = await transaction.query(
+        `
+          DELETE FROM conversation_messages
+          WHERE id = $id
+              AND sender_id = $sender_id
+              AND notice = 'agent_failed'
+          RETURNING id;
+        `,
+        { id: message.id, sender_id: message.senderId },
+      );
+      if (rows.length === 0) return false;
+      await new PagesEventOutboxRepository(transaction).append(event);
+      return true;
+    });
+  }
+
   /** Returns the audio names the database still lists, for the sweep of the file store. */
   public async voiceStorageNames(): Promise<Set<string>> {
     const rows = await this.database.query(

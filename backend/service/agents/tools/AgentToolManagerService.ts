@@ -167,6 +167,7 @@ export class AgentToolManagerService {
   ): Promise<void> {
     requireAgentAdministrator(actor);
     await this.start();
+    this.dependencies.health.forget?.(id);
     if (action === "rebind") throw new AgentError("configuration_invalid");
     const tool = agentToolDefinition(id);
     if (tool.release && ["update", "rollback", "install"].includes(action)) {
@@ -289,11 +290,18 @@ export class AgentToolManagerService {
     );
   }
 
-  /** Used by the shared execution path before a native node can start. */
+  /**
+   * Used by the shared execution path before a native node can start.
+   * @remarks
+   * A native YOLO session needs no bubblewrap, so a host without it still
+   * starts YOLO; the browser keeps it as its own dependency.
+   */
   public async ensureReady(input: {
     readonly provider: CliProviderId;
     readonly browser: boolean;
     readonly instanceId: string;
+    /** Whether the session runs natively on the host, as YOLO does. */
+    readonly isNative?: boolean;
   }): Promise<ReadonlyMap<AgentToolId, AgentToolLocation>> {
     await this.start();
     if (input.browser && !this.enabled().has("playwright_mcp"))
@@ -304,7 +312,7 @@ export class AgentToolManagerService {
       );
     const ids: AgentToolId[] = [
       "node",
-      "bubblewrap",
+      ...(input.isNative === true ? [] : ["bubblewrap" as const]),
       ...providerToolIds(input.provider),
       ...(input.browser ? ["chromium" as const] : []),
     ];
@@ -375,7 +383,8 @@ export class AgentToolManagerService {
   ): Promise<void> {
     const previous = this.pending.get(id);
     if (previous) {
-      await previous;
+      // A waiter reads the shared outcome from the state, as a refusal when it failed.
+      await previous.catch(() => undefined);
       if (!mustRun) return;
       return this.exclusive(id, operation, true);
     }

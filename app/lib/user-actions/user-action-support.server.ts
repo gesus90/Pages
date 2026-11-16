@@ -46,7 +46,7 @@ export type UsersErrorCode =
   | "modelNotAllowed"
   | "accessUnsupported"
   | "accessAdminRequired"
-  | "isolationUnavailable"
+  | "accessModeRequired"
   | "templateNameTaken";
 
 /** The directory actions a form can ask for. */

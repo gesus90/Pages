@@ -106,6 +106,25 @@ bubblewrap checks actually create a namespace. Installed, ready and running are
 separate inventory facts. Checks have bounded deadlines; they expose safe
 structured diagnoses, never raw npm output, prompts or secrets.
 
+Starts that need the same tool generation at the same time share one running
+check, and a successful check answers every further start for 60 seconds; a
+failure is never kept. At most four checks run at once and further checks
+wait, because the process runner refuses a fifth child instead of queueing it.
+A failure that may pass, such as a probe that could not start or did not
+answer, is checked once more after 500 ms; a missing tool, a needed sign-in or
+an unsupported version is not repeated. An explicit check, test or change in
+the Tools inventory always runs a new probe. Every failed check is logged as
+`agent.tool.check_failed`, and a refused start as `agent.tool.readiness_failed`
+with tool, status, diagnostic and duration. `pica.job.completed` names the
+stage of a failed chat job and, for `agent_tool_not_ready` or
+`plan_step_failed`, the tool or step with its safe code.
+
+A chat answer that fails with such a passing start failure starts once more on
+its own after a second, unseen by the members. Only when that fails too does
+the chat show the hint, with the tool and diagnostic or the failed step under
+**Warum?** and an **Erneut versuchen** button that removes the hint and starts
+the answer for the same message again.
+
 ### Linux provisioning and container deployment
 
 Node **>=22.22.0** is a prerequisite for Pages itself. Node must be supplied by the
@@ -507,14 +526,16 @@ instance is `running`, the grant has not expired and the step credential is
 neither revoked nor expired. The row ends with the step and goes with its
 credential.
 
-YOLO needs [bubblewrap](https://github.com/containers/bubblewrap)
-with working unprivileged user namespaces for the server
-account. The managed production path now requires it for every native ACP
-session; a failed readiness check reports the tool and cause through
-`agent_tool_not_ready`. Low-level standalone smoke runs still report
-`plan_yolo_isolation_unavailable` for YOLO
-before any process starts. Pages probes the isolation again a minute after a
-failed probe, so installing bubblewrap needs no restart either.
+YOLO runs natively on the host and needs no
+[bubblewrap](https://github.com/containers/bubblewrap): the readiness check
+asks for it only for "Lesend" sessions and for the browser. YOLO needs a
+working user service manager instead, because only its transient unit owns
+the processes of a native session; without it the start is refused with
+`acp_worker_unit_unavailable`. "Lesend" uses the read-only namespace where
+bubblewrap works; OpenCode, Antigravity and Pica conversations refuse
+"Lesend" without it (`cli_isolation_unavailable`). Pages probes again a
+minute after a failed probe, so installing either needs no restart. See
+[Access modes](AgentPlanRunner.md#access-modes-lesend-and-yolo).
 
 Shared run notes have been removed. Plan runs do not create notes
 directories, step files or pause markers and do not add notes instructions or
@@ -532,7 +553,9 @@ Prompt and final-answer archiving keeps its existing behavior.
 | `agent_tool_not_ready`                                                | The run events name a tool and concrete readiness cause; inspect Settings → Agents → Tools.                                                                  |
 | `plan_acp_adapter_missing`, `plan_claude_acp_adapter_missing`         | Check the managed Codex installation, or the externally provisioned Claude ACP adapter.                                                                      |
 | `plan_acp_adapter_unsupported`, `plan_claude_acp_adapter_unsupported` | The run record names the installed adapter and the verified range.                                                                                           |
-| `plan_yolo_isolation_unavailable`                                     | bubblewrap is missing or user namespaces are off. Install or allow it.                                                                                       |
+| `acp_worker_unit_unavailable`                                         | The user service manager of the server account starts no transient unit; YOLO cannot own its processes. Enable lingering or the user manager.                |
+| `agent_native_host_unavailable`                                       | The login shell of the account did not answer with a PATH, or the account is root. Check the login shell.                                                    |
+| `agent_access_mode_required`                                          | An earlier access value (`workspace`, `workspace_write`) is stored. Choose Lesend or YOLO.                                                                   |
 | `plan_permission_mode_unenforceable`                                  | The adapter did not offer or confirm the mode, for Claude Code for example a managed setting that disables `bypassPermissions`, or a server running as root. |
 | `plan_model_unavailable`, `plan_reasoning_unsupported`                | The runner does not offer the stored model or effort. Choose another in the agent.                                                                           |
 | `codex_permission_mode_required`, `claude_permission_mode_required`   | An agent saved with the earlier write mode needs a chosen mode.                                                                                              |

@@ -53,19 +53,22 @@ function ActivityText({
  * The agents at work in the opened chat above the input, each
  * with a small avatar and what it does now; an entry goes once its agent is
  * done. In a group several stand side by side.
+ * @remarks
+ * The line is always 20 px high and stays empty while no agent works, so
+ * the field below it never moves.
  */
 export function ChatPageActivityRow({
   entries,
 }: {
   readonly entries: readonly AgentActivity[];
-}): React.ReactElement | null {
+}): React.ReactElement {
   const { t } = useTranslation();
-  if (entries.length === 0) return null;
   return (
     <ul
       aria-label={t("chatPage.liveAnswer.activityLabel")}
       aria-live="polite"
-      className="mb-2 flex flex-wrap items-center gap-x-4 gap-y-1.5"
+      className="mb-2 flex h-5 min-w-0 items-center gap-x-4 overflow-hidden whitespace-nowrap"
+      data-activity-row=""
     >
       {entries.map(({ agent, activity }) => (
         <li
@@ -74,8 +77,8 @@ export function ChatPageActivityRow({
         >
           <ParticipantAvatar
             participant={agent}
-            size={22}
-            className="shrink-0 rounded-full ring-2 ring-primary"
+            size={18}
+            className="shrink-0 rounded-full ring-1 ring-primary"
           />
           <span className="min-w-0 truncate">
             <ActivityText name={agent.name} activity={activity} />

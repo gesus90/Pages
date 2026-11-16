@@ -1,3 +1,6 @@
+import { AGENT_ACCESS_MODES, storedAgentAccessMode } from "./AgentAccessMode";
+
+import type { AgentAccessMode } from "./AgentAccessMode";
 import type { AgentProviderId } from "./AgentConnection";
 import type {
   AgentProfileTarget,
@@ -6,13 +9,14 @@ import type {
 import type { AgentParameter } from "./AgentParameters";
 
 /**
- * How a session may reach its workspace.
+ * How a session may work, as it is stored.
  * @remarks
- * `yolo` is the full access of an agent that runs over ACP: Codex CLI,
- * Claude Code or OpenCode. It exists for no other runner. `workspace_write` is the
- * earlier write mode; an ACP agent no longer runs with it until a supported
- * mode is chosen. `full_environment` is an explicit administrator-only plan
- * node choice: native YOLO without host isolation, with the owner’s environment.
+ * `read_only` ("Lesend") and `yolo` ("YOLO") are the two modes of
+ * {@link AGENT_ACCESS_MODES}, with the same meaning for plan nodes, swarms
+ * and agent employees. `workspace_write` is an earlier write mode: it stays
+ * readable, never runs and never becomes YOLO on its own. An explicitly
+ * stored `full_environment` is read as `yolo`, see {@link agentRunOptionsFor};
+ * it is no mode of its own any more.
  */
 export type AgentRunAccess =
   "workspace_write" | "read_only" | "yolo" | "full_environment";
@@ -23,18 +27,22 @@ export type AgentRunAccess =
  * Every runner works without asking anyone. Each runner maps these options to
  * its own verified switches; a combination a runner cannot enforce blocks the
  * node before its process starts. For an ACP agent the mode alone decides
- * shell and web, see {@link agentRunOptionsFor}.
+ * shell, web and browser, see {@link agentRunOptionsFor}.
  */
 export interface AgentRunOptions {
-  /** Whether the session may change files in its workspace. */
+  /** The mode of the session. */
   readonly access: AgentRunAccess;
-  /** Whether the session may run commands in its workspace. */
+  /** Whether the session may run commands; follows from the mode. */
   readonly shell: boolean;
   /** Whether the session may search or fetch from the web. */
   readonly web: boolean;
   /** Hard duration limit in minutes; zero allows the session to finish without a deadline. */
   readonly timeoutMinutes: number;
-  /** Explicit opt-in to the administrator-enabled Playwright MCP; absent denies access. */
+  /**
+   * Whether Pages provides its administrator-enabled Playwright MCP to a YOLO
+   * session; it adds a server and never narrows the native tools. "Lesend"
+   * never gets it, because its actions cannot be proven to only read.
+   */
   readonly browser?: boolean;
   /** Codex-only calendar-month equivalent USD budget; absent is unlimited. */
   readonly monthlyCostLimitUsd?: number;
@@ -43,9 +51,9 @@ export interface AgentRunOptions {
 /** Limits of {@link AgentRunOptions.timeoutMinutes}. */
 export const AGENT_RUN_TIMEOUT_MINUTES = { minimum: 0, maximum: 120 } as const;
 
-/** Options of an agent that names none: write in the workspace, no commands, no web, no deadline. */
+/** Options of an agent that names none: "Lesend", no commands, no web, no deadline. */
 export const DEFAULT_AGENT_RUN_OPTIONS: AgentRunOptions = {
-  access: "workspace_write",
+  access: "read_only",
   shell: false,
   web: false,
   timeoutMinutes: 0,
@@ -79,9 +87,9 @@ export function isAcpProvider(
   );
 }
 
-/** The only two modes an ACP agent runs in: "Nur Lesen" and "YOLO". */
-export const ACP_PERMISSION_MODES = ["read_only", "yolo"] as const;
-export type AcpPermissionMode = (typeof ACP_PERMISSION_MODES)[number];
+/** The only two modes an ACP agent runs in: "Lesend" and "YOLO". */
+export const ACP_PERMISSION_MODES = AGENT_ACCESS_MODES;
+export type AcpPermissionMode = AgentAccessMode;
 
 /** Narrows a stored access to one of the two ACP modes. */
 export function isAcpPermissionMode(
@@ -92,21 +100,21 @@ export function isAcpPermissionMode(
 
 /**
  * The run options of an ACP agent in one mode.
- * @param mode - "Nur Lesen" or "YOLO".
+ * @param mode - "Lesend" or "YOLO".
  * @param timeoutMinutes - The duration limit, which stays separate from the mode.
  * @returns Options whose shell and web follow from the mode alone.
  * @remarks
- * "Nur Lesen" never runs commands, so a command cannot bypass the missing
+ * "Lesend" never runs commands, so a command cannot bypass the missing
  * write access; reading web search stays available. YOLO allows everything the
- * runner supports.
+ * runner supports; no further switch narrows it.
  */
 export function acpRunOptions(
-  mode: AcpPermissionMode | "full_environment",
+  mode: AcpPermissionMode,
   timeoutMinutes: number,
 ): AgentRunOptions {
   return {
     access: mode,
-    shell: mode !== "read_only",
+    shell: mode === "yolo",
     web: true,
     timeoutMinutes,
   };
@@ -132,23 +140,38 @@ export function defaultAgentRunOptions(
  * @param provider - The provider of the agent's model connection.
  * @param run - The stored run options, absent when the agent names none.
  * @returns The stored options for every runner but the ACP ones. An ACP agent
- * without options reads only, and its two modes are reduced to what they
- * allow; an earlier `workspace_write` stays as it is and blocks the start
- * until a mode is chosen.
+ * without options reads only, an explicitly stored `full_environment` runs as
+ * YOLO, and both modes are reduced to what they allow; an earlier
+ * `workspace_write` stays as it is and blocks the start until a mode is
+ * chosen.
  */
 export function agentRunOptionsFor(
   provider: AgentProviderId,
   run: AgentRunOptions | undefined,
 ): AgentRunOptions {
   if (run === undefined) return defaultAgentRunOptions(provider);
-  if (!isAcpProvider(provider) || !isPlanPermissionMode(run.access)) return run;
+  const mode = storedAgentAccessMode(run.access);
+  if (!isAcpProvider(provider) || mode === null) return run;
   return {
-    ...acpRunOptions(run.access, run.timeoutMinutes),
-    ...(run.browser === undefined ? {} : { browser: run.browser }),
+    ...acpRunOptions(mode, run.timeoutMinutes),
+    ...(mode === "yolo" && run.browser !== undefined
+      ? { browser: run.browser }
+      : {}),
     ...(provider === "codex_cli" && run.monthlyCostLimitUsd !== undefined
       ? { monthlyCostLimitUsd: run.monthlyCostLimitUsd }
       : {}),
   };
+}
+
+/**
+ * The stored form of run options: an explicitly given `full_environment`
+ * becomes `yolo`, every other value stays as it is.
+ * @param run - Run options as they were sent, imported or copied.
+ */
+export function normalizedAgentRunOptions(
+  run: AgentRunOptions,
+): AgentRunOptions {
+  return run.access === "full_environment" ? { ...run, access: "yolo" } : run;
 }
 
 /**
@@ -169,18 +192,14 @@ export function isAgentRunOptionsAllowed(
   previous: AgentRunOptions | undefined,
 ): boolean {
   if (
-    (provider === "openrouter" || provider === "zai") &&
-    run?.access === "full_environment"
-  )
-    return false;
-  if (
     run?.browser === true &&
     (!isAcpProvider(provider) || !isAgentWriteAccess(run.access))
   )
     return false;
   if (!isAcpProvider(provider))
     return run === undefined || !isAgentWriteAccess(run.access);
-  if (run === undefined || isPlanPermissionMode(run.access)) return true;
+  if (run === undefined || storedAgentAccessMode(run.access) !== null)
+    return true;
   return JSON.stringify(run) === JSON.stringify(previous);
 }
 
@@ -221,16 +240,16 @@ export function emptyAgentConfiguration(
   };
 }
 
-/** Whether a plan explicitly selects a supported native mode or the full host environment. */
+/** Whether a stored access runs in one of the two modes; `full_environment` counts as YOLO. */
 export function isPlanPermissionMode(
   access: unknown,
 ): access is AcpPermissionMode | "full_environment" {
-  return isAcpPermissionMode(access) || access === "full_environment";
+  return storedAgentAccessMode(access) !== null;
 }
 
-/** Whether a node explicitly grants all native tools, with or without host isolation. */
+/** Whether a stored access grants every native tool on the host: YOLO, or an explicitly stored `full_environment`. */
 export function isAgentWriteAccess(access: AgentRunAccess): boolean {
-  return access === "yolo" || access === "full_environment";
+  return storedAgentAccessMode(access) === "yolo";
 }
 
 /** The installed runtime of a plan provider, without changing its public identity. */

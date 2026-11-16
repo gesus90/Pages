@@ -7,7 +7,7 @@ import { cn } from "@/app/lib/cn";
 import { MentionMarkdown } from "../mentions/mention-markdown";
 import { ParticipantAvatar } from "../chat-page-avatar";
 import { participantColors } from "../chat-page-colors";
-import { ChatPageToolUse } from "../chat-page-tool-uses";
+import { ChatPageToolStrip } from "../chat-page-tool-strip";
 import { GALLERY_TILES, GalleryPlaceholder } from "../content/image-gallery";
 import {
   elapsedMilliseconds,
@@ -156,7 +156,23 @@ export function ChatPageThoughts({
   );
 }
 
-/** The calls of a live answer, each with its state, time and "Abbrechen" while it runs. */
+/** The time from the first start of a call to its last end, or to now while one runs. */
+function runningToolsDuration(
+  tools: readonly LiveAnswerTool[],
+  now: number,
+): number {
+  const starts = tools.map((tool) => Date.parse(tool.startedAt));
+  const ends = tools.map((tool) =>
+    tool.endedAt === undefined ? now : Date.parse(tool.endedAt),
+  );
+  return Math.max(0, Math.max(...ends) - Math.min(...starts));
+}
+
+/**
+ * The calls of a live answer folded into one line with the
+ * running time; opened, each with its state, time and "Abbrechen" while it
+ * runs.
+ */
 function LiveTools({
   tools,
   now,
@@ -166,25 +182,25 @@ function LiveTools({
   readonly now: number;
   readonly onCancel?: () => void;
 }): React.ReactElement | null {
-  const { t, i18n } = useTranslation();
+  const { i18n } = useTranslation();
   if (tools.length === 0) return null;
+  const uses = tools.map((tool) => liveToolUse(tool, now));
   return (
-    <ul
-      aria-label={t("chatPage.liveTools")}
-      className="flex w-full max-w-[62%] min-w-0 flex-col gap-1.5"
-    >
-      {tools.map((tool) => {
-        const use = liveToolUse(tool, now);
-        return (
-          <ChatPageToolUse
-            key={tool.callId}
-            use={use}
-            durationLabel={formatSeconds(use.durationMs, i18n.language)}
-            onCancel={onCancel}
-          />
-        );
-      })}
-    </ul>
+    <div className="flex w-full max-w-[62%] min-w-0">
+      <ChatPageToolStrip
+        uses={uses}
+        durationLabel={formatSeconds(
+          runningToolsDuration(tools, now),
+          i18n.language,
+        )}
+        durationOf={(use) =>
+          use.durationMs === undefined
+            ? undefined
+            : formatSeconds(use.durationMs, i18n.language)
+        }
+        onCancel={onCancel}
+      />
+    </div>
   );
 }
 

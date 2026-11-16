@@ -281,7 +281,7 @@ export class ChatService {
    * @throws {ChatError} `acpProviderUnsupported` for an agent that is neither an
    * supported ACP chat runner; there is no fallback to another path.
    * @throws {ChatError} `acpPermissionModeUnsupported` for a Claude Code or OpenCode agent
-   * whose stored mode is not "Nur Lesen".
+   * whose stored mode is not "Lesend".
    * @throws {ChatError} `messageAlreadySent` for a message sent again whose
    * first sending took neither a job nor a steer.
    *

@@ -86,7 +86,7 @@ function workerEnvironment(
 /**
  * Builds the request of an ACP worker before isolation and limits wrap it.
  * @param parts - The verified pieces of the session start.
- * @returns The request; a Pica bundle and a read-only mode keep the workspace read-only.
+ * @returns The request; a Pica bundle and "Lesend" keep the workspace read-only.
  */
 export function acpWorkerRequest(parts: AcpWorkerParts): CliSessionRequest {
   const { input, mode, picaBundle } = parts;
@@ -149,7 +149,6 @@ export function planAcpLaunch(
     input,
     driver.plan({
       instanceId: input.instanceId,
-      isFullEnvironment: input.options.access === "full_environment",
       runnerFile: file,
       profile,
       mcp: input.mcp ?? null,
@@ -184,17 +183,22 @@ export function acpSessionRequest(
   };
 }
 
-/** How the run record describes the isolation of a session. */
+/**
+ * How the run record describes the isolation of a session, as it really is.
+ * @remarks
+ * YOLO is always a native host process. "Lesend" runs inside the read-only
+ * namespace where it works, otherwise only the read-only profile of the
+ * runner holds it to reading.
+ */
 export function isolationLabel(
   isIsolated: boolean,
   mode: AcpPermissionMode,
   driver: AcpDriver,
 ): string {
-  if (!isIsolated)
-    return driver.provider === "codex_cli"
-      ? "none, the Codex sandbox only"
-      : "none, the permission handling of Pages only";
-  return mode === "read_only"
-    ? "bubblewrap, workspace read-only"
-    : "bubblewrap";
+  if (mode === "yolo")
+    return "none: native host process with the rights of the account";
+  if (isIsolated) return "bubblewrap, host read-only";
+  return driver.provider === "codex_cli"
+    ? "none, the read-only Codex sandbox only"
+    : "none, the read-only permission handling of Pages only";
 }

@@ -2,6 +2,7 @@ import path from "node:path";
 
 import { CliHostMcpServers } from "@/backend/agents/cli/CliHostMcpServers";
 import { probeBubblewrap } from "@/backend/agents/cli/CliPlanIsolation";
+import { probeWorkerUnits } from "@/backend/agents/cli/CliWorkerUnit";
 import type { currentAgentSimulationMode } from "@/backend/agents/simulation/AgentSimulationMode";
 import { SimulatedAgentMemoryModel } from "@/backend/agents/simulation/SimulatedAgentMemoryModel";
 import { SimulatedConversationAgent } from "@/backend/agents/simulation/SimulatedConversationAgent";
@@ -328,7 +329,8 @@ export function createDeletionService(
 
 /**
  * The gates of the sessions of agents: the host access, read anew so that
- * bubblewrap and the MCP configuration of the CLIs change without a restart,
+ * bubblewrap, the worker units of YOLO and the MCP configuration of the
+ * CLIs change without a restart,
  * and one place per running chat session of an agent within the
  * stored limits.
  */
@@ -341,6 +343,7 @@ export function createSessionGates(database: Database): {
   return {
     accessEnvironment: new AgentAccessEnvironmentService({
       isIsolationAvailable: () => probeBubblewrap(),
+      isNativeHostAvailable: () => probeWorkerUnits(),
       mcp: new CliHostMcpServers(),
     }),
     sessionSettings,

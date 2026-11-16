@@ -207,7 +207,7 @@ export function ChatPageContextRings({
   return (
     <span
       aria-label={t("chatPage.contextRing.group")}
-      className="ml-auto flex flex-wrap items-center gap-0.5"
+      className="flex flex-wrap items-center justify-end gap-1.5"
       role="group"
     >
       {entries.map((entry) => (

@@ -9,6 +9,7 @@ import type { AgentProfileService } from "./AgentProfileService";
 import type { AgentPlanTasks } from "./AgentPlanTasks";
 import type { AgentPlanPhases } from "./AgentPlanPhases";
 import type { AgentPlanScripts } from "./AgentPlanScripts";
+import type { PlanDecisionModels } from "./branching/PlanDecisionModels";
 
 interface SourceDependencies {
   readonly remoteExecution?: AgentPlanRemoteExecution;
@@ -17,6 +18,7 @@ interface SourceDependencies {
   readonly phases: AgentPlanPhases;
   readonly scripts: AgentPlanScripts;
   readonly remoteTargets?: AgentPlanRemoteTargets;
+  readonly decisionModels?: Pick<PlanDecisionModels, "list" | "defaultName">;
 }
 
 /** Reads authorized editor and tool choices without executing agents or connecting to remote hosts. */
@@ -47,6 +49,9 @@ export async function readPlanSources(
   const remote = await withPlanReadOrigin("source_remote_execution", async () =>
     dependencies.remoteExecution?.sources(userId, workspace.projectId),
   );
+  const decisions = await withPlanReadOrigin("source_models", async () =>
+    readDecisionModels(dependencies, userId),
+  );
   return {
     agents,
     tasks,
@@ -57,5 +62,20 @@ export async function readPlanSources(
       (target) => target.connectionId !== LOCAL_RUNNER_CONNECTION_ID,
     ),
     remoteStatus: remote?.statuses,
+    ...decisions,
   };
+}
+
+/** The decision models a model decision may choose and the name of the default of the instance. */
+async function readDecisionModels(
+  dependencies: SourceDependencies,
+  userId: string,
+): Promise<Pick<AgentPlanSources, "decisionModels" | "defaultDecisionModel">> {
+  const models = dependencies.decisionModels;
+  if (!models) return {};
+  const [decisionModels, defaultDecisionModel] = await Promise.all([
+    models.list(userId),
+    models.defaultName(),
+  ]);
+  return { decisionModels, defaultDecisionModel };
 }

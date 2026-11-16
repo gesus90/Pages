@@ -18,19 +18,20 @@ export type ClaudeAcpSessionMode = "default" | "bypassPermissions";
  * How one Pages mode runs in the Claude ACP adapter.
  * @remarks
  * `options` are the Claude options of the session, passed with `session/new`.
- * In every profile no settings file of the user or the workspace applies and
- * only the MCP server Pages names is reachable, the Pages MCP server of a node
- * or Pica's bridge: the account's own connectors and user MCP servers stay
- * out. "Nur Lesen" gives the model nothing but the reading tools, so no file
- * change and no command exists for it; the adapter's session mode only decides
- * what happens to the rest.
+ * In "Lesend" and Pica's profiles no settings file of the user or the
+ * workspace applies and only the MCP server Pages names is reachable, the
+ * Pages MCP server of a node or Pica's bridge. "Lesend" gives the model
+ * nothing but the reading tools, so no file change and no command exists for
+ * it; the adapter's session mode only decides what happens to the rest. YOLO
+ * reads the settings of the user, the project and the workspace, and gets the
+ * MCP servers of the host beside the Pages tools.
  */
 export interface ClaudeAcpProfile extends AcpSessionProfile {
   readonly sessionMode: ClaudeAcpSessionMode;
   readonly options: Readonly<Record<string, unknown>>;
 }
 
-/** The only built-in tools of a "Nur Lesen" session. */
+/** The only built-in tools of a "Lesend" session. */
 const READ_ONLY_TOOLS = ["Read", "Glob", "Grep", "WebSearch", "WebFetch"];
 
 // Removed as well, so a runner that ignores the allowlist still has no way to change anything.
@@ -71,8 +72,15 @@ const CHAT_DISALLOWED_TOOLS = [
   "ReadMcpResourceTool",
 ];
 
-/** The built-in tools Pages approves in "Nur Lesen"; reading files needs no approval inside the workspace. */
+/**
+ * The built-in tools Pages approves in "Lesend": reading needs no approval
+ * inside the workspace, and outside it Pages approves the same reading tools,
+ * because "Lesend" reads the whole host.
+ */
 const READ_ONLY_APPROVED_TOOLS: ReadonlySet<string> = new Set([
+  "Read",
+  "Glob",
+  "Grep",
   "WebSearch",
   "WebFetch",
 ]);
@@ -94,6 +102,15 @@ const MANAGED_OPTIONS = {
   persistSession: true,
   maxTurns: MAXIMUM_TURNS,
   extraArgs: { "disable-slash-commands": null },
+} as const;
+
+// YOLO: the settings, skills and slash commands of the user, the project and the workspace apply as they are.
+const HOST_OPTIONS = {
+  settingSources: ["user", "project", "local"],
+  strictMcpConfig: false,
+  persistSession: true,
+  maxTurns: MAXIMUM_TURNS,
+  extraArgs: {},
 } as const;
 
 function readRecord(input: unknown): Record<string, unknown> | null {
@@ -143,11 +160,11 @@ function isPagesMcpCall(tool: RequestedTool): boolean {
  *
  * @remarks
  * YOLO approves every request once, so nothing waits for a person and no
- * approval is stored for later runs. "Nur Lesen" approves only calls of the
- * Pages MCP tools, whose credential allows nothing but reading, and web
- * search and fetch. Everything else is refused: reads outside the workspace,
- * and every tool that could change a file or run a command, although no such
- * tool is offered in the first place.
+ * approval is stored for later runs. "Lesend" approves only calls of the
+ * Pages MCP tools, whose credential allows nothing but reading, the reading
+ * file tools on any path and web search and fetch. Everything else is
+ * refused: every tool that could change a file or run a command, although no
+ * such tool is offered in the first place, and every unknown tool.
  */
 export function decideClaudePermission(
   mode: AcpPermissionMode,
@@ -223,7 +240,7 @@ const READ_ONLY_PROFILE: ClaudeAcpProfile = {
     permissionMode: "read_only",
     sessionMode: "default, every request answered by Pages",
     tools: READ_ONLY_TOOLS.join(", "),
-    files: "read",
+    files: "read, host-wide",
     shell: "off",
     web: "search, fetch",
     pagesMcp: "read",
@@ -242,19 +259,19 @@ const READ_ONLY_PROFILE: ClaudeAcpProfile = {
 const YOLO_PROFILE: ClaudeAcpProfile = {
   mode: "yolo",
   sessionMode: "bypassPermissions",
-  options: { ...MANAGED_OPTIONS },
+  options: { ...HOST_OPTIONS },
   unattended:
-    "ACP session mode bypassPermissions inside the bubblewrap isolation; Pages approves any remaining request",
+    "ACP session mode bypassPermissions as a native host process; Pages approves any remaining request",
   permissions: {
     permissionMode: "yolo",
     sessionMode: "bypassPermissions",
     tools: "every native tool of Claude Code",
-    files: "read, create, change, delete in the workspace",
+    files: "read, create, change, delete wherever the account may",
     shell: "on",
     web: "search, fetch",
     pagesMcp: "every tool of the executor",
-    settings: "none of the user or the workspace",
-    mcpServers: "pages only",
+    settings: "user, project and workspace settings",
+    mcpServers: "pages, the MCP servers of the host and of the project",
   },
   reportedOptions: REPORTED_OPTIONS,
   matchesReportedModel: claudeModelMatches,
@@ -336,17 +353,17 @@ const OBSERVER_PROFILE: ClaudeAcpProfile = {
 };
 
 /**
- * The conversation of an agent employee on "Arbeitsplatz" or YOLO: every native tool of Claude Code, the MCP servers configured on
- * the host, and the Pages helper for its Pages tools. "Arbeitsplatz" runs
- * inside the bubblewrap isolation, YOLO without it. The session is kept like
- * Pica's, so the next job continues it. There is no Pages MCP server whose
- * state a status command could report; the Pages tools come over the helper.
+ * The conversation of an agent employee in YOLO: every native tool of Claude
+ * Code as a native host process, the MCP servers configured on the host, and
+ * the Pages helper for its Pages tools. The session is kept like Pica's, so
+ * the next job continues it. There is no Pages MCP server whose state a
+ * status command could report; the Pages tools come over the helper.
  */
 const CHAT_FULL_ACCESS_PROFILE: ClaudeAcpProfile = {
   ...YOLO_PROFILE,
   hasMcpStatusCommand: false,
   unattended:
-    "ACP session mode bypassPermissions for an agent employee on Arbeitsplatz (inside the bubblewrap isolation) or YOLO (without isolation); Pages approves any remaining request",
+    "ACP session mode bypassPermissions for an agent employee in YOLO, as a native host process; Pages approves any remaining request",
   permissions: {
     ...YOLO_PROFILE.permissions,
     pagesTools: "Pages helper with the rights of the agent's account",
@@ -357,10 +374,10 @@ const CHAT_FULL_ACCESS_PROFILE: ClaudeAcpProfile = {
 /**
  * The adapter configuration of one Pages mode.
  *
- * @param mode - "Nur Lesen" or "YOLO", as the agent stores it.
+ * @param mode - "Lesend" or "YOLO", as the agent stores it.
  * @param purpose - A Pica conversation always takes the chat profile; the
  * caller decides beforehand which stored mode it accepts for it. Only an
- * agent employee with full access reaches the chat purpose in YOLO. The
+ * agent employee in YOLO reaches the chat purpose in YOLO. The
  * group observer always runs without tools, whatever the mode.
  * @returns Session mode, Claude options and the recorded permissions.
  */

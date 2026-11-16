@@ -131,7 +131,11 @@ async function validateBoundContext() {
   const raw = process.env.PAGES_RUNNER_CONTEXT_PROOF;
   let expected = null;
   if (raw) {
-    if (raw.length > 8192 || process.env.PAGES_RUNNER_JOB_NAMESPACE !== "1")
+    if (
+      raw.length > 8192 ||
+      (process.env.PAGES_RUNNER_JOB_NAMESPACE !== "1" &&
+        process.env.PAGES_RUNNER_JOB_BOUNDARY !== "worker_unit")
+    )
       throw new Error("Invalid Antigravity context proof");
     expected = JSON.parse(raw);
     if (!Array.isArray(expected))

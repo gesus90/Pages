@@ -194,9 +194,9 @@ export function describeAcpSession(
       "ACP model selector; provider response does not report a separate model identity";
   }
   if (context.github) state.effective.github = context.github;
-  if (context.profile.permissions.fullEnvironmentOwner)
+  if (context.profile.permissions.account)
     state.events.push(
-      `Full environment – full access with the rights of ${context.profile.permissions.fullEnvironmentOwner}; no isolation`,
+      `YOLO – native host process of the account ${context.profile.permissions.account}; no sandbox of Pages`,
     );
 }
 

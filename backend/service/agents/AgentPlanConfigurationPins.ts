@@ -1,5 +1,4 @@
 import { planGroupAgents } from "@/definition/AgentPlanGroupLoop";
-import { AgentError } from "@/backend/error/AgentErrors";
 import { AgentPlanValidationError } from "@/backend/error/AgentPlanValidationError";
 import { isAcpProvider } from "@/definition/AgentConfiguration";
 import { copyPlanConfiguration } from "@/definition/AgentPlanConfiguration";
@@ -83,7 +82,6 @@ export class AgentPlanConfigurationPins {
         ? { ...node, configuration: copyPlanConfiguration(source) }
         : node;
     });
-    await this.requireFullEnvironment(userId, pinned);
     const groupConnections = new Map<
       string,
       Readonly<Record<string, string>>
@@ -130,21 +128,6 @@ export class AgentPlanConfigurationPins {
       );
     }
     return pinned;
-  }
-  private async requireFullEnvironment(
-    userId: string,
-    pinned: AgentPlanInput,
-  ): Promise<void> {
-    if (
-      allPlanSteps(pinned).some(
-        (node) =>
-          node.configuration?.template.run?.access === "full_environment",
-      )
-    ) {
-      if (!this.dependencies.access)
-        throw new AgentError("plan_full_environment_forbidden");
-      await this.dependencies.access.requireFullEnvironment(userId, pinned);
-    }
   }
 }
 

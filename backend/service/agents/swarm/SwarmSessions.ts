@@ -3,6 +3,10 @@ import { randomUUID } from "node:crypto";
 import { AcpAdmissionTimeoutError } from "@/backend/service/agents/resources/AcpAdmissionRequest";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { logCaughtError } from "@/backend/logging/Logger";
+import {
+  effectiveAgentAccess,
+  storedAgentAccessMode,
+} from "@/definition/AgentAccessMode";
 import { acpRunOptions, isAcpProvider } from "@/definition/AgentConfiguration";
 import { mergeAgentTodos } from "@/definition/AgentPlanAgentTodos";
 import { agentModelKey } from "@/definition/AgentPlanConfiguration";
@@ -19,6 +23,7 @@ import type {
   PlanSessionObserver,
   PlanSessionTurn,
 } from "@/backend/agents/AgentPlanExecution";
+import type { AgentAccessMode } from "@/definition/AgentAccessMode";
 import type { AgentPlanConfiguration } from "@/definition/AgentPlanConfiguration";
 import type { AgentPlanAgentTodo } from "@/definition/AgentPlanAgentTodos";
 import type {
@@ -93,17 +98,24 @@ export function swarmTurnOf(turn: PlanSessionTurn): SwarmTurn {
   };
 }
 
-function runMode(access: AgentPlanSwarmAccess): "read_only" | "yolo" {
-  return access === "read_only" ? "read_only" : "yolo";
+/**
+ * The mode of a swarm session; the earlier `workspace_write` never runs as YOLO.
+ * @throws {AgentError} `agent_access_mode_required` for an earlier value.
+ */
+function runMode(access: AgentPlanSwarmAccess): AgentAccessMode {
+  const mode = storedAgentAccessMode(access);
+  if (mode === null) throw new AgentError("agent_access_mode_required");
+  return mode;
 }
 
-function reachOf(access: AgentPlanSwarmAccess): "read" | "full" {
-  return access === "yolo" ? "full" : "read";
+// The Pages bridge follows the same mode as the native tools.
+function reachOf(mode: AgentAccessMode): "read" | "full" {
+  return effectiveAgentAccess(mode).pages;
 }
 
 function configurationOf(
   model: AgentPlanSwarmModel,
-  access: AgentPlanSwarmAccess,
+  mode: AgentAccessMode,
   minutes: number,
 ): AgentPlanConfiguration {
   return {
@@ -118,7 +130,7 @@ function configurationOf(
       markdown: "",
       parameters: [],
       directoryParameter: null,
-      run: acpRunOptions(runMode(access), minutes),
+      run: acpRunOptions(mode, minutes),
     },
   };
 }
@@ -192,11 +204,8 @@ export class SwarmSessions {
     stepId: string,
   ): Promise<SwarmOpenedSession> {
     const minutes = this.minutesLeft();
-    const configuration = configurationOf(
-      request.model,
-      request.access,
-      minutes,
-    );
+    const mode = runMode(request.access);
+    const configuration = configurationOf(request.model, mode, minutes);
     const { assignment } = await this.dependencies.profiles.resolveDefinition(
       this.scope.userId,
       {
@@ -216,7 +225,7 @@ export class SwarmSessions {
       instanceId,
       tickets: [],
       lifetimeMs: minutes * 60_000,
-      reach: reachOf(request.access),
+      reach: reachOf(mode),
       swarm: request.role,
       swarmMemory: this.scope.hasMemory === true,
     });

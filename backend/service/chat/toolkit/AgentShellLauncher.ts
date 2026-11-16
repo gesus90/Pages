@@ -1,6 +1,7 @@
-import { existsSync } from "node:fs";
+import { readNativeHost } from "@/backend/agents/cli/CliNativeHost";
+import { logCaughtError } from "@/backend/logging/Logger";
 
-import { probeBubblewrap } from "@/backend/agents/cli/CliPlanIsolation";
+import type { CliNativeHost } from "@/backend/agents/cli/CliNativeHost";
 
 /** How one shell command starts: the program, its arguments and its environment. */
 export interface AgentShellLaunch {
@@ -12,101 +13,48 @@ export interface AgentShellLaunch {
 
 /**
  * Turns a command of the agent into the process that runs it, or `null`
- * when the required isolation does not work on this host.
+ * when the host environment it needs cannot be read.
  */
 export type AgentShellLauncher = (
   command: string,
   root: string,
 ) => Promise<AgentShellLaunch | null>;
 
-const BUBBLEWRAP = "/usr/bin/bwrap";
 const SHELL = "/bin/sh";
 
 /**
- * The environment of a command: no variable of the server process, so no
- * credential of Pages reaches the agent through it.
- */
-function commandEnvironment(root: string): Readonly<Record<string, string>> {
-  return {
-    PATH: "/usr/local/bin:/usr/bin:/bin",
-    HOME: root,
-    LANG: "C.UTF-8",
-    TERM: "dumb",
-  };
-}
-
-/**
- * The arguments that run a command inside bubblewrap: the system read-only,
- * only the working folder writable, a private `/tmp`, the runtime folder of
- * the account and the protected folders hidden, and its own process tree.
- */
-export function bubblewrapArguments(
-  command: string,
-  root: string,
-  hiddenDirectories: readonly string[] = [],
-): string[] {
-  const runtime =
-    process.getuid === undefined ? null : `/run/user/${process.getuid()}`;
-  const hidden = [
-    ...hiddenDirectories,
-    ...(runtime !== null && existsSync(runtime) ? [runtime] : []),
-  ].filter((directory) => existsSync(directory));
-  return [
-    "--ro-bind",
-    "/",
-    "/",
-    "--dev",
-    "/dev",
-    "--proc",
-    "/proc",
-    "--tmpfs",
-    "/tmp",
-    ...hidden.flatMap((directory) => ["--tmpfs", directory]),
-    "--bind",
-    root,
-    root,
-    "--unshare-pid",
-    "--die-with-parent",
-    "--chdir",
-    root,
-    "--",
-    SHELL,
-    "-c",
-    command,
-  ];
-}
-
-/**
- * The launcher of an access level.
- *
- * @param isIsolated - "Arbeitsplatz" runs every command in bubblewrap; YOLO
- * runs it directly with the rights of the server account.
- * @param options - The folders the isolation hides, and the probe of
- * bubblewrap, replaceable for tests.
- * @returns A launcher that refuses with `null` when the isolation an
- * "Arbeitsplatz" needs is missing, instead of running unisolated.
+ * The launcher of the shell tools, which only YOLO offers.
+ * @param options - Reads the host environment; replaceable for tests.
+ * @returns A launcher that starts every command natively with the rights of
+ * the account: in the working folder, with the real home folder and the
+ * account's login environment, so every program on its login `PATH` is
+ * found. No variable of the Pages service reaches the command.
+ * @remarks
+ * The host environment is read once per job; a host whose login shell does
+ * not answer gets `null`, which the shell tool reports, instead of a command
+ * with a shortened `PATH`.
  */
 export function createAgentShellLauncher(
-  isIsolated: boolean,
   options: {
-    readonly hiddenDirectories?: readonly string[];
-    readonly probe?: () => Promise<boolean>;
+    readonly host?: (root: string) => Promise<CliNativeHost>;
   } = {},
 ): AgentShellLauncher {
-  const probe = options.probe ?? probeBubblewrap;
-  // One probe per job: the answer holds for every command of it.
-  let isAvailable: Promise<boolean> | null = null;
+  const read =
+    options.host ??
+    ((root: string) => readNativeHost(root, new AbortController().signal));
+  let host: Promise<CliNativeHost | null> | null = null;
   return async (command, root) => {
-    const env = commandEnvironment(root);
-    if (!isIsolated)
-      return { file: SHELL, args: ["-c", command], cwd: root, env };
-    isAvailable ??= probe();
-    if (!(await isAvailable)) return null;
+    host ??= read(root).catch((error: unknown) => {
+      logCaughtError("AgentShellLauncher", error);
+      return null;
+    });
+    const environment = await host;
+    if (environment === null) return null;
     return {
-      file: BUBBLEWRAP,
-      args: bubblewrapArguments(command, root, options.hiddenDirectories),
+      file: SHELL,
+      args: ["-c", command],
       cwd: root,
-      env,
+      env: { ...environment.environment, HOME: environment.home },
     };
   };
 }

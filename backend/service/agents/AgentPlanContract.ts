@@ -28,7 +28,7 @@ export interface AgentPlanContractOptions {
   readonly completionGate?: AgentPlanCompletionGate;
   /**
    * The session changes neither files nor Pages data, as a Codex CLI agent in
-   * "Nur Lesen": it reports its tickets instead of setting their entries.
+   * "Lesend": it reports its tickets instead of setting their entries.
    */
   readonly isReadOnly: boolean;
   /** Which progress details are requested; absent is `report`. */
@@ -50,9 +50,28 @@ export interface AgentPlanAssignment extends AgentPlanContractOptions {
   readonly hasProjectGitHub?: boolean;
 }
 
+/**
+ * What the mode of the session means for the workspace and the host.
+ * @remarks
+ * The lines describe the mode the session really runs in; the runner and
+ * Pages enforce it, never this text.
+ */
+function accessLines(
+  assignment: Pick<AgentPlanAssignment, "isReadOnly">,
+): readonly string[] {
+  if (assignment.isReadOnly)
+    return [
+      '- Mode "Lesend" (read only): read the workspace and any other readable path of the host, but do not create, change or delete files. Commands, sudo included, and host MCP servers are not available.',
+    ];
+  return [
+    "- Mode YOLO: you run natively with the rights of the executing Linux account, your real home folder and its login PATH. The workspace is where you start and where the result belongs, not a boundary: use other paths only as far as the task requires.",
+    "- A credential file the task names may be read and used; never copy its content into chat, tickets, wiki, commits, command arguments or logs. Run sudo only when the task requires it, with a password only on standard input (`sudo -S`), never as an argument.",
+  ];
+}
+
 /** The credential and publication rules of a session with a project connection. */
 const PROJECT_GITHUB_LINES = [
-  "- GitHub: `printenv PAGES_GITHUB_ACCESS` says what Pages found out about the project connection when this session started. The connection reaches only the repository of this project; do not look for other credentials.",
+  "- GitHub: `printenv PAGES_GITHUB_ACCESS` says what Pages found out about the project connection when this session started. The connection reaches only the repository of this project; do not look for other Git credentials.",
   '- Publish with `sh "$PAGES_GIT_PUBLISH" <branch>` (unset without a usable credential). It pushes HEAD without force, repeats only transport failures, at most three times, and reads the remote branch back. Only its `PUBLISHED` line proves a publication: report everything else as not published and keep your commit and branch. A repeated run after an interruption is safe.',
   "- An authentication or permission failure needs a project manager: do not retry it. Report it as blocked with the message of Git and Pages.",
 ] as const;
@@ -271,12 +290,8 @@ function renderTodoAssignment(assignment: AgentPlanAssignment): string {
     "",
     "### How to work",
     completionInstruction(assignment),
-    "- Work only in the workspace. Nobody answers questions during this run: when a choice is needed, take the recommended option, otherwise decide yourself and name the decision in your closing message.",
-    ...(assignment.isReadOnly
-      ? [
-          "- This session is read-only: read the workspace, but do not create, change or delete files. Commands are not available.",
-        ]
-      : []),
+    "- Nobody answers questions during this run: when a choice is needed, take the recommended option, otherwise decide yourself and name the decision in your closing message.",
+    ...accessLines(assignment),
     ...todoMcpLines(assignment),
     ...progressLines(assignment),
     ...gitHubLines(assignment),
@@ -333,12 +348,8 @@ export function renderPlanAssignment(assignment: AgentPlanAssignment): string {
     ...contract.criteria.map(itemLine),
     "",
     "### How to work",
-    "- Work only in the workspace. Nobody answers questions during this run: when a choice is needed, take the recommended option, otherwise decide yourself and list the decision in the report.",
-    ...(assignment.isReadOnly
-      ? [
-          "- This session is read-only: read the workspace, but do not create, change or delete files. Commands are not available.",
-        ]
-      : []),
+    "- Nobody answers questions during this run: when a choice is needed, take the recommended option, otherwise decide yourself and list the decision in the report.",
+    ...accessLines(assignment),
     ...mcpLines(assignment),
     ...progressLines(assignment),
     ...gitHubLines(assignment),

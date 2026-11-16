@@ -129,3 +129,27 @@ export function findDecisionModel(
     ) ?? null
   );
 }
+
+/**
+ * Whether a saved choice names a text model instead of a decision model.
+ * @param connections - The stored connections and their catalogs.
+ * @param selection - The saved choice.
+ * @returns `true` for a choice with a reasoning level, of a connection that is
+ * not OpenRouter, or of a model its OpenRouter catalog lists but not as a
+ * decision model; such a choice counts as not set. A model the catalog no
+ * longer lists at all, or a connection that is gone, stays a decision model
+ * that is unavailable.
+ */
+export async function isTextModelSelection(
+  connections: AgentConnectionRepository,
+  selection: AgentModelSelection,
+): Promise<boolean> {
+  if (selection.reasoningEffort !== null) return true;
+  if (selection.connectionId === DECISION_SIMULATION_CONNECTION) return false;
+  const connection = await connections.find(selection.connectionId);
+  if (connection === null) return false;
+  if (connection.provider !== "openrouter") return true;
+  const catalog = await connections.catalogs().find(connection.id);
+  const listed = catalog.models.find((model) => model.id === selection.model);
+  return listed !== undefined && !isDecisionModel(listed);
+}

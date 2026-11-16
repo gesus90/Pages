@@ -15,6 +15,8 @@ export type DecisionInput =
       /** The model build that answered. */
       readonly model: string;
       readonly probabilities: DecisionProbabilities;
+      /** What the call cost in US dollars; `null` when the provider stated none. */
+      readonly costUsd: number | null;
     }
   | {
       readonly kind: "failure";

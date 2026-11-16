@@ -99,10 +99,11 @@ function managerEnvironment(): Record<string, string> {
 function environmentLine(
   name: string,
   value: string,
-  isFullEnvironment = false,
+  isHostEnvironment = false,
 ): string {
+  // A host environment may hold multi-line values, such as a shell function; systemd keeps them quoted.
   if (
-    (isFullEnvironment ? /[\0\r]/u : /[\0\n\r]/u).test(value) ||
+    (isHostEnvironment ? /[\0\r]/u : /[\0\n\r]/u).test(value) ||
     !/^[A-Za-z_][A-Za-z0-9_]*$/u.test(name)
   )
     throw new Error("An environment value cannot be passed to a worker unit.");
@@ -423,7 +424,7 @@ export class CliWorkerUnits {
       file,
       `${Object.entries(environment)
         .map(([key, value]) =>
-          environmentLine(key, value, request.fullEnvironment !== undefined),
+          environmentLine(key, value, request.hostEnvironment !== undefined),
         )
         .join("\n")}\n`,
       { mode: 0o600, flag: "wx" },
@@ -448,7 +449,8 @@ export class CliWorkerUnits {
             `--unit=${name}`,
             `--slice=${UNIT_SLICE}`,
             ...unitProperties({ file, runtime, unset }),
-            ...(request.fullEnvironment
+            // A native worker has no namespace: the unit's control group frames every child, MCP server included.
+            ...(request.hostEnvironment
               ? [
                   `--working-directory=${request.workingDirectory}`,
                   "--property=KillMode=control-group",

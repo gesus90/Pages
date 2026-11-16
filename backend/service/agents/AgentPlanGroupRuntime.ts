@@ -3,6 +3,7 @@ import { AgentPlanValidationError } from "@/backend/error/AgentPlanValidationErr
 import {
   agentRunOptionsFor,
   isAcpProvider,
+  isAgentWriteAccess,
 } from "@/definition/AgentConfiguration";
 import { claudeAcpProfile } from "@/backend/agents/acp/ClaudeAcpProfile";
 import { codexAcpProfile } from "@/backend/agents/acp/CodexAcpProfile";
@@ -20,10 +21,7 @@ function profileFields(
   provider: AgentProviderId,
   options: AgentRunOptions,
 ): Readonly<Record<"tools" | "permissions" | "sandbox", string>> {
-  const mode =
-    options.access === "yolo" || options.access === "full_environment"
-      ? "yolo"
-      : "read_only";
+  const mode = isAgentWriteAccess(options.access) ? "yolo" : "read_only";
   const tools = {
     shell: options.shell,
     web: options.web,

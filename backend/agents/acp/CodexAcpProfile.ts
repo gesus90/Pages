@@ -48,10 +48,11 @@ const REPORTED_OPTIONS = {
  * @returns The selected option and whether it refuses.
  * @remarks
  * YOLO approves every request once, so nothing waits for a person and no
- * approval is stored for later runs. "Nur Lesen" refuses every command, file
+ * approval is stored for later runs. "Lesend" refuses every command, file
  * change and additional permission. It only approves calls of MCP tools: the
- * Pages MCP server is the only one a session gets, and its credential allows
- * nothing but reading, so the server refuses every change itself.
+ * Pages MCP server is the only one a reading session gets, never a server of
+ * the host, and its credential allows nothing but reading, so the server
+ * refuses every change itself.
  */
 export function decideCodexPermission(
   mode: AcpPermissionMode,
@@ -109,10 +110,11 @@ const READ_ONLY_PROFILE: CodexAcpProfile = {
     permissionMode: "read_only",
     approvalPolicy: "on-request, answered by Pages",
     sandbox: "read-only",
-    files: "read",
+    files: "read, host-wide",
     shell: "off",
     web: "search",
     pagesMcp: "read",
+    mcpServers: "Pages only",
   },
   reportedOptions: REPORTED_OPTIONS,
   matchesReportedModel: null,
@@ -128,25 +130,26 @@ const YOLO_PROFILE: CodexAcpProfile = {
   configuration: {
     ...ACCOUNT_CONFIGURATION,
     web_search: "live",
-    // The process already has Pages' allowlist. Keep GIT_CONFIG_KEY_* in shells without loading a user profile.
+    // The process already has the login environment of the host; shells keep it whole.
     shell_environment_policy: {
       inherit: "all",
       ignore_default_excludes: true,
       experimental_use_profile: false,
     },
-    // Apps reach accounts outside Pages, which YOLO does not grant.
-    features: { shell_tool: true, unified_exec: true, apps: false },
+    features: { shell_tool: true, unified_exec: true, apps: true },
   },
   unattended:
-    "ACP session mode agent-full-access (approval never, no Codex sandbox) inside the bubblewrap isolation; Pages approves any remaining request",
+    "ACP session mode agent-full-access (approval never, no Codex sandbox) as a native host process; Pages approves any remaining request",
   permissions: {
     permissionMode: "yolo",
     approvalPolicy: "never",
-    sandbox: "danger-full-access inside bubblewrap",
-    files: "read, create, change, delete in the workspace",
+    sandbox: "danger-full-access, no sandbox of Pages",
+    files: "read, create, change, delete wherever the account may",
     shell: "on",
     web: "search",
+    apps: "on",
     pagesMcp: "every tool of the executor",
+    mcpServers: "Pages and the MCP servers of the host",
   },
   reportedOptions: REPORTED_OPTIONS,
   matchesReportedModel: null,
@@ -219,28 +222,28 @@ const OBSERVER_PROFILE: CodexAcpProfile = {
 };
 
 /**
- * The conversation of an agent employee with full access: every native tool
- * of Codex inside the bubblewrap isolation, which a YOLO session never runs
- * without, on the stock runner instead of the native Pica build, and the
- * Pages tools of the agent's account over Pica's turn-bound bridge.
+ * The conversation of an agent employee in YOLO: every native tool of Codex
+ * as a native host process, like a YOLO plan node, on the stock runner
+ * instead of the native Pica build, and the Pages tools of the agent's
+ * account over Pica's turn-bound bridge.
  */
 const CHAT_FULL_ACCESS_PROFILE: CodexAcpProfile = {
   ...YOLO_PROFILE,
   unattended:
-    "ACP session mode agent-full-access (approval never, no Codex sandbox) for an agent employee with full access, inside the bubblewrap isolation; Pages approves any remaining request",
+    "ACP session mode agent-full-access (approval never, no Codex sandbox) for an agent employee in YOLO, as a native host process; Pages approves any remaining request",
   permissions: {
     ...YOLO_PROFILE.permissions,
     pagesTools: "Pica bridge with the rights of the agent's account",
-    mcpServers: "Pica bridge only",
+    mcpServers: "Pica bridge and the MCP servers of the host",
   },
 };
 
 /**
  * The adapter configuration of one Pages mode.
- * @param mode - "Nur Lesen" or "YOLO", as the agent stores it.
+ * @param mode - "Lesend" or "YOLO", as the agent stores it.
  * @param purpose - A Pica conversation takes the chat profile; the caller
  * decides beforehand which stored mode it accepts for it. Only an agent
- * employee with full access reaches the chat purpose in YOLO. The group
+ * employee in YOLO reaches the chat purpose in YOLO. The group
  * observer always runs without tools, whatever the mode.
  * @returns Session mode, configuration and the recorded permissions.
  */

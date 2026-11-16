@@ -1,4 +1,5 @@
 import {
+  CHAT_JOB_FAILURE_STAGES,
   CHAT_JOB_STATES,
   CHAT_SELECTION_TRANSFERS,
   CHAT_STEER_STATUSES,
@@ -9,6 +10,7 @@ import type {
   ChatJob,
   ChatJobEntry,
   ChatJobEvent,
+  ChatJobFailureDetail,
   ChatJobTurnEvent,
   ChatJobUpdate,
   ChatJobUsage,
@@ -232,6 +234,37 @@ export function readChatJob(value: unknown): ChatJob {
     endedAt: nullableText(job.endedAt),
     usage: readChatJobUsage(job.usage),
   };
+}
+
+const FAILURE_DETAIL_FIELDS = [
+  "step",
+  "cause",
+  "tool",
+  "toolStatus",
+  "diagnostic",
+] as const;
+
+/**
+ * Reads the stored detail of a failed job; anything that is no stable code is left out.
+ * @returns The detail, or `null` for none or an unreadable one.
+ */
+export function readChatJobFailureDetail(
+  value: unknown,
+): ChatJobFailureDetail | null {
+  if (typeof value !== "object" || value === null || Array.isArray(value))
+    return null;
+  const detail: Fields = Object.fromEntries(Object.entries(value));
+  const stage = CHAT_JOB_FAILURE_STAGES.find((entry) => entry === detail.stage);
+  if (stage === undefined) return null;
+  const result: {
+    -readonly [Key in keyof ChatJobFailureDetail]: ChatJobFailureDetail[Key];
+  } = { stage };
+  for (const field of FAILURE_DETAIL_FIELDS) {
+    const code = detail[field];
+    if (typeof code === "string" && /^[a-z][a-zA-Z0-9_]{0,99}$/u.test(code))
+      result[field] = code;
+  }
+  return result;
 }
 
 /** Reads the small state of a conversation. */

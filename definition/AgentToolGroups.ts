@@ -1,11 +1,15 @@
+import { effectiveAgentAccess } from "./AgentAccessMode";
+import { employeeAccessMode } from "./AgentEmployee";
+
 import type { AgentEmployeeAccess } from "./AgentEmployee";
 
 /**
  * The tool groups every chat agent receives over the tool bridge of Pages,
  * whatever ACP adapter runs its model.
  * @remarks
- * - `shell`: commands in the working folder, long runs in the background.
- * - `files`: read, write, change, list and search files of the working folder.
+ * - `shell`: commands, started in the working folder, long runs in the background.
+ * - `files`: read, write, change, list and search files of the host; a
+ *   relative path starts at the working folder.
  * - `web`: web search and pages fetched as readable text.
  * - `browser`: the isolated browser of Pages.
  * - `pages`: tickets, wiki, plans and runs, calendar, projects and files with
@@ -40,59 +44,84 @@ export function isAgentToolGroup(value: unknown): value is AgentToolGroup {
 }
 
 /**
- * What each access level allows per group before an administrator switches
- * groups off.
- * @remarks
- * "Nur Lesen" reads and searches: files, web, browser and Pages only read,
- * the shell is not offered at all, because a command can always change
- * something. The chat tools stay, as the ticket allows them to every agent.
- * "Arbeitsplatz" and YOLO get every tool.
+ * The groups of the host: in YOLO the native tools of the runner reach the
+ * same host anyway, so switching one of them off would only hide a
+ * capability the agent still has.
  */
-const ACCESS_MODES: Readonly<Record<AgentEmployeeAccess, AgentToolPolicy>> = {
-  read_only: {
-    shell: "off",
-    files: "read",
-    web: "read",
-    browser: "read",
-    pages: "read",
+export const AGENT_HOST_TOOL_GROUPS: readonly AgentToolGroup[] = [
+  "shell",
+  "files",
+  "web",
+  "browser",
+];
+
+/**
+ * What one mode allows per group, taken from {@link effectiveAgentAccess}.
+ * @remarks
+ * "Lesend" reads and searches: files, web, browser and Pages only read, the
+ * shell is not offered at all, because a command can always change
+ * something. The chat tools stay with every agent. YOLO gets every tool.
+ * The earlier `workspace` level runs no tool at all until a mode is chosen.
+ */
+function modePolicy(access: AgentEmployeeAccess): AgentToolPolicy {
+  const mode = employeeAccessMode(access);
+  if (mode === null)
+    return {
+      shell: "off",
+      files: "off",
+      web: "off",
+      browser: "off",
+      pages: "off",
+      chat: "off",
+    };
+  const effective = effectiveAgentAccess(mode);
+  const writes = (level: "read" | "full" | "read_write"): AgentToolGroupMode =>
+    level === "read" ? "read" : "full";
+  return {
+    shell: effective.shell ? "full" : "off",
+    files: writes(effective.files),
+    web: writes(effective.web),
+    browser: writes(effective.browser),
+    pages: writes(effective.pages),
     chat: "full",
-  },
-  workspace: {
-    shell: "full",
-    files: "full",
-    web: "full",
-    browser: "full",
-    pages: "full",
-    chat: "full",
-  },
-  yolo: {
-    shell: "full",
-    files: "full",
-    web: "full",
-    browser: "full",
-    pages: "full",
-    chat: "full",
-  },
-};
+  };
+}
+
+/**
+ * Whether an administrator's switch of a group applies in a mode.
+ * @returns `false` for a host group in YOLO, whose native tools stay; the
+ * interface shows such a switch as without effect.
+ */
+export function isToolGroupSwitchEffective(
+  access: AgentEmployeeAccess,
+  group: AgentToolGroup,
+): boolean {
+  return access !== "yolo" || !AGENT_HOST_TOOL_GROUPS.includes(group);
+}
 
 /**
  * The mode of every group for an agent.
  * @param access - The stored access level of the agent.
  * @param disabled - The groups an administrator switched off for this agent.
- * @returns The access level's mode per group, `off` for every disabled group.
+ * @returns The mode's level per group, `off` for every disabled group whose
+ * switch applies in this mode, see {@link isToolGroupSwitchEffective}.
  */
 export function agentToolPolicy(
   access: AgentEmployeeAccess,
   disabled: readonly AgentToolGroup[] = [],
 ): AgentToolPolicy {
-  const modes = ACCESS_MODES[access];
+  const modes = modePolicy(access);
+  const level = (group: AgentToolGroup): AgentToolGroupMode =>
+    disabled.includes(group) && isToolGroupSwitchEffective(access, group)
+      ? "off"
+      : modes[group];
   return {
-    shell: disabled.includes("shell") ? "off" : modes.shell,
-    files: disabled.includes("files") ? "off" : modes.files,
-    web: disabled.includes("web") ? "off" : modes.web,
-    browser: disabled.includes("browser") ? "off" : modes.browser,
-    pages: disabled.includes("pages") ? "off" : modes.pages,
-    chat: disabled.includes("chat") ? "off" : modes.chat,
+    shell: level("shell"),
+    files: level("files"),
+    web: level("web"),
+    browser: level("browser"),
+    pages: level("pages"),
+    chat: level("chat"),
   };
 }
 

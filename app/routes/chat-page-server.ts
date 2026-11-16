@@ -84,6 +84,7 @@ export type ChatPageIntent =
   | "reply-decisions"
   | "confidential"
   | "resume-agents"
+  | "retry-answer"
   | "delete-message"
   | "embed-domain"
   | "card-state"
@@ -113,6 +114,7 @@ const INTENTS: readonly ChatPageIntent[] = [
   "reply-decisions",
   "confidential",
   "resume-agents",
+  "retry-answer",
   "delete-message",
   "embed-domain",
   "card-state",
@@ -147,6 +149,7 @@ const FAILURES: Readonly<Record<string, VirtualChatSendFailure>> = {
   busy: "busy",
   unavailable: "unavailable",
   accessUnsupported: "unavailable",
+  accessModeRequired: "unavailable",
   modelNotAllowed: "unavailable",
 };
 

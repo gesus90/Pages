@@ -23,18 +23,23 @@ export function cliEnvironment(accountHome) {
   const home = accountHome ?? process.env.PAGES_RUNNER_CLI_HOME ?? homedir();
   if (!home.startsWith("/") || home.includes("\0"))
     throw new Error("Invalid remote CLI home");
+  // A native YOLO job has no private /tmp; its scratch folder lies on the host.
+  const temporary =
+    process.env.PAGES_RUNNER_JOB_NAMESPACE === "1"
+      ? "/tmp"
+      : process.env.PAGES_RUNNER_TEMPORARY;
   return {
     ...(process.env.PAGES_RUNNER_FULL_ENVIRONMENT === "1" ? process.env : {}),
     HOME: home,
     ...(accountHome || process.env.PAGES_RUNNER_AGENT_ACCOUNT === "1"
       ? { PAGES_RUNNER_AGENT_ACCOUNT: "1" }
       : {}),
-    ...(process.env.PAGES_RUNNER_JOB_NAMESPACE === "1"
+    ...(temporary
       ? {
-          TMPDIR: "/tmp",
-          TEMP: "/tmp",
-          TMP: "/tmp",
-          NODE_COMPILE_CACHE: "/tmp/node-compile-cache",
+          TMPDIR: temporary,
+          TEMP: temporary,
+          TMP: temporary,
+          NODE_COMPILE_CACHE: join(temporary, "node-compile-cache"),
         }
       : {}),
     PATH:
@@ -250,20 +255,25 @@ function codexArguments(command, pagesArgs) {
   const options = [
     "--skip-git-repo-check",
     ...(continuation ? [] : ["--ephemeral"]),
-    "--ignore-user-config",
+    ...(program.access === "yolo" ? [] : ["--ignore-user-config"]),
     ...(resume ? [] : ["--color", "never"]),
     "--json",
     ...(resume ? [] : ["-C", command.workspace]),
     "-m",
     program.model,
-    "-c",
-    "mcp_servers={}",
-    "-c",
-    "features.apps=false",
-    "-c",
-    "features.plugins=false",
-    "-c",
-    "features.multi_agent=false",
+    // YOLO keeps the account's own MCP servers, apps and plugins; a reading job gets none of them.
+    ...(program.access === "yolo"
+      ? []
+      : [
+          "-c",
+          "mcp_servers={}",
+          "-c",
+          "features.apps=false",
+          "-c",
+          "features.plugins=false",
+          "-c",
+          "features.multi_agent=false",
+        ]),
   ];
   const args = resume
     ? [
@@ -300,6 +310,20 @@ function codexArguments(command, pagesArgs) {
   return args;
 }
 
+/** YOLO keeps the account's settings, hooks and slash commands; a reading job runs without them. */
+function claudeSettingArguments(command) {
+  if (command.program.access === "yolo") return [];
+  if (command.pagesAccess !== 1 && command.browser !== 1)
+    return ["--safe-mode"];
+  return [
+    "--setting-sources",
+    "",
+    "--disable-slash-commands",
+    "--settings",
+    JSON.stringify({ disableAllHooks: true, autoMemoryEnabled: false }),
+  ];
+}
+
 function claudeArguments(command, pagesArgs) {
   const program = command.program;
   const args = [
@@ -310,21 +334,14 @@ function claudeArguments(command, pagesArgs) {
     "--include-partial-messages",
     "--max-turns",
     "200",
-    "--strict-mcp-config",
+    // YOLO reads the account's MCP servers and settings; a reading job only the Pages server.
+    ...(program.access === "yolo" ? [] : ["--strict-mcp-config"]),
     // A continuation job keeps its session on this host so that a retry can resume it.
     ...(command.continuation ? [] : ["--no-session-persistence"]),
     ...(command.continuation?.resumeSessionId
       ? ["--resume", command.continuation.resumeSessionId]
       : []),
-    ...(command.pagesAccess === 1 || command.browser === 1
-      ? [
-          "--setting-sources",
-          "",
-          "--disable-slash-commands",
-          "--settings",
-          JSON.stringify({ disableAllHooks: true, autoMemoryEnabled: false }),
-        ]
-      : ["--safe-mode"]),
+    ...claudeSettingArguments(command),
     "--model",
     program.model,
   ];
@@ -448,6 +465,7 @@ async function spawnAntigravity(command, jobId, signal, folder) {
           }
         : {}),
       PAGES_RUNNER_JOB_NAMESPACE: process.env.PAGES_RUNNER_JOB_NAMESPACE,
+      PAGES_RUNNER_JOB_BOUNDARY: process.env.PAGES_RUNNER_JOB_BOUNDARY,
       PAGES_RUNNER_CONTEXT_PROOF: process.env.PAGES_RUNNER_CONTEXT_PROOF,
       PAGES_REMOTE_JOB: jobId,
       PAGES_ANTIGRAVITY_JOB: JSON.stringify({

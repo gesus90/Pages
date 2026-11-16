@@ -14,7 +14,9 @@ import type { CliSessionExit, CliSessionProcess } from "./CliSessionProcess";
  * `worker_unit`: the session runs in limited transient units of the service
  * manager whose names carry its tag, and the tracked process is the client of
  * one; its exit is reported only after that unit settled.
- * An unisolated YOLO chat uses this frame. `none`: nothing proves containment.
+ * Every native YOLO session uses this frame: the unit's control group holds its
+ * children, grandchildren and stdio MCP servers. `none`: nothing proves
+ * containment.
  */
 export type CliSessionContainment = "pid_namespace" | "worker_unit" | "none";
 

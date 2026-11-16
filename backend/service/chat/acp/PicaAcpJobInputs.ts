@@ -54,7 +54,6 @@ export function sessionPromptInput(
         run.runner,
         () => pooled?.servers ?? sources.credential.mcpServers(),
       ),
-      ...(run.runner.isUnisolated === true ? { isUnisolated: true } : {}),
       resumeSessionId,
       listener: pooled?.listener ?? sources.updates,
     },

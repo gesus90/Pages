@@ -15,7 +15,7 @@ export const NOTICE_TEXTS: Readonly<
   agent_unavailable: (name) =>
     `${name} antwortet nicht: Für den Agent ist gerade kein Modell nutzbar.`,
   agent_failed: (name) =>
-    `${name} konnte nicht antworten, die Antwort ist fehlgeschlagen. Schreib die Nachricht erneut, um es noch einmal zu versuchen.`,
+    `${name} konnte nicht antworten, die Antwort ist fehlgeschlagen. Der Grund ist nicht bekannt.`,
   round_limit: () => "Abstimmung beendet, Grenze erreicht",
   agent_stopped: (name) => `Die Antwort von ${name} wurde gestoppt.`,
   // A system line carries its own text.
@@ -37,6 +37,7 @@ export function noticeFor(error: unknown): ConversationNotice {
   if (error.code === "inactive") return "agent_inactive";
   return error.code === "unavailable" ||
     error.code === "accessUnsupported" ||
+    error.code === "accessModeRequired" ||
     error.code === "modelNotAllowed"
     ? "agent_unavailable"
     : "agent_failed";
@@ -64,5 +65,20 @@ export function failureText(
     return `${name} antwortet nicht: Der Agent ist nicht angemeldet (${error.failureCode}).`;
   if (error.isCancelled)
     return `Die Antwort von ${name} wurde abgebrochen (${error.failureCode}); auch der einmalige Wiederholungsversuch wurde nicht abgeschlossen.`;
-  return `${name} konnte nicht antworten: Fehler ${error.failureCode}.`;
+  const repeated = error.isTransient
+    ? " Auch der automatische zweite Versuch ist gescheitert."
+    : "";
+  return `${name} konnte nicht antworten: ${failureReason(error)}.${repeated}`;
+}
+
+/** The reason of a failed job: the tool that was not ready, the failed step, or the code. */
+function failureReason(error: AgentJobAnswerError): string {
+  const { detail, failureCode: code } = error;
+  if (code === "agent_tool_not_ready" && detail?.tool)
+    return `Das Werkzeug ${detail.tool} ist nicht bereit (Status ${detail.toolStatus ?? "unbekannt"}, Diagnose ${detail.diagnostic ?? "unbekannt"})`;
+  if (code === "plan_step_failed" && detail) {
+    const cause = detail.cause ? `, ${detail.cause}` : "";
+    return `Fehler ${code} beim Schritt ${detail.step ?? detail.stage}${cause}`;
+  }
+  return `Fehler ${code}`;
 }

@@ -4,6 +4,7 @@ import { openRouterPriceCatalog } from "@/backend/service/agents/sessions/OpenRo
 import { closeCliSession } from "@/backend/agents/cli/CliSessionCloseout";
 import { noteSessionEvent } from "@/backend/agents/cli/CliSessionEvents";
 import { AgentError } from "@/backend/error/AgentErrors";
+import { AgentStepFailedError } from "@/backend/error/AgentStepFailedError";
 import { logCaughtError } from "@/backend/logging/Logger";
 
 import { abortFailure, stopFailure, finishAcpTurn } from "./AcpSessionOutcome";
@@ -315,7 +316,7 @@ export class AcpSession implements PlanSession {
       throw new AgentError("provider_invalid");
     await this.turn;
     if (this.isWorking || this.closing || this.state.sessionId === null)
-      throw new AgentError("plan_step_failed");
+      throw new AgentStepFailedError("session_next", "session_unavailable");
     this.isWorking = true;
     this.turnSignal = signal;
     this.observer = observer;

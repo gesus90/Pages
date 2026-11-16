@@ -4,9 +4,9 @@ import path from "node:path";
 import { containsAgentBrowserSecret } from "@/backend/security/AgentBrowserSecrets";
 
 /** Why a path of the agent was refused. */
-export type AgentToolkitPathErrorCode = "OUTSIDE_WORKSPACE" | "INVALID_PATH";
+export type AgentToolkitPathErrorCode = "PROTECTED_PATH" | "INVALID_PATH";
 
-/** A path the agent named lies outside its allowed roots or is malformed. */
+/** A path the agent named lies in a protected folder or is malformed. */
 export class AgentToolkitPathError extends Error {
   public readonly code: AgentToolkitPathErrorCode;
 
@@ -46,40 +46,63 @@ async function nearestExisting(candidate: string): Promise<string> {
   }
 }
 
+async function realDirectories(
+  directories: readonly string[],
+): Promise<readonly string[]> {
+  return await Promise.all(
+    directories.map((directory) =>
+      realpath(directory).catch(() => path.resolve(directory)),
+    ),
+  );
+}
+
 /**
- * Resolves a path the agent names inside its working folder.
- *
- * @param root - The working folder of the session: the agent's assigned
- * workspace or the folder of the chat session.
- * @param requested - A path relative to the root, or an absolute path inside it.
- * @returns The absolute path, below the real root.
- * @throws {AgentToolkitPathError} `OUTSIDE_WORKSPACE` for a path that leaves
- * the root, also through `..` or a symbolic link, and for a path of the
- * browser's secret store; `INVALID_PATH` for an empty path or a NUL character.
- *
+ * Resolves a path the agent names on the host.
+ * @param root - The working folder of the session, where a relative path starts.
+ * @param requested - A path relative to the root, or an absolute path anywhere.
+ * @param protectedDirectories - Folders no file tool may reach, also through
+ * a link: in "Lesend" the instance folders of Pages; none in YOLO.
+ * @returns The absolute path.
+ * @throws {AgentToolkitPathError} `PROTECTED_PATH` for a path of a protected
+ * folder or of the browser's secret store; `INVALID_PATH` for a NUL
+ * character.
  * @remarks
- * A path that does not exist yet is checked through its nearest existing
- * parent, so a file can be created, but never below a link that points out.
+ * The working folder is where a session starts, not a boundary: absolute
+ * paths, other repositories, the home folder and links that point out of
+ * the working folder work as far as the account's Linux rights allow. A
+ * path that does not exist yet is checked through its nearest existing
+ * parent, so a file can be created, but never below a link into a protected
+ * folder.
  */
 export async function resolveToolkitPath(
   root: string,
   requested: string,
+  protectedDirectories: readonly string[] = [],
 ): Promise<string> {
   if (requested.includes("\0")) throw new AgentToolkitPathError("INVALID_PATH");
   const realRoot = await realpath(root);
   const candidate = path.resolve(realRoot, requested === "" ? "." : requested);
-  if (
-    !isInsideRoot(realRoot, candidate) ||
-    containsAgentBrowserSecret(candidate)
-  )
-    throw new AgentToolkitPathError("OUTSIDE_WORKSPACE");
+  if (containsAgentBrowserSecret(candidate))
+    throw new AgentToolkitPathError("PROTECTED_PATH");
   const existing = await nearestExisting(candidate);
-  if (!isInsideRoot(realRoot, existing))
-    throw new AgentToolkitPathError("OUTSIDE_WORKSPACE");
+  if (containsAgentBrowserSecret(existing))
+    throw new AgentToolkitPathError("PROTECTED_PATH");
+  // The working folder itself may lie in a protected folder, such as the folder of a chat.
+  if (isInsideRoot(realRoot, candidate) && isInsideRoot(realRoot, existing))
+    return candidate;
+  const protectedRoots = await realDirectories(protectedDirectories);
+  if (
+    protectedRoots.some(
+      (directory) =>
+        isInsideRoot(directory, candidate) || isInsideRoot(directory, existing),
+    )
+  )
+    throw new AgentToolkitPathError("PROTECTED_PATH");
   return candidate;
 }
 
-/** The path relative to the root, as the agent sees it. */
+/** The path as the agent sees it: relative inside the working folder, absolute outside. */
 export function relativeToolkitPath(root: string, absolute: string): string {
+  if (!isInsideRoot(root, absolute)) return absolute;
   return path.relative(root, absolute) || ".";
 }

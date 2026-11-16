@@ -48,16 +48,15 @@ function sessionAgent(specification: AcpLaunchSpecification): {
     };
   return {
     mode: specification.profile.permissions.sessionMode ?? "",
-    permission: specification.isFullEnvironment
-      ? { "*": "allow" }
-      : openCodePlanPermissions(specification.profile.mode),
+    permission: openCodePlanPermissions(specification.profile.mode),
     isPica,
   };
 }
 
 /**
  * The installed native `opencode acp` contract for Pica and plan nodes.
- * No external adapter, alternate model, user config or updater is involved.
+ * No external adapter, alternate model or updater is involved; a YOLO session
+ * also reads the OpenCode configuration, skills and plugins of the host.
  * A conversation brings Pica's bridge itself, so its launch names no MCP
  * server.
  */
@@ -92,9 +91,8 @@ export const OPENCODE_ACP_DRIVER: AcpDriver = {
         OPENCODE_CONFIG_CONTENT: JSON.stringify({
           model: model.model,
           small_model: model.model,
-          ...(specification.isFullEnvironment
-            ? {}
-            : { enabled_providers: [modelProvider] }),
+          // The model connection stays the only one, in YOLO too.
+          enabled_providers: [modelProvider],
           default_agent: mode,
           share: "disabled",
           autoupdate: false,

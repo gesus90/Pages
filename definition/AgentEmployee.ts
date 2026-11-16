@@ -1,3 +1,10 @@
+import {
+  AGENT_ACCESS_MODES,
+  isAgentAccessMode,
+  storedAgentAccessMode,
+} from "./AgentAccessMode";
+
+import type { AgentAccessMode } from "./AgentAccessMode";
 import type { AgentEmployeeVoice } from "./SpeechSynthesis";
 import type { AgentToolGroup } from "./AgentToolGroups";
 
@@ -15,36 +22,41 @@ import type { AgentToolGroup } from "./AgentToolGroups";
 import type { AgentMemoryLimits, AgentMemorySource } from "./AgentMemory";
 
 /**
- * The access level of an agent in its chats.
- * Plan steps keep their own run options; the level applies to chats only.
- * @remarks
- * - `read_only` ("Nur Pages", the default): the Pages tools alone; every
- *   other tool is refused by Pages, not only forbidden by the instruction.
- * - `workspace` ("Arbeitsplatz"): every program, shell, web, browser and the
- *   configured MCP servers of the host, inside the bubblewrap isolation of
- *   the CLI runs; it writes only in the working folder of the chat.
- * - `yolo`: no restriction by Pages on the host and no isolation; the agent
- *   works with the rights of the system account Pages runs under.
+ * The access levels an agent can be given: the two modes of
+ * {@link AGENT_ACCESS_MODES}, with the same meaning as for plan nodes and
+ * swarms, in chats and in the agent's own jobs alike.
  */
-export const AGENT_EMPLOYEE_ACCESS_MODES = [
-  "read_only",
-  "workspace",
-  "yolo",
-] as const;
+export const AGENT_EMPLOYEE_ACCESS_MODES = AGENT_ACCESS_MODES;
 
-/** An access level of {@link AGENT_EMPLOYEE_ACCESS_MODES}. */
-export type AgentEmployeeAccess = (typeof AGENT_EMPLOYEE_ACCESS_MODES)[number];
+/**
+ * The stored access level of an agent.
+ * @remarks
+ * `workspace` ("Arbeitsplatz") is an earlier level: it stays readable, never
+ * runs and never becomes YOLO on its own; the agent needs a choice of
+ * "Lesend" or "YOLO" before its next session.
+ */
+export type AgentEmployeeAccess = AgentAccessMode | "workspace";
 
-/** Narrows an unknown value to an access level. */
+/** Narrows an unknown value to a stored access level, the earlier `workspace` included. */
 export function isAgentEmployeeAccess(
   value: unknown,
 ): value is AgentEmployeeAccess {
-  return AGENT_EMPLOYEE_ACCESS_MODES.some((mode) => mode === value);
+  return isAgentAccessMode(value) || value === "workspace";
 }
 
-/** Whether an access level gives the agent the tools of the host beside the Pages tools. */
+/**
+ * The mode a stored access level runs in.
+ * @returns `null` for the earlier `workspace`, which needs a choice first.
+ */
+export function employeeAccessMode(
+  access: AgentEmployeeAccess,
+): AgentAccessMode | null {
+  return storedAgentAccessMode(access);
+}
+
+/** Whether an access level lets the agent change the host: commands, files and the host's MCP servers. */
 export function hasHostTools(access: AgentEmployeeAccess): boolean {
-  return access !== "read_only";
+  return access === "yolo";
 }
 
 /** How a configured MCP server is reached. */
@@ -64,9 +76,11 @@ export interface AgentDetectedMcpServer {
 
 /** What the tab "Zugriff" shows beside the level. */
 export interface AgentAccessEnvironment {
-  /** Whether the bubblewrap isolation works on this host; without it "Arbeitsplatz" cannot be chosen. */
+  /** Whether the read-only namespace works on this host; "Lesend" then also mounts the host read-only. */
   readonly isIsolationAvailable: boolean;
-  /** The MCP servers a chat of the agent receives in "Arbeitsplatz" and "YOLO", read anew for every chat. */
+  /** Whether native YOLO sessions can start: the service manager confirms their process ownership. */
+  readonly isNativeHostAvailable: boolean;
+  /** The MCP servers a session of the agent receives in YOLO, read anew for every session. */
   readonly mcpServers: readonly AgentDetectedMcpServer[];
 }
 

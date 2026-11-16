@@ -298,6 +298,7 @@ export function PlanDecisionDialog(
           <PlanDecisionModelFields
             form={form}
             models={planDecisionModels(props.sources)}
+            defaultModel={props.sources.defaultDecisionModel ?? null}
             isDisabled={props.isDisabled}
             isCaseConnected={(caseId) =>
               isPlanDecisionCaseConnected(draft, decision.id, caseId)

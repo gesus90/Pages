@@ -40,20 +40,7 @@ export function isSupportedCodexAcp(
 function sessionConfiguration(
   specification: AcpLaunchSpecification & { readonly profile: CodexAcpProfile },
 ): Readonly<Record<string, unknown>> {
-  const configuration: Record<string, unknown> = {
-    ...specification.profile.configuration,
-  };
-  if (specification.isFullEnvironment) {
-    delete configuration.forced_login_method;
-    delete configuration.cli_auth_credentials_store;
-    delete configuration.model_provider;
-    configuration.features = {
-      shell_tool: true,
-      unified_exec: true,
-      apps: true,
-    };
-  }
-  return configuration;
+  return { ...specification.profile.configuration };
 }
 
 /**

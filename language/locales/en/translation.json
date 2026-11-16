@@ -874,7 +874,7 @@
         "profile_running": "The agent is part of a running plan. Change it after the run ended.",
         "profile_limit_reached": "At most 100 agents per person can be created.",
         "cli_isolation_unavailable": "CLI agents need an isolated environment, which this server cannot provide.",
-        "acp_worker_unit_unavailable": "Pica's agents start only in a limited service unit, which the service manager of the server account does not provide. No model was called.",
+        "acp_worker_unit_unavailable": "YOLO sessions and Pica's agents start only in a limited service unit, which confirms their process ownership and ends every child process; the service manager of the server account does not provide one. No model was called.",
         "acp_worker_limit": "The agent process exceeded its memory or process limit and was ended inside its own unit. Other runs and services were not affected.",
         "acp_output_overflow": "The agent process wrote an output line longer than 4 Mi characters and was ended. Its output was not used.",
         "acp_input_too_large": "The instruction with its complete file inventory does not fit into one ACP prompt message of at most 8 MiB, so Pages sent nothing to the agent. File contents beyond the budget already go as original files only; shorten the instruction or the message.",
@@ -950,7 +950,6 @@
         "plan_reasoning_unsupported": "The runner does not offer the agent's reasoning effort for this model; nothing was sent.",
         "plan_permission_mode_unenforceable": "The ACP adapter does not offer or confirm the permission mode of the agent, so it cannot be enforced; nothing was sent. For Claude Code, a managed or workspace Claude setting that disables bypassPermissions, or a server account running as root, causes this. The run record names what the adapter reported.",
         "plan_terminal_question": "The CLI of the node asked a question or waited for an approval, and nobody answers in a plan run, so the node failed at once. The run and the terminal log show the question.",
-        "plan_yolo_isolation_unavailable": "YOLO runs without an approval step of the runner, so it starts only inside the bubblewrap isolation, which does not work for the server account. Install bubblewrap (apt install bubblewrap), allow unprivileged user namespaces for the account, and start the node again; Pages probes the isolation again within a minute.",
         "plan_codex_configuration_unmanaged": "A Codex configuration file (config.toml) outside Pages could change this run. Remove it from the connection folder or the workspace.",
         "plan_acp_session_failed": "The Codex ACP session failed before or during its turn.",
         "acp_session_resume_failed": "The ACP adapter could not continue the earlier session of this conversation.",
@@ -1016,7 +1015,16 @@
         "plan_loop_condition_type": "The value at the path of the end condition has another type than the expected value. Pages never converts types.",
         "plan_loop_session_lost": "The retained ACP session of a loop agent is unavailable after its adapter process ended. Pages does not open a new session under the same identity. Deliberately start a new run.",
         "plan_decision_input_invalid": "A decision found no valid value for this activation: its input is missing, of the wrong kind or not readable, or its settings are incomplete. No output was activated, and the decision is never treated as false.",
-        "plan_decision_answer_invalid": "The model of the decision did not answer with exactly one valid JSON object, also not after one correction. No output was activated.",
+        "plan_decision_answer_invalid": "The decision model gave an unexpected answer: an answer is missing, has another type than asked or names no value of the decision. No output was activated.",
+        "plan_decision_model_missing": "Choose a decision model: the decision has no model of its own, and the instance has no decision model. No output was activated.",
+        "plan_decision_model_unavailable": "The decision model of the decision is no longer available to the person who runs the plan. No output was activated, and no other model was asked.",
+        "plan_decision_key_invalid": "OpenRouter refused the key of the connection of the decision model. No output was activated.",
+        "plan_decision_no_credit": "The OpenRouter account of the decision model has no credit left. No output was activated.",
+        "plan_decision_unsupported": "The decision model cannot serve this request. No output was activated.",
+        "plan_decision_timeout": "The decision model did not answer within two minutes. No output was activated.",
+        "plan_decision_unreachable": "OpenRouter could not be reached for the decision. No output was activated.",
+        "plan_decision_provider_failed": "OpenRouter answered the decision with an error. No output was activated.",
+        "plan_decision_refused": "The decision model refused to answer the question. No output was activated.",
         "plan_event_prompt_empty": "The result sent to the event input of this agent holds no usable new information, so the agent was not started again. Nothing was replaced by an empty or invented prompt.",
         "plan_event_prompt_too_large": "The result sent to the event input of this agent is longer than 100000 characters. Pages does not shorten it; let the sending node answer more briefly.",
         "plan_activation_limit": "A node of this cycle started 25 times in one run, the limit that keeps a cycle from running without end. Check why the decision never lets the cycle end.",
@@ -1105,9 +1113,8 @@
         "credentials_in_text": "The source contains credentials. Remove them from the plan and clone again.",
         "clone_failed": "The copy could not be stored. Try again or contact the project manager.",
         "clone_request_invalid": "The clone request is invalid. Reload the plan and try again.",
-        "plan_full_environment_forbidden": "Full environment requires explicit authorization by an active administrator.",
-        "plan_full_environment_owner_unavailable": "Bind the plan owner to the Pages Linux account with PAGES_FULL_ENVIRONMENT_OWNER_ID and check its login shell.",
-        "plan_full_environment_local_only": "Full environment requires a local node on the owner’s host.",
+        "agent_native_host_unavailable": "YOLO runs natively under the Linux account of the server, but its login environment could not be read, or the account is root. Check the login shell of the account; nothing was started.",
+        "agent_access_mode_required": "This agent still has an earlier access level that no longer runs. Choose “Lesend” or “YOLO” for it; nothing was started.",
         "codex_price_mapping_invalid": "Invalid OpenRouter price mapping.",
         "codex_monthly_cost_limit": "Monthly Codex cost limit reached.",
         "claude_monthly_cost_limit": "The agent account reached its monthly Claude plan budget."
@@ -1477,15 +1484,11 @@
         "modes": {
           "read_only": {
             "label": "Read only",
-            "description": "Reads Pages content and, where the runner has a reading tool for it, the files of the workspace, and may search the web; changes no files and no Pages data and runs no commands."
+            "description": "Reads Pages content and readable files of the host, also outside the workspace, and may search the web; changes no files and no Pages data, runs no commands and receives no host MCP servers."
           },
           "yolo": {
             "label": "YOLO",
-            "description": "Every tool of the runner without asking: read, create, change and delete files in the workspace, shell, web and every Pages MCP tool with your Pages rights. Runs only inside the bubblewrap isolation."
-          },
-          "full_environment": {
-            "label": "Full environment",
-            "description": "No isolation: all owner rights, CLIs and logins. Includes ~/.pages, /opt/pages, ~/.openclaw, ~/Agents, the live database and service."
+            "description": "Runs natively with every right of the executing Linux account, without a sandbox of Pages: every tool of the runner without prompts, real home folder, login PATH, user configuration, host MCP servers and every Pages MCP tool with your Pages rights. An earlier saved “Full environment” runs as YOLO."
           }
         }
       },
@@ -2037,10 +2040,10 @@
       "userNotFound": "This user could not be found.",
       "conflict": "The agent was changed meanwhile. Please open it again.",
       "modelNotAllowed": "This model is not allowed for agents.",
-      "accessUnsupported": "YOLO is not available with this provider.",
+      "accessUnsupported": "YOLO cannot start here: the service manager of the server account does not confirm the process ownership of native sessions, or the provider does not support YOLO.",
       "templateNameTaken": "A template with this name already exists.",
       "accessAdminRequired": "Only administrators in active admin mode can change the access level.",
-      "isolationUnavailable": "Without isolation (bubblewrap), “Workspace” cannot be chosen."
+      "accessModeRequired": "This agent still has the earlier access level “Workspace”, which no longer runs. Choose “Lesend” (read only) or “YOLO”; until then it starts no session."
     },
     "saved": "Saved",
     "discardChanges": "Discard unsaved changes?",
@@ -3772,7 +3775,8 @@
       "picaModelUnsupported": "According to its catalog, this model cannot answer in chat or call tools, so Pica cannot use it. The saved selection is retained; nothing was sent and no other model was substituted. Choose another model under Settings › Agents.",
       "instructionsUnavailable": "Pica cannot answer right now: the protected instructions of Pica are missing on the server or cannot be read. Your message was not sent. Please contact an administrator.",
       "acpProviderUnsupported": "Pica supports Codex CLI, Claude Code, OpenCode and Antigravity over ACP. An administrator must assign one of these agents to chat under Settings › Agents.",
-      "acpPermissionModeUnsupported": "Pica requires “Read only” workspace access for Claude Code, OpenCode and Antigravity. Only the authorized Pages tools are available, with no shell, files or web tools. An administrator must update the chat agent’s mode. Your message was not sent.",
+      "acpPermissionModeUnsupported": "Pica requires the “Lesend” (read only) mode for Claude Code, OpenCode and Antigravity. Only the authorized Pages tools are available, with no shell, files or web tools. An administrator must update the chat agent’s mode. Your message was not sent.",
+      "accessModeRequired": "This agent still has the earlier access level “Workspace”. An administrator must choose “Lesend” (read only) or “YOLO”. Your message was not sent.",
       "bridgeUnavailable": "The chat agent could not connect Pica's Pages tools. Nothing was changed. Please try again or contact an admin.",
       "interrupted": "The server stopped during the answer. The answer is not repeated automatically.",
       "disabled": "Pica is turned off. An administrator can enable Pica under Settings › Agents.",
@@ -4080,10 +4084,15 @@
       "agent_inactive": "{{name}} is deactivated and does not answer this message.",
       "agent_cost_limit": "{{name}} does not answer: the agent's cost limit is reached.",
       "agent_unavailable": "{{name}} does not answer: no model can run the agent right now.",
-      "agent_failed": "{{name}} could not answer; the answer failed. Send the message again to try once more.",
+      "agent_failed": "{{name}} could not answer; the answer failed.",
       "agent_stopped": "The answer of {{name}} was stopped.",
       "round_limit": "Discussion ended, limit reached",
       "session_event": "System line"
+    },
+    "failure": {
+      "why": "Why?",
+      "retry": "Try again",
+      "retrying": "Starting again …"
     },
     "stop": "Stop",
     "stopAgent": "Stop {{name}}",
@@ -4622,6 +4631,8 @@
       "tools_one": "{{count}} tool",
       "tools_other": "{{count}} tools",
       "toolsSummary": "{{tools}} · {{duration}}",
+      "toolRunning": "running: {{tool}}",
+      "toolLast": "last: {{tool}}",
       "liveAnswer": "Answer from {{name}}, being written",
       "caret": "writing",
       "activityLabel": "Active agents",
@@ -5539,7 +5550,7 @@
       "boolean": "Choose true or false.",
       "decisionInput": "This source does not fit the function of the decision: Boolean takes a boolean parameter or the boolean result of an agent, the decision model a ticket or the text result of an agent or script.",
       "decisionSequence": "A decision that reads a parameter, a ticket or a text result needs a connected sequence input: a data input alone never starts it.",
-      "decisionModel": "Choose a model of an ACP connection for the decision model.",
+      "decisionModel": "Choose a decision model: the decision has no decision model of its own, and none is set for the instance (Settings → Agents → Decisions in chats).",
       "decisionQuestion": "Enter the question the decision model answers (at most 4000 characters).",
       "decisionCases": "A classification needs 2 to 20 values with unique, non-empty names of at most 60 characters.",
       "swarmRemoteUnsupported": "Swarm nodes run only on the Pages host. Choose a local target.",
@@ -5928,8 +5939,8 @@
           "accessMode": {
             "yolo": "YOLO",
             "read_only": "Read only",
-            "workspace_write": "Workspace",
-            "full_environment": "Full environment"
+            "workspace_write": "Workspace (earlier)",
+            "full_environment": "Full environment (earlier, now YOLO)"
           },
           "branch": "Branch",
           "restarts": "Restarts",
@@ -6014,7 +6025,6 @@
       "save": "Save plan",
       "manageWorkspaces": "Manage workspaces",
       "unsaved": "Unsaved changes – save before Start or Resume.",
-      "pausedHint": "All steps are quiet. Edit pending work, save and adopt it with Resume. Completed steps will not repeat. Changes to completed steps apply only to a new run.",
       "stoppingHint": "Cancellation requested. Another click on Stop ends the run's own processes by force and releases its reservations.",
       "reason": "Show blocking reason",
       "error": "The action could not be completed.",
@@ -6031,7 +6041,7 @@
       },
       "actualState": "Run state: {{state}}",
       "checking": "The plan is being checked; Start stays locked until then.",
-      "blockedHint": "Not ready to start: expand the details and fix the plan errors. The server checks again on start.",
+      "blockedHint": "Not ready to start: the warning symbols on the nodes or the expanded details name the cause. The server checks again on start.",
       "workspaceConflictNodes": "Affected nodes: {{nodes}}",
       "workspaceConflictTargets": "Working copy: {{targets}}",
       "lastStartRejection": "Last rejected start: {{time}}. This is past evidence; current availability is shown above.",
@@ -6062,16 +6072,6 @@
       "recoverHint": "Resume takes over the successful steps of the ended run and runs only open work as a new attempt.",
       "foreignRunHint": "The last run belongs to another person; only they can resume it. Start begins a new run of your own from the beginning and replaces the ended run with its records.",
       "stopHint": "Stop ends the whole run in any state: no step starts any more, the agent and script processes of this run end and its reservations are released. The run is then cancelled and can be resumed.",
-      "issuesLabel": "Plan errors",
-      "issueTitle": {
-        "plan": "Plan",
-        "workspace": "Workspace",
-        "target": "Execution target",
-        "model": "Model access",
-        "script": "Script",
-        "run": "Run",
-        "lastRun": "Last run"
-      },
       "issueCause": {
         "agent": "Model access is missing or not released.",
         "required": "A required parameter is not connected.",
@@ -6165,7 +6165,7 @@
         },
         "blocked": {
           "label": "Not ready to start",
-          "hint": "Please fix the plan errors."
+          "hint": "The warning symbols on the nodes name the cause."
         },
         "ready": {
           "label": "Ready",
@@ -7242,7 +7242,7 @@
         "name": "Name (optional)",
         "condition": "Data input (boolean)",
         "none": "–",
-        "hintModel": "Decision model: a model of an ACP connection answers the question about one ticket or text result in a short, read-only session of its own without tools. It must answer with exactly one JSON object; an invalid answer is corrected once, then the node fails without activating an output.",
+        "hintModel": "Decision model: an OpenRouter decision model answers the question about one ticket or text result directly through the decisions interface, without a session and without tools. Yes counts from a probability of 50 %. A missing, mistyped or refused answer fails the node without activating an output.",
         "content": "Data input (ticket or text result)",
         "mode": "Function",
         "modeBoolean": "Boolean",
@@ -7253,9 +7253,7 @@
         "result": "{{name}} · text result",
         "question": "Decision question",
         "questionPlaceholder": "For example: Is this ticket a bug, a feature or a question?",
-        "model": "Model",
-        "chooseModel": "Choose a model",
-        "modelNotAcp": "A decision runs its own ACP session; this model has no ACP connection.",
+        "model": "Decision model",
         "output": "Answer",
         "yesNo": "Yes/No",
         "classification": "Classification",
@@ -7272,7 +7270,11 @@
           "length": "A name has at most {{maximum}} characters.",
           "duplicate": "Names must be unique, regardless of upper and lower case."
         },
-        "casesTooFew": "A classification needs at least {{minimum}} values before the plan can start."
+        "casesTooFew": "A classification needs at least {{minimum}} values before the plan can start.",
+        "defaultModel": "Decision model of the instance: {{model}}",
+        "noDefaultModel": "No decision model chosen",
+        "useDefaultModel": "Use the decision model of the instance",
+        "noDecisionModels": "No OpenRouter connection offers a decision model (output type “decisions”). Set up an OpenRouter connection under Agents and refresh its model catalog."
       },
       "captionModel": "Logic · Decision model",
       "content": "Ticket or text",
@@ -7289,7 +7291,10 @@
       "sequenceLabel": "Connect the sequence input of {{name}}",
       "noQuestion": "No question yet",
       "modelLine": "Model: {{model}}",
-      "noModel": "No model chosen"
+      "instanceModel": "Model: decision model of the instance",
+      "probability": "Probability {{percent}} %",
+      "confidence": "Confidence {{percent}} %",
+      "cost": "Cost {{cost}} USD"
     },
     "event": {
       "in": "Event IN",
@@ -7532,7 +7537,7 @@
       },
       "access": {
         "read_only": "Read only",
-        "workspace_write": "Write",
+        "workspace_write": "Write (discontinued) – choose Read only or YOLO",
         "yolo": "YOLO"
       },
       "sections": {
@@ -7649,10 +7654,6 @@
         }
       }
     },
-    "fullEnvironment": {
-      "access": "Full environment – full access with the rights of {{owner}}",
-      "risk": "No isolation or protected paths and services. The step can use host credentials, change live data and control services."
-    },
     "claudeUsage": {
       "title": "Claude usage",
       "input": "Input tokens",
@@ -7665,6 +7666,10 @@
       "subscription": "included in subscription",
       "calculated": "Calculated: {{amount}} (OpenRouter)",
       "incomplete": "Incomplete total"
+    },
+    "modeNotice": {
+      "yolo": "YOLO – native host access with every right of the executing Linux account, without a sandbox of Pages. The working folder is only where it starts.",
+      "legacy": "Earlier write mode – no longer runs. Choose “Read only” or “YOLO” before the step starts."
     }
   },
   "pageAgents": {
@@ -7936,7 +7941,8 @@
   "chatDecision": {
     "title": "Decisions in chats",
     "description": "In group chats the decision model judges whether a message without an @ expects an answer from an agent and which agent is meant. It only gives probabilities; Pages decides whether and who answers with the thresholds. Applies to the whole instance.",
-    "model": "Decision model",
+    "model": "Decision model of the instance",
+    "planDefault": "The same decision model is the default for decision nodes in plans that choose no model of their own.",
     "chooseModel": "Choose a decision model …",
     "noModels": "No connected OpenRouter connection offers a decision model (output type “decisions”, for example Perplexity Decider V1.3). Set up the OpenRouter connection under Agents and refresh its model catalog.",
     "defaults": {
@@ -7945,7 +7951,7 @@
     },
     "status": {
       "ready": "Ready",
-      "noModel": "No model chosen",
+      "noModel": "No decision model chosen",
       "modelUnavailable": "Model unavailable"
     },
     "hint": "Without a decision model only agents named with @ answer in group chats.",
@@ -8589,13 +8595,13 @@
       "claudeMonthlyLimitHint": "Blank: no limit. Applies to Claude plan steps executed by this agent account, including the calculated OpenRouter cost of subscription usage."
     },
     "access": {
-      "read_only": "Pages only",
-      "workspace": "Workspace",
+      "read_only": "Read only",
+      "workspace": "Workspace (discontinued)",
       "yolo": "YOLO",
       "hint": {
-        "read_only": "Only the Pages tools. Shell, files, internet, browser and other MCP servers are technically blocked.",
-        "workspace": "Shell, internet, browser, every installed program and the configured MCP servers, inside the isolation (bubblewrap). Writes only in the working folder of the chat; no access to credentials or live data.",
-        "yolo": "No restriction by Pages: every program, the network and the file system with the rights of the system user, and every configured MCP server, without isolation."
+        "read_only": "Reads everything the Linux account may read, also outside the working folder (except the instance folders of Pages), searches and reads the web and uses the Pages tools for reading only. Writing, deleting, commands (sudo included), host MCP servers and browser actions are technically blocked.",
+        "workspace": "Earlier level that no longer runs. The agent starts no session until “Read only” or “YOLO” is chosen; it never becomes YOLO on its own.",
+        "yolo": "Runs natively on the host with every right of the executing Linux account: real home folder, login PATH, every installed program, shell, web, browser and the configured host MCP servers, without a sandbox of Pages. The working folder is only where it starts. Pages actions keep the rights of the agent’s account."
       }
     },
     "soul": {
@@ -8734,18 +8740,18 @@
       }
     },
     "accessTab": {
-      "intro": "The access level applies to chats with this agent. Agent plans keep their own run options per step. The Pages tools are available on every level, with the rights of the agent account.",
+      "intro": "The access level applies to this agent’s chats and its own runs and means the same as in agent plans and swarms: “Read only” or “YOLO”. The Pages tools are available in every level, with the rights of the agent’s account.",
       "legend": "Access level",
       "adminOnly": "Only administrators in active admin mode can change the level.",
-      "createHint": "New agents start on “Pages only”. The level can be changed after creation.",
-      "isolationMissing": "No isolation (bubblewrap) is available on this host, so “Workspace” cannot be chosen.",
+      "createHint": "New agents start on “Read only”. The level can be changed after creation.",
+      "isolationMissing": "No read-only namespace (bubblewrap) is available on this host. “Read only” is then held only by the read-only profile of the provider and the checks of Pages; providers that cannot enforce it do not start.",
       "browserAllowed": "Browser allowed · Profiles: self (own agent account)",
       "browserDenied": "Browser not allowed · No profiles",
       "mcpTitle": "Detected MCP servers",
-      "mcpHint": "Pages reads the MCP configuration of this agent’s CLI anew for every chat. A server set up later is available from the next chat on, in “Workspace” and “YOLO”.",
+      "mcpHint": "Pages reads the MCP configuration of this agent’s CLI anew for every session. In “YOLO”, chats, own runs and plan steps receive the same servers; “Read only” receives none, because Pages cannot prove that their calls only read.",
       "mcpEmpty": "No MCP server is configured on this host for this agent’s CLI.",
       "confirmTitle": "Really choose YOLO?",
-      "confirmText": "The agent can read, change and delete everything on this host, including credentials and live data. Pages does not restrict it and starts it without isolation.",
+      "confirmText": "YOLO now means native host access: the agent can read, change and run everything the executing Linux account may, also outside the working folder, with every installed program and host MCP server and without a sandbox of Pages. Pages actions keep the rights of the agent’s account.",
       "confirm": "Choose YOLO",
       "cancel": "Cancel",
       "pending": "The level is applied with “Save”.",
@@ -8763,8 +8769,8 @@
           "chat": "Chat"
         },
         "description": {
-          "shell": "Run commands in the working folder, long runs in the background",
-          "files": "Read, write, change, list and search files",
+          "shell": "Run commands on the host, started in the working folder, long runs in the background",
+          "files": "Read, write, change, list and search files of the host; relative paths start at the working folder",
           "web": "Web search and pages as readable text",
           "browser": "Open, read, click and fill pages and take screenshots",
           "pages": "Tickets, wiki, plans, calendar, projects with the agent account's rights",
@@ -8774,8 +8780,11 @@
           "off": "not available at this level",
           "read": "read only",
           "full": "full"
-        }
-      }
+        },
+        "fixedInYolo": "Always on in YOLO: the native tools reach the host anyway."
+      },
+      "nativeHostMissing": "The service manager of the server account does not confirm the process ownership of native sessions, so YOLO cannot start here.",
+      "legacyLevel": "This agent still has the earlier level “Workspace”. It no longer runs; choose “Read only” or “YOLO”. Until then the agent starts no session."
     }
   },
   "automations": {

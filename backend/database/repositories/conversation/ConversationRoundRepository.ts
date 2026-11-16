@@ -77,6 +77,12 @@ export interface ConversationReplyOrigin {
   readonly trigger: ConversationReplyTrigger;
 }
 
+/** A failed answer that was opened again, with what its new start needs. */
+export interface ConversationReopenedAnswer extends ConversationReplyOrigin {
+  readonly triggerMessageId: string;
+  readonly reason: string;
+}
+
 /** A round as the next hand-over needs it. */
 export interface ConversationRoundState {
   readonly personId: string;
@@ -437,6 +443,55 @@ export class ConversationRoundRepository {
       personId: readTextColumn(row, 1, "person_id"),
       agentId: readTextColumn(row, 2, "agent_id"),
       trigger: readTrigger(readTextColumn(row, 3, "trigger")),
+    };
+  }
+
+  /**
+   * Opens the failed answer of an agent again, once, for a person who asks
+   * for it: the target is queued and forgets its hint.
+   * @returns The asked answer, or `null` when it is no failed answer or
+   * already started again.
+   */
+  public async reopenFailed(target: {
+    readonly replyMessageId: string;
+    readonly agentId: string;
+    readonly now: string;
+  }): Promise<ConversationReopenedAnswer | null> {
+    const rows = await this.database.query(
+      `
+        UPDATE conversation_reply_targets
+        SET
+            state = 'queued',
+            reply_message_id = NULL,
+            notice = NULL,
+            updated_at = $now
+        FROM conversation_reply_rounds
+        WHERE conversation_reply_rounds.origin_message_id = conversation_reply_targets.origin_message_id
+            AND conversation_reply_targets.reply_message_id = $reply_message_id
+            AND conversation_reply_targets.agent_id = $agent_id
+            AND conversation_reply_targets.state = 'failed'
+        RETURNING
+            conversation_reply_targets.origin_message_id,
+            conversation_reply_rounds.person_id,
+            conversation_reply_targets.trigger,
+            conversation_reply_targets.trigger_message_id,
+            conversation_reply_targets.reason;
+      `,
+      {
+        reply_message_id: target.replyMessageId,
+        agent_id: target.agentId,
+        now: target.now,
+      },
+    );
+    const [row] = rows;
+    if (!row) return null;
+    return {
+      originMessageId: readTextColumn(row, 0, "origin_message_id"),
+      personId: readTextColumn(row, 1, "person_id"),
+      agentId: target.agentId,
+      trigger: readTrigger(readTextColumn(row, 2, "trigger")),
+      triggerMessageId: readTextColumn(row, 3, "trigger_message_id"),
+      reason: readTextColumn(row, 4, "reason"),
     };
   }
 

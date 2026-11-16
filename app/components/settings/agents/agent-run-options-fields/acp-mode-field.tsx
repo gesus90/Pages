@@ -2,9 +2,10 @@ import { useTranslation } from "react-i18next";
 
 import { Select } from "@/app/components/ui/select";
 import {
-  ACP_PERMISSION_MODES,
-  isPlanPermissionMode,
-} from "@/definition/AgentConfiguration";
+  isAgentAccessMode,
+  storedAgentAccessMode,
+} from "@/definition/AgentAccessMode";
+import { ACP_PERMISSION_MODES } from "@/definition/AgentConfiguration";
 
 import type {
   AgentRunOptions,
@@ -12,27 +13,21 @@ import type {
 } from "@/definition/AgentConfiguration";
 
 /**
- * Chooses an ACP mode, with full environment offered only by an authorized plan-node editor.
+ * Chooses one of the two modes, "Lesend" or "YOLO", with the same meaning as for agent employees.
  * @remarks
  * An agent saved with the earlier write mode shows no mode, so nobody gets
- * YOLO without choosing it; the agent cannot run until a mode is chosen.
+ * YOLO without choosing it; the agent cannot run until a mode is chosen. An
+ * earlier "full environment" shows as YOLO, which it is now.
  */
 export function AcpModeField(props: {
-  readonly canSelectFullEnvironment?: boolean;
   readonly options: AgentRunOptions;
   readonly disabled: boolean;
-  readonly onChange: (mode: AcpPermissionMode | "full_environment") => void;
+  readonly onChange: (mode: AcpPermissionMode) => void;
 }): React.ReactElement {
   const { t } = useTranslation();
-  const mode = isPlanPermissionMode(props.options.access)
-    ? props.options.access
-    : null;
+  const mode = storedAgentAccessMode(props.options.access);
   function choose(value: string): void {
-    if (
-      isPlanPermissionMode(value) &&
-      (value !== "full_environment" || props.canSelectFullEnvironment)
-    )
-      props.onChange(value);
+    if (isAgentAccessMode(value)) props.onChange(value);
   }
   return (
     <label className="space-y-1.5 text-sm font-medium">
@@ -52,17 +47,6 @@ export function AcpModeField(props: {
                   value: "",
                   label: t("settings.agents.run.chooseMode"),
                   disabled: true,
-                },
-              ]
-            : []),
-          ...(props.canSelectFullEnvironment
-            ? [
-                {
-                  value: "full_environment",
-                  label: t("settings.agents.run.modes.full_environment.label"),
-                  description: t(
-                    "settings.agents.run.modes.full_environment.description",
-                  ),
                 },
               ]
             : []),

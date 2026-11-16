@@ -25,7 +25,9 @@ export type ChatErrorCode =
   | "compactionFailed"
   | "instructionsUnavailable"
   | "acpProviderUnsupported"
-  | "acpPermissionModeUnsupported";
+  | "acpPermissionModeUnsupported"
+  /** The agent still has an earlier access level; "Lesend" or "YOLO" must be chosen first. */
+  | "accessModeRequired";
 
 /** Stable, translated chat failures; they never carry message text or provider output. */
 export class ChatError extends Error {

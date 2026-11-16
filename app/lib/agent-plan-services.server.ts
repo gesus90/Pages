@@ -43,6 +43,7 @@ import { logCaughtError, logDiagnostic } from "@/backend/logging/Logger";
 import { getPagesRuntime } from "@/backend/runtime/PagesRuntime";
 
 import { createPageAgentSessions } from "./agent-plan-page-sessions.server";
+import { createPlanDecisionModels } from "./agent-plan-swarm.server";
 import { upgradeStoredPlans } from "./agent-plan-upgrade.server";
 import { startOneShotPlanDeletion } from "./agent-plan-one-shot-services.server";
 import { sessionRunAccess } from "./agent-plan-run-access.server";
@@ -221,6 +222,7 @@ async function initializePlanProcessing(input: PlanProcessingInput): Promise<{
     scripts: scriptPreparation,
     bridges: grants,
   });
+  const decisionModels = createPlanDecisionModels(input);
   const {
     dependencies,
     engine,
@@ -246,6 +248,7 @@ async function initializePlanProcessing(input: PlanProcessingInput): Promise<{
     parameters,
     workspaces,
     scripts,
+    decisionModels,
   });
   const service = new AgentPlanService(dependencies);
   await input.beforeRecovery?.(dependencies, service);

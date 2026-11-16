@@ -4,6 +4,7 @@ import {
   agentRunOptionsFor,
 } from "@/definition/AgentConfiguration";
 import { hasChatAdapter } from "@/definition/AgentModelConsumers";
+import { mergeHostMcpServers } from "@/backend/agents/cli/CliHostMcpServers";
 
 import type { McpServer } from "@agentclientprotocol/sdk";
 import type { ResolvedAgentAssignment } from "@/backend/service/agents/AgentAssignmentResolution";
@@ -38,11 +39,9 @@ export interface PicaAcpRunner {
   readonly hasBridgeMcp?: boolean;
   /**
    * The MCP servers configured on the host that a session of an agent
-   * employee on "Arbeitsplatz" or YOLO receives beside the Pages tools.
+   * employee in YOLO receives beside the Pages tools.
    */
   readonly hostMcpServers?: readonly McpServer[];
-  /** The session of an agent employee on YOLO runs without the bubblewrap isolation. */
-  readonly isUnisolated?: boolean;
   /**
    * The run options of a job, taken from the assignment.
    * @throws {ChatError} `acpPermissionModeUnsupported` for a mode the runner
@@ -64,7 +63,7 @@ const CODEX_RUNNER: PicaAcpRunner = {
 
 /**
  * Claude Code takes mode and duration limit from the assigned agent. Pica gets
- * nothing but the bridge tools there, which is "Nur Lesen"; an agent stored
+ * nothing but the bridge tools there, which is "Lesend"; an agent stored
  * with YOLO or the earlier write mode is refused, never narrowed silently.
  * Claude Code computes its cost from token counts and list prices, so the
  * amount is an estimate and, with a subscription sign-in, not billed.
@@ -99,7 +98,7 @@ const OPENCODE_RUNNER: PicaAcpRunner = {
 /**
  * Antigravity runs without any native tool; Pica's tools reach it as the one
  * MCP server of the session. Like Claude Code and OpenCode it answers only in
- * "Nur Lesen", and an agent stored with YOLO is refused, never narrowed.
+ * "Lesend", and an agent stored with YOLO is refused, never narrowed.
  */
 const ANTIGRAVITY_RUNNER: PicaAcpRunner = {
   provider: "antigravity",
@@ -134,10 +133,10 @@ export function chatMcpServers(
   runner: PicaAcpRunner,
   bridge: () => readonly McpServer[],
 ): { readonly mcpServers?: readonly McpServer[] } {
-  const servers = [
-    ...(runner.hasBridgeMcp === true ? bridge() : []),
-    ...(runner.hostMcpServers ?? []),
-  ];
+  const servers = mergeHostMcpServers(
+    runner.hasBridgeMcp === true ? bridge() : [],
+    runner.hostMcpServers ?? [],
+  );
   return servers.length > 0 ? { mcpServers: servers } : {};
 }
 

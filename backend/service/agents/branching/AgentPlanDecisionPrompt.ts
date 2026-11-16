@@ -1,11 +1,18 @@
+import { DecisionModelError } from "@/backend/error/DecisionModelError";
 import {
   PLAN_DECISION_SOURCE_LIMIT,
+  PLAN_DECISION_YES_THRESHOLD,
   planDecisionBinding,
   planDecisionOutput,
 } from "@/definition/AgentPlanDecision";
 
+import { DECISION_DATA_NOTICE } from "../../conversation/OpenRouterDecisionsClient";
 import { eventPrompt } from "./AgentPlanBranchSettle";
 
+import type {
+  DecisionQuestion,
+  OpenRouterDecisionsResponse,
+} from "../../conversation/OpenRouterDecisionsClient";
 import type {
   AgentPlanDecision,
   AgentPlanRun,
@@ -89,60 +96,80 @@ export async function readDecisionSource(
   return source;
 }
 
-/** The allowed values as the prompt names them. */
-function allowedValues(decision: AgentPlanDecision): string {
+/** The key of the one question a model decision asks. */
+export const PLAN_DECISION_QUESTION_KEY = "decision";
+
+/**
+ * The one typed question of a model decision.
+ * @param decision - The frozen decision.
+ * @returns A `noul` question for yes or no, or a `choice` question whose
+ * criteria are the values of the decision: the name of each value as its key
+ * and, as no value stores a description, its name as the description. The
+ * question of the decision is the instruction, with the notice that the
+ * source is data only.
+ */
+export function decisionQuestions(
+  decision: AgentPlanDecision,
+): Readonly<Record<string, DecisionQuestion>> {
+  const instructions = `${decision.question?.trim() ?? ""}\n\n${DECISION_DATA_NOTICE}`;
   if (planDecisionOutput(decision) === "boolean")
-    return 'the JSON boolean true or the JSON boolean false (not the strings "true" or "false")';
-  return `exactly one of these strings: ${(decision.cases ?? []).map((entry) => JSON.stringify(entry.name)).join(", ")}`;
+    return { [PLAN_DECISION_QUESTION_KEY]: { type: "noul", instructions } };
+  return {
+    [PLAN_DECISION_QUESTION_KEY]: {
+      type: "choice",
+      instructions,
+      criteria: Object.fromEntries(
+        (decision.cases ?? []).map((entry) => [entry.name, entry.name]),
+      ),
+    },
+  };
 }
 
-function answerShape(decision: AgentPlanDecision): string {
-  return planDecisionOutput(decision) === "boolean"
-    ? '{"decision":true,"reason":"short reason"}'
-    : `{"decision":${JSON.stringify(decision.cases?.[0]?.name ?? "value")},"reason":"short reason"}`;
-}
-
-/**
- * The prompt of a model decision: the question, the allowed values and the source, nothing else.
- *
- * @param decision - The frozen decision.
- * @param source - What it reads.
- */
-export function decisionPrompt(
-  decision: AgentPlanDecision,
-  source: PlanDecisionSource,
-): string {
-  return [
-    "You are the decision step of an automated plan. Read the source below and answer the question. You have no tools; do not try to use any.",
-    "",
-    "Question:",
-    decision.question?.trim() ?? "",
-    "",
-    `Allowed values for "decision": ${allowedValues(decision)}.`,
-    "",
-    'Answer with exactly one JSON object with the two fields "decision" and "reason" and nothing else: no text before or after it, no code fence, no further fields. "reason" is a short justification of one or two sentences.',
-    `Example of the form: ${answerShape(decision)}`,
-    "",
-    `Source (${source.label}):`,
-    "<<<SOURCE",
-    source.text,
-    "SOURCE>>>",
-  ].join("\n");
+/** What the decision model answered, read against the decision. */
+export interface PlanDecisionModelAnswer {
+  /** `true`/`false` for yes or no, the name of the value for a classification. */
+  readonly decision: boolean | string;
+  /** The value of a classification; absent for yes or no. */
+  readonly caseId?: string;
+  /** The probability of yes, or of the chosen value; `null` when the model gave none. */
+  readonly probability: number | null;
+  readonly confidence: number | null;
 }
 
 /**
- * The single correction a model gets after an invalid answer.
- *
- * @param decision - The frozen decision.
- * @param problem - What was wrong with the answer, in Pages' own words.
+ * Reads the answer of the decision model against the decision.
+ * @param response - What the decisions interface answered.
+ * @param decision - The frozen decision with its output kind and values.
+ * @returns Yes from a probability of {@link PLAN_DECISION_YES_THRESHOLD} on,
+ * no below it; for a classification the chosen value.
+ * @throws {DecisionModelError} `decision_invalid` when the answer is missing,
+ * has another type than asked or names no value of the decision. A failure
+ * is never read as no or as one of the values.
  */
-export function decisionCorrectionPrompt(
+export function readDecisionModelAnswer(
+  response: OpenRouterDecisionsResponse,
   decision: AgentPlanDecision,
-  problem: string,
-): string {
-  return [
-    `Your answer was invalid: ${problem}`,
-    `Answer again with exactly one JSON object and nothing else. Allowed values for "decision": ${allowedValues(decision)}.`,
-    `Form: ${answerShape(decision)}`,
-  ].join("\n");
+): PlanDecisionModelAnswer {
+  const answer = response.answers[PLAN_DECISION_QUESTION_KEY];
+  if (planDecisionOutput(decision) === "boolean") {
+    if (answer?.type !== "noul")
+      throw new DecisionModelError("decision_invalid");
+    return {
+      decision: answer.noul >= PLAN_DECISION_YES_THRESHOLD,
+      probability: answer.noul,
+      confidence: answer.confidence,
+    };
+  }
+  if (answer?.type !== "choice")
+    throw new DecisionModelError("decision_invalid");
+  const match = (decision.cases ?? []).find(
+    (entry) => entry.name === answer.choice,
+  );
+  if (match === undefined) throw new DecisionModelError("decision_invalid");
+  return {
+    decision: match.name,
+    caseId: match.id,
+    probability: answer.probabilities?.[match.name] ?? null,
+    confidence: answer.confidence,
+  };
 }

@@ -4,6 +4,7 @@ import { cn } from "@/app/lib/cn";
 import {
   AGENT_TOOL_GROUPS,
   agentToolPolicy,
+  isToolGroupSwitchEffective,
 } from "@/definition/AgentToolGroups";
 
 import type { AgentEmployeeAccess } from "@/definition/AgentEmployee";
@@ -30,12 +31,15 @@ function ToolGroupRow({
   mode,
   isOn,
   isLocked,
+  isFixed,
   onToggle,
 }: {
   readonly group: AgentToolGroup;
   readonly mode: AgentToolGroupMode;
   readonly isOn: boolean;
   readonly isLocked: boolean;
+  /** YOLO keeps the host groups: the native tools reach the same host, so a switch would only hide them. */
+  readonly isFixed: boolean;
   readonly onToggle: (group: AgentToolGroup, isOn: boolean) => void;
 }): React.ReactElement {
   const { t } = useTranslation();
@@ -68,6 +72,11 @@ function ToolGroupRow({
           <span className="text-muted-foreground">
             {t(`agentEmployees.accessTab.toolGroups.description.${group}`)}
           </span>
+          {isFixed ? (
+            <span className="text-xs text-muted-foreground">
+              {t("agentEmployees.accessTab.toolGroups.fixedInYolo")}
+            </span>
+          ) : null}
         </span>
       </label>
     </li>
@@ -81,7 +90,10 @@ function ToolGroupRow({
  * @remarks
  * Switching a group off narrows the agent and is open to everyone who edits
  * it; switching a saved disabled group on again widens it, so only an
- * administrator in active admin mode may. The server checks both again.
+ * administrator in active admin mode may. The server checks both again. In
+ * YOLO the host groups stay on and show so, because the native tools of the
+ * runner reach the host anyway; only the Pages and chat groups can be
+ * switched off there.
  */
 export function AgentToolGroupsSection({
   access,
@@ -119,12 +131,14 @@ export function AgentToolGroupsSection({
       )}
       <ul className="flex flex-col divide-y divide-border/60 rounded-xl border border-border">
         {AGENT_TOOL_GROUPS.map((group) => {
-          const isOn = !disabled.includes(group);
+          const isFixed = !isToolGroupSwitchEffective(access, group);
+          const isOn = isFixed || !disabled.includes(group);
           const wasOff = savedDisabled?.includes(group) === true;
           return (
             <ToolGroupRow
               group={group}
-              isLocked={!canEdit || (!isOn && wasOff && !canEnable)}
+              isFixed={isFixed}
+              isLocked={isFixed || !canEdit || (!isOn && wasOff && !canEnable)}
               isOn={isOn}
               key={group}
               mode={levelModes[group]}

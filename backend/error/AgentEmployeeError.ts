@@ -8,7 +8,7 @@ export type AgentEmployeeErrorCode =
   | "modelNotAllowed"
   | "accessUnsupported"
   | "accessAdminRequired"
-  | "isolationUnavailable"
+  | "accessModeRequired"
   | "templateNameTaken"
   | "inactive"
   | "busy"

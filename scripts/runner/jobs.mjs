@@ -1,5 +1,6 @@
 import { join } from "node:path";
 import { pauseExecution } from "./processes.mjs";
+import { isNativeJob } from "./native.mjs";
 import { randomUUID } from "node:crypto";
 
 import { admitJob, releaseJob } from "./admission.mjs";
@@ -300,9 +301,15 @@ export class RunnerJobs {
       await cancelQueuedJob(directory, job);
       return null;
     }
-    if (!(await canIsolateJobs())) {
-      // No worker may start where its process tree could not be owned.
-      await refuseQueuedJob(directory, job, "cli_isolation_unavailable");
+    if (!(await canIsolateJobs(job))) {
+      // No worker may start where its process tree could not be owned, and a YOLO job never falls back to a sandbox.
+      await refuseQueuedJob(
+        directory,
+        job,
+        isNativeJob(job)
+          ? "acp_worker_unit_unavailable"
+          : "cli_isolation_unavailable",
+      );
       return null;
     }
     let reason;

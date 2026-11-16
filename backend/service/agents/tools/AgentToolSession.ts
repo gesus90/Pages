@@ -2,7 +2,11 @@ import { constants } from "node:fs";
 import { access } from "node:fs/promises";
 
 import { AgentPlanCancelledError } from "@/backend/error/AgentPlanCancelledError";
-import { nativeAcpProvider } from "@/definition/AgentConfiguration";
+import { logEvent } from "@/backend/logging/Logger";
+import {
+  isAgentWriteAccess,
+  nativeAcpProvider,
+} from "@/definition/AgentConfiguration";
 
 import { AgentToolReadinessError } from "./AgentToolReadinessError";
 
@@ -33,8 +37,7 @@ export async function prepareAgentToolSession(input: {
   if (
     request.options.browser === true &&
     !request.chat &&
-    request.options.access !== "yolo" &&
-    request.options.access !== "full_environment"
+    !isAgentWriteAccess(request.options.access)
   )
     throw new AgentToolReadinessError(
       "playwright_mcp",
@@ -134,16 +137,27 @@ async function waitForAgentTools(input: {
     stop = () => resolve(null);
     signal.addEventListener("abort", stop, { once: true });
   });
+  const startedAt = performance.now();
   const ready = manager
     .ensureReady({
       provider,
       browser: request.options.browser === true && !request.chat,
       instanceId: request.instanceId,
+      isNative: isAgentWriteAccess(request.options.access),
     })
-    .then((locations) => {
-      if (signal.aborted) manager.supervisor.release(request.instanceId);
-      return locations;
-    });
+    .then(
+      (locations) => {
+        if (signal.aborted) manager.supervisor.release(request.instanceId);
+        return locations;
+      },
+      (error: unknown) => {
+        logReadinessFailure(error, {
+          provider,
+          durationMs: Math.round(performance.now() - startedAt),
+        });
+        throw error;
+      },
+    );
   try {
     if (signal.aborted) stop();
     const result = await Promise.race([ready, stopped]);
@@ -152,6 +166,31 @@ async function waitForAgentTools(input: {
   } finally {
     signal.removeEventListener("abort", stop);
   }
+}
+
+/**
+ * Names the tool, its status, its diagnostic and how long the readiness wait
+ * took when a start is refused; the refusal alone only says
+ * `agent_tool_not_ready`.
+ */
+function logReadinessFailure(
+  error: unknown,
+  facts: { readonly provider: CliProviderId; readonly durationMs: number },
+): void {
+  if (!(error instanceof AgentToolReadinessError)) return;
+  logEvent({
+    level: "warn",
+    event: "agent.tool.readiness_failed",
+    component: "AgentToolSession",
+    message: "An agent start was refused because a tool is not ready",
+    metadata: {
+      tool: error.tool,
+      status: error.status,
+      diagnostic: error.diagnostic,
+      durationMs: facts.durationMs,
+      provider: facts.provider,
+    },
+  });
 }
 
 /** Confirms the same approved adapter version again during the actual native handshake. */

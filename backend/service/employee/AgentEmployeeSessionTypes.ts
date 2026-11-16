@@ -68,7 +68,7 @@ export interface AgentEmployeeSessionDependencies {
   > | null;
   /** The limits of concurrent sessions; absent runs every session at once. */
   readonly slots?: Pick<AgentSessionSlots, "acquire">;
-  /** The MCP servers of the host for "Arbeitsplatz" and YOLO; absent gives none. */
+  /** The MCP servers of the host for YOLO; absent gives none. */
   readonly accessEnvironment?: Pick<
     AgentAccessEnvironmentService,
     "chatServers"
