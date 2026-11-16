@@ -149,7 +149,7 @@ For backend work:
   `tmpdir()` or `/tmp`: the Pages services run with a private `/tmp`, so agents,
   script owners and worker units in the account's service manager cannot see it.
 - Split a repository or service that grows beyond the size limits of `GUIDELINES.md` into one small class per aggregate; the original class stays as a facade when other code depends on its public API.
-- `backend/service/chat/pica/AGENTS.md` and `SOUL.md` are runtime instructions of the Pica chatbot (PAGE-51), not instructions for coding agents. Change them only when a task asks to change Pica's identity or rules.
+- `backend/service/chat/pica/AGENTS.md` and `SOUL.md` are runtime instructions of the Pica chatbot, not instructions for coding agents. Change them only when a task asks to change Pica's identity or rules.
 
 ---
 
@@ -173,24 +173,22 @@ For database work:
 
 ## 9. Tests
 
-### Current state after PAGE-32 and PAGE-33
+### Unit test scopes
 
-PAGE-38 introduced the standalone Backend/Frontend Vitest and diagnostic
-coverage configuration. PAGE-32 rebuilds and executes the Backend unit suite
-using exactly `pnpm run test:backend`. See [tests/backend/README.md](./tests/backend/README.md)
-for the analyzed behavior, mocked boundaries, measured results and remaining
-coverage gaps. Existing targeted Backend regressions are included. PAGE-33
-separately extends and validates the Frontend suite using exactly
+The standalone Backend and Frontend Vitest suites use diagnostic coverage.
+Run the Backend suite with `pnpm run test:backend`; see
+[tests/backend/README.md](./tests/backend/README.md) for covered behavior,
+mocked boundaries, results and gaps. Run the Frontend suite separately with
 `pnpm run test:frontend`; see [tests/frontend/README.md](./tests/frontend/README.md)
-for behavior selection, boundaries, results and gaps. Backend validation says
+for its behavior selection, boundaries, results and gaps. Backend validation says
 nothing about Frontend coverage.
 
 Keep the two Pages scripts `test:backend` and `test:frontend` separate. No root
 `test` script, aggregate or alias is allowed. Pages CI runs no tests on pushes
-to `main` and on pull requests. The one exception (PAGE-290) is a pushed Git tag
+to `main` and on pull requests. The one exception is a pushed Git tag
 `ci_test` or `ci_test-<id>`: it starts the CI job `Pages tests (100% coverage)`
 with both unit suites, the browser suite, `postgres:check`, the build and a
-mandatory 100% coverage verdict per scope (see [CI test tags](tests/README.md#ci-test-tags-page-290)). Run
+mandatory 100% coverage verdict per scope (see [CI test tags](tests/README.md)). Run
 `pnpm run check` and `pnpm run lint` as non-test gates; neither demonstrates
 functional coverage.
 
@@ -204,17 +202,17 @@ functional coverage.
 - Coverage is diagnostic: report statements, branches, functions and lines per
   relevant Pages source module, including untested files and branch gaps. No
   mandatory percentage, per-file quota or replacement threshold applies for now,
-  except in the tag-started CI job of PAGE-290, which requires 100%.
+  except in the tag-started CI job, which requires 100%.
   Do not hide gaps with coverage-ignore comments or blanket exclusions.
 - Keep exactly two Pages unit test scripts: `test:backend` and `test:frontend`,
   both with coverage. No `test` script, aggregator or alias. The browser and visual regression suite of `tests/browser/`
-  (PAGE-172, `pnpm run browser:test`) is one of two other test commands. It is not a
+  (`pnpm run browser:test`) is one of two other test commands. It is not a
   unit scope, has no coverage, runs in CI only for a `ci_test` tag, and is the only place for real
   browser tests; see [tests/browser/README.md](./tests/browser/README.md).
-- `pnpm run postgres:check` (PAGE-212) is the second one, and the only test that starts a real
+- `pnpm run postgres:check` is the second one, and the only test that starts a real
   database server, a temporary PostgreSQL instance of its own. Like the browser
   suite it is no unit scope, has no coverage and runs in CI only for a `ci_test` tag.
-  `pnpm run postgres:restore-check` (PAGE-219) also starts one, but it is an operating
+  `pnpm run postgres:restore-check` also starts one, but it is an operating
   command that checks a backup, no test (`docs/PostgresMigration.md`).
 - Choose scope by behavior: server-side loaders/actions under `app/` belong to
   Backend in Node; isolated React components/hooks belong to Frontend in jsdom.
@@ -226,7 +224,7 @@ functional coverage.
   two unit scopes. Real browser tests live only in `tests/browser/`.
 - Intended reports go to `coverage/backend/` and `coverage/frontend/`: terminal
   and file text tables, HTML, JSON counters and per-module JSON metric summaries.
-  PAGE-32 validates Backend reports; PAGE-33 separately validates Frontend reports.
+  Backend and Frontend reports are validated separately.
 - Pages tests may verify Pages-owned Agent API, plan bridge, wiki and database
   behavior. They must not start an MCP server, client, transport or process,
   including through a shared helper. Use mocks or stubs at an MCP boundary.
