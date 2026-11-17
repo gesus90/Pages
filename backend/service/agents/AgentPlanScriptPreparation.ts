@@ -1,5 +1,3 @@
-import { AgentOperationError } from "@/backend/error/AgentOperationError";
-import { UserPolicyService } from "@/backend/auth/UserPolicyService";
 import { AgentError } from "@/backend/error/AgentErrors";
 import {
   planScriptIssues,
@@ -8,12 +6,8 @@ import {
 import { canRunPlan } from "@/definition/AgentPlanTeam";
 
 import { planBindings } from "./AgentPlanBindings";
-import {
-  localPlanScripts,
-  scriptApprovalState,
-} from "./AgentPlanScriptApproval";
+import { localPlanScripts } from "./AgentPlanScriptApproval";
 
-import type { AgentPlanScriptApprovalRepository } from "@/backend/database/repositories/agent/AgentPlanScriptApprovalRepository";
 import type { AuthorizationRepository } from "@/backend/database/repositories/AuthorizationRepository";
 import type { AgentPlan } from "@/definition/AgentPlan";
 import type { AgentPlanScript } from "@/definition/AgentPlanScript";
@@ -40,8 +34,6 @@ interface ScriptPreparationDependencies {
   readonly access: Pick<AgentPlanAccess, "require">;
   readonly authorization: Pick<AuthorizationRepository, "snapshot">;
   readonly tasks: Pick<AgentPlanTasks, "snapshot">;
-  /** The approved script hashes; without them only administrators run scripts. */
-  readonly approvals?: Pick<AgentPlanScriptApprovalRepository, "list">;
 }
 
 /** Resolves direct process execution through live account, plan and workspace rights. */
@@ -140,23 +132,6 @@ export class AgentPlanScriptPreparation {
       await this.dependencies.tasks.snapshot(userId, plan.projectId, taskId);
   }
 
-  /**
-   * Requires an approval of the current content of every local script.
-   * @throws {AgentError} `plan_script_approval_required` when an administrator
-   * has not approved the current content, `plan_script_permission_denied`
-   * where approvals are not available at all.
-   */
-  private async requireApproval(plan: AgentPlan): Promise<void> {
-    if (!this.dependencies.approvals)
-      throw new AgentError("plan_script_permission_denied");
-    const state = scriptApprovalState(
-      plan,
-      await this.dependencies.approvals.list(plan.id),
-    );
-    if (state.unapprovedStepIds.length > 0)
-      throw new AgentError("plan_script_approval_required");
-  }
-
   private async authorize(
     userId: string,
     plan: AgentPlan,
@@ -164,14 +139,9 @@ export class AgentPlanScriptPreparation {
     const actor = (
       await this.dependencies.authorization.snapshot()
     ).accounts.find((account) => account.userId === userId);
-    if (!actor) throw new AgentError("plan_script_permission_denied");
-    const policy = new UserPolicyService();
-    if (policy.isManagement(actor) && !policy.isAdministrator(actor))
-      throw new AgentOperationError("FORBIDDEN", { reason: "core_system" });
+    if (!actor?.isActive) throw new AgentError("plan_access_denied");
     const current = await this.dependencies.access.require(userId, plan.id);
     if (!canRunPlan(current)) throw new AgentError("plan_access_denied");
-    if (!new UserPolicyService().isAdministrator(actor))
-      await this.requireApproval(plan);
     if (
       current.projectId !== plan.projectId ||
       current.workspaceId !== plan.workspaceId

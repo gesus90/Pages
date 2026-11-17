@@ -31,7 +31,7 @@ export interface AgentPlanRightsView {
   readonly canChangeOwner: boolean;
   /** The owner or an active human administrator deletes the plan. */
   readonly canDelete: boolean;
-  /** An active human administrator, who needs no script approval and controls every run. */
+  /** An active human administrator, who controls every run. */
   readonly isAdministrator: boolean;
   /** The rights come from the administrator role alone: the plan is somebody else's. */
   readonly isAdminAccess: boolean;
@@ -63,11 +63,11 @@ export interface AgentPlanAuditEntry {
   readonly details: Readonly<Record<string, unknown>>;
 }
 
-/** The approval state of the script steps of a plan. */
+/** Legacy script metadata retained for existing clients. */
 export interface AgentPlanScriptApprovalState {
   /** Whether the plan has local, active script steps at all. */
   readonly hasScripts: boolean;
-  /** The script steps whose current content no administrator approved. */
+  /** Always empty: scripts use the regular plan and resource rights. */
   readonly unapprovedStepIds: readonly string[];
 }
 

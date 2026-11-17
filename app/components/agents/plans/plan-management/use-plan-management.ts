@@ -13,14 +13,10 @@ export type PlanManagementDialog =
   | "clone-one-shot"
   | "delete"
   | "access"
-  | "history"
-  | "approve-scripts";
+  | "history";
 
 /** The requests whose success closes their dialog and reloads the plan. */
-const CLOSING_INTENTS: ReadonlySet<string> = new Set([
-  "plan-access",
-  "approve-plan-scripts",
-]);
+const CLOSING_INTENTS: ReadonlySet<string> = new Set(["plan-access"]);
 
 /** The request of a create, clone or delete dialog, without its key. */
 export type PlanManagementRequest = Readonly<Record<string, string>>;

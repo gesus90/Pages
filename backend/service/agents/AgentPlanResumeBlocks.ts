@@ -10,7 +10,6 @@ import type { AgentPlanRecoveryBlocker } from "@/definition/AgentPlanRecovery";
 
 /** What lifts a refusal of the plan itself, for the codes whose lift is an action. */
 const ISSUE_ACTIONS: Readonly<Record<string, AgentPlanResumeAction>> = {
-  plan_script_permission_denied: "admin_mode",
   plan_workspace_waiting: "wait",
   plan_skipped_step_enabled: "restart",
 };
@@ -29,7 +28,7 @@ const RECOVERY_ACTIONS: Readonly<
   no_safe_state: "restart",
 };
 
-/** The block a refusal of the plan names, such as a missing admin mode or a changed plan. */
+/** The block a refusal of the plan names, such as a reserved workspace or a changed plan. */
 export function resumeBlockFromIssue(
   code: string,
   holderRunId?: string,

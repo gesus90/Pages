@@ -32,7 +32,7 @@ type AuthorizeRemoteScript = (
   script: AgentPlanScriptSnapshot,
 ) => Promise<void>;
 
-/** Dispatches outer and inner scripts with their original approval and interpreter contracts. */
+/** Dispatches outer and inner scripts with their original authorization and interpreter contracts. */
 export class RunnerPlanScripts {
   private readonly preparation: AgentPlanScriptPreparation;
   private readonly runners: ManagedRunnerTransport;

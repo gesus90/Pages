@@ -5,7 +5,6 @@ import {
   MoreHorizontal,
   Pencil,
   Plus,
-  ShieldCheck,
   Trash2,
   Users,
 } from "lucide-react";
@@ -148,16 +147,13 @@ export function PlanPanelMenu(props: {
   );
 }
 
-/** Teams und Besitzer, Verlauf and, for administrators, Skripte freigeben. */
+/** Teams, owner and history of the selected plan. */
 function PlanAccessMenuItems(props: {
   readonly page: AgentPlanPage;
   readonly onOpen: (dialog: PlanManagementDialog) => void;
 }): React.ReactElement {
   const { t } = useTranslation();
   const plan = props.page.selected;
-  const needsApproval =
-    plan?.rights?.isAdministrator === true &&
-    (plan.scriptApproval?.unapprovedStepIds.length ?? 0) > 0;
   return (
     <>
       <DropdownMenuItem
@@ -174,12 +170,6 @@ function PlanAccessMenuItems(props: {
         <History aria-hidden="true" className={ITEM_ICON_CLASS} />
         {t("plans.access.historyMenu")}
       </DropdownMenuItem>
-      {needsApproval ? (
-        <DropdownMenuItem onSelect={() => props.onOpen("approve-scripts")}>
-          <ShieldCheck aria-hidden="true" className={ITEM_ICON_CLASS} />
-          {t("plans.access.approveMenu")}
-        </DropdownMenuItem>
-      ) : null}
     </>
   );
 }

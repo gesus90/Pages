@@ -340,8 +340,8 @@ export class AgentPlanService extends AgentPlanTeamReads {
   }
 
   /**
-   * Approves the current content of the plan's script steps; administrators only.
-   * @returns The steps approved now.
+   * Retains the legacy administrator endpoint; scripts no longer need approval.
+   * @returns No newly approved steps.
    */
   public async approveScripts(
     userId: string,

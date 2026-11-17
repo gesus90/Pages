@@ -120,7 +120,7 @@ export interface AgentPlanScriptOutput {
  * An authorized explicit run sends one UTF-8 JSON object on stdin:
  * declared names map to text, optional unbound inputs are omitted, explicit
  * empty strings are retained. stdout stays exact text; stderr is diagnostic.
- * Runs require active administrator mode and live workspace and plan rights.
+ * Runs require live workspace rights and the plan's execution right.
  * Timeout is always finite; the shared bounds apply to editor and runtime.
  */
 export interface AgentPlanScript extends AgentPlanPosition {

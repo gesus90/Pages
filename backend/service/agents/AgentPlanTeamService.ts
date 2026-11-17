@@ -4,11 +4,7 @@ import {
   normalizePlanTeams,
 } from "@/definition/AgentPlanTeam";
 
-import {
-  localPlanScripts,
-  scriptApprovalHash,
-  scriptApprovalState,
-} from "./AgentPlanScriptApproval";
+import { localPlanScripts } from "./AgentPlanScriptApproval";
 
 import type { AgentPlanAccessRepository } from "@/backend/database/repositories/agent/AgentPlanAccessRepository";
 import type { AgentPlanAuditRepository } from "@/backend/database/repositories/agent/AgentPlanAuditRepository";
@@ -18,6 +14,7 @@ import type { AgentPlanView } from "@/definition/AgentPlan";
 import type {
   AgentPlanAuditAction,
   AgentPlanAuditEntry,
+  AgentPlanScriptApprovalState,
   AgentPlanTeam,
 } from "@/definition/AgentPlanTeam";
 import type { AgentPlanAccess } from "./AgentPlanAccess";
@@ -47,11 +44,11 @@ export interface AgentPlanAccessRequest {
 }
 
 /**
- * Teams, owner, script approvals and history of plans.
+ * Teams, owner and history of plans.
  * @remarks
  * The owner, active administrators and the project managers of the plan's
  * project change its teams; only an active human administrator changes the
- * owner and approves scripts. Every change is a revision of its own and is
+ * owner. Every change is a revision of its own and is
  * recorded in the history of the plan, and so is every action of an
  * administrator on a plan of somebody else.
  */
@@ -105,8 +102,8 @@ export class AgentPlanTeamService {
   }
 
   /**
-   * Approves the current content of every local script step of the plan.
-   * @returns The steps that were approved now; already approved ones are kept.
+   * Accepts legacy approval requests without writing obsolete approvals.
+   * @returns No steps: scripts no longer require separate approval.
    * @throws {AgentError} `plan_script_approval_forbidden` for anybody but an
    * active human administrator, `plan_conflict` for a stale revision.
    */
@@ -119,33 +116,17 @@ export class AgentPlanTeamService {
     if (plan.rights?.isAdministrator !== true)
       throw new AgentError("plan_script_approval_forbidden");
     if (plan.revision !== revision) throw new AgentError("plan_conflict");
-    const pending = new Set(
-      (await this.scriptApproval(plan)).unapprovedStepIds,
-    );
-    const approvals = localPlanScripts(plan)
-      .filter((script) => pending.has(script.id))
-      .map((script) => ({
-        stepId: script.id,
-        contentHash: scriptApprovalHash(plan, script),
-      }));
-    if (approvals.length > 0)
-      await this.writer().approveScripts({
-        planId,
-        revision,
-        actorId: userId,
-        approvals,
-      });
-    return approvals.map((approval) => approval.stepId);
+    return [];
   }
 
-  /** The approval state of the plan's scripts; without storage every script counts as unapproved. */
-  public async scriptApproval(
+  /** Retains the legacy response shape; authorized scripts no longer need approval. */
+  public scriptApproval(
     plan: Pick<AgentPlanView, "id" | "nodes" | "workspaceId">,
-  ): Promise<ReturnType<typeof scriptApprovalState>> {
-    return scriptApprovalState(
-      plan,
-      (await this.dependencies.approvals?.list(plan.id)) ?? new Map(),
-    );
+  ): Promise<AgentPlanScriptApprovalState> {
+    return Promise.resolve({
+      hasScripts: localPlanScripts(plan).length > 0,
+      unapprovedStepIds: [],
+    });
   }
 
   /**

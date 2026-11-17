@@ -333,7 +333,7 @@ export interface AgentPlanView extends AgentPlan {
   readonly canEdit: boolean;
   /** Every right of the person on the plan; absent in views made before team rights. */
   readonly rights?: AgentPlanRightsView;
-  /** Which script steps still wait for the approval of an administrator. */
+  /** Legacy script metadata; no separate approval is required. */
   readonly scriptApproval?: AgentPlanScriptApprovalState;
   readonly projectName: string;
   readonly github: WorkspaceGitHub | null;

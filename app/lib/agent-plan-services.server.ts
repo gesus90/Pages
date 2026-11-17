@@ -53,10 +53,7 @@ import {
   createProcessingCore,
   planProcessingServices,
 } from "./agent-plan-processing-services.server";
-import {
-  createPlanWorkspaceAccess,
-  planAccessRecords,
-} from "./plan-access-services.server";
+import { createPlanWorkspaceAccess } from "./plan-access-services.server";
 
 import type { AgentSessionService } from "@/backend/service/agents/sessions/AgentSessionService";
 import type { AgentPlanActiveRunService } from "@/backend/service/agents/AgentPlanActiveRuns";
@@ -499,7 +496,6 @@ function createScriptRuntime(
       access,
       tasks,
       authorization: new AuthorizationRepository(input.database),
-      approvals: planAccessRecords(input.database).scriptApprovals,
     }),
   };
 }

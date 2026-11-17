@@ -88,7 +88,7 @@ export async function changePlanAccessAction(
 }
 
 /**
- * Approves the current content of the script steps of a plan; administrators only.
+ * Retains the legacy administrator endpoint without requiring new script approvals.
  * @param userId - The administrator.
  * @param services - The plan services.
  * @param formData - Plan and revision the administrator saw.

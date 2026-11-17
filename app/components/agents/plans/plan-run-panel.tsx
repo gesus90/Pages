@@ -225,7 +225,7 @@ function PlanRunDecisionDialog({
   );
 }
 
-/** Switches the signed-in administrator to the active admin mode, which script steps need. */
+/** Switches the signed-in administrator to the active admin mode for administrator-only actions. */
 async function switchToAdminMode(): Promise<void> {
   const body = new FormData();
   body.set("intent", "admin-mode");

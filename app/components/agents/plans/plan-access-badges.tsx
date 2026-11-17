@@ -1,4 +1,4 @@
-import { ShieldAlert, ShieldCheck } from "lucide-react";
+import { ShieldCheck } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import type { AgentPlanView } from "@/definition/AgentPlan";
@@ -10,9 +10,7 @@ const BADGE_CLASS =
  * The access labels of the opened plan next to its name.
  * @remarks
  * "Admin-Zugriff" tells an administrator that the plan is somebody else's and
- * every action on it is recorded in its history. "Skript-Freigabe nötig"
- * tells everybody that a script step changed since an administrator approved
- * it, so team members cannot start the plan until it is approved again.
+ * every action on it is recorded in its history.
  */
 export function PlanAccessBadges({
   plan,
@@ -21,29 +19,16 @@ export function PlanAccessBadges({
 }): React.ReactElement | null {
   const { t } = useTranslation();
   const isAdminAccess = plan.rights?.isAdminAccess === true;
-  const needsApproval =
-    (plan.scriptApproval?.unapprovedStepIds.length ?? 0) > 0;
-  if (!isAdminAccess && !needsApproval) return null;
+  if (!isAdminAccess) return null;
   return (
     <div className="mt-1 flex flex-wrap gap-1">
-      {isAdminAccess ? (
-        <span
-          className={`${BADGE_CLASS} bg-primary-subtle text-primary`}
-          data-plan-admin-access
-        >
-          <ShieldCheck aria-hidden="true" className="size-3" />
-          {t("plans.access.adminBadge")}
-        </span>
-      ) : null}
-      {needsApproval ? (
-        <span
-          className={`${BADGE_CLASS} bg-warning-subtle text-warning`}
-          data-plan-script-approval
-        >
-          <ShieldAlert aria-hidden="true" className="size-3" />
-          {t("plans.access.approvalBadge")}
-        </span>
-      ) : null}
+      <span
+        className={`${BADGE_CLASS} bg-primary-subtle text-primary`}
+        data-plan-admin-access
+      >
+        <ShieldCheck aria-hidden="true" className="size-3" />
+        {t("plans.access.adminBadge")}
+      </span>
     </div>
   );
 }

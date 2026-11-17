@@ -4,7 +4,6 @@ import { PlanDeleteDialog } from "./plan-delete-dialog";
 import { PlanEditDialog } from "./plan-edit-dialog";
 import { PlanAccessDialog } from "./plan-access-dialog";
 import { PlanHistoryDialog } from "./plan-history-dialog";
-import { PlanScriptApprovalDialog } from "./plan-script-approval-dialog";
 
 import type { AgentPlanPage } from "@/definition/AgentPlan";
 import type { usePlanEditor } from "../use-plan-editor";
@@ -47,8 +46,6 @@ export function PlanManagementDialogs({
     return <PlanAccessDialog page={page} plan={plan} management={management} />;
   if (management.dialog === "history")
     return <PlanHistoryDialog plan={plan} management={management} />;
-  if (management.dialog === "approve-scripts")
-    return <PlanScriptApprovalDialog plan={plan} management={management} />;
   if (management.dialog === "delete")
     return (
       <PlanDeleteDialog

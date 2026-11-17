@@ -149,7 +149,10 @@ werden aus dem bisherigen `data/agents/<Verbindungs-ID>/home` gelesen;
 Codex, Claude Code, OpenCode und Antigravity verwenden die danebenliegenden
 bisherigen Konfigurationsverzeichnisse. Es findet keine Anmeldung und kein
 Kopieren oder Verschieben von Zugangsdaten statt. Vor dem Start prüft Pages
-erneut Plan-, Modell-, Workspace- und Skriptfreigaben.
+erneut Plan-, Modell- und Workspace-Rechte sowie die Interpreterkonfiguration.
+Skriptschritte benötigen das reguläre Ausführungsrecht am Plan und Zugriff auf
+seine Ressourcen. Eine zusätzliche Administratorfreigabe des Skriptinhalts
+entfällt, auch nach Änderungen an Skript, Interpreter oder Arbeitsplatz.
 
 Der lokale Runner liest Konten, Anmeldestatus und die aktiven verwalteten
 CLI-Versionen alle fünf Minuten erneut ein. „Werkzeuge aktualisieren“ in
