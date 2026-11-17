@@ -67,6 +67,8 @@ conflicts with a current contract, follow the current guide and linked code.
 - [CI test-tag execution](PAGE-290.md), [background work/shutdown](PAGE-199.md),
   [plan control and writer coordination](PAGE-184-185.md),
   [remote acceptance](PAGE-169.md) and [historical Pica inventory](PicaRuntimeInventory.md).
+- [Simulated remote runner stability check](reports/RemoteRunnerMockCheck.md):
+  mocked runner, connection and model; no real remote evidence.
 - [Wiki companion documents](wiki/): versioned implementation notes. Links
   beginning `/wiki/` in those older notes require access to the relevant Pages
   instance; they are not publicly reachable setup instructions.
