@@ -22,6 +22,7 @@ import { PlanStartFailure } from "./plan-start-failure";
 import { PlanPanelHeading } from "./plan-panel-heading";
 import { PlanPanelStatus } from "./plan-panel-status";
 import { planPanelAttention, planPanelState } from "./plan-panel-status-model";
+import { planWorkspaceWait } from "./plan-workspace-wait-model";
 import { recoverableRunId, recoveryErrorText } from "./plan-recovery-panel";
 import { PlanFailedResumeDialog } from "./plan-recovery/plan-failed-resume-dialog";
 import { usePlanRecovery } from "./use-plan-recovery";
@@ -137,6 +138,7 @@ function panelState(
     actionError,
     hasRefusedIssues: result?.ok === false && Boolean(result.issues?.length),
     isRunBlocked: isRunBlocked(props.run),
+    workspaceWait: planWorkspaceWait(props.run, props.control),
   });
 }
 

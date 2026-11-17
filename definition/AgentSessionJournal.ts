@@ -40,7 +40,13 @@ export interface AgentSessionContextUsage {
   readonly contextLimit: number | null;
   /** Share of the window in percent; `null` without both values. */
   readonly percent: number | null;
-  readonly source: "acp_usage_update" | null;
+  /**
+   * `acp_usage_update` from the ACP adapter; from the Claude CLI of a runner
+   * `cli_assistant_usage`, the latest top-level answer, or
+   * `cli_compact_boundary`, the count a compaction kept.
+   */
+  readonly source:
+    "acp_usage_update" | "cli_assistant_usage" | "cli_compact_boundary" | null;
   readonly reportedAt: string | null;
   /** The cumulative cost of the session where the adapter reports one; absent or `null` when unknown. */
   readonly cost?: AgentSessionCost | null;
@@ -125,6 +131,7 @@ export interface AgentSessionReportedValue {
     | "acp_config_option"
     | "acp_usage_report"
     | "adapter_selector"
+    | "cli_stream_event"
     | null;
   readonly reportedAt: string | null;
 }
@@ -216,9 +223,9 @@ export interface AgentSessionView {
   /** The run branch of the workspace against its Git state read for this view; `null` without a checked workspace. */
   readonly runBranch?: AgentSessionRunBranch | null;
   readonly model: AgentSessionModelReport;
-  /** The model as catalog identity for the shared badges; present only for Claude Code. */
+  /** The model as catalog identity for the shared badges; present only for Claude Code and Codex. */
   readonly modelIdentity?: AgentModelIdentity | null;
-  /** The reasoning level for the shared badge; present only for Claude Code. */
+  /** The reasoning level for the shared badge; present only for Claude Code and Codex. */
   readonly reasoning?: AgentReasoningIdentity;
   readonly context: AgentSessionContextUsage;
   readonly turns: readonly AgentSessionTurnUsage[];

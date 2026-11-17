@@ -1,4 +1,8 @@
 import { receiveUsage } from "./usage.mjs";
+import {
+  createClaudeSessionReader,
+  receiveClaudeSession,
+} from "./claude-session.mjs";
 import { createHash } from "node:crypto";
 
 const MAXIMUM_TEXT_BYTES = 4000;
@@ -302,11 +306,14 @@ export function createLiveHistory(command, redact, emit) {
     isManaged: Boolean(command.managed),
     progressVersion: command.progressVersion,
     usageMessages: new Map(),
+    claudeSession: createClaudeSessionReader(),
   };
   return {
     async receive(event) {
       const tool = command.program.route.tool;
       if (state.progressVersion === 1) await receiveUsage(event, tool, state);
+      if (state.progressVersion === 1 && tool === "claude")
+        await receiveClaudeSession(event, state.claudeSession, state.emit);
       if (tool === "codex") await readCodex(event, state);
       else if (tool === "claude") await readClaude(event, state);
       else if (tool === "opencode" || tool === "antigravity")

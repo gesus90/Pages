@@ -1,16 +1,15 @@
 import { useTranslation } from "react-i18next";
 
+import { modelBadgeVendor } from "@/definition/AgentModelIdentity";
 import { PLAN_BLOCKER_RETRIES } from "@/definition/AgentPlanRetry";
 
 import { hasSessionEnded, infrastructureRestarts } from "./console-step-state";
 import { AntigravityUsageSection } from "./antigravity-usage-section";
 import { formatClock } from "./console-time";
 import { ConsoleTodoList } from "./console-todo-list";
-import { ClaudeSessionFacts } from "./console-session-badges";
+import { BadgeSessionFacts } from "./console-session-badges";
 import { OpenCodeUsageSection } from "./open-code-usage-section";
 import { useNow } from "./use-terminal-surface";
-
-import { CodexUsageFacts } from "../codex-usage-facts";
 
 import type { AgentPlanStepResult } from "@/definition/AgentPlan";
 import type {
@@ -227,16 +226,6 @@ function OpenRouterUsageFacts({
   );
 }
 
-function findCodexStep(
-  view: AgentSessionView,
-): NonNullable<AgentSessionView["codexRunUsage"]>["steps"][number] | null {
-  if (view.provider !== "codex_cli") return null;
-  return (
-    view.codexRunUsage?.steps.find((step) => step.stepId === view.key.stepId) ??
-    null
-  );
-}
-
 function isOpenRouterView(view: AgentSessionView): boolean {
   return (
     view.provider === "opencode" &&
@@ -290,13 +279,13 @@ interface UsageSectionProps {
 }
 
 /**
- * The usage of a Claude Code session: only the context occupancy.
+ * The usage of a Claude Code or Codex session: only the context occupancy.
  * @remarks
- * The values come from the newest `usage_update`; a missing occupancy, also
- * after a compaction, stays unknown. Costs, token sums, cache and
- * subscription details are not part of the Claude console.
+ * The values come from the newest `usage_update` and stay after the step
+ * ended; a missing occupancy, also after a compaction, stays unknown. Costs,
+ * token sums, cache and subscription details are not part of this console.
  */
-function ClaudeContextSection({
+function ContextSection({
   view,
 }: {
   readonly view: AgentSessionView;
@@ -319,8 +308,8 @@ function ClaudeContextSection({
 
 function UsageSection(props: UsageSectionProps): React.ReactElement {
   const { t } = useTranslation();
-  if (props.view.provider === "claude_code")
-    return <ClaudeContextSection view={props.view} />;
+  if (modelBadgeVendor(props.view.provider))
+    return <ContextSection view={props.view} />;
   if (props.view.openCode)
     return <OpenCodeUsageSection {...props.view.openCode} />;
   return (
@@ -335,7 +324,6 @@ function UsageFacts(props: UsageSectionProps): React.ReactElement {
   const key = "plans.console.terminal.sidebar";
   const unknown = t(`${key}.unknown`);
   const numbers = new Intl.NumberFormat(i18n.language);
-  const codex = findCodexStep(props.view);
   const totals = props.view.nodeTotals ?? props.view.totals;
   const isOpenRouter = isOpenRouterView(props.view);
   const openRouterTotal = isOpenRouter ? (totals[0] ?? null) : null;
@@ -347,7 +335,7 @@ function UsageFacts(props: UsageSectionProps): React.ReactElement {
   const tokens = formatTurnTokens({
     totals,
     isOpenRouter,
-    isTurnRunning: props.isTurnRunning && props.view.provider !== "codex_cli",
+    isTurnRunning: props.isTurnRunning,
     openRouterTotal,
     numbers,
     labels: {
@@ -364,28 +352,25 @@ function UsageFacts(props: UsageSectionProps): React.ReactElement {
       ? `${key}.antigravity.providerCost`
       : `${key}.cost`;
   return (
-    <>
-      {codex ? <CodexUsageFacts usage={codex.usage} /> : null}
-      <dl className="space-y-1.5">
-        <ContextMeter
-          context={props.view.context}
-          label={t(`${key}.context`)}
-          unknown={unknown}
+    <dl className="space-y-1.5">
+      <ContextMeter
+        context={props.view.context}
+        label={t(`${key}.context`)}
+        unknown={unknown}
+        numbers={numbers}
+      />
+      <Fact label={t(`${key}.tokens`)} value={tokens} />
+      <Fact label={t(costLabelKey)} value={cost} />
+      {isOpenRouter ? (
+        <OpenRouterUsageFacts
+          openRouterTotal={openRouterTotal}
+          view={props.view}
           numbers={numbers}
+          language={i18n.language}
+          costLabels={costLabels}
         />
-        <Fact label={t(`${key}.tokens`)} value={tokens} />
-        {codex ? null : <Fact label={t(costLabelKey)} value={cost} />}
-        {isOpenRouter ? (
-          <OpenRouterUsageFacts
-            openRouterTotal={openRouterTotal}
-            view={props.view}
-            numbers={numbers}
-            language={i18n.language}
-            costLabels={costLabels}
-          />
-        ) : null}
-      </dl>
-    </>
+      ) : null}
+    </dl>
   );
 }
 
@@ -425,6 +410,7 @@ function SessionSection(props: ConsoleSidebarProps): React.ReactElement {
   const { t } = useTranslation();
   const key = "plans.console.terminal.sidebar";
   const unknown = t(`${key}.unknown`);
+  const vendor = modelBadgeVendor(props.view.provider);
   return (
     <SidebarSection title={t(`${key}.session`)}>
       <dl className="space-y-1.5">
@@ -433,8 +419,12 @@ function SessionSection(props: ConsoleSidebarProps): React.ReactElement {
           label={t(`${key}.runtime`)}
           unknown={unknown}
         />
-        {props.view.provider === "claude_code" ? (
-          <ClaudeSessionFacts step={props.step} view={props.view} />
+        {vendor ? (
+          <BadgeSessionFacts
+            step={props.step}
+            view={props.view}
+            vendor={vendor}
+          />
         ) : (
           <GenericSessionFacts step={props.step} view={props.view} />
         )}
@@ -447,7 +437,7 @@ function SessionSection(props: ConsoleSidebarProps): React.ReactElement {
   );
 }
 
-/** Model, reasoning, access and branch of every provider other than Claude Code, as text. */
+/** Model, reasoning, access and branch of every provider without model badges, as text. */
 function GenericSessionFacts(props: ConsoleSidebarProps): React.ReactElement {
   const { t } = useTranslation();
   const key = "plans.console.terminal.sidebar";

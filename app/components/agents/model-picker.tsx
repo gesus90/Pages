@@ -6,8 +6,11 @@ import { modelConsumerRefusal } from "@/definition/AgentModelConsumers";
 
 import { cn } from "@/app/lib/cn";
 
+import { ModelChoiceBadge } from "./badges/model-choice-badge";
 import { findModelChoice, modelGroups } from "./model-picker/model-catalog";
 import {
+  MODEL_BADGE_FIELD_ARROW_CLASS,
+  MODEL_BADGE_FIELD_CLASS,
   MODEL_FIELD_CLASS,
   MODEL_FIELD_LABEL_CLASS,
 } from "./model-picker/model-field";
@@ -55,7 +58,16 @@ interface ModelPickerProps {
    * warns. A listed model whose catalog failed warns as well.
    */
   readonly isCatalogFailed?: boolean;
+  /**
+   * How the closed trigger names the chosen model: `detail` with its tool,
+   * source and ID (the default), `badge` as a model badge in the fixed field
+   * of an agent node's footer.
+   */
+  readonly valueStyle?: ModelPickerValueStyle;
 }
+
+/** How the closed trigger of a model choice names its model. */
+type ModelPickerValueStyle = "detail" | "badge";
 
 // The trigger names the chosen model by its short name, its free mark and
 // the tool it is listed under.
@@ -100,13 +112,47 @@ function TriggerValue(props: {
   );
 }
 
+// In the footer of an agent node only the badge of the chosen model stands
+// in the field; a model that is gone is a short warning of the same height.
+function BadgeTriggerValue(props: {
+  readonly groups: readonly ModelGroup[];
+  readonly value: string;
+  readonly savedModel: string | undefined;
+  readonly placeholder: string | undefined;
+}): React.ReactElement {
+  const { t } = useTranslation();
+  if (props.value === "" && props.placeholder !== undefined)
+    return (
+      <span className="min-w-0 truncate text-muted-foreground">
+        {props.placeholder}
+      </span>
+    );
+  const selected = findModelChoice(props.groups, props.value);
+  if (!selected) {
+    const reason = t("pageAgents.missingModel");
+    return (
+      <span
+        className="min-w-0 truncate text-warning"
+        title={props.savedModel ? `${props.savedModel} · ${reason}` : reason}
+      >
+        {t("pageAgents.modelMissingShort")}
+      </span>
+    );
+  }
+  return (
+    <ModelChoiceBadge mark={selected.group.mark} name={selected.choice.label} />
+  );
+}
+
 function PickerTrigger(props: {
   readonly state: ModelPickerState;
   readonly labelId: string;
   readonly disabled: boolean;
+  readonly valueStyle: ModelPickerValueStyle;
   readonly children: React.ReactNode;
 }): React.ReactElement {
   const { state } = props;
+  const isBadge = props.valueStyle === "badge";
   return (
     <button
       ref={state.trigger}
@@ -117,22 +163,32 @@ function PickerTrigger(props: {
       aria-expanded={state.isOpen}
       aria-controls={state.isOpen ? state.treeId : undefined}
       disabled={props.disabled}
-      className={cn(
-        MODEL_FIELD_CLASS,
-        "flex items-center gap-2.5 text-left hover:bg-surface-hover",
-      )}
+      className={
+        isBadge
+          ? MODEL_BADGE_FIELD_CLASS
+          : cn(
+              MODEL_FIELD_CLASS,
+              "flex items-center gap-2.5 text-left hover:bg-surface-hover",
+            )
+      }
       onClick={state.toggle}
       onKeyDown={state.handleTriggerKeyDown}
     >
       <span
         id={`${props.labelId}-value`}
-        className="flex min-w-0 flex-1 items-center gap-2.5"
+        className={cn(
+          "flex min-w-0 items-center",
+          isBadge ? "shrink" : "flex-1 gap-2.5",
+        )}
       >
         {props.children}
       </span>
       <ChevronDown
         className={cn(
-          "size-4 shrink-0 text-muted-foreground transition-transform",
+          isBadge
+            ? MODEL_BADGE_FIELD_ARROW_CLASS
+            : "size-4 shrink-0 text-muted-foreground",
+          "transition-transform",
           state.isOpen && "rotate-180",
         )}
         aria-hidden="true"
@@ -180,6 +236,13 @@ export function ModelPicker(props: ModelPickerProps): React.ReactElement {
     mode: props.mode ?? "inline",
   });
   const labelId = `${useId()}-label`;
+  const valueStyle = props.valueStyle ?? "detail";
+  const triggerValue = {
+    groups,
+    value: props.value,
+    savedModel: props.savedModel,
+    placeholder: props.placeholder,
+  };
   return (
     <div className="relative min-w-0" onBlur={state.handleBlur}>
       <span
@@ -193,13 +256,13 @@ export function ModelPicker(props: ModelPickerProps): React.ReactElement {
           state={state}
           labelId={labelId}
           disabled={props.disabled}
+          valueStyle={valueStyle}
         >
-          <TriggerValue
-            groups={groups}
-            value={props.value}
-            savedModel={props.savedModel}
-            placeholder={props.placeholder}
-          />
+          {valueStyle === "badge" ? (
+            <BadgeTriggerValue {...triggerValue} />
+          ) : (
+            <TriggerValue {...triggerValue} />
+          )}
         </PickerTrigger>
         {state.isOpen ? (
           <ModelPickerPanel

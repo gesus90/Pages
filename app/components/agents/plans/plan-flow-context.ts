@@ -8,6 +8,7 @@ import type {
 import type { AgentWorkspaceChoice } from "@/definition/AgentWorkspace";
 import type { AgentPlanControl } from "@/definition/AgentPlanControl";
 import type { PlanGraphActions } from "./use-plan-graph";
+import type { PlanWorkspaceWait } from "./plan-workspace-wait-model";
 import type { PlanTicketRefresh } from "./use-plan-ticket-refresh";
 
 /** The Pages contracts accepted by the graph rendering layer. */
@@ -32,6 +33,8 @@ export interface PlanCanvasProps {
    * refused; an ended run then never reads as a plan that has not run.
    */
   readonly storedRunStatus?: AgentPlanControl["status"];
+  /** The shown run, or the stored newest run, waits for its workspace; absent while it does not. */
+  readonly workspaceWait?: PlanWorkspaceWait | null;
   /** The workspaces of the plan's project, offered for workspace values. */
   readonly workspaces?: readonly AgentWorkspaceChoice[];
   /** Reads the tickets of the plan's project again for the ticket choice. */

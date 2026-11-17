@@ -25,7 +25,7 @@ import {
 } from "./AgentSessionUsage";
 import type { OpenRouterPricing } from "./OpenRouterPricing";
 import { checkSessionWorkspace } from "./AgentSessionWorkspace";
-import { readSessionRunBranch } from "../AgentPlanRunBranchCapture";
+import { readViewWorkspace } from "./AgentSessionViewWorkspace";
 import { describeSessionIdentity } from "./AgentSessionModelIdentity";
 import { followRemoteSession } from "./RemoteSessionFollower";
 
@@ -276,10 +276,13 @@ export class AgentSessionService {
       provider: attempt.record.runner,
       state,
       groupId: attempt.step.groupId ?? null,
-      workspace: stored?.workspace ?? null,
-      runBranch: stored?.workspace
-        ? await readSessionRunBranch(run.steps, stored.workspace.directory)
-        : null,
+      ...(await readViewWorkspace({
+        steps: run.steps,
+        step: attempt.step,
+        record: attempt.record,
+        stored: stored?.workspace ?? null,
+        checkedAt: this.clock(),
+      })),
       model,
       ...(await describeSessionIdentity(
         attempt.record,

@@ -5,6 +5,7 @@ import type { AgentPlanWorkspaceLock } from "@/definition/AgentPlanWorkspaceLock
 const workspaceLocksSchema = z.array(
   z.object({
     runId: z.string().min(1),
+    planId: z.string().min(1),
     status: z.enum([
       "running",
       "pausing",

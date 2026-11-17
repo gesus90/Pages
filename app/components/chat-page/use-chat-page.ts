@@ -130,7 +130,8 @@ export interface ChatPageState {
   /**
    * Sends a message to the opened agent, person or group; with uploaded
    * attachments the text may be empty. While agents answer,
-   * `delivery` puts it into their answers or after them.
+   * `delivery` puts it into their answers or after them; a message to a
+   * group without it is routed as any message.
    */
   send(
     content: string,
@@ -305,11 +306,16 @@ function pendingMessage(
   return withPendingDelivery(baseMessage, formData);
 }
 
-/** Attaches how a message sent mid-answer goes to the agents. */
+/**
+ * Attaches how a message sent mid-answer goes to the agent of a direct chat.
+ * A message to a group shows no delivery until the server confirmed it per
+ * agent, because the form cannot know who is addressed and how.
+ */
 function withPendingDelivery(
   message: VirtualChatMessage,
   formData: FormData | undefined,
 ): VirtualChatMessage {
+  if (formData?.get("intent") === "send-group") return message;
   const delivery = formData?.get("delivery");
   if (delivery === "after") return { ...message, queue: "chat" };
   const steered = formData?.get("steeredInto");
@@ -419,7 +425,9 @@ function createSendActions(context: {
     if (!formData) return;
     if (isAnswering && delivery) {
       formData.set("delivery", delivery);
-      formData.set("steeredInto", workingAgentIds.join(","));
+      // Only a direct chat shows the delivery before the server confirmed it.
+      if (opened.kind !== "group")
+        formData.set("steeredInto", workingAgentIds.join(","));
     }
     touch(selection);
     void submit(formData, { method: "post" });

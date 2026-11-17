@@ -1,6 +1,8 @@
 import { useTranslation } from "react-i18next";
 
-import { ClaudeModelBadge } from "./claude-model-badge";
+import { modelBadgeVendor } from "@/definition/AgentModelIdentity";
+
+import { ModelBadge } from "./model-badge";
 import { ReasoningBadge } from "./reasoning-badge";
 
 import type { AgentChatModelLabel } from "@/definition/AgentChatControl";
@@ -8,10 +10,10 @@ import type { AgentChatModelLabel } from "@/definition/AgentChatControl";
 /**
  * The model and reasoning of an agent in a chat.
  * @remarks
- * Claude Code models get the shared Claude badge and the reasoning badge.
- * Every other provider keeps the grey pill of model and level until it is
- * moved to badges of its own; its text is joined from the structured values
- * here and never read back.
+ * Claude Code and Codex models get the shared model badge of their vendor
+ * and the reasoning badge. Every other provider keeps the grey pill of model
+ * and level until it is moved to badges of its own; its text is joined from
+ * the structured values here and never read back.
  */
 export function AgentModelBadges({
   model,
@@ -19,10 +21,11 @@ export function AgentModelBadges({
   readonly model: AgentChatModelLabel;
 }): React.ReactElement {
   const { t } = useTranslation();
-  if (model.provider === "claude_code")
+  const vendor = modelBadgeVendor(model.provider);
+  if (vendor)
     return (
       <span className="inline-flex max-w-full min-w-0 items-center gap-1.5">
-        <ClaudeModelBadge name={model.name} />
+        <ModelBadge vendor={vendor} name={model.name} />
         {model.reasoningEffort ? (
           <ReasoningBadge level={model.reasoningEffort} />
         ) : null}

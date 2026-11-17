@@ -5,6 +5,7 @@ import {
   readTextColumn,
 } from "@/backend/database/RowValue";
 
+import { ConversationDeliveryRepository } from "./ConversationDeliveryRepository";
 import { ConversationFollowUpRepository } from "./ConversationFollowUpRepository";
 import {
   ConversationHandoffRepository,
@@ -16,6 +17,7 @@ import type {
   DatabaseTransaction,
 } from "@/backend/database/Database";
 import type { ConversationNotice } from "@/definition/Conversation";
+import type { ConversationDeliveryIntent } from "@/definition/ConversationRecipientDelivery";
 import type {
   ConversationRoundLimits,
   ConversationReplyTrigger,
@@ -52,6 +54,8 @@ export interface ConversationReplyClaim extends ConversationRoundOrigin {
   readonly handoff?: "pending" | "paused";
   /** Effective group settings, clamped again before persistence. */
   readonly limits?: ConversationRoundLimits;
+  /** How a message of a person should reach the agent; absent keeps its delivery untracked. */
+  readonly deliveryIntent?: ConversationDeliveryIntent;
 }
 
 /**
@@ -160,6 +164,7 @@ async function insertTarget(
           requested_by,
           reason,
           is_automatic,
+          delivery_intent,
           created_at,
           updated_at
       )
@@ -172,6 +177,7 @@ async function insertTarget(
           $requested_by,
           $reason,
           $is_automatic,
+          $delivery_intent,
           $created_at,
           $created_at
       )
@@ -187,6 +193,7 @@ async function insertTarget(
       requested_by: claim.requestedBy,
       reason: claim.reason,
       is_automatic: claim.isAutomatic,
+      delivery_intent: claim.deliveryIntent ?? null,
       created_at: claim.createdAt,
     },
   );
@@ -277,11 +284,14 @@ export class ConversationRoundRepository {
   public readonly followUps: ConversationFollowUpRepository;
   /** Stored explicit @ hand-overs, pending or paused. */
   public readonly handoffs: ConversationHandoffRepository;
+  /** The confirmed delivery of messages of people to each asked agent. */
+  public readonly deliveries: ConversationDeliveryRepository;
 
   public constructor(database: RoundDatabase) {
     this.database = database;
     this.followUps = new ConversationFollowUpRepository(database);
     this.handoffs = new ConversationHandoffRepository(database);
+    this.deliveries = new ConversationDeliveryRepository(database);
   }
 
   /** Stores the round of a message of a person once. */
@@ -568,7 +578,9 @@ export class ConversationRoundRepository {
 
   /**
    * Ends the answers and decisions an earlier process left open: none of
-   * them is started again, so a restart causes no wave of answers.
+   * them is started again, so a restart causes no wave of answers. A message
+   * that still waited for its agent is no longer queued, so it shows as not
+   * delivered.
    * @param before - Only what was created before this moment.
    * @returns How many answers were marked interrupted.
    */
@@ -578,6 +590,10 @@ export class ConversationRoundRepository {
         UPDATE conversation_reply_targets
         SET
             state = 'interrupted',
+            delivery = CASE
+                WHEN delivery = 'queued' THEN 'failed'
+                ELSE delivery
+            END,
             updated_at = $before
         WHERE state IN ('queued', 'running')
             AND created_at < $before

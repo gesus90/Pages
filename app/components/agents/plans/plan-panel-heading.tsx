@@ -229,6 +229,14 @@ function PlanControlNotes(props: PlanPanelHeadingProps): React.ReactElement {
           })}
         </p>
       ) : null}
+      {control?.isWaitingForWorkspace && !control.workspaceWait ? (
+        <p
+          role="status"
+          className="px-4 pt-2 text-xs wrap-anywhere text-warning"
+        >
+          {t("plans.recovery.writerWaitNeutral")}
+        </p>
+      ) : null}
       {props.page.selected?.isWorkspaceMissing ? (
         <p
           role="status"

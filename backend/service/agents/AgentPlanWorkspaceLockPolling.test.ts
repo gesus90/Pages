@@ -16,6 +16,7 @@ import type { AgentPlanControl } from "@/definition/AgentPlanControl";
 
 const lock: AgentPlanWorkspaceLock = {
   runId: "older-run",
+  planId: "plan",
   status: "failed",
   acquiredAt: "2026-01-01T00:00:00Z",
   ageMilliseconds: 3_600_000,

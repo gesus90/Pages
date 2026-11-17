@@ -850,7 +850,17 @@ In the node editor the execution target stands once above the
 model choice. Pica, agent profiles, plan nodes, the palette, node cards and
 page agents use this one choice with the same fixed measures: 40 px
 fields, 36 px rows and 20 × 20 provider tiles, with model and reasoning side by
-side. Its panel starts with a search field and lists the target's models under
+side. On the 320 px agent node card (310 px in a group's compact card) the
+footer holds two equally wide fields that name the choice by badges: the
+model's tile and short name, cut with an ellipsis and complete in its
+tooltip, and the reasoning level's badge. Claude models are outlined in
+Claude's orange, OpenAI models in the green of the ChatGPT tile; an OpenAI
+name drops its leading "GPT-" there (`6.2 Astra`), so the end that tells the
+models apart stays visible, while the tooltip and screen readers keep the full
+name. Choosing another model or level
+changes only the badge, never the field or its arrow; a model without levels
+keeps a greyed level field with a dash, and a missing model reads "Modell
+fehlt" in the warning color. Its panel starts with a search field and lists the target's models under
 collapsible tools in a fixed order (Claude Code, Codex, Antigravity, OpenCode,
 OpenRouter, Z.AI, then other API connections), each header naming the access
 and model count. OpenRouter and z.AI are independent agent providers with the
@@ -1025,6 +1035,10 @@ project configuration of the runner, the host MCP servers and the full Pages
 tool catalog with the executor's rights. An agent without run options reads
 only; an agent saved with the earlier workspace write mode does not start
 until one of the two modes is chosen, and it never becomes YOLO on its own.
+The node card shows the mode as the shared access badge, YOLO in the warning
+color and READ in the information color; the sentence explaining the mode is
+its tooltip on hover and keyboard focus and its name for screen readers. A
+node with the earlier write mode keeps its visible notice.
 
 Codex CLI, Claude Code and OpenCode YOLO plan nodes can use the GitHub connection stored
 in the selected workspace's Pages project. Pages rechecks the executor's

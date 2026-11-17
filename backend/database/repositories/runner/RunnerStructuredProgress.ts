@@ -12,9 +12,11 @@ import {
 } from "@/definition/AgentPlanAgentTodos";
 import { runnerTerminalSchema } from "@/definition/RunnerTerminal";
 import { runnerTurnTokens } from "@/definition/RunnerUsage";
+import { readRunnerSessionReading } from "@/definition/RunnerSessionReading";
 
 import { AgentPlanAgentTodoRepository } from "../agent/AgentPlanAgentTodoRepository";
 import { AgentSessionRepository } from "../agent/AgentSessionRepository";
+import { persistRunnerSessionReading } from "./RunnerSessionReadings";
 
 import type { AgentSessionTurnUsage } from "@/definition/AgentSessionJournal";
 import type { DatabaseTransaction } from "@/backend/database/Database";
@@ -27,12 +29,38 @@ interface StructuredProgressInput {
   readonly hasTerminalUsage: boolean;
 }
 
-/** Projects structured runner updates into the same TODO and usage tables as local sessions. */
+/**
+ * Stores a session reading of a Claude CLI job.
+ * @returns Whether the event was a session reading, valid or dropped, and
+ * therefore no token counters.
+ */
+async function persistSessionReading(
+  transaction: DatabaseTransaction,
+  input: StructuredProgressInput,
+): Promise<boolean> {
+  const reading = readRunnerSessionReading(input.event.text);
+  if (reading === undefined) return false;
+  if (reading !== null)
+    await persistRunnerSessionReading(transaction, {
+      attemptId: input.attemptId,
+      reading,
+      reportedAt: input.event.createdAt,
+    });
+  return true;
+}
+
+/** Projects structured runner updates into the same TODO, usage and session tables as local sessions. */
 export async function persistRunnerStructuredProgress(
   transaction: DatabaseTransaction,
   input: StructuredProgressInput,
 ): Promise<void> {
   const { attemptId, event } = input;
+  // Session readings hold no tokens, so a terminal receipt never replaces them.
+  if (
+    event.kind === "usage" &&
+    (await persistSessionReading(transaction, input))
+  )
+    return;
   if (event.kind === "plan") {
     const entries = readPlanEventEntries(event.text);
     if (entries === null) return;

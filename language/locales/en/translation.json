@@ -4693,6 +4693,14 @@
       "haltShortcut": "Esc",
       "more": "More ways to send",
       "steerHint": "Enter redirects · ⇧Enter new line",
+      "send": "Send",
+      "sendHint": "Enter sends · ⇧Enter new line",
+      "delivery": {
+        "injected": "added to the running answer",
+        "started": "new task",
+        "queued": "queued",
+        "failed": "not delivered"
+      },
       "steerLabel": "Redirect {{name}}",
       "injected": "added to {{owner}} answer",
       "waiting": "waiting · goes out after {{owner}} answer",
@@ -5349,6 +5357,7 @@
       },
       "overdue": "This resumable reservation is at least 24 hours old. Continue the run or release it after checking.",
       "release": "Release",
+      "showRun": "Show holding run",
       "confirm": "Are you sure? This run’s locks will be released once no processes, units or open resources remain.",
       "released": "The locks have been released."
     },
@@ -6200,6 +6209,11 @@
           "label": "Running",
           "hint": "The run is active."
         },
+        "waitingForWorkspace": {
+          "label": "Waiting for workplace",
+          "hint": "The run waits until the workplace is free. The reason is in the details.",
+          "hint_noStep": "The run waits until the workplace is free; no step has started yet. The reason is in the details."
+        },
         "runBlocked": {
           "label": "Blocked",
           "hint": "A step failed; dependent steps do not start."
@@ -6558,6 +6572,12 @@
       "positionEstimate": "{{position}} / approx. {{total}}",
       "positionLabel": "Step {{position}} · {{completed}} completed",
       "completedCount": "{{count}} completed",
+      "waitNoStep": "no step started yet",
+      "waitSince": "since {{since}}",
+      "now": {
+        "line": "{{step}} · {{completed}} executions completed · Last activity: {{activity}}",
+        "noStep": "No step started yet"
+      },
       "pass": "Pass {{pass}}",
       "planned": "Planned · not started",
       "assumed": "Assumption · not certain yet",
@@ -6639,7 +6659,8 @@
         "cancelled": "Stopped",
         "failed": "Failed",
         "blocked": "Blocked",
-        "notReady": "Not ready to start"
+        "notReady": "Not ready to start",
+        "waitingForWorkspace": "Waiting for workplace"
       },
       "agent": "Agent: {{name}}",
       "lastActivity": "Last reported work step",
@@ -6983,6 +7004,7 @@
       "cleanupDecisionFailed": "The decision could not be saved.",
       "cleanupObligation": "Pending cleanup for {{workspace}}, source run {{run}}.",
       "writerWait": "Queued for write resource {{resource}}; owner {{run}}.",
+      "writerWaitNeutral": "The run waits for a workplace that another run holds. Only authorized people see the details.",
       "otherOwner": "another executor",
       "reviewScript": "I reviewed the effective files, Git/external effects and result of “{{step}}”. Its next execution is safe and does not blindly repeat preparation, commit or push.",
       "cleanupBlocker": {
@@ -6991,6 +7013,8 @@
         "owner_evidence_unavailable": "The original owner record is unavailable. Dispatch remains blocked until its identity is reconciled.",
         "runner_offline": "The Runner is offline. Reconnect the original Runner to confirm termination; offline is not process-free proof.",
         "process_end_unconfirmed": "Process termination is unconfirmed. Reconnect the original Runner or inspect this owner’s process evidence.",
+        "reserved_for_resume": "Reserved for the continuation of an ended run; its processes are recorded as ended. Continuing it or an authorized release of the old run frees the workplace; the release checks the process end again.",
+        "release_pending": "The reservation of the ended run is being released.",
         "process_scan_unavailable": "The original process boundary cannot currently be proved. Inspect the exact owner on its host; missing ownership files are insufficient.",
         "signal_denied": "The host refused termination of the exact owned process. Correct host permissions and retry the same action.",
         "exit_timeout": "The owned process did not exit within the cleanup deadline. Inspect the original host and retry.",
@@ -7964,6 +7988,7 @@
     "loadError": "The agents could not be loaded.",
     "retry": "Try again",
     "missingModel": "Model or connection unavailable/not shared",
+    "modelMissingShort": "Model missing",
     "modelWithdrawn": "The saved model/connection selection is unavailable or no longer shared. Explicitly choose a usable model before saving.",
     "deletedTargets": "A group or department of this share no longer exists. It is left out of the list below; saving stores the share without it.",
     "deleteTitle": "Remove agent “{{name}}”?",
@@ -10253,16 +10278,7 @@
   "codexUsage": {
     "title": "Codex usage",
     "runTotal": "Run total (all steps and loop iterations)",
-    "inputTokens": "Input",
-    "cacheReadTokens": "of which cached",
-    "outputTokens": "Output",
-    "reasoningTokens": "of which reasoning",
-    "cost": "Cost",
-    "subscription": "included in subscription",
     "equivalent": "Calculated equivalent: {{amount}}",
-    "notReported": "not reported",
-    "priceUnknown": "Price unknown",
-    "incomplete": "Incomplete total: usage was not fully reported.",
     "mappings": "OpenRouter price mapping for Codex",
     "mappingsHint": "Optional, one mapping per line: gpt-6-luna = openai/gpt-6-luna. Leave blank for unambiguous automatic matching.",
     "monthlyLimit": "Monthly Codex cost limit (USD)",

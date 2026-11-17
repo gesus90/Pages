@@ -254,6 +254,38 @@ function LiveText({
   );
 }
 
+/**
+ * The "live" hint of a running answer.
+ * @remarks
+ * Beside the Claude badges it takes their shape: 24 px high, a 7 px radius and
+ * a 1 px solid border in the primary orange. Every other provider keeps its
+ * round pill until it is moved to the shared badges.
+ */
+function LiveBadge({
+  isClaude,
+}: {
+  readonly isClaude: boolean;
+}): React.ReactElement {
+  const { t } = useTranslation();
+  return (
+    <span
+      data-live-badge={isClaude ? "claude" : "default"}
+      className={cn(
+        "inline-flex shrink-0 items-center gap-1 px-2 text-[11px] text-primary",
+        isClaude
+          ? "h-6 rounded-[7px] border border-primary bg-primary-subtle leading-none font-semibold"
+          : "h-5 rounded-full bg-primary/10 leading-5 font-medium",
+      )}
+    >
+      <span
+        aria-hidden="true"
+        className="size-1.5 animate-pulse rounded-full bg-primary motion-reduce:animate-none"
+      />
+      {t("chatPage.liveAnswer.live")}
+    </span>
+  );
+}
+
 /** Name, model and the hint "live" above a live answer, in one line of 24 px. */
 function LiveAnswerHead({
   author,
@@ -264,8 +296,8 @@ function LiveAnswerHead({
   readonly model: AgentChatModelLabel | undefined;
   readonly isRunning: boolean;
 }): React.ReactElement {
-  const { t } = useTranslation();
   const colors = participantColors(author.color);
+  const isClaude = model?.provider === "claude_code";
   return (
     <p
       className="flex h-6 max-w-full min-w-0 items-center gap-1.5 overflow-hidden text-[13px] whitespace-nowrap"
@@ -281,19 +313,16 @@ function LiveAnswerHead({
         {author.name}
       </span>
       {model ? (
-        <span className="inline-flex h-5 min-w-0 shrink-0 items-center">
+        <span
+          className={cn(
+            "inline-flex min-w-0 shrink-0 items-center",
+            isClaude ? "h-6" : "h-5",
+          )}
+        >
           <AgentModelBadges model={model} />
         </span>
       ) : null}
-      {isRunning ? (
-        <span className="inline-flex h-5 shrink-0 items-center gap-1 rounded-full bg-primary/10 px-2 text-[11px] leading-5 font-medium text-primary">
-          <span
-            aria-hidden="true"
-            className="size-1.5 animate-pulse rounded-full bg-primary motion-reduce:animate-none"
-          />
-          {t("chatPage.liveAnswer.live")}
-        </span>
-      ) : null}
+      {isRunning ? <LiveBadge isClaude={isClaude} /> : null}
     </p>
   );
 }

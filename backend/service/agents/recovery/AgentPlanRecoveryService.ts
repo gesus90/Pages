@@ -10,6 +10,7 @@ import { canRecordPlanRepair } from "@/definition/AgentPlanRecovery";
 import { allPlanRunResults } from "@/definition/AgentPlanLoopResults";
 
 import { sanitizeArtifactText } from "../AgentPlanOutput";
+import { hasUnconfirmedRunCloseout } from "../AgentPlanRunState";
 import { AgentPlanRecoveryActions } from "./AgentPlanRecoveryActions";
 import { classifyPlanFailure } from "./AgentPlanFailure";
 import { planCleanupResources } from "./AgentPlanCleanupResources";
@@ -84,7 +85,7 @@ function recordingOnly(
     currentPlanRevision: run.planRevision,
     continuedBy: null,
     executions: [],
-    isCleanupUnconfirmed: hasReservation,
+    isCleanupUnconfirmed: hasReservation && hasUnconfirmedRunCloseout(run),
     restart: UNAVAILABLE,
     release: UNAVAILABLE,
     resume: {
@@ -178,7 +179,9 @@ function executingOptions(
     currentPlanRevision: facts.plan.revision,
     continuedBy: continuedRun(facts.executions),
     executions: facts.executions,
-    isCleanupUnconfirmed: facts.isReserved,
+    // A reservation alone keeps the run resumable; only an unproven closeout is unconfirmed.
+    isCleanupUnconfirmed:
+      facts.isReserved && hasUnconfirmedRunCloseout(facts.run),
     blockers: [
       ...new Set(
         [restart.reason, resume.reason, release.reason].filter(

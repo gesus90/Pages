@@ -1,6 +1,7 @@
 import { logEvent } from "@/backend/logging/Logger";
 
 import type { ConversationHandoffRequest } from "@/backend/database/repositories/conversation/ConversationHandoffRepository";
+import type { ConversationMessage } from "@/definition/Conversation";
 import type { ConversationRound } from "./ConversationReplyTypes";
 
 const COMPONENT = "ConversationAgentReplies";
@@ -33,5 +34,46 @@ export function logRoundLimit(round: ConversationRound, agentId: string): void {
     message:
       "The limit of contributions without @ of a round held back a further answer.",
     metadata: { conversationId: round.conversation.id, agentId },
+  });
+}
+
+/**
+ * A stored message whose answer could not be started stays stored and is
+ * not started again; the log names the message and its conversation, never
+ * its text.
+ */
+export function logStartFailure(
+  message: ConversationMessage,
+  error: unknown,
+): void {
+  logEvent({
+    level: "error",
+    event: "conversation.agent_reply.start_failed",
+    component: COMPONENT,
+    message:
+      "The answer to a stored message could not be started; the message is not answered.",
+    metadata: {
+      conversationId: message.conversationId,
+      messageId: message.id,
+    },
+    error,
+  });
+}
+
+/** A message that asks for an answer found no account or membership of its sender. */
+export function logUnanswerable(
+  message: ConversationMessage,
+  reason: "no_sender" | "no_membership",
+): void {
+  logEvent({
+    level: "warn",
+    event: "conversation.agent_reply.unanswerable",
+    component: COMPONENT,
+    message: "A message that asks for an answer was not answered.",
+    metadata: {
+      conversationId: message.conversationId,
+      messageId: message.id,
+      reason,
+    },
   });
 }

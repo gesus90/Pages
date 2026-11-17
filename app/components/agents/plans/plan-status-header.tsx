@@ -1,6 +1,7 @@
 import { ChevronDown, ChevronUp, Clock3 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
+import { useRegionFormatter } from "@/app/components/common/region-provider";
 import { cn } from "@/app/lib/cn";
 
 import { PlanPaletteButton } from "./plan-palette-button";
@@ -16,6 +17,7 @@ import type { AgentPlanRun } from "@/definition/AgentPlan";
 import type { AgentPlanControl } from "@/definition/AgentPlanControl";
 import type { PlanSequencePreview } from "./plan-run-status-model";
 import type { PlanStepSequence } from "./plan-step-sequence";
+import type { PlanWorkspaceWait } from "./plan-workspace-wait-model";
 
 interface StatusHeaderProps {
   readonly run: AgentPlanRun | null;
@@ -32,6 +34,8 @@ interface StatusHeaderProps {
   readonly isReady?: boolean;
   /** The stored status of the newest run, named while no run is shown. */
   readonly storedRunStatus?: AgentPlanControl["status"];
+  /** The run waits for its workspace and has started no work yet. */
+  readonly workspaceWait?: PlanWorkspaceWait | null;
   readonly onSelect: (id: string) => void;
   readonly onToggle: () => void;
 }
@@ -41,7 +45,10 @@ function indicatorStatus(
   run: AgentPlanRun | null,
   isReady: boolean | undefined,
   storedRunStatus: AgentPlanControl["status"] | undefined,
+  workspaceWait: PlanWorkspaceWait | null | undefined,
 ): string {
+  // A run that waits for its workspace is not running: it has started nothing yet.
+  if (workspaceWait) return "waitingForWorkspace";
   const isBlocked =
     run?.status === "running" &&
     run.steps.some((step) => step.isBlocked) &&
@@ -65,33 +72,67 @@ const DOT_TONES: Readonly<Record<string, string>> = {
   paused: "bg-muted-foreground",
   failed: "bg-destructive",
   blocked: "bg-destructive",
+  waitingForWorkspace: "bg-warning",
 };
+
+/** What the waiting indicator adds to its name: that no step started, and since when the run waits. */
+function waitingDetails(
+  wait: PlanWorkspaceWait,
+  translate: TFunction,
+  formatDateTime: (value: string | null) => string,
+): readonly string[] {
+  return [
+    wait.hasStartedStep === false ? translate("plans.progress.waitNoStep") : "",
+    wait.since
+      ? translate("plans.progress.waitSince", {
+          since: formatDateTime(wait.since),
+        })
+      : "",
+  ].filter(Boolean);
+}
 
 function RunIndicator({
   run,
   error,
   isReady,
   storedRunStatus,
+  workspaceWait,
 }: Pick<
   StatusHeaderProps,
-  "run" | "error" | "isReady" | "storedRunStatus"
+  "run" | "error" | "isReady" | "storedRunStatus" | "workspaceWait"
 >): React.ReactElement {
   const { t } = useTranslation();
-  const status = indicatorStatus(run, isReady, storedRunStatus);
-  const label = error
+  const { formatDateTime } = useRegionFormatter();
+  const status = indicatorStatus(run, isReady, storedRunStatus, workspaceWait);
+  const name = error
     ? t("plans.progress.unavailable")
     : t(`plans.progress.state.${status}`);
+  const details =
+    !error && workspaceWait
+      ? waitingDetails(workspaceWait, t, formatDateTime)
+      : [];
+  const label = [name, ...details].join(" · ");
   const tone = error ? "bg-destructive" : (DOT_TONES[status] ?? "bg-primary");
   return (
     <span
       title={label}
-      className="flex max-w-32.5 min-w-0 shrink-0 items-center gap-1.5 rounded-md px-1.5 py-0.75 text-xs leading-4.5 font-semibold"
+      className={cn(
+        "flex min-w-0 shrink-0 items-center gap-1.5 rounded-md px-1.5 py-0.75 text-xs leading-4.5 font-semibold",
+        workspaceWait ? "max-w-44" : "max-w-32.5",
+      )}
     >
       <span
         aria-hidden="true"
         className={cn("size-2 shrink-0 rounded-full", tone)}
       />
-      <span className="truncate">{label}</span>
+      <span className="min-w-0">
+        <span className="block truncate">{name}</span>
+        {details[0] ? (
+          <span className="block truncate text-[0.6875rem] leading-3.5 font-normal text-muted-foreground">
+            {details[0]}
+          </span>
+        ) : null}
+      </span>
     </span>
   );
 }
@@ -159,6 +200,7 @@ export function PlanStatusHeader(props: StatusHeaderProps): React.ReactElement {
         error={props.error}
         isReady={props.isReady}
         storedRunStatus={props.storedRunStatus}
+        workspaceWait={props.workspaceWait}
       />
       <RunDonut sequence={props.sequence} />
       <div className="order-2 flex w-full min-w-0 border-border @2xl/status:order-none @2xl/status:w-auto @2xl/status:flex-1 @2xl/status:border-l">

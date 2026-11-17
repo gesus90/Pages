@@ -6,6 +6,7 @@ import { decisionView } from "./ConversationDecisionViews";
 
 import type { ReadStream } from "node:fs";
 import type { ConversationDecisionRepository } from "@/backend/database/repositories/conversation/ConversationDecisionRepository";
+import type { ConversationDeliveryRepository } from "@/backend/database/repositories/conversation/ConversationDeliveryRepository";
 import type { ConversationMessageRepository } from "@/backend/database/repositories/conversation/ConversationMessageRepository";
 import type { StoredConversationMessage } from "@/backend/database/repositories/conversation/ConversationMessageRepository";
 import type {
@@ -19,6 +20,7 @@ import type {
   ConversationContact,
   ConversationContacts,
   ConversationHistoryPage,
+  ConversationKind,
   ConversationListPage,
   ConversationMessage,
   ConversationReadState,
@@ -55,6 +57,8 @@ export interface ConversationReaderDependencies {
   >;
   /** The attachments and links of messages. */
   readonly content: ConversationMessageContentReader;
+  /** The confirmed deliveries of messages of people in groups; absent shows none. */
+  readonly deliveries?: Pick<ConversationDeliveryRepository, "forMessages">;
 }
 
 /** The audio of a voice message, opened for one member. */
@@ -169,7 +173,11 @@ function limitPage(newestFirst: readonly StoredConversationMessage[]): {
   };
 }
 
-/** Whether a history read of a member also carries the decisions about its messages. */
+/**
+ * Whether a history read of a member also carries the decisions about its
+ * messages and, in a group, the confirmed delivery of each message of a
+ * person to its agents.
+ */
 export interface ConversationHistoryOptions {
   readonly withDecisions?: boolean;
 }
@@ -244,8 +252,11 @@ export class ConversationReader {
     beforeId: string | null,
     options: ConversationHistoryOptions = {},
   ): Promise<ConversationHistoryPage> {
-    await this.requireMember(person, conversationId);
-    return this.historyPage(conversationId, beforeId, options);
+    const record = await this.requireMember(person, conversationId);
+    return this.historyPage(conversationId, beforeId, {
+      ...options,
+      kind: record.kind,
+    });
   }
 
   /**
@@ -388,7 +399,9 @@ export class ConversationReader {
   private async historyPage(
     conversationId: string,
     beforeId: string | null,
-    options: ConversationHistoryOptions = {},
+    options: ConversationHistoryOptions & {
+      readonly kind?: ConversationKind;
+    } = {},
   ): Promise<ConversationHistoryPage> {
     let beforeSequence: number | null = null;
     if (beforeId !== null) {
@@ -412,7 +425,10 @@ export class ConversationReader {
     return {
       conversationId,
       messages: options.withDecisions
-        ? await this.withDecisions(messages, accounts)
+        ? await this.withDeliveries(
+            await this.withDecisions(messages, accounts),
+            options.kind,
+          )
         : messages,
       hasMore: page.hasMore,
     };
@@ -432,9 +448,12 @@ export class ConversationReader {
       const page = limitPage(stored);
       views.push({
         summary,
-        messages: await this.withDecisions(
-          await this.messages(page.messages, accounts),
-          accounts,
+        messages: await this.withDeliveries(
+          await this.withDecisions(
+            await this.messages(page.messages, accounts),
+            accounts,
+          ),
+          summary.kind,
         ),
         hasMore: page.hasMore,
       });
@@ -473,6 +492,29 @@ export class ConversationReader {
       if (isPerson(message) && stored.outcome !== "nobody") return message;
       return { ...message, decision: decisionView(stored, accounts) };
     });
+  }
+
+  /**
+   * Adds to every message of a person in a group what the server confirmed
+   * per agent: none before the first confirmation, never more agents than
+   * were actually addressed.
+   */
+  private async withDeliveries(
+    messages: ConversationMessage[],
+    kind: ConversationKind | undefined,
+  ): Promise<ConversationMessage[]> {
+    const { deliveries } = this.dependencies;
+    if (kind !== "group" || !deliveries) return messages;
+    const isPerson = (message: ConversationMessage): boolean =>
+      message.sender.kind === "human";
+    const confirmed = await deliveries.forMessages(
+      messages.filter(isPerson).map((message) => message.id),
+    );
+    return messages.map((message) =>
+      isPerson(message)
+        ? { ...message, deliveries: confirmed.get(message.id) ?? [] }
+        : message,
+    );
   }
 
   private async requireMember(

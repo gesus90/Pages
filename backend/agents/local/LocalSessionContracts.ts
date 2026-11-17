@@ -24,7 +24,13 @@ const count = z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER);
 const reported = z.object({
   value: z.string().nullable(),
   source: z
-    .enum(["plan", "acp_config_option", "acp_usage_report", "adapter_selector"])
+    .enum([
+      "plan",
+      "acp_config_option",
+      "acp_usage_report",
+      "adapter_selector",
+      "cli_stream_event",
+    ])
     .nullable(),
   reportedAt: z.string().nullable(),
 });
@@ -121,7 +127,9 @@ const attempt = z.object({
     contextUsed: count.nullable(),
     contextLimit: count.nullable(),
     percent: z.number().nullable(),
-    source: z.literal("acp_usage_update").nullable(),
+    source: z
+      .enum(["acp_usage_update", "cli_assistant_usage", "cli_compact_boundary"])
+      .nullable(),
     reportedAt: z.string().nullable(),
     cost: z
       .object({ amount: z.number().finite(), currency: z.string().max(10) })

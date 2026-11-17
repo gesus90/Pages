@@ -1,3 +1,7 @@
+import { useContext } from "react";
+import { createPortal } from "react-dom";
+
+import { SettingsHeaderSlotContext } from "@/app/components/settings/settings-header-slot";
 import { cn } from "@/app/lib/cn";
 
 import type { ReactNode } from "react";
@@ -22,7 +26,13 @@ interface ControlRowProps {
   readonly children: ReactNode;
 }
 
-/** The heading of a settings section with its icon. */
+/**
+ * The heading of a settings section with its icon.
+ * @remarks
+ * Inside the settings frame the heading stands in the frame's place above
+ * the scrolling surface, so it stays in place without a surface of its own
+ * that would cover a design's painting. Outside the frame it renders in place.
+ */
 export function SettingsSectionHeader({
   icon,
   title,
@@ -31,13 +41,10 @@ export function SettingsSectionHeader({
   readonly icon: ReactNode;
   readonly title: string;
   readonly description?: string;
-}): React.ReactElement {
-  return (
-    <div className="pages-sticky-band sticky top-0 z-10 mb-4 -ml-2 -mr-4 pt-3 pb-2 pl-2 pr-4 sm:-mr-6 sm:pr-6 md:-mr-8 md:pr-8 xl:-mr-12 xl:pr-12">
-      <span
-        aria-hidden="true"
-        className="pages-sticky-band-surface absolute inset-0 -z-10 bg-(--sticky-band-surface) after:pointer-events-none after:absolute after:inset-x-0 after:top-full after:h-4 after:bg-gradient-to-b after:from-(--sticky-band-surface) after:to-transparent"
-      />
+}): React.ReactElement | null {
+  const slot = useContext(SettingsHeaderSlotContext);
+  const heading = (
+    <div className="pt-3 pb-2">
       <div className="flex items-center gap-3">
         <span
           className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-primary-subtle text-primary"
@@ -56,6 +63,9 @@ export function SettingsSectionHeader({
       </div>
     </div>
   );
+
+  if (slot === undefined) return heading;
+  return slot ? createPortal(heading, slot) : null;
 }
 
 /** A titled card that groups the controls of one settings topic. */

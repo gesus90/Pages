@@ -143,7 +143,10 @@ the view reports them as unavailable instead of offering them.
 - Requested model and effort come from the frozen plan (`source: "plan"`).
   Confirmed values carry their source: `acp_usage_report` (Claude's
   `_claude/model`, first report only), `acp_config_option` (the selector value
-  the adapter confirmed before the prompt) or `adapter_selector` (OpenCode).
+  the adapter confirmed before the prompt), `adapter_selector` (OpenCode) or
+  `cli_stream_event` (the model the Claude CLI of a runner named in its `init`
+  event and its top-level answers). The CLI echoes no effort, so a runner's
+  `--effort` stays requested and is never shown as confirmed.
   OpenCode's default effort is filled in by Pages and is never shown as
   confirmed. A value nobody reported stays `null`.
 - The workspace is the directory the plan preparation assigned to the node.
@@ -152,7 +155,13 @@ the view reports them as unavailable instead of offering them.
   also through a link) and reads the Git state from `.git`/`HEAD` (including `gitdir:` pointers of worktrees):
   `branch`, `detached` with the commit, `no_repository` or `unreadable`. No Git
   command and no command of the model runs; no repository path is exposed. It
-  is read again at every turn start.
+  is read again at every turn start. A Claude Code session of a runner records
+  no workspace in its journal; its view checks the directory the plan assigned
+  to the node instead, and the run branch of exactly that workspace shows also
+  without session metadata. This holds for a local node and the local runner,
+  whose files lie on the Pages host; a node on another runner host shows no
+  workspace and no run branch, because a local path of the same name would
+  name another machine's state.
 
 ## Usage
 
@@ -162,6 +171,16 @@ Context occupancy and token counts are separate values:
   `.size` with source and time; the newest report replaces the one before. A
   zero `used` reads as unknown (Claude reports 0 after an unmeasured
   compaction). Without a limit there is no percentage.
+- A Claude Code CLI job of a runner sends its own session readings instead of
+  `usage_update`, kept apart from its token counters: `cli_assistant_usage` is
+  input, output, cache read and cache write of the latest top-level answer
+  (no subagent, no `<synthetic>` banner; a missing counter leaves it unknown),
+  the limit is `contextWindow` of exactly that model in the CLI's `result`.
+  After `compact_boundary` the occupancy is the count the compaction kept, or
+  unknown, and the window stays (`cli_compact_boundary`). Another model drops
+  both values. A reading without a measurement keeps the last valid one of
+  the same model, also after the end, on reopening and into the next turn; a
+  reading older than the stored one changes nothing.
 - Except for the Codex plan path described below, token counts come from `PromptResponse.usage`, per turn. A missing
   count is `null`, never 0; nothing is derived from text length or from
   `used/size`.
@@ -399,9 +418,12 @@ The formula in USD is:
 
 Absent cache/reasoning rates fall back to prompt/completion. Absent breakdowns
 use the corresponding base rate without inventing a reported count. Unknown
-prices remain null. Run panel and console show all four kinds, `im Abo` with
-the equivalent USD amount, `Preis unbekannt`, or `nicht gemeldet`. An incomplete
-run total is marked explicitly. The run projection reads every persisted
+prices remain null. The run projection keeps all four kinds (subscription
+with the equivalent USD amount, unknown price, or not reported). Like a Claude
+Code session, a Codex session's console shows no costs, token sums or cache;
+its usage is the context occupancy last reported, which stays after the step
+ended, and model, reasoning and access stand as the shared badges. An
+incomplete run total is marked explicitly. The run projection reads every persisted
 attempt, including replaced retries, and every loop iteration; its step sums
 and run sum use the same rows. The mounted panel polls the authorized session
 projection every two seconds and releases its timer on unmount.

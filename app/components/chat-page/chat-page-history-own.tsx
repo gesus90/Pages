@@ -1,4 +1,10 @@
-import { AppWindow, Clock, CornerDownRight } from "lucide-react";
+import {
+  AppWindow,
+  ArrowRight,
+  CircleAlert,
+  Clock,
+  CornerDownRight,
+} from "lucide-react";
 import { Fragment } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -10,6 +16,11 @@ import { MessageContentView } from "./content/message-content-view";
 import { MessageDelete } from "./content/message-delete";
 import { MentionMarkdown } from "./mentions/mention-markdown";
 
+import type { LucideIcon } from "lucide-react";
+import type {
+  ConversationDeliveryState,
+  ConversationRecipientDelivery,
+} from "@/definition/ConversationRecipientDelivery";
 import type { VirtualChatMessage } from "@/definition/VirtualChat";
 import type { HistoryLive } from "./chat-page-history";
 
@@ -115,6 +126,91 @@ function DeliveryBadge({
   );
 }
 
+/** The symbol and color of each confirmed delivery to one agent. */
+const RECIPIENT_DELIVERY_LOOKS: Readonly<
+  Record<
+    ConversationDeliveryState,
+    { readonly icon: LucideIcon; readonly className: string }
+  >
+> = {
+  injected: { icon: CornerDownRight, className: "text-primary" },
+  started: { icon: ArrowRight, className: "text-muted-foreground" },
+  queued: { icon: Clock, className: "text-muted-foreground" },
+  failed: { icon: CircleAlert, className: "text-destructive" },
+};
+
+/**
+ * The text of one delivery line: "**Ed** · neuer Auftrag", or for a
+ * message sent after the answer that still waits, the former
+ * "wartet · geht nach Eds Antwort raus".
+ */
+function RecipientDeliveryText({
+  delivery,
+  name,
+}: {
+  readonly delivery: ConversationRecipientDelivery;
+  readonly name: string;
+}): React.ReactElement {
+  const { t, i18n } = useTranslation();
+  if (delivery.intent === "after" && delivery.state === "queued")
+    return (
+      <span>
+        {t("chatPage.liveAnswer.waiting", {
+          owner: possessive(name, i18n.language),
+        })}
+      </span>
+    );
+  return (
+    <span>
+      <strong className="font-semibold">{name}</strong>
+      {` · ${t(`chatPage.liveAnswer.delivery.${delivery.state}`)}`}
+    </span>
+  );
+}
+
+/**
+ * One line per agent the server confirmed for an own message of a group:
+ * taken into the running answer, accepted as a new task, queued, or not
+ * delivered. A new task names its acceptance, not a started process.
+ */
+function RecipientDeliveries({
+  deliveries,
+  live,
+}: {
+  readonly deliveries: readonly ConversationRecipientDelivery[];
+  readonly live: HistoryLive;
+}): React.ReactElement | null {
+  if (deliveries.length === 0) return null;
+  return (
+    <div
+      className="flex flex-col items-end gap-[3px]"
+      data-recipient-deliveries=""
+    >
+      {deliveries.map((delivery) => {
+        const look = RECIPIENT_DELIVERY_LOOKS[delivery.state];
+        const Icon = look.icon;
+        return (
+          <p
+            className={cn(
+              "inline-flex items-center gap-[5px] text-[11px] leading-4 whitespace-nowrap",
+              look.className,
+            )}
+            data-recipient-delivery={delivery.state}
+            key={delivery.agentId}
+            role={delivery.state === "failed" ? "status" : undefined}
+          >
+            <Icon aria-hidden="true" className="size-3.5 shrink-0" />
+            <RecipientDeliveryText
+              delivery={delivery}
+              name={live.nameOf(delivery.agentId)}
+            />
+          </p>
+        );
+      })}
+    </div>
+  );
+}
+
 /** Marks a message a person sent from a preview of the chat. */
 export function PreviewSentBadge(): React.ReactElement {
   const { t } = useTranslation();
@@ -146,6 +242,62 @@ const DELIVERY_FRAMES: Readonly<Record<MessageDelivery["kind"], string>> = {
 };
 
 const OWN_BUBBLE = `max-w-[62%] min-w-0 ${OWN_BUBBLE_RADIUS} bg-primary px-4 py-2.5 text-primary-foreground`;
+
+/** How an own message shows its delivery: the frame around its bubble and its `data-delivery`. */
+interface OwnDeliveryLook {
+  readonly frame: string;
+  readonly kind: string | undefined;
+}
+
+/**
+ * The frame of a message whose deliveries the server confirmed per agent:
+ * the ring only when every agent took it into its running answer, the dashed
+ * outline only while every agent it was sent "after" still answers, and no
+ * frame for mixed deliveries, whose lines say it.
+ */
+function recipientLook(
+  deliveries: readonly ConversationRecipientDelivery[],
+): OwnDeliveryLook {
+  const [first] = deliveries;
+  if (!first) return { frame: "", kind: undefined };
+  const isUniform = deliveries.every((entry) => entry.state === first.state);
+  const kind = isUniform ? first.state : "mixed";
+  if (isUniform && first.state === "injected")
+    return { frame: DELIVERY_FRAMES.injected, kind };
+  const isWaitingAfter = deliveries.every(
+    (entry) => entry.intent === "after" && entry.state === "queued",
+  );
+  return { frame: isWaitingAfter ? DELIVERY_FRAMES.waiting : "", kind };
+}
+
+/** The confirmed deliveries per agent win; without them the former badges stay. */
+function ownDeliveryLook(
+  message: VirtualChatMessage,
+  delivery: MessageDelivery | null,
+): OwnDeliveryLook {
+  if (message.deliveries !== undefined)
+    return recipientLook(message.deliveries);
+  return {
+    frame: delivery ? DELIVERY_FRAMES[delivery.kind] : "",
+    kind: delivery?.kind,
+  };
+}
+
+/** The badges under an own message: per agent when confirmed, otherwise the former ones. */
+function OwnDeliveryBadges({
+  message,
+  delivery,
+  live,
+}: {
+  readonly message: VirtualChatMessage;
+  readonly delivery: MessageDelivery | null;
+  readonly live: HistoryLive;
+}): React.ReactElement {
+  if (message.deliveries !== undefined)
+    return <RecipientDeliveries deliveries={message.deliveries} live={live} />;
+  if (delivery) return <DeliveryBadge delivery={delivery} live={live} />;
+  return <QueueBadge queue={message.queue} />;
+}
 
 /**
  * Puts the frame of a delivery around one bubble: the frame takes the
@@ -185,15 +337,17 @@ function OwnMessage({
   readonly live: HistoryLive;
 }): React.ReactElement {
   const { t } = useTranslation();
-  const delivery = deliveryOf(message, live);
-  const frame = delivery ? DELIVERY_FRAMES[delivery.kind] : "";
+  // Confirmed deliveries per agent replace what the stream told about the message.
+  const delivery =
+    message.deliveries === undefined ? deliveryOf(message, live) : null;
+  const { frame, kind } = ownDeliveryLook(message, delivery);
   return (
     <article
       aria-label={t("chatPage.you")}
       className="group/message flex w-full min-w-0 flex-col items-end gap-2 rounded-lg outline-none transition-shadow data-[message-focus=true]:ring-2 data-[message-focus=true]:ring-primary data-[message-focus=true]:ring-offset-4"
       data-chat-message={message.id}
       data-message-id={message.id}
-      data-delivery={delivery?.kind}
+      data-delivery={kind}
       tabIndex={-1}
     >
       <div className="flex w-full min-w-0 flex-col items-end gap-2">
@@ -229,11 +383,7 @@ function OwnMessage({
         )}
       </div>
       {message.isFromPreview === true ? <PreviewSentBadge /> : null}
-      {delivery ? (
-        <DeliveryBadge delivery={delivery} live={live} />
-      ) : (
-        <QueueBadge queue={message.queue} />
-      )}
+      <OwnDeliveryBadges message={message} delivery={delivery} live={live} />
       {message.canDelete === true ? (
         <MessageDelete messageId={message.id} />
       ) : null}

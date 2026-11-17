@@ -115,31 +115,6 @@
     backdrop-filter: var(--scene-veil-filter);
   }
 
-  /* A sticky heading covers what scrolls below it. A design with a painting
-     shows the painting behind the heading while it rests in place; stuck, the
-     heading lies on the veil of the design, so it ends in the painting
-     without an opaque band and a hard edge. */
-  .pages-sticky-band {
-    container-type: scroll-state;
-  }
-
-  .pages-sticky-band-surface {
-    pointer-events: none;
-    backdrop-filter: var(--sticky-band-filter);
-  }
-
-  @supports (container-type: scroll-state) {
-    .pages-sticky-band-surface {
-      opacity: var(--sticky-band-rest-opacity);
-    }
-
-    @container scroll-state(stuck: top) {
-      .pages-sticky-band-surface {
-        opacity: 1;
-      }
-    }
-  }
-
   /* A tree in the navigation grows into the free space unless a painting
      takes that space. */
   .pages-sidebar-tree {

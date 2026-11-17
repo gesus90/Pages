@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
+import { Link } from "react-router";
 
 import { useRegionFormatter } from "@/app/components/common/region-provider";
 import { Button } from "@/app/components/ui/button";
@@ -61,6 +62,12 @@ function LockDetails({
         })}
       </p>
       <p>{t(`plans.workspaceLocks.reason.${entry.reason}`)}</p>
+      <Link
+        to={`/agents/plans?planId=${encodeURIComponent(entry.planId)}&runId=${encodeURIComponent(entry.runId)}`}
+        className="inline-flex underline underline-offset-2 [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:items-center"
+      >
+        {t("plans.workspaceLocks.showRun")}
+      </Link>
       {entry.isOverdue ? (
         <p role="alert">{t("plans.workspaceLocks.overdue")}</p>
       ) : null}

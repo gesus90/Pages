@@ -10,10 +10,15 @@ import { readPlanSnapshot } from "@/backend/service/agents/AgentPlanSnapshot";
 import { planWritingWorkspaces } from "@/backend/service/agents/AgentPlanContinuation";
 import { readTextColumn } from "@/backend/database/RowValue";
 import { AgentError } from "@/backend/error/AgentErrors";
-import { isActivePlanRun } from "@/definition/AgentPlanRunState";
+import {
+  isActivePlanRun,
+  isResumablePlanRunEnd,
+} from "@/definition/AgentPlanRunState";
+import { allPlanRunResults } from "@/definition/AgentPlanLoopResults";
+import { hasUnconfirmedRunCloseout } from "@/backend/service/agents/AgentPlanRunState";
 
 import type { DatabaseTransaction } from "@/backend/database/Database";
-import type { AgentPlanRun } from "@/definition/AgentPlan";
+import type { AgentPlanRun, AgentPlanStepResult } from "@/definition/AgentPlan";
 
 function snapshotResources(input: unknown): readonly string[] {
   return planWritingWorkspaces(readPlanSnapshot(input));
@@ -185,24 +190,44 @@ async function conflictingResource(
   );
 }
 
+function openCloseoutStep(
+  owner: AgentPlanRun,
+): AgentPlanStepResult | undefined {
+  return allPlanRunResults(owner).find(
+    (entry) =>
+      entry.remote?.closeout === "failed" ||
+      entry.remote?.closeout === "pending",
+  );
+}
+
+/**
+ * Names why a holder still keeps the resource, from what its records prove.
+ * @remarks
+ * A reservation is not an unconfirmed process end. An ended run whose steps all
+ * have a confirmed closeout keeps the resource only for its continuation or
+ * until the release settles; only a failed or pending closeout is unconfirmed.
+ */
+function holdReason(owner: AgentPlanRun): string {
+  const step = openCloseoutStep(owner);
+  if (step?.remote?.cancellation?.failure)
+    return step.remote.cancellation.failure;
+  if (isActivePlanRun(owner.status)) return "writer_reserved";
+  if (hasUnconfirmedRunCloseout(owner)) return "process_end_unconfirmed";
+  return isResumablePlanRunEnd(owner.status)
+    ? "reserved_for_resume"
+    : "release_pending";
+}
+
 function ownerBlocker(
   owner: AgentPlanRun,
   userId: string,
   resource: string,
 ): AgentPlanWriterWait {
-  const step = owner.steps.find(
-    (entry) =>
-      entry.remote?.closeout === "failed" ||
-      entry.remote?.closeout === "pending",
-  );
+  const step = openCloseoutStep(owner);
   const isOwn = owner.userId === userId;
   return {
     resource,
-    reason:
-      step?.remote?.cancellation?.failure ??
-      (isActivePlanRun(owner.status)
-        ? "writer_reserved"
-        : "process_end_unconfirmed"),
+    reason: holdReason(owner),
     runId: isOwn ? owner.id : null,
     jobId: isOwn ? (step?.remote?.jobId ?? null) : null,
     attemptId: isOwn ? (step?.execution?.attemptId ?? null) : null,

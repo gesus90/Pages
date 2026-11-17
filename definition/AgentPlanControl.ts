@@ -86,6 +86,15 @@ export interface AgentPlanControl {
    */
   readonly resumeBlocker?: AgentPlanResumeBlocker;
   readonly workspaceWait?: AgentPlanWriterWait;
+  /**
+   * Whether the newest run waits for a workspace write resource before it starts a step.
+   * @remarks
+   * Every reader of the plan sees this fact and its start; the resource and
+   * the holder stay in `workspaceWait` and `workspaceLocks`, which the
+   * server discloses only after its own rights check.
+   */
+  readonly isWaitingForWorkspace?: boolean;
+  readonly workspaceWaitingSince?: string;
   /** Current ACP admission reason for this run, absent once admitted. */
   readonly waitReason?: AcpWaitReason;
   readonly cleanup?: readonly AgentWorkspaceCleanup[];

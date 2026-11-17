@@ -12,12 +12,19 @@ import {
 } from "./ConversationAnswerableMessage";
 import { isAgentChainPaused } from "./ConversationAgentChain";
 import { reopenFailedAnswer } from "./ConversationAnswerRetry";
-import { logPausedHandoff, logRoundLimit } from "./ConversationReplyLogs";
+import {
+  logPausedHandoff,
+  logRoundLimit,
+  logStartFailure,
+  logUnanswerable,
+} from "./ConversationReplyLogs";
 import { ConversationReplyRunner } from "./ConversationReplyRunner";
 import { ConversationRoundFollowUps } from "./ConversationRoundFollowUps";
+import { chosenDelivery, mentionDelivery } from "./ConversationDeliveryIntents";
 
 import type { LiveAnswerSink } from "./ConversationLiveAnswer";
 import type { ConversationDelivery } from "@/definition/ConversationLiveAnswer";
+import type { ConversationDeliveryIntent } from "@/definition/ConversationRecipientDelivery";
 import type { ConversationAnswerStreamPort } from "./ConversationReplyTypes";
 import type { ConversationMessageRepository } from "@/backend/database/repositories/conversation/ConversationMessageRepository";
 import type {
@@ -203,6 +210,8 @@ interface ReplyRequest {
   readonly isFollowUp?: boolean;
   /** The stored @ hand-over the answer takes. */
   readonly handoff?: "pending" | "paused";
+  /** How the message of a person reaches this agent; absent leaves it untracked. */
+  readonly deliveryIntent?: ConversationDeliveryIntent;
 }
 
 function isAgentMember(
@@ -416,7 +425,7 @@ export class ConversationAgentReplies {
         )
       : null;
     if (!sender || !conversation) {
-      this.logUnanswerable(message, sender ? "no_membership" : "no_sender");
+      logUnanswerable(message, sender ? "no_membership" : "no_sender");
       return;
     }
     const round: ConversationRound = {
@@ -437,11 +446,18 @@ export class ConversationAgentReplies {
   }
 
   /**
-   * Hands a message a person sent while agents answered: "after"
-   * waits until the answering agents ended, "steer" without an @ in a group
-   * goes into the answers of every agent answering now; an agent whose answer
-   * no longer takes it answers it afterwards. Otherwise the round starts as
-   * any other.
+   * Routes a message of a person and says per recipient how it reaches the
+   * agent.
+   * @remarks
+   * In a direct conversation "after" waits until the answering agent ended
+   * and every other message goes into its running answer, as before. In a
+   * group the routing chooses the recipients as for any message; that agents
+   * answer elsewhere never steers it. An agent named with @ gets the message
+   * into its running answer, or as a new task when it is free; an agent the
+   * decision model chose gets a new task, which waits behind its running
+   * answer; "after" waits behind the running answer of each recipient alone,
+   * so a free recipient starts at once. Only a deliberate "steer" without an
+   * @ goes into the answers of every agent answering now.
    */
   private async deliver(
     round: ConversationRound,
@@ -458,10 +474,13 @@ export class ConversationAgentReplies {
       .filter(
         (id) => id !== person.id && isAgentMember(id, memberIds, accounts),
       );
-    if (delivery === "after" && working.length > 0)
-      await this.replies.holdUntilIdle(conversation.id, message.id, working);
-    const isUnaddressed =
-      conversation.kind === "group" && message.mentions.length === 0;
+    if (conversation.kind === "direct") {
+      if (delivery === "after" && working.length > 0)
+        await this.replies.holdUntilIdle(conversation.id, message.id, working);
+      await this.answerRound(round, message, { accounts });
+      return;
+    }
+    const isUnaddressed = message.mentions.length === 0;
     if (delivery === "steer" && isUnaddressed && working.length > 0) {
       await this.dispatchAll(
         round,
@@ -472,19 +491,27 @@ export class ConversationAgentReplies {
           requestedBy: null,
           reason: "",
           isAutomatic: false,
+          deliveryIntent: "steer",
         })),
       );
       return;
     }
-    await this.answerRound(round, message, accounts);
+    await this.answerRound(round, message, { accounts, delivery });
   }
 
-  /** Starts the answers the message of a round asks for. */
+  /**
+   * Starts the answers the message of a round asks for; in a group each
+   * recipient gets the delivery its way of being chosen allows.
+   */
   private async answerRound(
     round: ConversationRound,
     message: ConversationMessage,
-    accounts: ConversationAccounts,
+    routing: {
+      readonly accounts: ConversationAccounts;
+      readonly delivery?: ConversationDelivery;
+    },
   ): Promise<void> {
+    const { accounts, delivery } = routing;
     const { conversation, memberIds, person: sender } = round;
     const base = {
       triggerMessageId: message.id,
@@ -507,9 +534,15 @@ export class ConversationAgentReplies {
     );
     if (mentioned.length > 0) {
       await this.recordMention(round, message, mentioned);
+      const deliveryIntent = mentionDelivery(delivery);
       await this.dispatchAll(
         round,
-        mentioned.map((agentId) => ({ ...base, agentId, trigger: "mention" })),
+        mentioned.map((agentId) => ({
+          ...base,
+          agentId,
+          trigger: "mention",
+          deliveryIntent,
+        })),
       );
       return;
     }
@@ -520,7 +553,11 @@ export class ConversationAgentReplies {
       conversation.id,
     );
     if (settings.mode === "mentions") return;
-    await this.decide(round, message, settings, accounts);
+    await this.decide(round, message, {
+      settings,
+      accounts,
+      deliveryIntent: chosenDelivery(delivery),
+    });
   }
 
   private receive(event: ConversationEvent): void {
@@ -530,45 +567,7 @@ export class ConversationAgentReplies {
     void withBackgroundDatabaseWork("conversation_agent_reply", () =>
       this.answer(message, event.recipientIds, delivery),
     ).catch((error: unknown) => {
-      this.logStartFailure(message, error);
-    });
-  }
-
-  /**
-   * A stored message whose answer could not be started stays stored and is
-   * not started again; the log names the message and its conversation, never
-   * its text.
-   */
-  private logStartFailure(message: ConversationMessage, error: unknown): void {
-    logEvent({
-      level: "error",
-      event: "conversation.agent_reply.start_failed",
-      component: COMPONENT,
-      message:
-        "The answer to a stored message could not be started; the message is not answered.",
-      metadata: {
-        conversationId: message.conversationId,
-        messageId: message.id,
-      },
-      error,
-    });
-  }
-
-  /** A message that asks for an answer found no account or membership of its sender. */
-  private logUnanswerable(
-    message: ConversationMessage,
-    reason: "no_sender" | "no_membership",
-  ): void {
-    logEvent({
-      level: "warn",
-      event: "conversation.agent_reply.unanswerable",
-      component: COMPONENT,
-      message: "A message that asks for an answer was not answered.",
-      metadata: {
-        conversationId: message.conversationId,
-        messageId: message.id,
-        reason,
-      },
+      logStartFailure(message, error);
     });
   }
 
@@ -610,6 +609,9 @@ export class ConversationAgentReplies {
       reason: request.reason,
       isFollowUp: request.isFollowUp,
       contextMessageIds: await this.contextOf(round, request),
+      ...(request.deliveryIntent === undefined
+        ? {}
+        : { delivery: request.deliveryIntent }),
     });
     if (round.conversation.kind === "group" && answer)
       await this.handOver(round, answer);
@@ -703,14 +705,18 @@ export class ConversationAgentReplies {
 
   /**
    * Asks the decision model once for a message of a person and starts the
-   * agents it settles on.
+   * agents it settles on; being chosen never steers a running answer.
    */
   private async decide(
     round: ConversationRound,
     message: ConversationMessage,
-    settings: ConversationReplySettings,
-    accounts: ConversationAccounts,
+    options: {
+      readonly settings: ConversationReplySettings;
+      readonly accounts: ConversationAccounts;
+      readonly deliveryIntent: ConversationDeliveryIntent;
+    },
   ): Promise<void> {
+    const { settings, accounts, deliveryIntent } = options;
     const starts = await this.dependencies.decisions.decide({
       conversation: round.conversation,
       originMessageId: round.originMessageId,
@@ -729,6 +735,7 @@ export class ConversationAgentReplies {
         requestedBy: null,
         reason: start.reason,
         isAutomatic: true,
+        deliveryIntent,
       })),
     );
   }

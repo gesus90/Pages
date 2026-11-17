@@ -4693,6 +4693,14 @@
       "haltShortcut": "Esc",
       "more": "Weitere Arten zu senden",
       "steerHint": "Enter lenkt um · ⇧Enter neue Zeile",
+      "send": "Senden",
+      "sendHint": "Enter sendet · ⇧Enter neue Zeile",
+      "delivery": {
+        "injected": "in laufende Antwort eingeschoben",
+        "started": "neuer Auftrag",
+        "queued": "eingereiht",
+        "failed": "nicht zugestellt"
+      },
       "steerLabel": "{{name}} umlenken",
       "injected": "in {{owner}} Antwort eingeschoben",
       "waiting": "wartet · geht nach {{owner}} Antwort raus",
@@ -5349,6 +5357,7 @@
       },
       "overdue": "Diese fortsetzbare Sperre besteht seit mindestens 24 Stunden. Bitte fortsetzen oder nach Prüfung freigeben.",
       "release": "Freigeben",
+      "showRun": "Haltenden Lauf anzeigen",
       "confirm": "Bist du sicher? Die Sperren dieses Laufs werden freigegeben, sobald keine Prozesse, Einheiten oder offenen Ressourcen mehr bestehen.",
       "released": "Die Sperren wurden freigegeben."
     },
@@ -6200,6 +6209,11 @@
           "label": "Läuft",
           "hint": "Der Lauf ist aktiv."
         },
+        "waitingForWorkspace": {
+          "label": "Wartet auf Arbeitsplatz",
+          "hint": "Der Lauf wartet, bis der Arbeitsplatz frei ist. Der Grund steht in den Details.",
+          "hint_noStep": "Der Lauf wartet, bis der Arbeitsplatz frei ist; es wurde noch kein Schritt gestartet. Der Grund steht in den Details."
+        },
         "runBlocked": {
           "label": "Blockiert",
           "hint": "Ein Schritt ist fehlgeschlagen; abhängige Schritte starten nicht."
@@ -6558,6 +6572,12 @@
       "positionEstimate": "{{position}} / ca. {{total}}",
       "positionLabel": "Schritt {{position}} · {{completed}} abgeschlossen",
       "completedCount": "{{count}} abgeschlossen",
+      "waitNoStep": "noch kein Schritt gestartet",
+      "waitSince": "seit {{since}}",
+      "now": {
+        "line": "{{step}} · {{completed}} Ausführungen abgeschlossen · Letzte Aktivität: {{activity}}",
+        "noStep": "Noch kein Schritt gestartet"
+      },
       "pass": "Durchlauf {{pass}}",
       "planned": "Geplant · noch nicht gestartet",
       "assumed": "Annahme · noch nicht feststehend",
@@ -6639,7 +6659,8 @@
         "cancelled": "Gestoppt",
         "failed": "Fehlgeschlagen",
         "blocked": "Blockiert",
-        "notReady": "Nicht startbereit"
+        "notReady": "Nicht startbereit",
+        "waitingForWorkspace": "Wartet auf Arbeitsplatz"
       },
       "agent": "Agent: {{name}}",
       "lastActivity": "Zuletzt gemeldeter Arbeitsschritt",
@@ -6983,6 +7004,7 @@
       "cleanupDecisionFailed": "Die Entscheidung konnte nicht gespeichert werden.",
       "cleanupObligation": "Ausstehende Bereinigung für {{workspace}}, Ursprungslauf {{run}}.",
       "writerWait": "Wartet auf Schreibressource {{resource}}; Besitzer {{run}}.",
+      "writerWaitNeutral": "Der Lauf wartet auf einen Arbeitsplatz, den ein anderer Lauf belegt. Einzelheiten sehen nur berechtigte Personen.",
       "otherOwner": "anderer Ausführender",
       "reviewScript": "Wirksame Dateien, Git-/externe Seiteneffekte und Ergebnis von „{{step}}“ wurden geprüft. Die nächste Ausführung ist sicher und wiederholt Vorbereitung, Commit oder Push nicht blind.",
       "cleanupBlocker": {
@@ -6991,6 +7013,8 @@
         "owner_evidence_unavailable": "Der ursprüngliche Besitzerbeleg fehlt. Ausführung bleibt bis zum Identitätsabgleich gesperrt.",
         "runner_offline": "Runner offline. Den ursprünglichen Runner verbinden, um das Ende zu bestätigen; offline beweist keine Prozessfreiheit.",
         "process_end_unconfirmed": "Prozessende unbestätigt. Den ursprünglichen Runner verbinden oder Prozessbelege dieses Besitzers prüfen.",
+        "reserved_for_resume": "Für die Fortsetzung eines beendeten Laufs reserviert; seine Prozesse sind als beendet protokolliert. Fortsetzen oder die berechtigte Freigabe des alten Laufs gibt den Arbeitsplatz frei; die Freigabe prüft das Prozessende erneut.",
+        "release_pending": "Die Reservierung des beendeten Laufs wird gerade freigegeben.",
         "process_scan_unavailable": "Die ursprüngliche Prozessgrenze ist derzeit nicht belegbar. Exakten Besitzer auf dem Host prüfen; fehlende Ownership-Dateien reichen nicht aus.",
         "signal_denied": "Der Host verweigert das Beenden des exakt zugeordneten Prozesses. Hostrechte korrigieren und dieselbe Aktion wiederholen.",
         "exit_timeout": "Der zugehörige Prozess endete nicht innerhalb der Frist. Ursprünglichen Host prüfen und erneut versuchen.",
@@ -7964,6 +7988,7 @@
     "loadError": "Die Agents konnten nicht geladen werden.",
     "retry": "Erneut versuchen",
     "missingModel": "Modell oder Zugang nicht verfügbar/freigegeben",
+    "modelMissingShort": "Modell fehlt",
     "modelWithdrawn": "Die gespeicherte Modell-/Zugangsauswahl ist nicht mehr verfügbar oder freigegeben. Wählen Sie ausdrücklich ein nutzbares Modell, um zu speichern.",
     "deletedTargets": "Eine Gruppe oder Abteilung dieser Freigabe gibt es nicht mehr. Sie fehlt in der Liste unten; beim Speichern wird die Freigabe ohne sie gespeichert.",
     "deleteTitle": "Agent „{{name}}“ entfernen?",
@@ -10260,16 +10285,7 @@
   "codexUsage": {
     "title": "Codex-Verbrauch",
     "runTotal": "Summe des Laufs (alle Schritte und Schleifen)",
-    "inputTokens": "Eingabe",
-    "cacheReadTokens": "davon Cache",
-    "outputTokens": "Ausgabe",
-    "reasoningTokens": "davon Reasoning",
-    "cost": "Kosten",
-    "subscription": "im Abo",
     "equivalent": "Rechnerischer Betrag: {{amount}}",
-    "notReported": "nicht gemeldet",
-    "priceUnknown": "Preis unbekannt",
-    "incomplete": "Summe unvollständig: Verbrauch wurde nicht vollständig gemeldet.",
     "mappings": "OpenRouter-Preiszuordnung für Codex",
     "mappingsHint": "Optional, eine Zuordnung je Zeile: gpt-6-luna = openai/gpt-6-luna. Leer lassen für eindeutige automatische Zuordnung.",
     "monthlyLimit": "Monatliches Codex-Kostenlimit (USD)",

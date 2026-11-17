@@ -1,8 +1,10 @@
 import { useTranslation } from "react-i18next";
 
 import { ModelPicker } from "@/app/components/agents/model-picker";
-import { ReasoningField } from "@/app/components/agents/model-picker/model-field";
-import { cn } from "@/app/lib/cn";
+import {
+  findModelChoice,
+  modelGroups,
+} from "@/app/components/agents/model-picker/model-catalog";
 import { reasoningOptions } from "@/app/lib/reasoning-options";
 import { modelsOfSameTarget } from "@/definition/AgentReasoningChoice";
 import {
@@ -20,20 +22,33 @@ import {
 
 import { usePlanFlowContext } from "../plan-flow-context";
 import { planStepWithModel } from "../plan-node-configuration-fields";
-import { PLAN_NODE_TEXT } from "../plan-node-text";
+import {
+  PlanModelValue,
+  PlanReasoningField,
+  PlanReasoningValue,
+} from "./plan-agent-fields";
 
 import type { AgentPlanStep } from "@/definition/AgentPlan";
 import type { AgentPlanConfiguration } from "@/definition/AgentPlanConfiguration";
 import type { AgentPlanGroup } from "@/definition/AgentPlanGroup";
 import type { PageAgentModel } from "@/definition/PageAgent";
 
+/**
+ * The footer: 48 px high, 12 px padding, two equally wide columns 8 px
+ * apart, so a field is 143 px wide on a 320 px card and 138 px on the
+ * narrowest 310 px card, whatever it shows.
+ */
 const FOOTER_CLASS =
   "grid h-12 shrink-0 grid-cols-2 items-center gap-2 border-t border-border px-3";
 
 /**
- * Model and reasoning of an agent node at the bottom of its card, in the
- * shared fields with the same measures as everywhere else.
+ * Model and reasoning of an agent node at the bottom of its card, each as a
+ * badge in a fixed field.
  * @remarks
+ * Both fields are 40 px high and equally wide; the badge stands left and is
+ * cut with an ellipsis when its name is too long, the arrow stays at the
+ * right edge. Choosing another model or level changes only the badge, never
+ * a field, an arrow or the footer.
  * The list offers known models of connections currently shared with the person.
  * Choosing one pins its connection, model and provider on this node only;
  * instructions, bindings, reasoning and run options stay as they are. A member of an ACP
@@ -45,7 +60,6 @@ const FOOTER_CLASS =
 export function PlanAgentModel(props: {
   readonly step: AgentPlanStep;
 }): React.ReactElement {
-  const { t } = useTranslation();
   const { sources, canEdit, draft } = usePlanFlowContext();
   const { step } = props;
   const agent = sources.agents.find((entry) => entry.id === step.agentId);
@@ -54,14 +68,8 @@ export function PlanAgentModel(props: {
   if (!configuration)
     return (
       <footer className={FOOTER_CLASS}>
-        <span
-          className={cn(
-            "col-span-2 truncate text-muted-foreground",
-            PLAN_NODE_TEXT.field,
-          )}
-        >
-          {t("pageAgents.missingModel")}
-        </span>
+        <PlanModelValue choice={null} savedModel="" />
+        <PlanReasoningValue reasoning={null} hasLevels={false} />
       </footer>
     );
   const models = planTargetModels(
@@ -73,9 +81,10 @@ export function PlanAgentModel(props: {
   if (!canEdit || models.length === 0)
     return (
       <ModelValues
-        model={model?.name ?? configuration.model}
+        models={models}
+        model={model}
+        savedModel={configuration.model}
         reasoning={configuration.reasoningEffort}
-        isUnavailable={!model}
       />
     );
   return (
@@ -91,35 +100,33 @@ export function PlanAgentModel(props: {
 
 /** The effective model and reasoning level, read only. */
 function ModelValues(props: {
-  readonly model: string;
+  readonly models: readonly PageAgentModel[];
+  readonly model: PageAgentModel | undefined;
+  readonly savedModel: string;
   readonly reasoning: string | null;
-  readonly isUnavailable: boolean;
 }): React.ReactElement {
   const { t } = useTranslation();
-  const reasoning = props.reasoning ?? t("pageAgents.defaultReasoning");
+  const { model } = props;
+  const selected = model
+    ? findModelChoice(
+        modelGroups(props.models, { translate: t, selectedId: model.id }),
+        model.id,
+      )
+    : null;
   return (
     <footer className={FOOTER_CLASS}>
-      <p
-        className={cn(
-          "truncate",
-          PLAN_NODE_TEXT.field,
-          props.isUnavailable && "text-warning",
-        )}
-        title={`${t("pageAgents.model")}: ${props.model}${props.isUnavailable ? ` · ${t("pageAgents.missingModel")}` : ""}`}
-      >
-        <span className="sr-only">{t("pageAgents.model")}: </span>
-        {props.isUnavailable ? (
-          <span>{t("pageAgents.missingModel")} · </span>
-        ) : null}
-        {props.model}
-      </p>
-      <p
-        className={cn("truncate", PLAN_NODE_TEXT.field)}
-        title={`${t("pageAgents.reasoning")}: ${reasoning}`}
-      >
-        <span className="sr-only">{t("pageAgents.reasoning")}: </span>
-        {reasoning}
-      </p>
+      <PlanModelValue
+        choice={
+          selected
+            ? { mark: selected.group.mark, name: selected.choice.label }
+            : null
+        }
+        savedModel={props.savedModel}
+      />
+      <PlanReasoningValue
+        reasoning={props.reasoning}
+        hasLevels={(model?.reasoningEfforts ?? []).length > 0}
+      />
     </footer>
   );
 }
@@ -209,14 +216,13 @@ function ModelChoice(props: {
         disabled={false}
         isLabelHidden
         mode="floating"
+        valueStyle="badge"
         refusalOf={refusalOf}
         onChange={selectModel}
       />
-      <ReasoningField
+      <PlanReasoningField
         value={configuration.reasoningEffort ?? ""}
         options={effortOptions}
-        disabled={false}
-        isLabelHidden
         onChange={selectEffort}
       />
     </footer>

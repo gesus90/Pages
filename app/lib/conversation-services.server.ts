@@ -12,6 +12,7 @@ import { UserGroupRepository } from "@/backend/database/repositories/UserGroupRe
 import { UserRepository } from "@/backend/database/repositories/UserRepository";
 import { WikiLookupRepository } from "@/backend/database/repositories/wiki/WikiLookupRepository";
 import { ConversationDecisionRepository } from "@/backend/database/repositories/conversation/ConversationDecisionRepository";
+import { ConversationDeliveryRepository } from "@/backend/database/repositories/conversation/ConversationDeliveryRepository";
 import { ConversationReplySettingsRepository } from "@/backend/database/repositories/conversation/ConversationReplySettingsRepository";
 import { ConversationGroupContextRepository } from "@/backend/database/repositories/conversation/ConversationGroupContextRepository";
 import { ConversationObserverRunRepository } from "@/backend/database/repositories/conversation/ConversationObserverRunRepository";
@@ -220,6 +221,7 @@ export function createConversationServices(
     files,
     decisions,
     content: content.reader,
+    deliveries: new ConversationDeliveryRepository(database),
   });
   const events = sharedConversationEvents();
   const observer = createObserver(input, {

@@ -10,6 +10,7 @@ import type {
 import type { ConversationRoundRepository } from "@/backend/database/repositories/conversation/ConversationRoundRepository";
 import type { PagesEvent } from "@/backend/service/events/PagesEventPublisher";
 import type { ConversationReplyTrigger } from "@/definition/ConversationObserver";
+import type { ConversationDeliveryIntent } from "@/definition/ConversationRecipientDelivery";
 import type { User } from "@/definition/User";
 import type { ConversationAgentGuard } from "./ConversationAgentGuard";
 import type { ConversationAgentFiles } from "./content/ConversationAgentFiles";
@@ -46,6 +47,12 @@ export interface ConversationReplyJob {
    * of a batch, or everything a resumed hand-over missed.
    */
   readonly contextMessageIds?: readonly string[];
+  /**
+   * How the message of a person should reach this agent; the runner records
+   * what it confirmed. Absent keeps the former way: into the agent's running
+   * answer when it takes it, otherwise after it, without a recorded delivery.
+   */
+  readonly delivery?: ConversationDeliveryIntent;
 }
 
 /** What one answer of an agent uses. */
@@ -57,7 +64,10 @@ export interface ConversationReplyRunnerDependencies {
   >;
   readonly directory: Pick<ConversationDirectory, "read">;
   readonly runner: ConversationAgentRunner;
-  readonly rounds: Pick<ConversationRoundRepository, "setTargetState">;
+  readonly rounds: Pick<
+    ConversationRoundRepository,
+    "setTargetState" | "deliveries"
+  >;
   readonly contexts: Pick<ConversationContextReader, "promptContext">;
   readonly events: Pick<ConversationEvents, "publish">;
   readonly publisher: { publish(event: PagesEvent): void };

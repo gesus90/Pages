@@ -91,6 +91,7 @@ export function planControl(
       canIdentify && isPlanWriterWaitActive(run)
         ? run.workspaceWait
         : undefined,
+    ...publicWorkspaceWait(run),
     canRestart: canIdentify && !isActive,
     ...(isCodexPlanRun(run) ? { startWithoutConfirmation: true } : {}),
     ...ownRunActions(run, canIdentify, issue),
@@ -99,6 +100,19 @@ export function planControl(
     issue: canIdentify
       ? (issue ?? runFailure(run, context.hasReservation))
       : null,
+  };
+}
+
+/** That a run waits and since when is no private detail, so every reader sees it. */
+function publicWorkspaceWait(
+  run: AgentPlanRun,
+): Pick<AgentPlanControl, "isWaitingForWorkspace" | "workspaceWaitingSince"> {
+  if (!isPlanWriterWaitActive(run)) return {};
+  return {
+    isWaitingForWorkspace: true,
+    ...(run.workspaceWaitingSince
+      ? { workspaceWaitingSince: run.workspaceWaitingSince }
+      : {}),
   };
 }
 

@@ -8,40 +8,48 @@ import type {
   ReasoningBadgeLevel,
 } from "@/definition/AgentModelIdentity";
 
-/** Text, background and dot of each level; static, so Tailwind finds the classes. */
+/** Border, text, background and dot of each level; static, so Tailwind finds the classes. */
 const LEVEL_CLASSES: Readonly<
   Record<ReasoningBadgeLevel, { readonly badge: string; readonly dot: string }>
 > = {
   none: {
-    badge: "bg-reasoning-none-subtle text-reasoning-none",
+    badge:
+      "border-reasoning-none-dot bg-reasoning-none-subtle text-reasoning-none",
     dot: "bg-reasoning-none-dot",
   },
   minimal: {
-    badge: "bg-reasoning-minimal-subtle text-reasoning-minimal",
+    badge:
+      "border-reasoning-minimal-dot bg-reasoning-minimal-subtle text-reasoning-minimal",
     dot: "bg-reasoning-minimal-dot",
   },
   low: {
-    badge: "bg-reasoning-low-subtle text-reasoning-low",
+    badge:
+      "border-reasoning-low-dot bg-reasoning-low-subtle text-reasoning-low",
     dot: "bg-reasoning-low-dot",
   },
   medium: {
-    badge: "bg-reasoning-medium-subtle text-reasoning-medium",
+    badge:
+      "border-reasoning-medium-dot bg-reasoning-medium-subtle text-reasoning-medium",
     dot: "bg-reasoning-medium-dot",
   },
   high: {
-    badge: "bg-reasoning-high-subtle text-reasoning-high",
+    badge:
+      "border-reasoning-high-dot bg-reasoning-high-subtle text-reasoning-high",
     dot: "bg-reasoning-high-dot",
   },
   xhigh: {
-    badge: "bg-reasoning-xhigh-subtle text-reasoning-xhigh",
+    badge:
+      "border-reasoning-xhigh-dot bg-reasoning-xhigh-subtle text-reasoning-xhigh",
     dot: "bg-reasoning-xhigh-dot",
   },
   max: {
-    badge: "bg-reasoning-max-subtle text-reasoning-max",
+    badge:
+      "border-reasoning-max-dot bg-reasoning-max-subtle text-reasoning-max",
     dot: "bg-reasoning-max-dot",
   },
   ultra: {
-    badge: "bg-reasoning-ultra-subtle text-reasoning-ultra",
+    badge:
+      "border-reasoning-ultra-dot bg-reasoning-ultra-subtle text-reasoning-ultra",
     dot: "bg-reasoning-ultra-dot",
   },
 };
@@ -62,8 +70,9 @@ interface ReasoningBadgeProps {
  * The word always stands beside the color, so the color alone carries no
  * meaning. A level the badge does not know keeps its raw name in the grey
  * style of `none`. Showing a level never widens what a model offers: a level
- * the model does not offer is marked as such. A requested level the adapter
- * has not confirmed has a dashed outline.
+ * the model does not offer is marked as such. The 1 px solid border takes the
+ * dot's color of the level in either theme. Whether the adapter confirmed the
+ * level stands in the tooltip and the accessible name, never in the border.
  */
 export function ReasoningBadge({
   level,
@@ -86,9 +95,8 @@ export function ReasoningBadge({
       data-reasoning-badge={isKnown ? level : "unknown"}
       data-value-status={status}
       className={cn(
-        "inline-flex h-6 max-w-full min-w-0 shrink-0 items-center gap-1.5 rounded-[7px] px-2 text-[11px] leading-none font-semibold",
+        "inline-flex h-6 max-w-full min-w-0 shrink-0 items-center gap-1.5 rounded-[7px] border px-2 text-[11px] leading-none font-semibold",
         classes.badge,
-        status === "requested" && "border border-dashed border-current",
         className,
       )}
     >

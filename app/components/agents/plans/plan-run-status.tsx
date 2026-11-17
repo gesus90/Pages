@@ -10,6 +10,7 @@ import { PlanInvocationNote } from "./plan-jump/plan-jump-run";
 import { PlanStartFailure } from "./plan-start-failure";
 import { PlanStatusHeader } from "./plan-status-header";
 import { PlanStatusDetails } from "./plan-status-details";
+import { PlanStatusNow } from "./plan-status-now";
 import { PlanStatusOutlook } from "./plan-status-outlook";
 import { PlanAutomaticResumeNote } from "./plan-status-retry";
 import { planNodeLabel } from "./plan-layout";
@@ -144,8 +145,14 @@ function RunStatusContent({
         error={canvas.runError ?? null}
         isReady={canvas.isReady}
         storedRunStatus={canvas.storedRunStatus}
+        workspaceWait={canvas.workspaceWait}
         onSelect={choose}
         onToggle={onToggle}
+      />
+      <PlanStatusNow
+        run={run}
+        sequence={sequence}
+        workspaceWait={canvas.workspaceWait}
       />
       <PlanCommandNote command={run?.command} />
       <PlanInvocationNote invocation={run?.invocation} />

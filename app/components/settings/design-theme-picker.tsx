@@ -4,11 +4,6 @@ import { useTranslation } from "react-i18next";
 
 import { DesignThemePreview } from "@/app/components/settings/design-theme-preview";
 import { useDesignThemeSelection } from "@/app/components/settings/use-design-theme-selection";
-import {
-  VISIBLE_DESIGN_CARD_COUNT,
-  useDesignThemeViewport,
-} from "@/app/components/settings/use-design-theme-viewport";
-import { ScrollViewport } from "@/app/components/ui/scroll-viewport";
 import { cn } from "@/app/lib/cn";
 import { pickLocalizedText } from "@/definition/DesignTheme";
 
@@ -83,12 +78,10 @@ interface DesignThemeCardsProps {
 
 /**
  * The cards of the offered designs.
- *
  * @remarks
- * Up to four designs show as a plain grid. With more, the grid scrolls inside
- * the picker with the usual fades of Pages and shows four complete cards and
- * a little of the next row. The inner padding keeps the selection ring and
- * the focus outline of a card clear of the scroll edges.
+ * The grid always shows every design and grows with the settings card, so
+ * the settings page keeps its single scrolling surface and the card has no
+ * scrollbar or cut-off row of its own.
  */
 function DesignThemeCards({
   choices,
@@ -96,14 +89,10 @@ function DesignThemeCards({
   selectedId,
   onSelect,
 }: DesignThemeCardsProps): React.ReactElement {
-  const { gridRef, viewportRef, maxHeight } = useDesignThemeViewport(
-    choices.length,
-  );
-  const grid = (
+  return (
     <div
       aria-labelledby={labelId}
       className="grid gap-3 sm:grid-cols-2"
-      ref={gridRef}
       role="group"
     >
       {choices.map((choice) => (
@@ -115,21 +104,6 @@ function DesignThemeCards({
         />
       ))}
     </div>
-  );
-
-  if (choices.length <= VISIBLE_DESIGN_CARD_COUNT) {
-    return grid;
-  }
-
-  return (
-    <ScrollViewport
-      className="p-1"
-      containerClassName="-m-1 [--scroll-fade-color:var(--color-surface)]"
-      containerStyle={maxHeight === null ? undefined : { maxHeight }}
-      ref={viewportRef}
-    >
-      {grid}
-    </ScrollViewport>
   );
 }
 

@@ -24,6 +24,7 @@ import {
 } from "./use-plan-requested-run";
 import { usePlanRunSummaries } from "./use-plan-run-summaries";
 import { usePlanSave } from "./use-plan-save";
+import { planWorkspaceWait } from "./plan-workspace-wait-model";
 
 import type { AgentPlanOpening } from "@/app/lib/agent-plan-default";
 import type { LocalStateMark } from "@/app/lib/local-state/local-state-loader";
@@ -309,6 +310,7 @@ function PlanEditorPage({
         runError={display.error}
         isReady={planReadiness(controls.control, editor.isDirty)}
         storedRunStatus={controls.control?.status}
+        workspaceWait={planWorkspaceWait(display.run, controls.control)}
         tickets={editor.tickets}
         workspaces={parameterWorkspaces(page, editor.draft)}
         status={

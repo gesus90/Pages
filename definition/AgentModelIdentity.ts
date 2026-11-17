@@ -17,6 +17,33 @@ export const REASONING_BADGE_LEVELS = [
 /** A reasoning level the shared badge colors. */
 export type ReasoningBadgeLevel = (typeof REASONING_BADGE_LEVELS)[number];
 
+/** The vendor a shared model badge names beside its tile. */
+export type ModelBadgeVendor = "anthropic" | "openai";
+
+/**
+ * The providers whose models carry the shared model badge, with their vendor.
+ * @remarks
+ * Every other provider keeps the grey pill of model and level.
+ */
+const MODEL_BADGE_VENDORS: Readonly<Record<string, ModelBadgeVendor>> = {
+  claude_code: "anthropic",
+  codex_cli: "openai",
+};
+
+/**
+ * The vendor of a provider's shared model badge.
+ * @param provider - A provider or runner, such as `codex_cli`; `null` when the connection is gone.
+ * @returns `null` for a provider that keeps the grey pill.
+ */
+export function modelBadgeVendor(
+  provider: string | null,
+): ModelBadgeVendor | null {
+  if (provider === null) return null;
+  return Object.hasOwn(MODEL_BADGE_VENDORS, provider)
+    ? (MODEL_BADGE_VENDORS[provider] ?? null)
+    : null;
+}
+
 /**
  * Where a shown value comes from.
  * @remarks
@@ -116,24 +143,33 @@ function uncatalogedName(id: string): string {
  * Only the concrete model the adapter reported confirms a version: an alias
  * such as `haiku` the adapter confirmed as its configuration says which
  * family runs, not which version, so it stays `requested` until the reported
- * model arrives. The reported model wins over every requested value, so a
+ * model arrives. Codex confirms a concrete model ID through its
+ * configuration option, so that value is confirmed, with its catalog name or
+ * as the raw ID. The reported model wins over every requested value, so a
  * changed or resumed session never keeps an older name.
  * @returns `null` when nothing names a model.
  */
 export function resolveModelIdentity(
   reading: AgentModelReading,
 ): AgentModelIdentity | null {
-  const { provider, catalog } = reading;
-  if (reading.reported !== null) {
-    const entry = byId(catalog, reading.reported);
+  return confirmedModelIdentity(reading) ?? requestedModelIdentity(reading);
+}
+
+/** The model identity an adapter confirmed; `null` while only a request is known. */
+function confirmedModelIdentity(
+  reading: AgentModelReading,
+): AgentModelIdentity | null {
+  const { provider, catalog, reported, configured } = reading;
+  if (reported !== null) {
+    const entry = byId(catalog, reported);
     return {
       provider,
-      modelId: reading.reported,
-      name: entry?.name ?? uncatalogedName(reading.reported),
+      modelId: reported,
+      name: entry?.name ?? uncatalogedName(reported),
       status: "confirmed",
     };
   }
-  const configuredEntry = byId(catalog, reading.configured);
+  const configuredEntry = byId(catalog, configured);
   if (configuredEntry)
     return {
       provider,
@@ -141,24 +177,36 @@ export function resolveModelIdentity(
       name: configuredEntry.name,
       status: "confirmed",
     };
-  // A concrete Claude ID the adapter confirmed names its version itself.
-  if (reading.configured !== null && parseClaudeModelId(reading.configured))
+  // A concrete Claude ID the adapter confirmed names its version itself;
+  // Codex confirms only concrete model IDs, never an alias.
+  if (
+    configured !== null &&
+    (provider === "codex_cli" || parseClaudeModelId(configured))
+  )
     return {
       provider,
-      modelId: reading.configured,
-      name: uncatalogedName(reading.configured),
+      modelId: configured,
+      name: uncatalogedName(configured),
       status: "confirmed",
     };
-  const requested = reading.configured ?? reading.requested;
-  if (requested === null) return null;
+  return null;
+}
+
+/** The model identity of a value Pages requested that the adapter has not confirmed. */
+function requestedModelIdentity(
+  reading: AgentModelReading,
+): AgentModelIdentity | null {
+  const { provider, catalog, requested, configured } = reading;
+  const requestedValue = configured ?? requested;
+  if (requestedValue === null) return null;
   const entry =
-    byId(catalog, reading.requested) ??
-    byAlias(catalog, reading.configured) ??
-    byAlias(catalog, reading.requested);
+    byId(catalog, requested) ??
+    byAlias(catalog, configured) ??
+    byAlias(catalog, requested);
   return {
     provider,
     modelId: entry?.id ?? null,
-    name: entry?.name ?? requested,
+    name: entry?.name ?? requestedValue,
     status: "requested",
   };
 }

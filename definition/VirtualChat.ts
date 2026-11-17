@@ -29,6 +29,7 @@ import type {
   ConversationLink,
 } from "./ConversationContent";
 import type { ConversationDecisionView } from "./ConversationDecision";
+import type { ConversationRecipientDelivery } from "./ConversationRecipientDelivery";
 
 /** Whether a participant is available, busy with a task, or switched off. */
 export type VirtualParticipantStatus = "active" | "working" | "off";
@@ -190,6 +191,14 @@ export interface VirtualChatMessage {
    * which the chat shows as "in Eds Antwort eingeschoben".
    */
   readonly steeredInto?: readonly string[];
+  /**
+   * What the server confirmed per agent for the person's own message in a
+   * group: taken into a running answer, accepted as a new task, queued, or
+   * not delivered. Present, possibly empty, only on stored messages of a
+   * group; the chat then shows one line per entry instead of the former
+   * badges, and nothing before the server confirmed it.
+   */
+  readonly deliveries?: readonly ConversationRecipientDelivery[];
   /** The files of a stored message. */
   readonly attachments?: readonly ConversationAttachment[];
   /**

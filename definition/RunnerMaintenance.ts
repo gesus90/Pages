@@ -1,8 +1,8 @@
 import { z } from "zod";
 
 /** The shipped release and its immediately preceding supported release. */
-export const RUNNER_RELEASE = "1.23.0";
-export const RUNNER_PREVIOUS_RELEASE = "1.22.0";
+export const RUNNER_RELEASE = "1.24.0";
+export const RUNNER_PREVIOUS_RELEASE = "1.23.0";
 
 /** Persisted administrator choices; a missing address inherits the public Pages address. */
 export const runnerSettingsSchema = z

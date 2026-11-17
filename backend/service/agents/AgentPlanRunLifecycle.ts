@@ -20,6 +20,13 @@ import type { EngineDependencies } from "./AgentPlanEngineDependencies";
 import type { ActivePlanRun } from "./AgentPlanRunState";
 import type { AgentPlanRun } from "@/definition/AgentPlan";
 
+/** A changed holder or reason is still the same wait, so a live wait keeps its start. */
+function waitingSince(run: AgentPlanRun): string {
+  return run.isWaitingForWorkspace && run.workspaceWaitingSince
+    ? run.workspaceWaitingSince
+    : new Date().toISOString();
+}
+
 /** Acquires all concrete writes before any scheduler node can dispatch. */
 export async function acquirePlanWriters(
   active: ActivePlanRun,
@@ -46,6 +53,7 @@ export async function acquirePlanWriters(
       ...active.view,
       isWaitingForWorkspace: !acquired,
       workspaceWait: workspaceWait ?? undefined,
+      workspaceWaitingSince: acquired ? undefined : waitingSince(active.view),
     };
     await dependencies.runs.update(active.view);
     if (!acquired)

@@ -1,4 +1,9 @@
-import { ChevronDown, CornerDownLeft, Square } from "lucide-react";
+import {
+  ChevronDown,
+  CornerDownLeft,
+  SendHorizontal,
+  Square,
+} from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import { Button } from "@/app/components/ui/button";
@@ -14,7 +19,11 @@ interface ChatPageSteerControlsProps {
   /** Who answers now, for the labels. */
   readonly name: string;
   readonly canSend: boolean;
-  /** Puts the message into the running answer (Enter). */
+  /** A group, whose main button sends as usual; steering stays in the menu. */
+  readonly isGroup: boolean;
+  /** Sends the message as usual (Enter in a group). */
+  readonly onSend: () => void;
+  /** Puts the message into the running answer (Enter in a direct chat). */
   readonly onSteer: () => void;
   /** Sends the message after the running answer (⌥↵). */
   readonly onAfter: () => void;
@@ -22,14 +31,51 @@ interface ChatPageSteerControlsProps {
   readonly onStop: () => void;
 }
 
+/** The main button: "Umlenken ↵" in a direct chat, "Senden ↵" in a group. */
+function MainAction({
+  name,
+  canSend,
+  isGroup,
+  onSend,
+  onSteer,
+}: Pick<
+  ChatPageSteerControlsProps,
+  "name" | "canSend" | "isGroup" | "onSend" | "onSteer"
+>): React.ReactElement {
+  const { t } = useTranslation();
+  return (
+    <Button
+      aria-label={
+        isGroup
+          ? t("chatPage.liveAnswer.send")
+          : t("chatPage.liveAnswer.steerLabel", { name })
+      }
+      className="h-11 gap-1.5 rounded-r-none px-3 text-sm xl:h-9"
+      disabled={!canSend}
+      onClick={isGroup ? onSend : onSteer}
+      type="button"
+    >
+      {isGroup ? (
+        <SendHorizontal aria-hidden="true" className="size-4" />
+      ) : null}
+      {isGroup ? t("chatPage.liveAnswer.send") : t("chatPage.liveAnswer.steer")}
+      <CornerDownLeft aria-hidden="true" className="size-3.5" />
+    </Button>
+  );
+}
+
 /**
  * The foot of the input while an agent answers: a round stop button and the
- * main button "Umlenken ↵", whose arrow opens "Umlenken", "Danach senden" and
- * "Anhalten"; the hint "Enter lenkt um · ⇧Enter neue Zeile" is read out only.
+ * main button, whose arrow opens "Umlenken", "Danach senden" and "Anhalten".
+ * In a direct chat the main button is "Umlenken ↵"; in a group it is
+ * "Senden ↵", because a new message there goes into no running answer unless
+ * the person chooses "Umlenken". The hint for Enter is read out only.
  */
 export function ChatPageSteerControls({
   name,
   canSend,
+  isGroup,
+  onSend,
   onSteer,
   onAfter,
   onStop,
@@ -37,7 +83,11 @@ export function ChatPageSteerControls({
   const { t } = useTranslation();
   return (
     <div className="flex min-w-0 items-center justify-end gap-2">
-      <span className="sr-only">{t("chatPage.liveAnswer.steerHint")}</span>
+      <span className="sr-only">
+        {isGroup
+          ? t("chatPage.liveAnswer.sendHint")
+          : t("chatPage.liveAnswer.steerHint")}
+      </span>
       <Button
         aria-label={t("chatPage.liveAnswer.halt")}
         className="size-11 shrink-0 rounded-full p-0 xl:size-9"
@@ -49,16 +99,13 @@ export function ChatPageSteerControls({
         <Square aria-hidden="true" className="size-3.5 fill-current" />
       </Button>
       <div className="flex shrink-0 items-stretch">
-        <Button
-          aria-label={t("chatPage.liveAnswer.steerLabel", { name })}
-          className="h-11 gap-1.5 rounded-r-none px-3 text-sm xl:h-9"
-          disabled={!canSend}
-          onClick={onSteer}
-          type="button"
-        >
-          {t("chatPage.liveAnswer.steer")}
-          <CornerDownLeft aria-hidden="true" className="size-3.5" />
-        </Button>
+        <MainAction
+          name={name}
+          canSend={canSend}
+          isGroup={isGroup}
+          onSend={onSend}
+          onSteer={onSteer}
+        />
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button
@@ -72,9 +119,11 @@ export function ChatPageSteerControls({
           <DropdownMenuContent align="end">
             <DropdownMenuItem disabled={!canSend} onSelect={onSteer}>
               {t("chatPage.liveAnswer.steer")}
-              <DropdownMenuShortcut>
-                {t("chatPage.liveAnswer.steerShortcut")}
-              </DropdownMenuShortcut>
+              {isGroup ? null : (
+                <DropdownMenuShortcut>
+                  {t("chatPage.liveAnswer.steerShortcut")}
+                </DropdownMenuShortcut>
+              )}
             </DropdownMenuItem>
             <DropdownMenuItem disabled={!canSend} onSelect={onAfter}>
               {t("chatPage.liveAnswer.after")}

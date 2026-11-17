@@ -7,13 +7,13 @@ import type { AgentSessionRunBranch } from "@/definition/AgentPlanRunBranch";
 import type { AgentSessionGitState } from "@/definition/AgentSessionJournal";
 
 const PILL_CLASS =
-  "inline-flex h-6 max-w-full min-w-0 items-center gap-1 rounded-[7px] px-2 font-mono text-xs leading-none font-semibold";
+  "inline-flex h-6 max-w-full min-w-0 items-center gap-1 rounded-[7px] border px-2 font-mono text-xs leading-none font-semibold";
 
 function WarningBadge({ text }: { readonly text: string }): React.ReactElement {
   return (
     <span
       data-run-branch-warning
-      className="inline-flex h-6 max-w-full min-w-0 items-center gap-1 rounded-[7px] bg-warning-subtle px-2 text-[11px] leading-none font-semibold text-warning"
+      className="inline-flex h-6 max-w-full min-w-0 items-center gap-1 rounded-[7px] border border-warning bg-warning-subtle px-2 text-[11px] leading-none font-semibold text-warning"
     >
       <TriangleAlert aria-hidden="true" className="size-3 shrink-0" />
       <span className="min-w-0 truncate">{text}</span>
@@ -74,7 +74,8 @@ function PreparationNote({
 /**
  * The run branch of a session's workspace and how its Git state stands now.
  * @remarks
- * The branch is a value of the run, so it uses the violet of plan parameters.
+ * The branch is a value of the run, so it uses the violet of plan parameters,
+ * with a 1 px solid border in the same color like every agent badge.
  * The workspace stands below it. A Git state that differs adds a warning badge
  * with text and never replaces the target; detached HEAD, a missing
  * repository and an unreadable state are named apart. Without a run branch
@@ -103,7 +104,7 @@ export function RunBranchBadge({
           title={expected.branch}
           className={cn(
             PILL_CLASS,
-            "bg-plan-parameter-subtle text-plan-parameter",
+            "border-plan-parameter bg-plan-parameter-subtle text-plan-parameter",
           )}
         >
           <GitBranch aria-hidden="true" className="size-3 shrink-0" />
@@ -113,7 +114,7 @@ export function RunBranchBadge({
         <span
           className={cn(
             PILL_CLASS,
-            "bg-muted font-normal text-muted-foreground",
+            "border-border bg-muted font-normal text-muted-foreground",
           )}
         >
           {t("agentBadges.branch.missing")}

@@ -2,11 +2,12 @@ import { useTranslation } from "react-i18next";
 
 import { cn } from "@/app/lib/cn";
 import { AccessBadge } from "@/app/components/agents/badges/access-badge";
-import { ClaudeModelBadge } from "@/app/components/agents/badges/claude-model-badge";
+import { ModelBadge } from "@/app/components/agents/badges/model-badge";
 import { ReasoningBadge } from "@/app/components/agents/badges/reasoning-badge";
 import { RunBranchBadge } from "@/app/components/agents/badges/run-branch-badge";
 
 import type { AgentPlanStepResult } from "@/definition/AgentPlan";
+import type { ModelBadgeVendor } from "@/definition/AgentModelIdentity";
 import type { AgentSessionView } from "@/definition/AgentSessionJournal";
 
 /** One row of the session facts whose value is a badge, right aligned. */
@@ -41,19 +42,23 @@ function workspaceFolder(view: AgentSessionView): string | null {
 }
 
 /**
- * Model, reasoning, access and branch of a Claude Code session as the shared badges.
+ * Model, reasoning, access and branch of a Claude Code or Codex session as
+ * the shared badges.
  * @remarks
  * The model and the reasoning are the structured values of the session view:
  * confirmed ones as confirmed, requested ones as requested. A reasoning level
  * nobody named stays "default of the model" and never reads as `none` or a
  * confirmed `medium`.
  */
-export function ClaudeSessionFacts({
+export function BadgeSessionFacts({
   step,
   view,
+  vendor,
 }: {
   readonly step: AgentPlanStepResult;
   readonly view: AgentSessionView;
+  /** The vendor the model badge names, such as `openai` for Codex. */
+  readonly vendor: ModelBadgeVendor;
 }): React.ReactElement {
   const { t } = useTranslation();
   const key = "plans.console.terminal.sidebar";
@@ -64,7 +69,8 @@ export function ClaudeSessionFacts({
     <>
       <BadgeFact label={t(`${key}.model`)}>
         {modelIdentity ? (
-          <ClaudeModelBadge
+          <ModelBadge
+            vendor={vendor}
             name={modelIdentity.name}
             status={modelIdentity.status}
           />

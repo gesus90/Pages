@@ -14,6 +14,7 @@ import type {
   ConversationLink,
 } from "./ConversationContent";
 import type { ConversationDecisionView } from "./ConversationDecision";
+import type { ConversationRecipientDelivery } from "./ConversationRecipientDelivery";
 
 /** Longest text of a message, in characters. */
 export const CONVERSATION_TEXT_MAXIMUM_LENGTH = 16_000;
@@ -197,6 +198,11 @@ export interface ConversationMessage {
    * decision that chose the agent, which the chat shows as "Why?".
    */
   readonly decision?: ConversationDecisionView;
+  /**
+   * What the server confirmed per agent for the message of a person in a
+   * group; only the chat page reads it. Empty while nothing is confirmed.
+   */
+  readonly deliveries?: readonly ConversationRecipientDelivery[];
   /** The files of the message in their order; empty without any. */
   readonly attachments: readonly ConversationAttachment[];
   /** The URLs that stand alone in a line of the text; empty without any. */

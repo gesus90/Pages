@@ -31,6 +31,11 @@ interface SelectProps<Value extends string = string> {
   readonly disabled?: boolean;
   readonly className?: string;
   readonly id?: string;
+  /**
+   * What the closed trigger shows instead of the chosen option's label, such
+   * as a badge; the options keep their labels.
+   */
+  readonly valueContent?: ReactNode;
 }
 
 // Radix Select items require non-empty values, so empty-string options
@@ -70,6 +75,7 @@ export function Select<Value extends string = string>({
   disabled = false,
   className,
   id,
+  valueContent,
 }: SelectProps<Value>): React.ReactElement {
   function handleValueChange(nextValue: string): void {
     // Radix only reports values of the rendered options, which are `Value`s.
@@ -102,10 +108,14 @@ export function Select<Value extends string = string>({
             <span className="flex shrink-0 items-center" aria-hidden="true">
               {selectedIcon}
             </span>
-            <SelectPrimitive.Value placeholder={placeholder} />
+            <SelectPrimitive.Value placeholder={placeholder}>
+              {valueContent}
+            </SelectPrimitive.Value>
           </span>
         ) : (
-          <SelectPrimitive.Value placeholder={placeholder} />
+          <SelectPrimitive.Value placeholder={placeholder}>
+            {valueContent}
+          </SelectPrimitive.Value>
         )}
         <SelectPrimitive.Icon asChild>
           <ChevronDown

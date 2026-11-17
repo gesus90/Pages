@@ -1,0 +1,66 @@
+import { z } from "zod";
+
+/** The characters a CLI model identifier may have; anything else is refused, never cut. */
+const MODEL_NAME = /^[A-Za-z0-9._:@/[\]-]{1,200}$/u;
+const tokenCount = z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER);
+
+/** Where the occupancy of a Claude CLI session's context comes from. */
+export const RUNNER_CONTEXT_SOURCES = [
+  "cli_assistant_usage",
+  "cli_compact_boundary",
+] as const;
+
+/**
+ * A session reading a runner sends for a Claude Code CLI job.
+ * @remarks
+ * It travels as a `usage` event beside the token counters, but as an object
+ * of its own: `model` is the model the CLI reported, `context.used` the
+ * occupancy of the latest top-level answer or the count a compaction kept,
+ * `context.limit` the window the CLI's result named for exactly that model.
+ * A value the CLI did not report is `null`; none is derived from summed
+ * tokens. The attempt, workspace and time come from the authenticated
+ * binding and the event, never from this text.
+ */
+export const runnerSessionReadingSchema = z
+  .object({
+    session: z
+      .object({
+        model: z.string().regex(MODEL_NAME),
+        context: z
+          .object({
+            used: tokenCount.nullable(),
+            limit: tokenCount.positive().nullable(),
+            source: z.enum(RUNNER_CONTEXT_SOURCES),
+          })
+          .strict()
+          .nullable(),
+      })
+      .strict(),
+  })
+  .strict();
+
+/** A validated session reading of a Claude Code CLI job. */
+export type RunnerSessionReading = z.infer<
+  typeof runnerSessionReadingSchema
+>["session"];
+
+/**
+ * Reads a session reading from the text of a `usage` event.
+ * @returns The reading; `undefined` for token counters and any other text,
+ * which keep their own path; `null` for a reading that breaks the contract,
+ * which is dropped instead of stalling the receipt of its batch.
+ */
+export function readRunnerSessionReading(
+  text: string,
+): RunnerSessionReading | null | undefined {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    return undefined;
+  }
+  if (typeof parsed !== "object" || parsed === null || !("session" in parsed))
+    return undefined;
+  const reading = runnerSessionReadingSchema.safeParse(parsed);
+  return reading.success ? reading.data.session : null;
+}

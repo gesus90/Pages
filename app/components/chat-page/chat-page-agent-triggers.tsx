@@ -2,9 +2,10 @@ import { Bot, ChevronDown } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import { Button } from "@/app/components/ui/button";
-import { ClaudeModelBadge } from "@/app/components/agents/badges/claude-model-badge";
+import { ModelBadge } from "@/app/components/agents/badges/model-badge";
 import { cn } from "@/app/lib/cn";
 import { shortModelName } from "@/definition/AgentChatControl";
+import { modelBadgeVendor } from "@/definition/AgentModelIdentity";
 
 import { AccessMark } from "./chat-page-access-badge";
 import { ParticipantAvatar } from "./chat-page-avatar";
@@ -25,9 +26,10 @@ interface AgentTriggerProps {
 
 /**
  * The short name of the model of an agent, such as "Opus", where the chat
- * deviates from the agent's own model; nothing otherwise. A Claude Code model
- * shows the shared Claude badge instead. `className` changes its size, such as
- * to the 32 px of the direct chat's head.
+ * deviates from the agent's own model; nothing otherwise. A Claude Code or
+ * Codex model shows the shared model badge of its vendor instead.
+ * `className` changes its size, such as to the 32 px of the direct chat's
+ * head.
  */
 export function ChatModelBadge({
   model,
@@ -38,13 +40,14 @@ export function ChatModelBadge({
 }): React.ReactElement | null {
   const { t } = useTranslation();
   if (model?.isOverride !== true) return null;
-  if (model.provider === "claude_code")
+  const vendor = modelBadgeVendor(model.provider);
+  if (vendor)
     return (
       <span
         className={className}
         title={t("chatPage.modelChoice.badgeHint", { model: model.name })}
       >
-        <ClaudeModelBadge name={model.name} />
+        <ModelBadge vendor={vendor} name={model.name} />
       </span>
     );
   return (

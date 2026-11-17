@@ -1,4 +1,5 @@
 import type { AgentPlanControl } from "@/definition/AgentPlanControl";
+import type { PlanWorkspaceWait } from "./plan-workspace-wait-model";
 
 /** The colour family of the status marker. */
 export type PlanPanelTone =
@@ -28,6 +29,8 @@ export interface PlanPanelStateInput {
   readonly hasRefusedIssues: boolean;
   /** Every remaining step of the running run waits behind a failure. */
   readonly isRunBlocked: boolean;
+  /** The running run waits for its workspace; absent or `null` while it works. */
+  readonly workspaceWait?: PlanWorkspaceWait | null;
 }
 
 const RUN_STATES: Readonly<Record<string, PlanPanelState>> = {
@@ -73,6 +76,19 @@ function endedState(input: PlanPanelStateInput): PlanPanelState | null {
   return null;
 }
 
+/** A running run waits for its workspace, is blocked behind a failure, or works. */
+function runningState(input: PlanPanelStateInput): PlanPanelState {
+  if (input.isRunBlocked) return { state: "runBlocked", tone: "blocked" };
+  if (input.workspaceWait)
+    return {
+      state: "waitingForWorkspace",
+      tone: "open",
+      variant:
+        input.workspaceWait.hasStartedStep === false ? "noStep" : undefined,
+    };
+  return { state: "running", tone: "active" };
+}
+
 /**
  * Derives the status line of the plan panel.
  * @remarks
@@ -90,10 +106,7 @@ export function planPanelState(input: PlanPanelStateInput): PlanPanelState {
   const runState = RUN_STATES[control.status];
   if (runState) return runState;
   if (control.status === "paused") return pausedState(control);
-  if (control.status === "running")
-    return input.isRunBlocked
-      ? { state: "runBlocked", tone: "blocked" }
-      : { state: "running", tone: "active" };
+  if (control.status === "running") return runningState(input);
   if (input.isReadOnly) return { state: "readOnly", tone: "neutral" };
   if (input.isDirty) return { state: "unsaved", tone: "neutral" };
   return endedState(input) ?? { state: "ready", tone: "ready" };
@@ -128,6 +141,7 @@ export function planPanelAttention(
   const isResumeBlocked = Boolean(control?.resumeBlock && !control.canResume);
   const hasWarning =
     Boolean(control?.workspaceWait) ||
+    control?.isWaitingForWorkspace === true ||
     Boolean(control?.cleanup?.length) ||
     isResumeBlocked ||
     input.isWorkspaceMissing ||

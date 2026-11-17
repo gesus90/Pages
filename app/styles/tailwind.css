@@ -177,11 +177,13 @@
     transparent
   );
 
-  /* Agent badges: Claude's brand orange outlines the model badge; every
+  /* Agent badges: Claude's brand orange and ChatGPT's tile green outline
+     the model badge of their vendor, the same in both palettes; every
      reasoning level has its own hue, from grey (none) to violet (ultra), its
      background mixed from the same hue (light 12 %, dark 18 %). High is
      yellow so that it stays apart from the orange "working" state. */
   --color-claude: #d97757;
+  --color-chatgpt: #74aa9c;
   --color-reasoning-none: #4b5563;
   --color-reasoning-minimal: #1d4ed8;
   --color-reasoning-low: #4d7c0f;
@@ -578,11 +580,6 @@
   --sidebar-scene-fill: transparent;
   --sidebar-scene-filter: none;
   --sidebar-tree-flex: 1;
-  /* A sticky heading covers what scrolls below it with this surface and the
-     fade below it; a design with a painting uses its veil. */
-  --sticky-band-rest-opacity: 1;
-  --sticky-band-surface: var(--color-background);
-  --sticky-band-filter: none;
   --scene-veil: transparent;
   --scene-veil-filter: none;
   /* Navigation can use a contrasting palette without affecting content or portals. */
@@ -686,6 +683,7 @@
     --color-code-keyword: #c4a2ff;
 
     --color-claude: #d97757;
+    --color-chatgpt: #74aa9c;
     --color-reasoning-none: #c3c9d2;
     --color-reasoning-minimal: #93c5fd;
     --color-reasoning-low: #bef264;

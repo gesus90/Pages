@@ -1,9 +1,11 @@
 import {
+  modelBadgeVendor,
   resolveModelIdentity,
   resolveReasoningIdentity,
 } from "@/definition/AgentModelIdentity";
 import { logCaughtError } from "@/backend/logging/Logger";
 
+import type { AcpProviderId } from "@/definition/AgentConfiguration";
 import type { AgentCatalogModelName } from "@/definition/AgentModelIdentity";
 import type { AgentPlanSessionRecord } from "@/definition/AgentPlanSession";
 import type {
@@ -31,27 +33,42 @@ async function readCatalog(
   }
 }
 
+/** The runner as provider of a model badge; `null` for one that keeps text values. */
+function badgeProvider(
+  runner: AgentPlanSessionRecord["runner"],
+): AcpProviderId | null {
+  if (runner === "api" || modelBadgeVendor(runner) === null) return null;
+  return runner;
+}
+
 /**
  * The model and reasoning of a session as structured identity for the badges.
  * @remarks
- * Only Claude Code sessions get it; other providers keep their text values.
- * The concrete model the adapter reported with its usage is kept apart from
- * the configuration it confirmed, so an alias such as `haiku` becomes
- * `Haiku 5.5` only together with the catalog and the reported model.
+ * Only Claude Code and Codex sessions get it, the providers with model
+ * badges; other providers keep their text values. Codex confirms its model
+ * and level through its configuration options, which name catalog IDs.
+ * The concrete model the adapter reported with its usage, or the Claude CLI
+ * of a runner in its events, is kept apart from the configuration it
+ * confirmed, so an alias such as `haiku` becomes `Haiku 5.5` only together
+ * with the catalog and the reported model.
  */
 export async function describeSessionIdentity(
   record: AgentPlanSessionRecord,
   model: AgentSessionModelReport,
   readCatalogOf: SessionCatalogReader | undefined,
 ): Promise<Pick<AgentSessionView, "modelIdentity" | "reasoning">> {
-  if (record.runner !== "claude_code") return {};
+  const provider = badgeProvider(record.runner);
+  if (provider === null) return {};
   const catalog = await readCatalog(
     record.requested.connectionId,
     readCatalogOf,
   );
-  const isReported = model.confirmedModel.source === "acp_usage_report";
+  // The adapter's usage report and the CLI's own events name the concrete model, not a selector value.
+  const isReported =
+    model.confirmedModel.source === "acp_usage_report" ||
+    model.confirmedModel.source === "cli_stream_event";
   const modelIdentity = resolveModelIdentity({
-    provider: "claude_code",
+    provider,
     requested: model.requestedModel.value,
     configured: isReported
       ? (record.effective?.model ?? null)

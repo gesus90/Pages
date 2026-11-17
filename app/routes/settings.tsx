@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Outlet, redirect, useLoaderData, useLocation } from "react-router";
 import { useTranslation } from "react-i18next";
 
@@ -5,6 +6,7 @@ import {
   createLocalStateLayoutAnswers,
   useLocalStateLayout,
 } from "@/app/components/common/use-local-state-layout";
+import { SettingsHeaderSlotContext } from "@/app/components/settings/settings-header-slot";
 import { SettingsNavigation } from "@/app/components/settings/settings-navigation";
 import { settingsAreaOf } from "@/app/components/settings/use-settings-area";
 import { useSettingsScroll } from "@/app/components/settings/use-settings-scroll";
@@ -20,6 +22,7 @@ import { readRouteData } from "@/app/lib/local-state/route-data";
 import type { ShouldRevalidateFunctionArgs } from "react-router";
 import type { LocalStateLayoutSource } from "@/app/components/common/use-local-state-layout";
 import type { LocalStateRouteKind } from "@/app/components/common/use-local-state-route";
+import type { ScrollMaskEdge } from "@/app/components/ui/scroll-viewport/scroll-mask";
 import type { LocalStateAudience } from "@/app/lib/local-state/local-state-audience";
 import type { WithLocalState } from "@/app/lib/local-state/local-state-loader";
 import type { Route } from "./+types/settings";
@@ -30,6 +33,12 @@ export interface SettingsLayoutData {
   readonly canViewSystem: boolean;
   readonly audience: LocalStateAudience;
 }
+
+/** The settings content fades out where more of it waits above or below. */
+const SETTINGS_FADE_EDGES: readonly ScrollMaskEdge[] = ["top", "bottom"];
+
+/** The upper fade is shorter, so it ends close below the fixed heading. */
+const SETTINGS_FADE_TOP = 24;
 
 /** The rights-checked endpoint of the settings frame; the key of its kept answers as well. */
 const SETTINGS_LAYOUT_ENDPOINT = "/settings-api/navigation";
@@ -106,12 +115,17 @@ export function shouldRevalidate(args: ShouldRevalidateFunctionArgs): boolean {
  * The scrolling element spans the whole content area, so its only scrollbar
  * sits at the content area's edge; title, navigation and the area's content
  * keep the centred column, and the document itself never scrolls.
+ * The area's heading stands in a place between the navigation and the
+ * scrolling element, so it never scrolls and needs no surface of its own.
+ * The scrolling element masks its own content at the edges instead of laying
+ * a coloured fade over it, so a design's painting shows through unbroken.
  */
 export default function SettingsLayoutRoute(): React.ReactElement {
   const { t } = useTranslation();
   const loaded = useLoaderData<typeof clientLoader>();
   const { pathname } = useLocation();
   const scroll = useSettingsScroll();
+  const [headerSlot, setHeaderSlot] = useState<HTMLElement | null>(null);
   const { canViewSystem } =
     useLocalStateLayout(
       loaded,
@@ -129,17 +143,26 @@ export default function SettingsLayoutRoute(): React.ReactElement {
         <SettingsNavigation canViewSystem={canViewSystem} />
       </header>
 
-      <VerticalScrollArea
-        key={settingsAreaOf(pathname) ?? pathname}
-        className="mt-6 min-h-0 flex-1"
-        contentClassName="mx-auto w-full max-w-6xl pt-1 pl-2 pr-4 sm:pr-6 md:pr-8 xl:pr-12 pb-12"
-        fadeClassName="z-20"
-        viewportClassName="[scrollbar-gutter:stable]"
-        viewportRef={scroll.viewportRef}
-        onScroll={scroll.onScroll}
-      >
-        <Outlet />
-      </VerticalScrollArea>
+      <div
+        ref={setHeaderSlot}
+        className="mx-auto mt-6 min-h-14 w-full max-w-6xl shrink-0 pl-2"
+      />
+
+      <SettingsHeaderSlotContext value={headerSlot}>
+        <VerticalScrollArea
+          key={settingsAreaOf(pathname) ?? pathname}
+          className="min-h-0 flex-1"
+          contentClassName="mx-auto w-full max-w-6xl pt-2 pl-2 pr-4 sm:pr-6 md:pr-8 xl:pr-12 pb-12"
+          fadeMode="mask"
+          fadeEdges={SETTINGS_FADE_EDGES}
+          fadeTop={SETTINGS_FADE_TOP}
+          viewportClassName="[scrollbar-gutter:stable]"
+          viewportRef={scroll.viewportRef}
+          onScroll={scroll.onScroll}
+        >
+          <Outlet />
+        </VerticalScrollArea>
+      </SettingsHeaderSlotContext>
     </section>
   );
 }

@@ -12,6 +12,8 @@ import {
   NOTICE_TEXTS,
 } from "./ConversationReplyNotices";
 import { ConversationReplyContext } from "./ConversationReplyContext";
+import { ConversationReplyDeliveries } from "./ConversationReplyDeliveries";
+import { openReplyLiveAnswer } from "./ConversationReplyLiveAnswer";
 import { postConversationReply } from "./ConversationReplyPosting";
 
 import type { LiveAnswerSink } from "./ConversationLiveAnswer";
@@ -92,9 +94,12 @@ export class ConversationReplyRunner {
     string,
     Set<{ readonly agentIds: readonly string[]; readonly resolve: () => void }>
   >();
+  /** What the server confirmed per recipient of a message of a person. */
+  private readonly deliveries: ConversationReplyDeliveries;
 
   public constructor(dependencies: ConversationReplyRunnerDependencies) {
     this.dependencies = dependencies;
+    this.deliveries = new ConversationReplyDeliveries(dependencies);
   }
 
   /** The agents that are answering in a conversation now. */
@@ -192,9 +197,11 @@ export class ConversationReplyRunner {
   }
 
   /**
-   * Runs a claimed answer: handed to the answer the agent is giving in the
-   * conversation now, or after the earlier answers of the same agent in the
-   * same conversation.
+   * Runs a claimed answer: at once when the agent is free in the
+   * conversation, otherwise after the earlier answers of the same agent in the
+   * same conversation. Only a job meant to steer, or one without a delivery
+   * intent, is handed to the answer the agent is giving now; a new task or a
+   * message sent after the answer waits for its own turn.
    *
    * @returns The stored answer, or `null` for a hint, no answer or a round
    * the running answer took over.
@@ -202,6 +209,8 @@ export class ConversationReplyRunner {
   public run(job: ConversationReplyJob): Promise<ConversationMessage | null> {
     const queueKey = `${job.round.conversation.id}:${job.agentId}`;
     if (!this.queues.has(queueKey)) return this.enqueue(job, queueKey);
+    if (job.delivery === "task" || job.delivery === "after")
+      return this.enqueue(job, queueKey);
     return this.steerElseEnqueue(job, queueKey);
   }
 
@@ -214,12 +223,18 @@ export class ConversationReplyRunner {
     return this.enqueue(job, queueKey);
   }
 
+  /**
+   * Accepts the job as the agent's own answer: it begins at once, or waits
+   * behind the earlier answers of the agent, and its delivery says which.
+   */
   private enqueue(
     job: ConversationReplyJob,
     queueKey: string,
   ): Promise<ConversationMessage | null> {
     const previous = this.queues.get(queueKey);
     if (previous) this.markQueued(job, "chat");
+    // The writes of one job keep their order, so its own turn records after this.
+    void this.deliveries.record(job, previous ? "queued" : "started");
     const next = (previous ?? Promise.resolve())
       .catch(() => undefined)
       .then(() => this.reply(job));
@@ -250,6 +265,8 @@ export class ConversationReplyRunner {
       logCaughtError(COMPONENT, error);
       return false;
     }
+    // Only the running answer's own confirmation counts as injected.
+    await this.deliveries.record(job, "injected");
     await this.setState(job, "running");
     this.steered.set(queueKey, [...(this.steered.get(queueKey) ?? []), job]);
     this.markQueued(job, "chat");
@@ -290,10 +307,12 @@ export class ConversationReplyRunner {
       job.agentId,
     );
     if (!agent || agent.user.isAgent !== true || !membership) {
+      await this.deliveries.record(job, "failed");
       await this.setState(job, "failed");
       return null;
     }
     if (!agent.user.isActive) {
+      await this.deliveries.record(job, "failed");
       await this.post(job, accounts, {
         text: NOTICE_TEXTS.agent_inactive(agent.user.displayName),
         notice: "agent_inactive",
@@ -313,12 +332,14 @@ export class ConversationReplyRunner {
     accounts: ConversationAccounts,
     agentUser: User,
   ): Promise<ConversationMessage | null> {
+    // A job that waited behind the agent's earlier answer has its turn now.
+    await this.deliveries.record(job, "started");
     await this.setState(job, "running");
     const controllerKey = `${job.round.conversation.id}:${job.agentId}`;
     const controller = new AbortController();
     this.controllers.set(controllerKey, controller);
     this.setWorking(job, true);
-    const liveAnswer = await this.openLiveAnswer(job);
+    const liveAnswer = await openReplyLiveAnswer(this.dependencies, job);
     try {
       let posted: { readonly message: ConversationMessage | null } | undefined;
       const text = await this.askWhenFree(job, agentUser, {
@@ -369,40 +390,6 @@ export class ConversationReplyRunner {
       this.unmarkQueued(job);
       this.setWorking(job, false);
     }
-  }
-
-  /**
-   * Opens the live answer of a job for the members: every member
-   * sees its text and tools, its thoughts only the person of a direct
-   * conversation or the creator of a group.
-   */
-  private async openLiveAnswer(
-    job: ConversationReplyJob,
-  ): Promise<LiveAnswerSink | undefined> {
-    const stream = this.dependencies.answerStream;
-    if (!stream) return undefined;
-    const { conversation, memberIds } = job.round;
-    const recipientIds = memberIds.filter((id) => id !== job.agentId);
-    let thoughtRecipientIds = recipientIds;
-    if (conversation.kind === "group") {
-      const owner = await stream
-        .ownerOf(conversation.id)
-        .catch((error: unknown) => {
-          // Without a known owner nobody reads the thoughts.
-          logCaughtError(COMPONENT, error);
-          return null;
-        });
-      thoughtRecipientIds =
-        owner !== null && recipientIds.includes(owner) ? [owner] : [];
-    }
-    return stream.open({
-      agentId: job.agentId,
-      chatKind: "conversation",
-      chatId: conversation.id,
-      recipientIds,
-      thoughtRecipientIds,
-      isTurnStored: false,
-    });
   }
 
   /** Whether the round began with an agent in a conversation whose chain of agent messages is used up. */
@@ -571,8 +558,14 @@ export class ConversationReplyRunner {
       ...(context.liveAnswer ? { liveAnswer: context.liveAnswer } : {}),
       consumeAnswer: context.consumeAnswer,
       signal: context.signal,
-      onQueued: () => this.markQueued(job, "limit"),
-      onAdmitted: () => this.unmarkQueued(job),
+      onQueued: () => {
+        this.markQueued(job, "limit");
+        void this.deliveries.record(job, "queued");
+      },
+      onAdmitted: () => {
+        this.unmarkQueued(job);
+        void this.deliveries.record(job, "started");
+      },
     });
     return this.answerText(answer);
   }

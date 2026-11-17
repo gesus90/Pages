@@ -125,7 +125,10 @@ function readCleanupWarnings(input: unknown): readonly string[] {
 function readWriterWait(
   run: Readonly<Record<string, unknown>>,
   state: Pick<AgentPlanRun, "status" | "stopRequested">,
-): Pick<AgentPlanRun, "workspaceWait" | "isWaitingForWorkspace"> {
+): Pick<
+  AgentPlanRun,
+  "workspaceWait" | "isWaitingForWorkspace" | "workspaceWaitingSince"
+> {
   // Validate retained annotations even when their old dispatch wait is no longer live.
   const workspaceWait =
     run.workspaceWait === undefined
@@ -141,6 +144,9 @@ function readWriterWait(
   return {
     isWaitingForWorkspace: true,
     ...(workspaceWait === undefined ? {} : { workspaceWait }),
+    ...(typeof run.workspaceWaitingSince === "string"
+      ? { workspaceWaitingSince: readPlanText(run.workspaceWaitingSince) }
+      : {}),
   };
 }
 

@@ -505,6 +505,11 @@ cat > "$usage_temporary" <<'USAGE'
 __PAGES_RUNNER_USAGE__
 USAGE
 mv -f -- "$usage_temporary" "$runner_directory/usage.mjs"
+claude_session_temporary=$(mktemp "$runner_directory/.claude-session.XXXXXX")
+cat > "$claude_session_temporary" <<'CLAUDESESSION'
+__PAGES_RUNNER_CLAUDE_SESSION__
+CLAUDESESSION
+mv -f -- "$claude_session_temporary" "$runner_directory/claude-session.mjs"
 launch_temporary=$(mktemp "$runner_directory/.launch.XXXXXX")
 cat > "$launch_temporary" <<'LAUNCH'
 __PAGES_RUNNER_LAUNCH__

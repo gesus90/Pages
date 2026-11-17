@@ -32,6 +32,11 @@ export interface ComposerAnswering {
   readonly name: string;
   /** Stops the running answers (Esc, "Anhalten"). */
   readonly onStop: () => void;
+  /**
+   * A group: Enter and the main button send as usual, and steering is the
+   * deliberate choice "Umlenken" of the menu. In a direct chat Enter steers.
+   */
+  readonly isGroup?: boolean;
 }
 
 interface ChatPageComposerProps {
@@ -48,7 +53,10 @@ interface ChatPageComposerProps {
     attachmentIds: readonly string[],
     delivery?: ConversationDelivery,
   ) => void;
-  /** Present while agents answer: Enter steers, ⌥↵ sends afterwards, Esc stops. */
+  /**
+   * Present while agents answer: Enter steers in a direct chat and sends as
+   * usual in a group, ⌥↵ sends afterwards, Esc stops.
+   */
   readonly answering?: ComposerAnswering;
   /** The agents at work in the chat and what they do, above the field. */
   readonly activity?: readonly AgentActivity[];
@@ -114,12 +122,22 @@ function pastedFiles(event: React.ClipboardEvent): File[] {
   return [...clipboard.files];
 }
 
+/** What the person chose to do with the message: send it, steer with it, or send it afterwards. */
+type ComposerSendAction = "send" | "steer" | "after";
+
+/**
+ * How the message goes to the answering agents. In a group an ordinary send
+ * carries no delivery, so the server routes it as any message; only a
+ * deliberate choice steers or waits.
+ */
 function answeringSendDelivery(
   answering: ComposerAnswering | undefined,
-  after: boolean,
+  action: ComposerSendAction,
 ): ConversationDelivery | undefined {
   if (!answering) return undefined;
-  return after ? "after" : "steer";
+  if (action === "after") return "after";
+  if (action === "send" && answering.isGroup === true) return undefined;
+  return "steer";
 }
 
 interface ComposerFooterActionsProps {
@@ -130,15 +148,16 @@ interface ComposerFooterActionsProps {
   readonly recordRef: React.RefObject<(() => void) | null>;
   readonly answering: ComposerAnswering | undefined;
   readonly canSend: boolean;
-  readonly onSubmit: (after: boolean) => void;
+  readonly onSubmit: (action: ComposerSendAction) => void;
 }
 
 /**
  * The foot of the input: "+" and the microphone at the left, at the right
  * the buttons in an area of a fixed 248 px.
  * @remarks
- * The area holds "Senden" or, while agents answer, stop, "Umlenken ↵" and
- * the arrow; its width never changes. The context rings of the agents stand
+ * The area holds "Senden" or, while agents answer, stop, the main button and
+ * the arrow: "Umlenken ↵" in a direct chat, "Senden ↵" in a group; its width
+ * never changes. The context rings of the agents stand
  * in the chat head, next to the state of each agent, not here.
  */
 function ComposerFooterActions({
@@ -182,15 +201,17 @@ function ComposerFooterActions({
             <ChatPageSteerControls
               name={answering.name}
               canSend={canSend}
-              onSteer={() => onSubmit(false)}
-              onAfter={() => onSubmit(true)}
+              isGroup={answering.isGroup === true}
+              onSend={() => onSubmit("send")}
+              onSteer={() => onSubmit("steer")}
+              onAfter={() => onSubmit("after")}
               onStop={answering.onStop}
             />
           ) : (
             <Button
               className="h-11 gap-1 px-1.5 text-sm xl:h-9 xl:gap-1.5 xl:px-3"
               disabled={!canSend}
-              onClick={() => onSubmit(false)}
+              onClick={() => onSubmit("send")}
             >
               <SendHorizontal aria-hidden="true" className="size-4" />
               {t("chatPage.send")}
@@ -296,7 +317,7 @@ export function ChatPageComposer({
     memberIds,
     label,
     placeholder,
-    onSubmit: () => handleSubmit(false),
+    onSubmit: () => handleSubmit("send"),
   });
   const record = useRef<(() => void) | null>(null);
   const onAddFiles = canAttach ? uploads.add : null;
@@ -306,11 +327,11 @@ export function ChatPageComposer({
   const hasReady = uploads.items.some((item) => item.state === "ready");
   const canSend = !uploads.isUploading && (input.markdown !== "" || hasReady);
 
-  function handleSubmit(after = false): void {
+  function handleSubmit(action: ComposerSendAction = "send"): void {
     if (!canSend) return;
     const text = input.markdown;
     input.setMarkdown("");
-    onSend(text, uploads.take(), answeringSendDelivery(answering, after));
+    onSend(text, uploads.take(), answeringSendDelivery(answering, action));
   }
 
   const { handleKeyDownCapture, handlePaste } = useComposerBindings({
@@ -319,7 +340,7 @@ export function ChatPageComposer({
     input,
     uploads,
     mentionRef,
-    onSubmitAfter: () => handleSubmit(true),
+    onSubmitAfter: () => handleSubmit("after"),
   });
 
   return (

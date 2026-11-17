@@ -635,6 +635,8 @@ export interface AgentPlanRun {
   /** A running, non-stopped run currently awaits concrete writer admission; other states have no live wait. */
   readonly isWaitingForWorkspace?: boolean;
   readonly workspaceWait?: AgentPlanWriterWait;
+  /** When the current wait for the workspace began; present exactly while the wait is live. */
+  readonly workspaceWaitingSince?: string;
   /** Current ACP admission reason for this run, absent once admitted. */
   readonly waitReason?: AcpWaitReason;
   /** Absent in old failed records, which remain terminal; this never authorizes replay. */

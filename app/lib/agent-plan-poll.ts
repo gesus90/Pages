@@ -167,6 +167,20 @@ function readResumeState(
   };
 }
 
+/** The public fact that the run waits for its workspace, with its start. */
+function readWorkspaceWaitFacts(
+  input: Record<string, unknown>,
+): Pick<AgentPlanControl, "isWaitingForWorkspace" | "workspaceWaitingSince"> {
+  return {
+    ...(input.isWaitingForWorkspace === true
+      ? { isWaitingForWorkspace: true }
+      : {}),
+    ...(typeof input.workspaceWaitingSince === "string"
+      ? { workspaceWaitingSince: requiredText(input.workspaceWaitingSince) }
+      : {}),
+  };
+}
+
 function readControlOptions(
   input: Record<string, unknown>,
 ): Pick<
@@ -178,6 +192,8 @@ function readControlOptions(
   | "resumeKind"
   | "resumeBlock"
   | "workspaceWait"
+  | "isWaitingForWorkspace"
+  | "workspaceWaitingSince"
   | "waitReason"
   | "cleanup"
   | "workspaceLocks"
@@ -210,6 +226,7 @@ function readControlOptions(
     ...(input.workspaceWait === undefined
       ? {}
       : { workspaceWait: planWriterWaitSchema.parse(input.workspaceWait) }),
+    ...readWorkspaceWaitFacts(input),
     ...(input.cleanup === undefined
       ? {}
       : { cleanup: input.cleanup.map(readCleanup) }),

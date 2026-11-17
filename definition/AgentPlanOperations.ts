@@ -589,7 +589,14 @@ export interface AgentPlanTemplateEntry {
 export interface AgentPlanControlEntry
   extends
     AgentPlanOneShotState,
-    Pick<AgentPlanControl, "resumeKind" | "resumeBlock" | "waitReason"> {
+    Pick<
+      AgentPlanControl,
+      | "resumeKind"
+      | "resumeBlock"
+      | "waitReason"
+      | "isWaitingForWorkspace"
+      | "workspaceWaitingSince"
+    > {
   readonly canRestart?: boolean;
   readonly resumeAction?: "paused" | "recovery";
   readonly workspaceWait?: AgentPlanWriterWait;

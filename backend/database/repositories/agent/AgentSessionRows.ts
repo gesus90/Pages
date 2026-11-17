@@ -75,6 +75,12 @@ const VALUE_SOURCES = [
   "acp_config_option",
   "acp_usage_report",
   "adapter_selector",
+  "cli_stream_event",
+] as const;
+const CONTEXT_SOURCES = [
+  "acp_usage_update",
+  "cli_assistant_usage",
+  "cli_compact_boundary",
 ] as const;
 
 /** The columns of an attempt, in the order {@link readAttemptRow} reads them. */
@@ -191,7 +197,7 @@ function readContext(row: Row): AgentSessionContextUsage {
       contextUsed === null || contextLimit === null || contextLimit === 0
         ? null
         : Math.round((contextUsed / contextLimit) * 1_000) / 10,
-    source: source === "acp_usage_update" ? source : null,
+    source: CONTEXT_SOURCES.find((known) => known === source) ?? null,
     reportedAt: readNullableTextColumn(row, 12, "context_at"),
     cost: readCost(row),
   };

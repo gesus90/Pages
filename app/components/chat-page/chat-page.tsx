@@ -45,6 +45,7 @@ import type {
   VirtualChatDirectory,
   VirtualChatSelection,
 } from "@/definition/VirtualChat";
+import type { ComposerAnswering } from "./chat-page-composer";
 import type { ChatPageState, OpenedConversation } from "./use-chat-page";
 
 function conversationName(opened: OpenedConversation): string {
@@ -102,13 +103,15 @@ function readOnlyFootText(
   return null;
 }
 
-function composerAnswering(
-  page: ChatPageState,
-): { readonly name: string; readonly onStop: () => void } | undefined {
+function composerAnswering(page: ChatPageState): ComposerAnswering | undefined {
   if (!page.isAnswering) return undefined;
   const workerNames = page.activity.map((entry) => entry.agent.name);
   const names = workerNames.length > 0 ? workerNames : page.answeringNames;
-  return { name: names.join(", "), onStop: page.stopAll };
+  return {
+    name: names.join(", "),
+    onStop: page.stopAll,
+    isGroup: page.opened?.kind === "group",
+  };
 }
 
 /** The input at the foot, or why nothing can be sent to the opened participant. */

@@ -5,6 +5,8 @@ import type { AgentPlanRun, AgentPlanView } from "./AgentPlan";
 /** Public ownership facts of a workspace reservation, without historical run content. */
 export interface AgentPlanWorkspaceLock {
   readonly runId: string;
+  /** The plan of the holding run, disclosed only after the reader may see that plan. */
+  readonly planId: string;
   readonly status: AgentPlanRun["status"];
   readonly acquiredAt: string;
   readonly ageMilliseconds: number;

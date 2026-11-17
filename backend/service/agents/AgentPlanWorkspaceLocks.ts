@@ -123,6 +123,7 @@ export class AgentPlanWorkspaceLocks {
       const ageMilliseconds = Math.max(0, Date.now() - Date.parse(acquiredAt));
       views.push({
         runId: run.id,
+        planId: run.planId,
         status: run.status,
         acquiredAt,
         ageMilliseconds,

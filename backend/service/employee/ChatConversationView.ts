@@ -50,6 +50,7 @@ export function toVirtualMessage(
     },
     ...(message.notice ? { notice: message.notice } : {}),
     ...(message.decision ? { decision: message.decision } : {}),
+    ...(isOwn && message.deliveries ? { deliveries: message.deliveries } : {}),
     ...(message.attachments.length > 0
       ? { attachments: message.attachments }
       : {}),
