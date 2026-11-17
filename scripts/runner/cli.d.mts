@@ -21,7 +21,6 @@ export interface CliCommand {
   runtimeContext?: {
     environment?: Record<string, string>;
     auth?: string;
-    readOnlyDirectory?: string;
     providerConfiguration?: Record<string, unknown>;
   };
   pagesAccess?: number;

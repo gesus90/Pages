@@ -334,8 +334,10 @@ export class CliGitHubCredentials {
    * Creates an empty gh home even without a token, preventing reuse of an earlier session's login.
    *
    * @remarks
-   * Files are 0600 and the directory is 0700. The caller mounts only this
-   * directory read-only, then removes it after stopping every session process.
+   * Files become 0400 and the directory 0500 before any native worker starts.
+   * These modes prevent accidental overwrites, not deliberate changes by
+   * the same Linux account. Bridge authorization stays in the server.
+   * Cleanup restores directory write access after every session process ends.
    * A failed preparation removes its directory before reporting a safe error.
    */
   public async prepare(input: GitHubPreparation): Promise<CliGitHubAccess> {
@@ -354,7 +356,7 @@ export class CliGitHubCredentials {
         ),
       );
       await chmod(directory, 0o700);
-      return await this.configure(directory, input);
+      return await this.protect(await this.configure(directory, input));
     } catch (caughtError: unknown) {
       logCaughtError("CliGitHubCredentials", caughtError);
 
@@ -501,6 +503,29 @@ export class CliGitHubCredentials {
       : prepared;
   }
 
+  private async protect(prepared: CliGitHubAccess): Promise<CliGitHubAccess> {
+    const directory = prepared.directory;
+    for (const entry of await readdir(directory, { withFileTypes: true }))
+      if (entry.isFile()) await chmod(path.join(directory, entry.name), 0o400);
+    await chmod(directory, 0o500);
+    return {
+      ...prepared,
+      recordNamespace: async (owner) => {
+        await chmod(directory, 0o700);
+        try {
+          await prepared.recordNamespace(owner);
+          await chmod(path.join(directory, "namespace.json"), 0o400);
+        } finally {
+          await chmod(directory, 0o500);
+        }
+      },
+      cleanup: async () => {
+        await chmod(directory, 0o700);
+        await prepared.cleanup();
+      },
+    };
+  }
+
   private async writePublish(
     directory: string,
     routes: GitRoutes,
@@ -585,7 +610,7 @@ export class CliGitHubCredentials {
       return { directory: name, instanceId, reason: "processes" };
     }
     try {
-      await rm(directory, { recursive: true, force: true });
+      await this.remove(directory);
     } catch (error: unknown) {
       logCaughtError("CliGitHubCredentials", error);
 
@@ -607,6 +632,7 @@ export class CliGitHubCredentials {
 
   private async remove(directory: string): Promise<void> {
     try {
+      await chmod(directory, 0o700);
       await rm(directory, { recursive: true, force: true });
     } catch (caughtError: unknown) {
       logCaughtError("CliGitHubCredentials", caughtError);
