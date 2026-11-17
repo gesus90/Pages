@@ -1,11 +1,13 @@
 import {
   PLAN_ADDABLE_TYPES,
+  PLAN_JUMP_FIELDS,
   PLAN_NODE_FIELDS,
 } from "../AgentPlanChangeFields.js";
 import {
   COORDINATE_SCHEMA,
   PLAN_NODE_IDENTIFIER_SCHEMA,
 } from "./ToolDefinition.js";
+import { planJumpFields } from "./PlanJumpSchema.js";
 import { SWARM_FIELDS } from "./PlanSwarmSchema.js";
 
 import type { PropertySchema, ToolProperties } from "./ToolDefinition.js";
@@ -48,47 +50,68 @@ export const VALUE: PropertySchema = {
   ],
 };
 
-const BINDING: PropertySchema = {
-  oneOf: [
-    {
-      type: "object",
-      properties: {
-        kind: { const: "literal" },
-        value: { oneOf: [{ type: "null" }, VALUE] },
-      },
-      required: ["kind", "value"],
-      additionalProperties: false,
+/** The bindings every data input accepts; a decision reads its input from these only. */
+const VALUE_BINDINGS: readonly PropertySchema[] = [
+  {
+    type: "object",
+    properties: {
+      kind: { const: "literal" },
+      value: { oneOf: [{ type: "null" }, VALUE] },
     },
-    {
-      type: "object",
-      properties: {
-        kind: { const: "source" },
-        nodeId: PLAN_NODE_IDENTIFIER_SCHEMA,
-      },
-      required: ["kind", "nodeId"],
-      additionalProperties: false,
+    required: ["kind", "value"],
+    additionalProperties: false,
+  },
+  {
+    type: "object",
+    properties: {
+      kind: { const: "source" },
+      nodeId: PLAN_NODE_IDENTIFIER_SCHEMA,
     },
-    {
-      type: "object",
-      properties: {
-        kind: { enum: ["result", "previous"] },
-        stepId: PLAN_NODE_IDENTIFIER_SCHEMA,
-      },
-      required: ["kind", "stepId"],
-      additionalProperties: false,
+    required: ["kind", "nodeId"],
+    additionalProperties: false,
+  },
+  {
+    type: "object",
+    properties: {
+      kind: { enum: ["result", "previous"] },
+      stepId: PLAN_NODE_IDENTIFIER_SCHEMA,
     },
-    {
-      type: "object",
-      properties: {
-        kind: { const: "stack" },
-        stackId: PLAN_NODE_IDENTIFIER_SCHEMA,
-        output: { enum: ["content", "count"] },
-      },
-      required: ["kind", "stackId", "output"],
-      additionalProperties: false,
+    required: ["kind", "stepId"],
+    additionalProperties: false,
+  },
+  {
+    type: "object",
+    properties: {
+      kind: { const: "stack" },
+      stackId: PLAN_NODE_IDENTIFIER_SCHEMA,
+      output: { enum: ["content", "count"] },
     },
-  ],
+    required: ["kind", "stackId", "output"],
+    additionalProperties: false,
+  },
+];
+
+/** A named value output of a start, a receiving jump or a calling jump. */
+const PORT_BINDING: PropertySchema = {
+  type: "object",
+  properties: {
+    kind: { const: "port" },
+    nodeId: PLAN_NODE_IDENTIFIER_SCHEMA,
+    port: {
+      type: "string",
+      minLength: 1,
+      maxLength: 120,
+      description:
+        "entry:<name> of a start or receiving jump; run-id-out, reason-out, payload-out or return:<name> of a calling jump. The type of the port must fit the input.",
+    },
+  },
+  required: ["kind", "nodeId", "port"],
+  additionalProperties: false,
 };
+
+const DECISION_BINDING: PropertySchema = { oneOf: [...VALUE_BINDINGS] };
+
+const BINDING: PropertySchema = { oneOf: [...VALUE_BINDINGS, PORT_BINDING] };
 
 /** The ordered entries of a stack: tickets and typed values. */
 const STACK_ENTRIES: PropertySchema = {
@@ -259,6 +282,12 @@ export const EXECUTION_TARGET: PropertySchema = {
   ],
 };
 
+const CALL_FIELDS: ToolProperties = planJumpFields({
+  value: VALUE,
+  binding: BINDING,
+  valueName: PARAMETER_NAME,
+});
+
 const NODE_FIELDS: ToolProperties = {
   x: COORDINATE_SCHEMA,
   y: COORDINATE_SCHEMA,
@@ -400,19 +429,88 @@ const NODE_FIELDS: ToolProperties = {
     minLength: 1,
     maxLength: 120,
     description:
-      "parameter: letters, digits and _ starting with a letter; script: the name the card shows",
+      "parameter: letters, digits and _ starting with a letter; script: the name the card shows; jump in: the name of the entry, required; jump out, signal and start: an optional display name",
   },
   format: FORMAT,
   value: VALUE,
   input: {
-    ...BINDING,
+    ...DECISION_BINDING,
     description:
       "decision: the data input. boolean mode: source of a boolean parameter; model mode: source of a ticket node or result of an agent or script. An agent's boolean result is an edge passed-out -> condition-in instead.",
   },
   configuration: CONFIGURATION,
   ...SCRIPT_FIELDS,
   ...SWARM_FIELDS,
+  ...CALL_FIELDS,
+  // A script declares text inputs; a start and a jump declare typed inputs.
+  inputs: { anyOf: [SCRIPT_FIELDS.inputs, CALL_FIELDS.inputs] },
 };
+
+/** The schema of one field of a node type; only `inputs` means different things on different types. */
+function fieldSchema(type: string, key: string): PropertySchema {
+  if (key !== "inputs") return NODE_FIELDS[key];
+  return type === "script" ? SCRIPT_FIELDS.inputs : CALL_FIELDS.inputs;
+}
+
+function fieldsOf(type: string, keys: readonly string[]): ToolProperties {
+  return Object.fromEntries(keys.map((key) => [key, fieldSchema(type, key)]));
+}
+
+/** The schema of one node a change adds: its type, an optional id and position, and the fields of the type. */
+function addNodeSchema(
+  type: string,
+  fields: ToolProperties,
+  required: readonly string[] = [],
+): PropertySchema {
+  return {
+    type: "object",
+    properties: {
+      type: { const: type },
+      id: PLAN_NODE_IDENTIFIER_SCHEMA,
+      x: COORDINATE_SCHEMA,
+      y: COORDINATE_SCHEMA,
+      ...fields,
+    },
+    required: ["type", ...required],
+    additionalProperties: false,
+  };
+}
+
+/** A Jump is added in one of two directions, each with the fields of its own. */
+function addJumpSchemas(): readonly PropertySchema[] {
+  return [
+    addNodeSchema(
+      "jump",
+      {
+        ...fieldsOf("jump", PLAN_JUMP_FIELDS.in),
+        direction: { const: "in" },
+      },
+      ["direction", "name"],
+    ),
+    addNodeSchema(
+      "jump",
+      {
+        ...fieldsOf("jump", PLAN_JUMP_FIELDS.out),
+        direction: { const: "out" },
+      },
+      ["direction"],
+    ),
+  ];
+}
+
+/** One schema per addable node type; a signal names its signal, a jump its direction. */
+const ADD_NODE_SCHEMAS: readonly PropertySchema[] = PLAN_ADDABLE_TYPES.flatMap(
+  (type) =>
+    type === "jump"
+      ? addJumpSchemas()
+      : [
+          addNodeSchema(
+            type,
+            fieldsOf(type, PLAN_NODE_FIELDS[type]),
+            type === "signal" ? ["signalName"] : [],
+          ),
+        ],
+);
 
 function change(action: string, properties: ToolProperties): PropertySchema {
   return {
@@ -430,11 +528,14 @@ const PORT: PropertySchema = { type: "string", minLength: 1, maxLength: 100 };
  * A connection between two nodes, optionally through named ports.
  * @remarks
  * `fromPort` and `toPort` come together, Pages refuses one alone: `true-out`/`false-out`
- * or `case:<id>` of a decision into `flow-in`, `passed-out` into `condition-in`,
+ * or `case:<id>` of a decision, and `error-out`/`timeout-out` of a calling
+ * jump, into `flow-in`, `passed-out` into `condition-in`,
  * `value-out` of a boolean parameter, a ticket, an agent or a script into the
  * `condition-in` of a decision, `value-out` into `event-in`, a ticket or
- * value node with `value-out` into the `flow-in` of a stack, or `flow-out`
- * into `flow-in`.
+ * value node with `value-out` into the `flow-in` of a stack, a value port of a
+ * start or jump (`entry:<name>`, `run-id-out`, `reason-out`, `payload-out`,
+ * `return:<name>`) into `input:<name>` of a node with inputs or into the
+ * `payload-in` of a signal, or `flow-out` into `flow-in`.
  */
 function connection(action: "connect" | "disconnect"): PropertySchema {
   return {
@@ -458,23 +559,7 @@ export const CHANGES: PropertySchema = {
   items: {
     oneOf: [
       change("addNode", {
-        node: {
-          type: "object",
-          oneOf: PLAN_ADDABLE_TYPES.map((type) => ({
-            type: "object",
-            properties: {
-              type: { const: type },
-              id: PLAN_NODE_IDENTIFIER_SCHEMA,
-              x: COORDINATE_SCHEMA,
-              y: COORDINATE_SCHEMA,
-              ...Object.fromEntries(
-                PLAN_NODE_FIELDS[type].map((key) => [key, NODE_FIELDS[key]]),
-              ),
-            },
-            required: ["type"],
-            additionalProperties: false,
-          })),
-        },
+        node: { type: "object", oneOf: [...ADD_NODE_SCHEMAS] },
       }),
       change("updateNode", {
         nodeId: PLAN_NODE_IDENTIFIER_SCHEMA,

@@ -1,6 +1,8 @@
 import { AgentError } from "@/backend/error/AgentErrors";
 import { PLAN_SCRIPT_BYTES } from "@/definition/AgentPlanScript";
 
+import { portText } from "./invocation/AgentPlanPortText";
+
 import type { AgentPlanRun } from "@/definition/AgentPlan";
 import type { AgentPlanScriptSnapshot } from "./AgentPlanScriptPreparation";
 
@@ -19,6 +21,7 @@ export function scriptInputJson(
       const result = run.steps.find((step) => step.id === binding.stepId);
       text = result?.status === "succeeded" ? (result.output ?? "") : "";
     }
+    if (binding?.kind === "port") text = portText(run, binding);
     entries.push([input.name, text ?? ""]);
   }
   const json = JSON.stringify(Object.fromEntries(entries));

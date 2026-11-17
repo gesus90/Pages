@@ -1,5 +1,9 @@
 import { planSwarmRunSchema } from "@/definition/AgentPlanSwarmRun";
 import {
+  planJumpRunSchema,
+  planSignalRunSchema,
+} from "@/definition/AgentPlanJump";
+import {
   planStepExecutionSchema,
   planRemoteProgressSchema,
 } from "@/definition/AgentPlanExecution";
@@ -19,7 +23,9 @@ import { readPlanSessionRecord } from "./AgentPlanSessionInput";
 import { readAgentObject } from "./AgentPayload";
 import { readPlanScriptRun } from "./AgentPlanScriptRunInput";
 import { readPlanStackHandover } from "./AgentPlanStackRunInput";
+import { readAgentParameterValue } from "./AgentConfigurationInput";
 
+import type { AgentParameterValue } from "@/definition/AgentParameters";
 import type {
   AgentPlanStepResult,
   AgentPlanStepStatus,
@@ -69,6 +75,47 @@ export function readPlanStepResult(input: unknown): AgentPlanStepResult {
       ? {}
       : { stack: readPlanStackHandover(step.stack) }),
     ...readStepSwarm(step.swarm),
+    ...readStepJump(step),
+  };
+}
+
+function readNamedValues(
+  input: unknown,
+): Readonly<Record<string, AgentParameterValue>> {
+  const entries = Object.entries(readAgentObject(input));
+  if (entries.length > 64) throw new AgentError("plan_invalid");
+  return Object.fromEntries(
+    entries.map(([name, value]) => [
+      readPlanText(name, 130),
+      readAgentParameterValue(value),
+    ]),
+  );
+}
+
+/** Reads the call of an outgoing Jump, the values it handed on and the returns of an end. */
+function readStepJump(
+  step: Record<string, unknown>,
+): Pick<
+  AgentPlanStepResult,
+  "jump" | "jumpOutputs" | "returned" | "signal"
+> {
+  const jump =
+    step.jump === undefined ? undefined : planJumpRunSchema.safeParse(step.jump);
+  const signal =
+    step.signal === undefined
+      ? undefined
+      : planSignalRunSchema.safeParse(step.signal);
+  if ((jump && !jump.success) || (signal && !signal.success))
+    throw new AgentError("plan_invalid");
+  return {
+    ...(jump?.success ? { jump: jump.data } : {}),
+    ...(signal?.success ? { signal: signal.data } : {}),
+    ...(step.jumpOutputs === undefined
+      ? {}
+      : { jumpOutputs: readNamedValues(step.jumpOutputs) }),
+    ...(step.returned === undefined
+      ? {}
+      : { returned: readNamedValues(step.returned) }),
   };
 }
 

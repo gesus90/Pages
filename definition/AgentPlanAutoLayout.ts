@@ -6,7 +6,7 @@ import {
   PLAN_LAYOUT_RANK_GAP,
   placePlanRows,
 } from "./AgentPlanAutoLayoutPlacement";
-import { planNodeHeight, planNodeWidth } from "./AgentPlanNodeSize";
+import { planLayoutHeight, planLayoutWidth } from "./AgentPlanAutoLayoutSize";
 
 import type {
   AgentPlanBinding,
@@ -79,19 +79,17 @@ interface LayoutLevel {
   readonly kept: ReadonlyMap<string, AgentPlanPosition>;
 }
 
-/** Anything that holds bindings and may therefore read another node. */
-type BindingHolder = Extract<
-  AgentPlanNode,
-  { readonly bindings: Readonly<Record<string, AgentPlanBinding>> }
->;
-
-function hasBindings(node: AgentPlanNode): node is BindingHolder {
-  return "bindings" in node;
+/** The bindings of a node that may read another node, or `null` for a node without any. */
+function nodeBindings(
+  node: AgentPlanNode,
+): Readonly<Record<string, AgentPlanBinding>> | null {
+  return "bindings" in node ? (node.bindings ?? null) : null;
 }
 
 /** The node a binding reads; a previous iteration orders nothing. */
 function boundSource(binding: AgentPlanBinding): string | null {
-  if (binding.kind === "source") return binding.nodeId;
+  if (binding.kind === "source" || binding.kind === "port")
+    return binding.nodeId;
   if (binding.kind === "result") return binding.stepId;
   return binding.kind === "stack" ? binding.stackId : null;
 }
@@ -146,8 +144,7 @@ function levelLinks(
   }
   for (const edge of planOrderEdges(edges)) add(edge.from, edge.to, true);
   for (const node of levelNodes(members)) {
-    if (!hasBindings(node)) continue;
-    for (const binding of Object.values(node.bindings)) {
+    for (const binding of Object.values(nodeBindings(node) ?? {})) {
       const source = boundSource(binding);
       if (source !== null) add(source, node.id, false);
     }
@@ -415,8 +412,8 @@ function storedBoxes(
       boxes.set(`${container}\n${member.id}`, {
         x: member.x,
         y: member.y,
-        width: planNodeWidth(member),
-        height: planNodeHeight(member, sources),
+        width: planLayoutWidth(member),
+        height: planLayoutHeight(member, sources),
       });
       if (member.type === "group" || member.type === "loop")
         collect(
@@ -547,8 +544,8 @@ class PlanLevelLayout {
   ): (id: string) => AgentPlanPosition {
     const boxes = members.map((member) => ({
       id: member.id,
-      width: planNodeWidth(member),
-      height: planNodeHeight(member, this.sources),
+      width: planLayoutWidth(member),
+      height: planLayoutHeight(member, this.sources),
     }));
     const kept = keptPlaces(boxes, (id) =>
       this.stored.get(`${container}\n${id}`),

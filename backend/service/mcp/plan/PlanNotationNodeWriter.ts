@@ -16,6 +16,12 @@ import {
   textEntry,
   wordEntry,
 } from "./PlanNotationFormat";
+import {
+  planNotationEndEntries,
+  planNotationJumpEntries,
+  planNotationSignalEntries,
+  planNotationStartEntries,
+} from "./PlanNotationJumpWriter";
 
 import type { AgentPlanSwarm } from "@/definition/AgentPlanSwarm";
 import type { AgentPlanAsset } from "@/definition/AgentPlanAsset";
@@ -294,8 +300,13 @@ export function planNotationNodeEntries(
   if (isOtherNode(node)) return [type, ...otherEntries(node)];
   switch (node.type) {
     case "start":
+      return [type, ...planNotationStartEntries(node)];
     case "end":
-      return [type];
+      return [type, ...planNotationEndEntries(node)];
+    case "jump":
+      return [type, ...planNotationJumpEntries(node)];
+    case "signal":
+      return [type, ...planNotationSignalEntries(node)];
     case "agent":
       return [type, ...planNotationAgentEntries(node, context)];
     case "script":

@@ -17,7 +17,15 @@ export type PlanPaletteKind = Exclude<
 
 /** The node types the palette adds at once, because they need no choice. */
 type PlanImmediateKind =
-  "start" | "end" | "loop" | "decision" | "stack" | "asset" | "swarm";
+  | "start"
+  | "end"
+  | "loop"
+  | "decision"
+  | "stack"
+  | "asset"
+  | "swarm"
+  | "jump"
+  | "signal";
 
 const IMMEDIATE_KINDS: readonly PlanPaletteKind[] = [
   "start",
@@ -27,6 +35,8 @@ const IMMEDIATE_KINDS: readonly PlanPaletteKind[] = [
   "stack",
   "asset",
   "swarm",
+  "jump",
+  "signal",
 ];
 
 function isImmediateKind(kind: PlanPaletteKind): kind is PlanImmediateKind {

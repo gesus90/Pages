@@ -39,6 +39,7 @@ import {
   planConfigurationForModel,
 } from "@/definition/AgentPlanConfiguration";
 import { PLAN_SCRIPT_TIMEOUT } from "@/definition/AgentPlanScript";
+import { isPlanJumpOut } from "@/definition/AgentPlanJump";
 import { readPlanNode } from "@/backend/agents/AgentPlanInput";
 import { AgentOperationError } from "@/backend/error/AgentOperationError";
 import { removePlanNode } from "@/definition/AgentPlanGraph";
@@ -57,11 +58,16 @@ import type { AgentPlanTemplateNode } from "@/definition/AgentPlanNodeTemplate";
 import type { AgentDefinitionChoice } from "@/definition/AgentAvailability";
 import type {
   AgentPlanDecision,
+  AgentPlanEnd,
   AgentPlanInput,
   AgentPlanNode,
   AgentPlanParameter,
   AgentPlanStep,
 } from "@/definition/AgentPlan";
+import type {
+  AgentPlanJumpOut,
+  AgentPlanSignal,
+} from "@/definition/AgentPlanJump";
 import type { AgentPlanScript } from "@/definition/AgentPlanScript";
 import type { AgentRejectionReason } from "@/definition/PagesAgentOperations";
 import type { AgentPlanChange } from "./AgentPlanOperationInput";
@@ -112,12 +118,21 @@ function findNode(plan: AgentPlanInput, id: string): AgentPlanNode {
   return node;
 }
 
-/** The node whose inputs a binding fills: an agent (also a group member) or a script. */
+/** The node whose inputs a binding fills: an agent (also a group member), a script, a loop or a node that calls. */
 function findInputNode(
   plan: AgentPlanInput,
   id: string,
-): AgentPlanStep | AgentPlanScript | AgentPlanGitCloseout | AgentPlanLoop {
+):
+  | AgentPlanStep
+  | AgentPlanScript
+  | AgentPlanGitCloseout
+  | AgentPlanLoop
+  | AgentPlanJumpOut
+  | AgentPlanSignal
+  | AgentPlanEnd {
   const node = findNode(plan, id);
+  if (isPlanJumpOut(node) || node.type === "signal" || node.type === "end")
+    return node;
   if (
     node.type !== "agent" &&
     node.type !== "script" &&
@@ -415,19 +430,19 @@ function bindInput(
   const decision = findPlanDecision(plan, change.nodeId)?.decision;
   if (decision) return bindDecision(plan, change, decision);
   const step = findInputNode(plan, change.nodeId);
+  // The end of an older plan has no bindings yet.
+  const current = step.bindings ?? {};
   if (change.action === "bind")
     return replacePlanNode(plan, {
       ...step,
-      bindings: { ...step.bindings, [change.parameter]: change.binding },
+      bindings: { ...current, [change.parameter]: change.binding },
     });
-  if (!Object.hasOwn(step.bindings, change.parameter))
+  if (!Object.hasOwn(current, change.parameter))
     throw refused("element_missing");
   return replacePlanNode(plan, {
     ...step,
     bindings: Object.fromEntries(
-      Object.entries(step.bindings).filter(
-        ([name]) => name !== change.parameter,
-      ),
+      Object.entries(current).filter(([name]) => name !== change.parameter),
     ),
   });
 }

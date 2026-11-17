@@ -6,6 +6,8 @@ import { AgentPlanRecoveryError } from "@/backend/error/AgentPlanRecoveryError";
 import { logEvent } from "@/backend/logging/Logger";
 import { isActivePlanRun } from "@/definition/AgentPlanRunState";
 
+import { returnHandedOverPlanLocks } from "./AgentPlanHandoverLocks";
+
 import type { DatabaseTransaction } from "@/backend/database/Database";
 import type { AgentPlanRun } from "@/definition/AgentPlan";
 
@@ -51,6 +53,8 @@ export async function releaseCheckedWorkspaceLocks(
   // A runner job without confirmed closeout still owns work outside the database.
   if (stored.runnerJobs?.some((job) => job.closeout !== "confirmed"))
     throw new AgentPlanRecoveryError("cleanup_unconfirmed");
+  // Resources a calling run handed to this run go back to it before the rest is released.
+  await returnHandedOverPlanLocks(transaction, run.id);
   const released = await transaction.query(
     `
     DELETE FROM agent_plan_workspace_locks

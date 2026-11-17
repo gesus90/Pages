@@ -37,6 +37,8 @@ const FLOW_KIND: Readonly<
   stack: "stack",
   loop: "loop",
   swarm: "swarm",
+  jump: "jump",
+  signal: "signal",
 };
 
 /** The stage of some nodes; none for a step without a node. */

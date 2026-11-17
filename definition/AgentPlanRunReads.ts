@@ -48,6 +48,33 @@ export interface AgentPlanRunStepEntry extends Partial<AgentRunErrorFields> {
   readonly agentTodos?: AgentPlanAgentTodoList;
   /** Why a failed node stopped: the class of its failure and its attempts. */
   readonly failureStop?: AgentPlanFailureStop;
+  /**
+   * The call an outgoing Jump made and where it stands.
+   * @remarks
+   * It carries no value that was handed between plans. The link to the called
+   * run is absent when the account may not read that run.
+   */
+  readonly call?: {
+    readonly invocationId: string;
+    readonly targetPlanId: string;
+    readonly targetPlanName: string;
+    readonly entryNodeId: string;
+    readonly wait: "continue" | "completion" | "signal";
+    readonly state: string;
+    readonly targetRunId: string | null;
+    /** `queued`, `none` or the status of the called run. */
+    readonly targetStatus: string;
+    readonly deadlineAt: string | null;
+    readonly handover: "none" | "handed_over" | "returned";
+    readonly hasSignal: boolean;
+    readonly reason: string | null;
+  };
+  /** What a signal node did with its message; `delivered: false` is no successful sending. */
+  readonly signal?: {
+    readonly delivered: boolean;
+    readonly reason: "delivered" | "no_caller" | "duplicate" | "closed";
+    readonly name: string;
+  };
   /** Persisted automatic retry state, for active waits and finished histories. */
   readonly retry?: {
     readonly failureClass: AgentPlanBlockerClass;

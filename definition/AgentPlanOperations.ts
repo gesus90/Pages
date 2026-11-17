@@ -38,6 +38,11 @@ import type { AgentPlanAsset, AgentPlanAssetEntry } from "./AgentPlanAsset.js";
 import type { PageAgentSharingEntry } from "./PageAgentOperations.js";
 import type { AgentPlanOneShotState } from "./AgentPlanOneShot.js";
 import type { AgentPlanCapabilities } from "./AgentPlanCapabilities.js";
+import type { AgentPlanBindingEntry } from "./AgentPlanBindingEntry.js";
+import type {
+  AgentPlanCallNodeEntry,
+  AgentPlanCallTargetEntry,
+} from "./AgentPlanJumpEntry.js";
 
 /**
  * Reads of agent plans and of the runs of the connected account.
@@ -113,18 +118,7 @@ export interface AgentPlanIssueEntry {
   readonly problem: AgentPlanIssueProblem;
 }
 
-/** Where a node input takes its value from. */
-export type AgentPlanBindingEntry =
-  | { readonly kind: "literal"; readonly value: AgentParameterValue | null }
-  | { readonly kind: "source"; readonly nodeId: string }
-  | { readonly kind: "result"; readonly stepId: string }
-  | { readonly kind: "previous"; readonly stepId: string }
-  | {
-      /** One data output of a stack: the entry handed over last, or the number of entries. */
-      readonly kind: "stack";
-      readonly stackId: string;
-      readonly output: "content" | "count";
-    };
+export type { AgentPlanBindingEntry } from "./AgentPlanBindingEntry.js";
 
 interface AgentPlanNodeBase {
   readonly id: string;
@@ -336,6 +330,8 @@ export type AgentPlanNodeEntry =
   | Decision.AgentPlanControlNodeEntry
   // A swarm: a main model splits a task among helpers at run time.
   | (AgentPlanNodeBase & Omit<AgentPlanSwarm, "id" | "x" | "y">)
+  // The nodes through which plans call each other, and the start and end that carry their contract.
+  | AgentPlanCallNodeEntry
   | (AgentPlanNodeBase & { readonly type: "task"; readonly taskId: string })
   | (AgentPlanNodeBase & { readonly type: "variable"; readonly name: string });
 
@@ -528,6 +524,8 @@ export interface AgentPlanSourceList {
     readonly timeoutMinutes: readonly number[];
   };
   readonly interpreters?: readonly AgentPlanInterpreterEntry[];
+  /** The other plans a calling Jump may choose, with their released entries; present when a workspace was named. */
+  readonly callTargets?: readonly AgentPlanCallTargetEntry[];
 }
 
 /** Result of a change; a repeated call with the same operation ID returns the same result. */

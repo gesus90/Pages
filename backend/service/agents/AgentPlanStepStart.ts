@@ -13,6 +13,7 @@ import { bindAgentParameters } from "./AgentParameterBinding";
 import { prepareGroupParameters } from "./AgentPlanGroupParameters";
 import { validatePlanParameterContext } from "./AgentPlanParameterContext";
 import { planStepDirectory } from "./AgentPlanSnapshot";
+import { portText } from "./invocation/AgentPlanPortText";
 
 import type { CodexAgentBudget } from "./usage/CodexAgentBudget";
 import type { RemotePlanParameters } from "./AgentPlanRemoteParameters";
@@ -161,7 +162,9 @@ export class AgentPlanStepStart {
       node.type !== "loop" &&
       node.type !== "stack" &&
       node.type !== "decision" &&
-      node.type !== "swarm"
+      node.type !== "swarm" &&
+      node.type !== "jump" &&
+      node.type !== "signal"
     )
       throw new AgentError("plan_invalid");
   }
@@ -512,6 +515,10 @@ function resultValues(
     ...step.prepared.parameters.values,
   };
   for (const [name, binding] of Object.entries(step.step.bindings)) {
+    if (binding.kind === "port" && used.has(name)) {
+      values[name] = { type: "text", text: portText(run, binding) };
+      continue;
+    }
     if (binding.kind !== "result" || !used.has(name)) continue;
     requireTicketHandoff(
       step,

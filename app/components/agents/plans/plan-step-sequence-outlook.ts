@@ -56,11 +56,29 @@ function isOpenDecision(
 }
 
 /**
+ * Whether an edge of a calling Jump cannot release its target.
+ * @remarks
+ * Once the Jump succeeded only the output it took lives; while it is open its
+ * normal exit is expected. A failed Jump keeps every edge, since which output
+ * took the failure is for the run to say.
+ */
+function isDeadJumpEdge(
+  edge: AgentPlanEdge,
+  source: AgentPlanStepResult | undefined,
+): boolean {
+  const branch = planEdgeBranch(edge);
+  if (source?.status === "succeeded") return (source.branch ?? null) !== branch;
+  return source?.status !== "failed" && branch !== null;
+}
+
+/**
  * Whether an edge cannot release its target in this round.
  * @remarks
  * It mirrors the scheduler: the branch a decision did not activate, a skipped
  * source and a used-up stack are dead. An open decision is expected to pass,
- * so its `false` branch counts as dead until the decision says otherwise.
+ * so its `false` branch counts as dead until the decision says otherwise. A
+ * calling Jump is expected to succeed: its failure and timeout outputs are
+ * dead until the Jump says otherwise.
  */
 function isDeadEdge(
   edge: AgentPlanEdge,
@@ -69,6 +87,8 @@ function isDeadEdge(
   state: RoundState | undefined,
 ): boolean {
   if (state?.isDead || source?.status === "skipped") return true;
+  if (node?.type === "jump" && node.direction === "out")
+    return isDeadJumpEdge(edge, source);
   if (node?.type === "decision") {
     const branch = planEdgeBranch(edge);
     if (branch === null) return false;

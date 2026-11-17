@@ -33,6 +33,13 @@ import {
 import { PLAN_ASSET_NAME_LENGTH, planAssets } from "./AgentPlanAsset";
 import { isPlanStackTriggered } from "./AgentPlanStack";
 import { planAvailabilityIssues } from "./AgentPlanProfile";
+import {
+  fitsPlanPortType,
+  isPlanEntryNode,
+  isPlanJumpOut,
+  planJumpIssues,
+  planPortType,
+} from "./AgentPlanJump";
 
 import type { AgentDefinitionChoice } from "./AgentAvailability";
 import type { AgentParameter } from "./AgentParameters";
@@ -135,17 +142,31 @@ export interface AgentPlanIssue {
     | "gitCloseoutUnsupported"
     | "swarmRemoteUnsupported"
     | "swarmIncomplete"
-    | "swarmInvalid";
+    | "swarmInvalid"
+    | "jumpTarget"
+    | "jumpEntry"
+    | "jumpInterface"
+    | "jumpWait"
+    | "jumpTimeout"
+    | "jumpWorkspace"
+    | "jumpInput"
+    | "jumpBoundary"
+    | "jumpCycle"
+    | "returnContract"
+    | "signalName"
+    | "manualStart";
 }
 
 export { hasPlanPath } from "./AgentPlanPath";
 export { removePlanNode } from "./AgentPlanRemoval";
 
-/** Start, end, agent, script, decision, loop and stack nodes form the execution graph; tickets, parameters and variables only supply values. */
+/** Start, end, agent, script, decision, loop, stack, Jump and signal nodes form the execution graph; tickets, parameters and variables only supply values. */
 export function isPlanFlowNode(node: AgentPlanNode): boolean {
   return (
     node.type === "start" ||
     node.type === "end" ||
+    node.type === "jump" ||
+    node.type === "signal" ||
     node.type === "agent" ||
     node.type === "script" ||
     node.type === "git_closeout" ||
@@ -314,6 +335,29 @@ function resultIssue(
   return hasPlanPath(plan.edges, sourceId, step.id) ? null : "resultOrder";
 }
 
+/**
+ * Why a port binding cannot deliver to an input of the given type, or `null` when it can.
+ * @remarks
+ * An input of a receiving entry keeps its type. A value a call handed back reaches an agent or script
+ * only as text, because it is filled in when the node starts: text stays text and a number is written out.
+ */
+function portBindingIssue(
+  step: AgentPlanStep | AgentPlanScript | AgentPlanGitCloseout,
+  binding: Extract<AgentPlanBinding, { kind: "port" }>,
+  plan: AgentPlanInput,
+  parameterType: AgentParameter["type"],
+): "type" | "resultOrder" | null {
+  const delivered = planPortType(plan, binding.nodeId, binding.port);
+  if (delivered === null) return "type";
+  const source = plan.nodes.find((node) => node.id === binding.nodeId);
+  if (!isPlanJumpOut(source))
+    return fitsPlanPortType(delivered, parameterType) ? null : "type";
+  if (parameterType !== "text" || !["text", "number"].includes(delivered))
+    return "type";
+  // A returned value exists only after the call, so the input runs behind its Jump.
+  return hasPlanPath(plan.edges, source.id, step.id) ? null : "resultOrder";
+}
+
 function fitsBinding(
   step: AgentPlanStep | AgentPlanScript | AgentPlanGitCloseout,
   binding: AgentPlanBinding,
@@ -333,6 +377,7 @@ function fitsBinding(
       binding.output,
       parameterType,
     );
+  if (binding.kind === "port") return false;
   return (
     parameterType === "text" &&
     isPlanResultNode(plan.nodes.find((node) => node.id === binding.stepId)) &&
@@ -362,6 +407,7 @@ export function planConnectionIssues(
     ...planLoopIssues(plan, agents, false),
     ...planBranchingIssues(plan, agents),
     ...planStackIssues(plan, expanded),
+    ...planJumpIssues(plan),
   ];
   for (const node of expanded.nodes)
     if (
@@ -551,11 +597,15 @@ function flowNodeIssues(
   agents: readonly AgentDefinitionChoice[],
 ): AgentPlanIssue[] {
   const issues: AgentPlanIssue[] = [];
-  const starts = plan.nodes.filter((entry) => entry.type === "start");
+  // A start or a receiving Jump begins a run; no other node may start without a predecessor.
+  const starts = plan.nodes.filter(isPlanEntryNode);
   const ends = plan.nodes.filter((entry) => entry.type === "end");
   // An event enters an agent that already ran; it never replaces the connection that starts it.
   const ordering = planOrderEdges(plan.edges);
-  if (node.type !== "start" && !ordering.some((edge) => edge.to === node.id))
+  if (
+    !isPlanEntryNode(node) &&
+    !ordering.some((edge) => edge.to === node.id)
+  )
     issues.push({
       nodeId: node.id,
       port: "flow-in",
@@ -564,7 +614,7 @@ function flowNodeIssues(
   if (node.type !== "end" && !plan.edges.some((edge) => edge.from === node.id))
     issues.push({ nodeId: node.id, port: "flow-out", reason: "flowOut" });
   if (
-    node.type !== "start" &&
+    !isPlanEntryNode(node) &&
     !starts.some((start) => hasPlanPath(plan.edges, start.id, node.id))
   )
     issues.push({ nodeId: node.id, port: "flow-in", reason: "unreachable" });
@@ -599,7 +649,8 @@ function flowExecutionIssues(
   agents: readonly AgentDefinitionChoice[],
 ): AgentPlanIssue[] {
   const issues: AgentPlanIssue[] = [];
-  const starts = plan.nodes.filter((node) => node.type === "start");
+  // A plan that only receives calls has no start; it is not runnable by hand but is no draft error.
+  const starts = plan.nodes.filter(isPlanEntryNode);
   const ends = plan.nodes.filter((node) => node.type === "end");
   if (starts.length === 0)
     issues.push({ nodeId: null, port: null, reason: "start" });
@@ -610,7 +661,8 @@ function flowExecutionIssues(
       (node) =>
         node.type === "agent" ||
         node.type === "script" ||
-        node.type === "swarm",
+        node.type === "swarm" ||
+        node.type === "jump",
     )
   )
     issues.push({ nodeId: null, port: null, reason: "agent" });

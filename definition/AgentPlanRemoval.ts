@@ -4,14 +4,17 @@ import { planGroupEdges } from "./AgentPlanGroup";
 import type {
   AgentPlanBinding,
   AgentPlanDecision,
+  AgentPlanEnd,
   AgentPlanInput,
   AgentPlanNode,
-  AgentPlanStep,
 } from "./AgentPlan";
-import type { AgentPlanGitCloseout } from "./AgentPlanGitCloseout";
 import type { AgentPlanGroup } from "./AgentPlanGroup";
 import type { AgentPlanLoop } from "./AgentPlanLoop";
-import type { AgentPlanScript } from "./AgentPlanScript";
+
+/** A node that fills inputs from other nodes: it holds bindings. */
+interface BindingHolder {
+  readonly bindings: Readonly<Record<string, AgentPlanBinding>>;
+}
 
 /** What a removal takes away: the node the user removed and what it contained. */
 interface Removal {
@@ -22,6 +25,9 @@ interface Removal {
 /**
  * Removing a node also removes its flow and parameter references.
  * @remarks
+ * Bindings that read a value port of the node, such as an entry input or a
+ * returned value of a Jump, go with it; the declared inputs and returns of
+ * the nodes that read it stay.
  * The node may be a member of a group; the group then loses the member and
  * its internal edges. Removing a group removes its members with it, together
  * with every reference to them; keeping the members is
@@ -45,9 +51,12 @@ export function removePlanNode<Plan extends AgentPlanInput>(
         if (
           node.type === "agent" ||
           node.type === "script" ||
-          node.type === "git_closeout"
+          node.type === "git_closeout" ||
+          node.type === "signal" ||
+          (node.type === "jump" && node.direction === "out")
         )
           return withoutReferences(node, removed);
+        if (node.type === "end") return withoutEndReferences(node, removed);
         if (node.type === "decision") return withoutRemovedInput(node, removed);
         if (node.type !== "group" && node.type !== "loop") return node;
         return withoutMember(node, removal);
@@ -59,20 +68,25 @@ export function removePlanNode<Plan extends AgentPlanInput>(
 }
 
 /** Drops the bindings that read a removed node. */
-function withoutReferences<
-  Node extends
-    | AgentPlanStep
-    | AgentPlanScript
-    | AgentPlanGitCloseout
-    | AgentPlanGroup
-    | AgentPlanLoop,
->(node: Node, removed: ReadonlySet<string>): Node {
+function withoutReferences<Node extends BindingHolder>(
+  node: Node,
+  removed: ReadonlySet<string>,
+): Node {
   const bindings = Object.fromEntries(
     Object.entries(node.bindings).filter(
       ([, binding]) => !isRemovedBinding(binding, removed),
     ),
   );
   return { ...node, bindings };
+}
+
+/** An end keeps its returns; only the bindings that read a removed node go. */
+function withoutEndReferences(
+  node: AgentPlanEnd,
+  removed: ReadonlySet<string>,
+): AgentPlanEnd {
+  if (!node.bindings) return node;
+  return withoutReferences({ ...node, bindings: node.bindings }, removed);
 }
 
 /** Removes the member from a group or loop that contains it, at any depth. */
@@ -195,6 +209,7 @@ function isRemovedBinding(
 ): boolean {
   if (binding.kind === "source") return removed.has(binding.nodeId);
   if (binding.kind === "stack") return removed.has(binding.stackId);
+  if (binding.kind === "port") return removed.has(binding.nodeId);
   if (binding.kind === "result" || binding.kind === "previous")
     return removed.has(binding.stepId);
   return false;

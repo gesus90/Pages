@@ -8,6 +8,7 @@ import { withRunCommand } from "./runs/RunCommandView";
 import { withAgentTodos } from "./AgentPlanAgentTodoService";
 import { withPlanProgress } from "./AgentPlanProgressView";
 import { requirePlanModelResources } from "./AgentPlanModel";
+import { withInvocationViews } from "./invocation/AgentPlanInvocationViews";
 
 import type { PlanRunEnginePort } from "./runs/PlanRunEnginePort";
 import type { PlanDependencies } from "./AgentPlanService";
@@ -29,6 +30,7 @@ export type PlanRunReadDependencies = Pick<
   | "stepProgress"
   | "agentTodos"
   | "usage"
+  | "invocations"
 > & {
   readonly engine?: Pick<PlanRunEnginePort, "commandReceipt">;
   readonly remoteExecution?: Pick<
@@ -148,7 +150,11 @@ async function loadAuthorizedPlanRun(
       resources,
       ticketAssets: allRunAssetReferences(run, resources.ticketAssets),
     });
-  return withRunViews(dependencies, run, resources);
+  return withInvocationViews(
+    dependencies,
+    userId,
+    await withRunViews(dependencies, run, resources),
+  );
 }
 
 /**

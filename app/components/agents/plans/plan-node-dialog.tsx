@@ -14,6 +14,9 @@ import {
 
 import { PlanDecisionDialog } from "./plan-decision-dialog";
 import { PlanGitCloseoutDialog } from "./plan-git-closeout-dialog";
+import { PlanEndpointDialog } from "./plan-jump/plan-endpoint-dialog";
+import { PlanJumpDialog } from "./plan-jump/plan-jump-dialog";
+import { PlanSignalDialog } from "./plan-jump/plan-signal-dialog";
 import { PlanStackDialog } from "./plan-stack-dialog";
 import { PlanSwarmPanel } from "./plan-swarm/plan-swarm-panel";
 import { PlanGroupPanel } from "./plan-group-panel";
@@ -26,12 +29,14 @@ import type {
   AgentPlanInput,
   AgentPlanNode,
   AgentPlanRun,
+  AgentPlanSources,
   AgentPlanStep,
 } from "@/definition/AgentPlan";
 import type {
   AgentPlanScript,
   AgentPlanScriptConfiguration,
 } from "@/definition/AgentPlanScript";
+import type { PlanGraphActions } from "./use-plan-graph";
 import type { usePlanEditor } from "./use-plan-editor";
 
 interface PlanNodeDialogProps {
@@ -105,7 +110,7 @@ function dialogNode(
   );
 }
 
-/** The settings panel of a decision, stack, loop or group; `null` for every other node. */
+/** The settings panel of a decision, stack, loop, group, Jump, signal, start or end; `null` for every other node. */
 function PlanContainerDialog(
   props: PlanNodeDialogProps & { readonly node: AgentPlanNode },
 ): React.ReactElement | null {
@@ -132,6 +137,40 @@ function PlanContainerDialog(
   if (node.type === "swarm")
     return (
       <PlanSwarmPanel key={node.id} {...shared} swarm={node} run={props.run} />
+    );
+  return <PlanEntryDialog node={node} {...shared} />;
+}
+
+/** The settings panel of a Jump, a signal, a start or an end; `null` for every other node. */
+function PlanEntryDialog(props: {
+  readonly node: AgentPlanNode;
+  readonly sources: AgentPlanSources;
+  readonly graph: PlanGraphActions;
+  readonly isDisabled: boolean;
+  readonly onClose: () => void;
+}): React.ReactElement | null {
+  const { node, ...shared } = props;
+  if (node.type === "jump")
+    return <PlanJumpDialog key={node.id} {...shared} jump={node} />;
+  if (node.type === "signal")
+    return (
+      <PlanSignalDialog
+        key={node.id}
+        graph={shared.graph}
+        isDisabled={shared.isDisabled}
+        onClose={shared.onClose}
+        signal={node}
+      />
+    );
+  if (node.type === "start" || node.type === "end")
+    return (
+      <PlanEndpointDialog
+        key={node.id}
+        graph={shared.graph}
+        isDisabled={shared.isDisabled}
+        onClose={shared.onClose}
+        node={node}
+      />
     );
   return null;
 }

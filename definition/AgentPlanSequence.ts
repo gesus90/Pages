@@ -1,4 +1,5 @@
 import { isPlanFlowNode } from "./AgentPlanGraph";
+import { isPlanEntryNode, isPlanJumpIn } from "./AgentPlanJump";
 import { expandPlanGroups } from "./AgentPlanGroup";
 import { withPortlessPlanGroups } from "./AgentPlanGroupUpgrade";
 import { isPlanEventEdge } from "./AgentPlanBranching";
@@ -23,13 +24,12 @@ export interface AgentPlanSequence {
   }[];
 }
 
-/** Start comes first and End last; every other node sorts between them by its depth. */
-const BOUNDARY_RANK = { start: 0, end: 2 } as const;
+/** Entries come first and End last; every other node sorts between them by its depth. */
+const BOUNDARY_RANK = { entry: 0, end: 2 } as const;
 
 function boundaryRank(node: AgentPlanNode): number {
-  return node.type === "start" || node.type === "end"
-    ? BOUNDARY_RANK[node.type]
-    : 1;
+  if (isPlanEntryNode(node)) return BOUNDARY_RANK.entry;
+  return node.type === "end" ? BOUNDARY_RANK.end : 1;
 }
 
 /** Orders identifiers by code unit, which is stable across locales; identifiers are unique, so no tie exists. */
@@ -49,8 +49,9 @@ function lookup<Value>(
 /**
  * The flow edges between flow nodes; data bindings never order execution.
  * @remarks
- * An edge into a Start or out of an End is invalid, and the graph validation
- * reports it; it would only hide the boundary node from the numbering.
+ * An edge into a Start or a receiving Jump, or out of an End, is invalid, and
+ * the graph validation reports it; it would only hide the boundary node from
+ * the numbering.
  */
 function flowSuccessors(
   plan: Pick<AgentPlanInput, "nodes" | "edges">,
@@ -64,6 +65,7 @@ function flowSuccessors(
       !source ||
       !target ||
       target.type === "start" ||
+      isPlanJumpIn(target) ||
       source.type === "end" ||
       isPlanEventEdge(edge)
     )
@@ -124,7 +126,7 @@ function flowDepths(
   return settled;
 }
 
-/** The flow nodes of a plan, those Start reaches, and the depth of each node a cycle does not block. */
+/** The flow nodes of a plan, those an entry reaches, and the depth of each node a cycle does not block. */
 function flowGraph(plan: Pick<AgentPlanInput, "nodes" | "edges">): {
   readonly nodes: ReadonlyMap<string, AgentPlanNode>;
   readonly reached: ReadonlySet<string>;
@@ -137,7 +139,7 @@ function flowGraph(plan: Pick<AgentPlanInput, "nodes" | "edges">): {
   );
   const successors = flowSuccessors(plan, nodes);
   const starts = [...nodes.values()]
-    .filter((node) => node.type === "start")
+    .filter((node) => isPlanEntryNode(node))
     .map((node) => node.id);
   const reached = reachableFrom(starts, successors);
   return { nodes, reached, depths: flowDepths(reached, successors) };
@@ -148,13 +150,14 @@ function flowGraph(plan: Pick<AgentPlanInput, "nodes" | "edges">): {
  * @param plan - A plan whose groups are expanded, so that group members are
  * flow nodes of their own; a loop counts as one node.
  * @remarks
- * Start is number one and End the last number. In between, a node follows
- * every node with a flow edge to it: nodes sort by the longest flow path
- * from Start, and nodes on the same step, such as parallel branches, sort by
- * their stable node identifier. The array order of the nodes, their creation,
+ * Start is number one and End the last number; a receiving Jump begins a flow
+ * like a Start and is numbered with it. In between, a node follows every node
+ * with a flow edge to it: nodes sort by the longest flow path from an entry,
+ * and nodes on the same step, such as parallel branches, sort by their stable
+ * node identifier. The array order of the nodes, their creation,
  * their canvas position and the run state never change a number, and the
- * numbers create no edge between parallel nodes. Nodes that Start does not
- * reach, and nodes in or behind a cycle, get no number and are named as gaps.
+ * numbers create no edge between parallel nodes. Nodes that no entry reaches,
+ * and nodes in or behind a cycle, get no number and are named as gaps.
  */
 export function planFlowSequence(
   plan: Pick<AgentPlanInput, "nodes" | "edges">,

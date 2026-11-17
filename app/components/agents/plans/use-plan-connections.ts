@@ -37,8 +37,9 @@ import type { Dispatch, SetStateAction } from "react";
  * The source half of a control, value, boolean-result, branch or predecessor-result connection.
  * @remarks
  * `flow` is the control OUT of a node, `source` a value source, `result` the
- * text result of an agent or script, `passed` the boolean result of an agent
- * and `branch` one output of a decision.
+ * text result of an agent or script, `passed` the boolean result of an agent,
+ * `branch` one output of a decision or the failure or timeout output of a
+ * Jump, and `port` a named value output of an entry or a Jump.
  */
 export type PlanConnection =
   | {
@@ -57,6 +58,12 @@ export type PlanConnection =
       readonly kind: "stack";
       readonly nodeId: string;
       readonly output: AgentPlanStackOutput;
+    }
+  | {
+      /** A named value output: an input of an entry, or the run id, reason, payload or a return of a Jump. */
+      readonly kind: "port";
+      readonly nodeId: string;
+      readonly port: string;
     };
 
 /** The plan with the new connection, or the issue that refuses it. */
@@ -90,11 +97,13 @@ function knownIssues(
   };
 }
 
-/** The bindings of an agent node, inside a frame too, or of a script. */
+/** The bindings of an agent node, inside a frame too, of a script, a calling Jump, a signal or an end. */
 function targetBindings(
   draft: AgentPlanInput,
   id: string,
 ): Readonly<Record<string, AgentPlanBinding>> | null {
+  const end = draft.nodes.find((node) => node.type === "end" && node.id === id);
+  if (end?.type === "end") return end.bindings ?? {};
   const target = findPlanBindingTarget(draft, id);
   return target && target.type !== "group" ? target.bindings : null;
 }
@@ -264,6 +273,8 @@ function connectionBinding(
       stackId: connection.nodeId,
       output: connection.output,
     };
+  if (connection.kind === "port")
+    return { kind: "port", nodeId: connection.nodeId, port: connection.port };
   return null;
 }
 

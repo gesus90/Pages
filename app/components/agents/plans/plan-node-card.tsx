@@ -12,6 +12,8 @@ import { PlanStackCard } from "./plan-node-card/plan-stack-card";
 import { PlanSwarmCard } from "./plan-swarm/plan-swarm-card";
 import { PlanSourceCard } from "./plan-node-card/plan-source-card";
 import { PlanAssetCard } from "./plan-node-card/plan-asset-card";
+import { PlanJumpCard } from "./plan-jump/plan-jump-card";
+import { PlanSignalCard } from "./plan-jump/plan-signal-card";
 import { planPortLayout, usePlanFlowPorts } from "./use-plan-flow-ports";
 
 import type { NodeProps } from "@xyflow/react";
@@ -22,7 +24,8 @@ import type { PlanFlowNode } from "./plan-flow-model";
  * @remarks
  * One card family: compact start and end, parameter, ticket and decision
  * cards of medium size and agent and script cards as tall as their inputs.
- * Frames keep their own design.
+ * Jump and signal cards are as tall as their ports. Frames keep their own
+ * design.
  */
 export function PlanNodeCard({
   data: { node },
@@ -88,6 +91,12 @@ export function PlanNodeCard({
         hasRun={run !== null}
         isDropTarget={context.dropTarget === node.id}
       />
+    );
+  if (node.type === "jump")
+    return <PlanJumpCard jump={node} result={result} hasRun={run !== null} />;
+  if (node.type === "signal")
+    return (
+      <PlanSignalCard signal={node} result={result} hasRun={run !== null} />
     );
   if (node.type === "asset") return <PlanAssetCard node={node} />;
   if (node.type === "swarm")

@@ -8,6 +8,9 @@ import { emptyPlanStack } from "@/definition/AgentPlanStack";
 import { emptyPlanAsset } from "@/definition/AgentPlanAsset";
 import { newPlanSwarm } from "@/definition/AgentPlanSwarm";
 import { createRandomUuid } from "@/app/lib/random-uuid";
+
+import { newPlanJumpOut, newPlanSignal } from "./plan-jump/plan-jump-defaults";
+
 import type {
   AgentPlanInput,
   AgentPlanNode,
@@ -110,7 +113,7 @@ export function createPlanNode(input: {
     : null;
 }
 
-/** The nodes that need nothing but a name: endpoints, loops, decisions, stacks and assets. */
+/** The nodes that need nothing but a name: endpoints, loops, decisions, stacks, assets, Jumps and signals. */
 function containerNode(
   kind: PlanReferenceKind,
   reference: string,
@@ -121,6 +124,8 @@ function containerNode(
   if (kind === "decision") return emptyPlanDecision(base.id, base);
   if (kind === "stack") return emptyPlanStack(base.id, reference, base);
   if (kind === "swarm") return newPlanSwarm(base);
+  if (kind === "jump") return newPlanJumpOut(base);
+  if (kind === "signal") return newPlanSignal(base);
   return kind === "asset" ? emptyPlanAsset(base.id, reference, base) : null;
 }
 

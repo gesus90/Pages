@@ -18,6 +18,10 @@ import {
 import { PlanSaveNotice } from "./plan-save-notice";
 import { usePlanEditor } from "./use-plan-editor";
 import { usePlanRun } from "./use-plan-run";
+import {
+  useOpenRequestedRun,
+  usePlanRequestedRunId,
+} from "./use-plan-requested-run";
 import { usePlanRunSummaries } from "./use-plan-run-summaries";
 import { usePlanSave } from "./use-plan-save";
 
@@ -274,9 +278,11 @@ function PlanEditorPage({
     ...draftEditor,
     canEdit: canEditPlan(draftEditor.canEdit, controls, localState),
   };
+  const requestedRunId = usePlanRequestedRunId();
+  // A run the address names may be older than the newest ones the page holds.
   const summaries = usePlanRunSummaries(
     page.selected?.id,
-    panels.consoleNodeId !== null,
+    panels.consoleNodeId !== null || requestedRunId !== null,
   );
   const running = usePlanRun(page.runs, editor.command.data, {
     planId: page.selected?.id,
@@ -284,6 +290,7 @@ function PlanEditorPage({
     controlError: controls.error,
     summaries,
   });
+  useOpenRequestedRun(requestedRunId, page.selected?.id, running.select);
   const display = planRunDisplay(page, controls.control, running);
   const saving = usePlanSave(editor, page.selected !== null);
   return (

@@ -133,6 +133,9 @@ function dispatchAdoptedRunningSteps(
     const controller = new AbortController();
     active.controllers.set(node.id, controller);
     active.dispatched.add(node.id);
+    // The workspace of a run that handed it over stays closed to new work until the call is over.
+    if (node.type === "jump" && node.direction === "out")
+      active.isHandingOver = node.workspace === "shared";
     context.start(active, node, controller);
     if (view.stopRequested) controller.abort();
   }
@@ -161,6 +164,7 @@ function canAdoptFrontier(
         Boolean(
           step.session?.runnerJob ??
           step.script?.runnerJob ??
+          step.jump ??
           run.loops?.some((loop) => loop.id === step.id),
         ),
       );
@@ -172,6 +176,8 @@ function canAdoptFrontier(
         (step) =>
           step.status !== "running" ||
           step.remote !== undefined ||
+          // A waiting Jump is a stored wait; its call is found again by its identity.
+          step.jump !== undefined ||
           step.script?.closeout === "pending" ||
           (run.loops?.some((loop) => loop.id === step.id) ?? false) ||
           (step.execution?.target.kind === "remote" &&

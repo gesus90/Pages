@@ -8,6 +8,8 @@ import type {
 } from "@/definition/AgentPlanExecution";
 import type { AgentPlanGroup } from "@/definition/AgentPlanGroup";
 import type { AgentPlan, AgentPlanStep } from "@/definition/AgentPlan";
+import type { AgentParameterValue } from "@/definition/AgentParameters";
+import type { AgentPlanJumpWait } from "@/definition/AgentPlanJump";
 import type { AgentProviderId } from "@/definition/AgentConnection";
 import type { AgentPlanTemplate } from "@/definition/AgentPlanConfiguration";
 import type { ResolvedAgentWorkspace } from "@/definition/AgentWorkspace";
@@ -59,6 +61,28 @@ export interface AgentPlanRecoveryDirective {
   readonly contextByStepId?: Readonly<Record<string, string>>;
 }
 
+/**
+ * The call a run was started by, as the called run needs it.
+ * @remarks
+ * Server-only. The entry and the inputs decide where the run begins and which
+ * values its nodes read; the rest names the call so the run can send signals
+ * and hand back its returns. A run that is resumed or restarted keeps the
+ * entry and the inputs; it is no longer the target of the call, which the
+ * call register decides, not this record.
+ */
+export interface AgentPlanInvocationContext {
+  readonly id: string;
+  readonly entryNodeId: string;
+  readonly sourcePlanId: string;
+  readonly sourceRunId: string;
+  readonly sourceNodeId: string;
+  readonly wait: AgentPlanJumpWait;
+  /** The declared inputs of the entry with their defaults, validated for this call. */
+  readonly inputs: Readonly<Record<string, AgentParameterValue>>;
+  /** Whether the calling run handed its workspace over to this run. */
+  readonly hasHandover: boolean;
+}
+
 /** Each server-only execution basis is appended once; no basis is overwritten or sent as a run response. */
 export interface AgentPlanSnapshot {
   /** All new work uses runner workers; absent only in historical snapshots. */
@@ -79,6 +103,8 @@ export interface AgentPlanSnapshot {
   readonly scripts?: readonly AgentPlanScriptSnapshot[];
   /** Present only in a run that resumes an earlier one. */
   readonly recovery?: AgentPlanRecoveryDirective;
+  /** Present only in a run that another plan called, or that resumes or restarts such a run. */
+  readonly invocation?: AgentPlanInvocationContext;
 }
 
 /**

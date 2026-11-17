@@ -50,10 +50,15 @@ function referenceValues(node: AgentPlanNode): readonly PlanReference[] {
   for (const parameter of nodeParameters(node))
     if (parameter.defaultValue)
       values.push({ value: parameter.defaultValue, parameter: parameter.name });
-  if ("bindings" in node)
+  if ("bindings" in node && node.bindings)
     for (const [name, binding] of Object.entries(node.bindings))
       if (binding.kind === "literal" && binding.value)
         values.push({ value: binding.value, parameter: name });
+  // A default of an input another plan may leave unset is a stored reference like any other.
+  if (node.type === "start" || node.type === "jump")
+    for (const input of node.type === "start" ? (node.inputs ?? []) : node.inputs)
+      if (input.defaultValue)
+        values.push({ value: input.defaultValue, parameter: input.name });
   return values;
 }
 

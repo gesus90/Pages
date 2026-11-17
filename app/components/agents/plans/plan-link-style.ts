@@ -8,7 +8,8 @@ import type { PlanConnection } from "./use-plan-connections";
  * @remarks
  * Flow and data stay neutral as before; the boolean wire is violet like the
  * decision it enters, the two branches are green and amber, and the wire that
- * carries a new prompt back to an agent is blue. Colour is never the only
+ * carries a new prompt back to an agent is blue. The failure output of a Jump
+ * leads on in red and its timeout output in amber. Colour is never the only
  * difference: the dash and the label of the line name the kind as well.
  */
 export const PLAN_LINK_STROKE: Readonly<Record<PlanLinkChannel, string>> = {
@@ -19,6 +20,8 @@ export const PLAN_LINK_STROKE: Readonly<Record<PlanLinkChannel, string>> = {
   false: "var(--color-warning)",
   case: "var(--color-plan-logic-edge)",
   event: "var(--color-info)",
+  error: "var(--color-destructive)",
+  timeout: "var(--color-warning)",
 };
 
 /** The dash of a line: solid for the ordering connections, dashed for what only carries a value. */
@@ -32,6 +35,8 @@ export const PLAN_LINK_DASH: Readonly<
   false: undefined,
   case: undefined,
   event: "9 5",
+  error: "2 4",
+  timeout: "10 4 2 4",
 };
 
 /** The classes of the label that names a connection, by kind. */
@@ -43,6 +48,8 @@ export const PLAN_LINK_LABEL_TONE: Readonly<Record<PlanLinkChannel, string>> = {
   false: "border-warning/50 font-semibold text-warning",
   case: "border-plan-logic-edge/60 font-semibold text-plan-logic",
   event: "border-info/50 border-dashed text-info",
+  error: "border-destructive/50 font-semibold text-destructive",
+  timeout: "border-warning/50 font-semibold text-warning",
 };
 
 /** The kind of line a connection that is still being made will become. */

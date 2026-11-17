@@ -1,9 +1,11 @@
 import {
   planGroupWidth,
-  planNodeHeight,
   planStackHeight,
   PLAN_STACK_WIDTH,
 } from "@/definition/AgentPlanNodeSize";
+import { planLayoutHeight } from "@/definition/AgentPlanAutoLayoutSize";
+
+import { firstFilledText } from "./plan-jump/plan-jump-text";
 
 import type {
   AgentPlanInput,
@@ -30,9 +32,12 @@ export {
   planGroupWidth,
   planMemberOrigin,
   planMemberPosition,
-  planNodeHeight,
-  planNodeWidth,
 } from "@/definition/AgentPlanNodeSize";
+// Jump, signal and the endpoints with value ports are sized from their stored configuration.
+export {
+  planLayoutHeight as planNodeHeight,
+  planLayoutWidth as planNodeWidth,
+} from "@/definition/AgentPlanAutoLayoutSize";
 export type { PlanFrame } from "@/definition/AgentPlanNodeSize";
 
 // A pointer this close to a frame's edge does not take a node into the frame.
@@ -81,7 +86,7 @@ export function planDropGroup(
   for (const group of [...groups].reverse()) {
     const inset = group.id === memberOf ? 0 : FRAME_EDGE;
     const right = group.x + planGroupWidth(group) - inset;
-    const bottom = group.y + planNodeHeight(group, sources) - inset;
+    const bottom = group.y + planLayoutHeight(group, sources) - inset;
     if (
       point.x >= group.x + inset &&
       point.x <= right &&
@@ -114,7 +119,17 @@ export function planNodeLabel(
   node: AgentPlanNode,
   sources: AgentPlanSources,
 ): string {
-  if (node.type === "start" || node.type === "end") return node.type;
+  if (node.type === "start") return firstFilledText(node.name) || node.type;
+  if (node.type === "end") return node.type;
+  if (node.type === "jump")
+    return (
+      firstFilledText(
+        node.name,
+        node.direction === "out" ? node.target?.planName : undefined,
+      ) || node.type
+    );
+  if (node.type === "signal")
+    return firstFilledText(node.name) || node.signalName;
   if (node.type === "decision" || node.type === "swarm")
     return node.name ?? node.type;
   if (node.type === "task") {
@@ -132,6 +147,8 @@ export function planNodeLabel(
 const NODE_TINTS = {
   start: "border-plan-checkpoint/60 bg-plan-checkpoint-subtle",
   end: "border-plan-checkpoint/60 bg-plan-checkpoint-subtle",
+  jump: "border-plan-checkpoint/60 bg-plan-checkpoint-subtle",
+  signal: "border-plan-checkpoint/60 bg-plan-checkpoint-subtle",
   agent: "border-plan-agent/60 bg-plan-agent-subtle",
   script: "border-plan-script/60 bg-plan-script-subtle",
   git_closeout: "border-plan-script/60 bg-plan-script-subtle",
@@ -149,6 +166,8 @@ const NODE_TINTS = {
 const NODE_ACCENTS = {
   start: "text-plan-checkpoint",
   end: "text-plan-checkpoint",
+  jump: "text-plan-checkpoint",
+  signal: "text-plan-checkpoint",
   agent: "text-plan-agent",
   script: "text-plan-script",
   git_closeout: "text-plan-script",

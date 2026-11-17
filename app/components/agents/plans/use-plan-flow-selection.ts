@@ -12,6 +12,10 @@ const OPENS_SETTINGS: ReadonlySet<AgentPlanNode["type"]> = new Set([
   "loop",
   "decision",
   "stack",
+  "start",
+  "end",
+  "jump",
+  "signal",
 ]);
 
 /** Keyboard, pointer and inspector selection share one domain selection, including read-only plans. */

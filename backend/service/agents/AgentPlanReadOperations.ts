@@ -248,6 +248,7 @@ export class AgentPlanReadOperations {
         timeoutMinutes: [0, 120],
       },
       ...(interpreters === undefined ? {} : { interpreters }),
+      ...(sources?.callTargets ? { callTargets: sources.callTargets } : {}),
     };
   }
 

@@ -37,6 +37,10 @@ import { arePlanNodesOrdered, planSteps } from "./AgentPlanGraph";
 import { planStepDirectory } from "./AgentPlanSnapshot";
 import { validatePlanWorkingCopies } from "./AgentPlanWorkingCopies";
 import {
+  bindEntryInputs,
+  entryValues,
+} from "./invocation/AgentPlanEntryBinding";
+import {
   hasRemotePlanTarget,
   remotePlanWorkspaceIds,
 } from "./AgentPlanExecutionTargets";
@@ -69,6 +73,7 @@ import type { AgentPlanTaskSnapshot } from "./AgentPlanBindings";
 import type { PlanAssetService } from "./assets/PlanAssetService";
 import type { PlanDecisionModels } from "./branching/PlanDecisionModels";
 import type {
+  AgentPlanInvocationContext,
   AgentPlanSnapshot,
   AgentPlanStepSnapshot,
 } from "./AgentPlanSnapshot";
@@ -132,10 +137,15 @@ export class AgentPlanPreparation {
   public async prepare(
     userId: string,
     plan: AgentPlan,
+    invocation?: AgentPlanInvocationContext,
   ): Promise<AgentPlanSnapshot> {
-    const issues = planStartIssues(plan);
+    const issues = planStartIssues(plan, invocation?.entryNodeId);
     if (issues.length > 0) throw new AgentPlanValidationError(issues);
-    plan = executablePlan(plan);
+    // Every entry of the saved plan offers its values, so a consumer behind an entry that does not take part gets its default.
+    const entries = entryValues(plan, invocation);
+    plan = executablePlan(plan, invocation?.entryNodeId);
+    // The values of a call, or the defaults of the entries, replace what reads them, for this run only.
+    plan = bindEntryInputs(plan, entries);
     await this.requireDecisionModels(plan);
     const failures = new AgentPlanPreparationFailures();
     await this.dependencies.workspaceCatalog?.resolve(userId, plan);
@@ -211,7 +221,14 @@ export class AgentPlanPreparation {
       if (prepared) snapshots.push(prepared);
     }
     return this.finish(
-      { plan, groups, steps: snapshots, remoteSteps, scripts },
+      {
+        plan,
+        groups,
+        steps: snapshots,
+        remoteSteps,
+        scripts,
+        ...(invocation ? { invocation } : {}),
+      },
       {
         flat,
         failures,

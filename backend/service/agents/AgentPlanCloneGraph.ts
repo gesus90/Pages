@@ -71,7 +71,7 @@ export class AgentPlanCloneGraph {
   private binding(binding: AgentPlanBinding): AgentPlanBinding {
     if (binding.kind === "stack")
       return { ...binding, stackId: this.mapped(binding.stackId) };
-    if (binding.kind === "source")
+    if (binding.kind === "source" || binding.kind === "port")
       return { ...binding, nodeId: this.mapped(binding.nodeId) };
     if (binding.kind === "result" || binding.kind === "previous")
       return { ...binding, stepId: this.mapped(binding.stepId) };
@@ -178,7 +178,34 @@ export class AgentPlanCloneGraph {
     return sourceId ? this.mapped(sourceId) : "";
   }
 
+  /**
+   * A call node: its bindings follow the copied identities, its target stays.
+   * @remarks
+   * The target names another plan and one of its entries. The copy keeps
+   * calling that plan; it is never rewritten to an identity of the copy.
+   */
+  private call(node: AgentPlanNode): AgentPlanNode | null {
+    if (
+      node.type === "signal" ||
+      (node.type === "jump" && node.direction === "out")
+    )
+      return {
+        ...node,
+        id: this.mapped(node.id),
+        bindings: this.bindings(node.bindings),
+      };
+    if (node.type === "end" && node.bindings)
+      return {
+        ...node,
+        id: this.mapped(node.id),
+        bindings: this.bindings(node.bindings),
+      };
+    return null;
+  }
+
   private node(node: AgentPlanNode): AgentPlanNode {
+    const call = this.call(node);
+    if (call) return call;
     if (node.type === "agent") return this.step(node);
     if (node.type === "group") return this.group(node);
     if (node.type === "loop") return this.loop(node);

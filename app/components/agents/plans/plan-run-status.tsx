@@ -6,6 +6,7 @@ import { allPlanRunResults } from "@/definition/AgentPlanLoopResults";
 
 import { focusStatusNode } from "./plan-status-focus";
 import { PlanCommandNote } from "./plan-command-note";
+import { PlanInvocationNote } from "./plan-jump/plan-jump-run";
 import { PlanStartFailure } from "./plan-start-failure";
 import { PlanStatusHeader } from "./plan-status-header";
 import { PlanStatusDetails } from "./plan-status-details";
@@ -81,6 +82,7 @@ function StatusContent({
       <PlanAutomaticResumeNote run={run} />
       <PlanStatusDetails
         step={block?.result}
+        runStatus={run?.status}
         blockedByName={blockerName(run, block)}
         number={number}
         pass={pass}
@@ -146,6 +148,7 @@ function RunStatusContent({
         onToggle={onToggle}
       />
       <PlanCommandNote command={run?.command} />
+      <PlanInvocationNote invocation={run?.invocation} />
       <PlanStartFailure error={run?.startError} />
       {isOpen ? (
         <div id={contentId} className="flex min-h-0 flex-col">

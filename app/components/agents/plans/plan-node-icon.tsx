@@ -1,4 +1,6 @@
 import {
+  ArrowRightFromLine,
+  ArrowRightToLine,
   Bot,
   Boxes,
   Braces,
@@ -10,6 +12,7 @@ import {
   Network,
   Play,
   Repeat2,
+  Send,
   Variable,
 } from "lucide-react";
 
@@ -75,13 +78,25 @@ const NODE_ICONS = {
   asset: File,
   start: Play,
   end: FlagTriangleRight,
+  jump: ArrowRightFromLine,
+  signal: Send,
 };
 
-/** Node types have distinct symbols as well as their semantic color and label. */
+/**
+ * Node types have distinct symbols as well as their semantic color and label.
+ * @remarks
+ * A Jump shows its direction by its arrow, never by its colour: an arrow
+ * leaving the line for a call, an arrow entering it for a receiving entry.
+ * Without a direction a Jump is a call.
+ */
 export function PlanNodeIcon(props: {
   readonly type: AgentPlanNode["type"];
+  readonly direction?: "in" | "out";
   readonly className?: string;
 }): React.ReactElement {
-  const Icon = NODE_ICONS[props.type];
+  const Icon =
+    props.type === "jump" && props.direction === "in"
+      ? ArrowRightToLine
+      : NODE_ICONS[props.type];
   return <Icon aria-hidden="true" className={props.className ?? "size-4"} />;
 }

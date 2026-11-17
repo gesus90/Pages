@@ -95,6 +95,7 @@ function PlanCardHeader(props: PlanCardProps): React.ReactElement {
     >
       <PlanNodeIcon
         type={node.type}
+        direction={node.type === "jump" ? node.direction : undefined}
         className={cn(
           PLAN_NODE_ICON,
           "shrink-0",

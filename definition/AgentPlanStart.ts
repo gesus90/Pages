@@ -4,12 +4,39 @@ import { withPortlessPlanGroups } from "./AgentPlanGroupUpgrade";
 import { hasPlanPath } from "./AgentPlanPath";
 import { planBindingNodes } from "./AgentPlanStackGraph";
 import { expandPlanLoops } from "./AgentPlanLoop";
+import { isPlanEntryCallable, isPlanEntryNode } from "./AgentPlanJump";
 
 import type { AgentPlanInput, AgentPlanNode } from "./AgentPlan";
 import type { AgentPlanIssue } from "./AgentPlanGraph";
 
+/**
+ * The nodes a run begins at.
+ * @param flat - The plan with its groups expanded.
+ * @param entryNodeId - The entry a call names; absent for a start by a person.
+ * @remarks
+ * A person starts the plan at its start nodes only. A call begins at exactly
+ * the entry it names, and only while that entry is released for calls; every
+ * other entry stays inactive for this run.
+ */
+function entryNodes(
+  flat: AgentPlanInput,
+  entryNodeId: string | undefined,
+): readonly AgentPlanNode[] {
+  if (entryNodeId === undefined)
+    return flat.nodes.filter((node) => node.type === "start");
+  return flat.nodes.filter(
+    (node) =>
+      node.id === entryNodeId &&
+      isPlanEntryNode(node) &&
+      isPlanEntryCallable(node),
+  );
+}
+
 /** Nodes on any complete execution path; value and event edges never establish a start path. */
-function executionIds(plan: AgentPlanInput): ReadonlySet<string> {
+function executionIds(
+  plan: AgentPlanInput,
+  entryNodeId: string | undefined,
+): ReadonlySet<string> {
   const flat = expandPlanGroups(withPortlessPlanGroups(plan));
   const ids = new Set(flat.nodes.map((node) => node.id));
   const edges = flat.edges.filter((edge) => {
@@ -21,7 +48,7 @@ function executionIds(plan: AgentPlanInput): ReadonlySet<string> {
       ids.has(edge.to)
     );
   });
-  const starts = flat.nodes.filter((node) => node.type === "start");
+  const starts = entryNodes(flat, entryNodeId);
   const ends = flat.nodes.filter((node) => node.type === "end");
   if (
     !starts.some((start) =>
@@ -57,14 +84,43 @@ function executionIds(plan: AgentPlanInput): ReadonlySet<string> {
   );
 }
 
-/** The only graph condition for starting a plan, shared by all entry points. */
+/**
+ * The only graph condition for starting a plan, shared by all entry points.
+ * @param plan - The saved plan.
+ * @param entryNodeId - The entry a call names; absent for a start by a person.
+ * @remarks
+ * A start by a person needs a start with a path to an end. A plan that only
+ * receives calls has no such path and says so with its own finding instead of
+ * a generic one. A call needs its entry to exist, to be released for calls and
+ * to reach an end.
+ */
 export function planStartIssues(
   plan: AgentPlanInput,
+  entryNodeId?: string,
 ): readonly AgentPlanIssue[] {
-  const active = executionIds(plan);
-  return plan.nodes.some((node) => node.type === "start" && active.has(node.id))
-    ? []
-    : [{ nodeId: null, port: null, reason: "startEndDisconnected" }];
+  if (entryNodeId !== undefined) {
+    const entry = plan.nodes.find((node) => node.id === entryNodeId);
+    if (!isPlanEntryNode(entry) || !isPlanEntryCallable(entry))
+      return [{ nodeId: entryNodeId, port: null, reason: "jumpEntry" }];
+    return executionIds(plan, entryNodeId).has(entryNodeId)
+      ? []
+      : [{ nodeId: entryNodeId, port: null, reason: "startEndDisconnected" }];
+  }
+  const active = executionIds(plan, undefined);
+  if (
+    plan.nodes.some((node) => node.type === "start" && active.has(node.id))
+  )
+    return [];
+  const receivesCalls = plan.nodes.some(
+    (node) => node.type === "jump" && node.direction === "in",
+  );
+  return [
+    {
+      nodeId: null,
+      port: null,
+      reason: receivesCalls ? "manualStart" : "startEndDisconnected",
+    },
+  ];
 }
 
 function activeNode(
@@ -86,12 +142,21 @@ function activeNode(
 }
 
 /**
- * Keeps complete Start→End paths and their data sources. Detached nodes and
+ * Keeps complete entry→End paths and their data sources. Detached nodes and
  * dead flow branches never enter preparation, authorization or scheduling.
+ * @param plan - The saved plan.
+ * @param entryNodeId - The entry a call names; absent for a start by a person.
+ * @remarks
+ * Exactly one entry takes part in a run: the start nodes for a person, the
+ * named entry for a call. Every other entry is dropped, so nothing behind it
+ * starts by itself.
  */
-export function executablePlan<Plan extends AgentPlanInput>(plan: Plan): Plan {
+export function executablePlan<Plan extends AgentPlanInput>(
+  plan: Plan,
+  entryNodeId?: string,
+): Plan {
   plan = withPortlessPlanGroups(plan);
-  const ids = executionIds(plan);
+  const ids = executionIds(plan, entryNodeId);
   const flow = plan.nodes.flatMap((node) => {
     const active = activeNode(node, ids);
     return active ? [active] : [];
@@ -104,6 +169,11 @@ export function executablePlan<Plan extends AgentPlanInput>(plan: Plan): Plan {
       if (binding.kind === "stack") sources.add(binding.stackId);
     }
   }
+  for (const node of flow)
+    if (node.type === "end")
+      for (const binding of Object.values(node.bindings ?? {})) {
+        if (binding.kind === "source") sources.add(binding.nodeId);
+      }
   const decisions = expandPlanLoops(
     expandPlanGroups({ ...plan, nodes: flow }),
   ).nodes;

@@ -26,7 +26,7 @@ export type PlanReadiness = "ready" | "skip" | "wait";
  * @param source - The result of the node the edge leaves.
  * @remarks
  * A decision satisfies only the edge of the branch it activated and kills the
- * other one; a node that was skipped kills every edge it leaves, and so does a
+ * other one, and an outgoing Jump does the same with its error and timeout outputs; a node that was skipped kills every edge it leaves, and so does a
  * stack whose trigger found it used up. A failed or cancelled source stays
  * pending: the scheduler marks what waits behind it.
  */
@@ -39,7 +39,8 @@ export function planEdgeState(
   if (source.status !== "succeeded") return "pending";
   if (source.stack?.entryId === null) return "dead";
   const branch = planEdgeBranch(edge);
-  if (branch === null) return "satisfied";
+  // An outgoing Jump that took its error or timeout output leaves its normal exit unused.
+  if (branch === null) return source.branch === undefined ? "satisfied" : "dead";
   return source.branch === branch ? "satisfied" : "dead";
 }
 

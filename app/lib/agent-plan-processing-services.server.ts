@@ -5,6 +5,9 @@ import { AgentPlanPhases } from "@/backend/service/agents/AgentPlanPhases";
 import { AgentPlanStartRejectionRepository } from "@/backend/database/repositories/agent/AgentPlanStartRejectionRepository";
 import { AgentPlanStartResourceRepository } from "@/backend/database/repositories/agent/AgentPlanStartResourceRepository";
 import { AgentPlanStartResources } from "@/backend/service/agents/AgentPlanStartResources";
+import { AgentPlanInvocationRepository } from "@/backend/database/repositories/agent/AgentPlanInvocationRepository";
+import { AgentPlanInvocations } from "@/backend/service/agents/invocation/AgentPlanInvocations";
+import { AgentPlanRunEngine } from "@/backend/service/agents/AgentPlanRunEngine";
 import { AgentPlanWorkGate } from "@/backend/service/agents/AgentPlanWorkGate";
 import { AgentSessionRepository } from "@/backend/database/repositories/agent/AgentSessionRepository";
 import { AgentWorkspaceCleanupRepository } from "@/backend/database/repositories/agent/AgentWorkspaceCleanupRepository";
@@ -94,22 +97,13 @@ export async function createProcessingCore(
 ): Promise<{
   readonly dependencies: PlanDependencies;
   readonly engine: Awaited<ReturnType<typeof createAttachedPlanEngine>>;
+  /** Present in the process that owns the runs; it makes plans call each other. */
+  readonly invocations?: AgentPlanInvocations;
   readonly preparation: ReturnType<typeof createPlanPreparation>;
   readonly resumeAdvisor: AgentPlanResumeAdvisorSlot;
   readonly diagnosis: ReturnType<typeof createRunDiagnosis>;
   readonly workspaceLocks: ReturnType<typeof createPlanWorkspaceLocks>;
 }> {
-  const engine = await createAttachedPlanEngine(input, {
-    execution: parts.execution,
-    runnerScripts: parts.runnerScripts,
-    remoteExecution: parts.remoteExecution,
-    scripts: parts.scriptPreparation,
-    runs: parts.runs,
-    start: parts.start,
-    tasks: parts.tasks,
-    sessions: parts.sessions,
-    pageAgentSessions: parts.pageAgentSessions,
-  });
   const preparation = createPlanPreparation(input, {
     decisionModels: parts.decisionModels,
     workspaceCatalog: parts.workspaceCatalog,
@@ -120,6 +114,28 @@ export async function createProcessingCore(
     parameters: parts.parameters,
     tasks: parts.tasks,
   });
+  const invocations = canProcessRuns()
+    ? new AgentPlanInvocations({
+        invocations: new AgentPlanInvocationRepository(input.database),
+        access: parts.access,
+        runs: parts.runs,
+        preparation,
+      })
+    : undefined;
+  const engine = await createAttachedPlanEngine(input, {
+    execution: parts.execution,
+    runnerScripts: parts.runnerScripts,
+    remoteExecution: parts.remoteExecution,
+    scripts: parts.scriptPreparation,
+    runs: parts.runs,
+    start: parts.start,
+    tasks: parts.tasks,
+    sessions: parts.sessions,
+    pageAgentSessions: parts.pageAgentSessions,
+    invocations,
+  });
+  if (invocations && engine instanceof AgentPlanRunEngine)
+    invocations.attach(engine);
   const resumeAdvisor: AgentPlanResumeAdvisorSlot = { current: null };
   const diagnosis = createRunDiagnosis(input);
   const workspaceLocks = createPlanWorkspaceLocks(input, engine);
@@ -147,6 +163,7 @@ export async function createProcessingCore(
   return {
     dependencies,
     engine,
+    invocations,
     preparation,
     resumeAdvisor,
     diagnosis,
@@ -169,6 +186,7 @@ function planRecords(input: {
   | "phases"
   | "archive"
   | "startRejections"
+  | "invocations"
   | "workspaceCleanup"
   | "planAssets"
   | "accessChanges"
@@ -190,6 +208,7 @@ function planRecords(input: {
     phases: new AgentPlanPhases(input.tasks, input.users),
     archive: input.agents.agentRunArchive,
     startRejections: new AgentPlanStartRejectionRepository(input.database),
+    invocations: new AgentPlanInvocationRepository(input.database),
     workspaceCleanup: new AgentWorkspaceCleanupRepository(input.database),
     ...planAssetsOf(input.agents),
   };

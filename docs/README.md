@@ -10,7 +10,7 @@ a Pages instance or its private wiki. Some specialized guides are in German.
 - [Ticket attachments](TicketAssets.md): upload, image viewing, inventory and offline migration.
 - [Pica chat and models](Pica.md), [administrator operator](PicaAdminOperator.md),
   [administrator browser/files](PicaAdminTools.md) and [visual operator browser](PicaOperatorBrowser.md).
-- [Agent Plans](AgentPlanRunner.md): editor, ticket parameters, teams, execution and recovery.
+- [Agent Plans](AgentPlanRunner.md): editor, ticket parameters, teams, plans that call each other, execution and recovery.
 - [Automations](Automations.md), [conversation content cards](PAGE-298.md), [code previews in the chat](PAGE-383.md), [video and audio in the chat](PAGE-384.md), [documents, tables and binary files in the chat](PAGE-385.md)
   and [group observer/context](PAGE-296.md).
 - [Storage API and Google Drive setup](StorageApi.md).

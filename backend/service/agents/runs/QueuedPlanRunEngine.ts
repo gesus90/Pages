@@ -2,6 +2,7 @@ import { setTimeout as wait } from "node:timers/promises";
 
 import { registerLocalOwnerSettlement } from "@/backend/agents/local/LocalOwnerControl";
 import { AgentError } from "@/backend/error/AgentErrors";
+import { AgentPlanCallBlockedError } from "@/backend/error/AgentPlanCallBlockedError";
 import { SerialQueue } from "@/backend/concurrency/SerialQueue";
 import { AgentPlanRunRepository } from "@/backend/database/repositories/agent/AgentPlanRunRepository";
 import { AgentPlanStartResourceRepository } from "@/backend/database/repositories/agent/AgentPlanStartResourceRepository";
@@ -10,6 +11,7 @@ import { PlanRunCommandRepository } from "@/backend/database/repositories/agent/
 import { isActivePlanRun } from "@/definition/AgentPlanRunState";
 
 import { capturePlanExecution } from "../AgentPlanExecutionSnapshot";
+import { isCallStart } from "../invocation/AgentPlanCallStart";
 import { initialPlanRun, recoveredPlanRun } from "../AgentPlanRunStart";
 import { planWritingWorkspaces } from "../AgentPlanContinuation";
 import { AgentPlanStartResources } from "../AgentPlanStartResources";
@@ -177,7 +179,8 @@ export class QueuedPlanRunEngine implements PlanRunEnginePort {
     },
   ): Promise<AgentPlanRun> {
     if (this.isClosing) throw new AgentError("plan_access_denied");
-    if (view.origin?.kind !== "resume") {
+    if (isCallStart(view, snapshot)) await this.requireFree(snapshot);
+    else if (view.origin?.kind !== "resume") {
       let warnings: readonly string[];
       try {
         warnings = await releaseRunsStartResources(
@@ -218,6 +221,16 @@ export class QueuedPlanRunEngine implements PlanRunEnginePort {
     else await this.database.transaction(create);
     void notifyRuns(this.socketPath);
     return { ...captured.run, command: receipt };
+  }
+
+  /** A call never displaces another run; any holder of its target or resources keeps them. */
+  private async requireFree(snapshot: AgentPlanSnapshot): Promise<void> {
+    const resources = new AgentPlanStartResources({
+      repository: new AgentPlanStartResourceRepository(this.database),
+    });
+    const blockers = await resources.blockers(snapshot);
+    if (blockers.length > 0)
+      throw new AgentPlanCallBlockedError(blockers.map((owner) => owner.runId));
   }
 
   private async enqueue(

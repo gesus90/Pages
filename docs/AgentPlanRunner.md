@@ -1,7 +1,7 @@
 # Agent Plans, snapshots and runner events
 
 [Documentation index](README.md). The current access and cloning contract is
-[Cloning and teams](#klonen-und-teams-vertragsversion-18). Older
+[Cloning and teams](#klonen-und-teams-vertragsversion-19). Older
 descriptions below describe the legacy department default; explicit
 `teams` grants and current owner/admin rules take precedence.
 
@@ -209,7 +209,7 @@ Pica registriert diese Werkzeuge nativ im Pages-Backend. Die statischen Schemata
 
 Vorlagen ändern und löschen (`plans.templates.update`, `plans.templates.delete`) gibt es für Agentenwerkzeuge, Pica und die Plan-API von Pages MCP; der Editor bietet dafür weiterhin keine Oberfläche. Plan und Vorlage werden nach ausdrücklicher aktueller Bitte der Person ohne Bestätigungswort gelöscht; Eigentum und gelesener Stand werden geprüft. Planänderungen, Vorlagenoperationen und reine Lesezugriffe starten keinen Run.
 
-## Klonen und Teams (Vertragsversion 18)
+## Klonen und Teams (Vertragsversion 19)
 
 `clone_plan` und `POST /api/mcp/v1/plans/{planId}/clone` verwenden wie der
 Klon-Dialog `AgentPlanCloning`. Die Quelle muss sichtbar sein. Kopiert wird
@@ -221,6 +221,18 @@ Nicht nutzbare Agenten-, Modell- und Verbindungswahlen sowie nicht lesbare
 Ticket-, Wiki- und Workspace-Verweise werden geleert. Alte Ticket-Flusskanten,
 `git_closeout` und unbekannte alte Felder werden bereinigt. Zugangsdaten im
 Quelltext bleiben ein Fehler (`credentials_in_text`).
+
+Aufrufe zwischen Plänen (siehe [Pläne rufen Pläne auf](#pläne-rufen-pläne-auf-jump-und-signal))
+bleiben beim Klonen erhalten: Jeder Node der Kopie bekommt eine neue ID, auch
+der Start und jeder Jump IN. Ein Jump OUT der Kopie zeigt weiter auf den Plan
+und den Einstieg, die die Quelle gerufen hat; sein Ziel wird nie auf IDs der
+Kopie umgeschrieben. Aufrufbarer Start, freigegebene Jump IN, Eingaben,
+Rückgaben und Bindungen (auch `port`-Bindungen auf die neuen Node-IDs) bleiben
+wie in der Quelle. Standardwerte und feste Werte, die die kopierende Person
+nicht lesen darf, werden wie bei jedem anderen Node geleert und als
+`reference_cleared` gemeldet. Andere Pläne rufen weiter das Original; die
+Kopie teilt mit ihm nichts. Jump, Signal, Start und End sind keine
+Vorlagen.
 
 Die Antwort enthält `adjustments` mit `workspace_replaced`, `name_suffixed`,
 `source_revision_updated`, `legacy_form_cleaned` oder `reference_cleared` und,
@@ -292,6 +304,253 @@ Die Node **Decision** verzweigt einen Plan anhand des booleschen Ergebnisses ein
 Bei **jedem** Durchlauf liest die Decision das Ergebnis des zugehörigen Agentenstarts neu (`Quelle#Start`); ein früherer Wert, ein bereits gelesener Start oder eine verspätete Antwort einer älteren Runde wird nie als neues Ergebnis verwendet, ein fehlender Wert lässt die Decision mit `plan_decision_input_invalid` fehlschlagen. Der **Ereignis-Eingang** `event-in` eines Agenten startet einen bereits gelaufenen Agenten erneut: Das Textergebnis des Senders wird als Folge-Prompt in dieselbe offene ACP-Sitzung gesendet, nicht als erneute Hauptanweisung (`created`/`continued`/`recovered`; fehlt die Sitzung, startet eine neue und wird als `recovered` gekennzeichnet). Ein Sender ohne nutzbaren Text (`plan_event_prompt_empty`), mehr als 100000 Zeichen, mehr als 25 Starts je Knoten (`plan_activation_limit`) und nicht unterstützte Orte (Gruppen, Schleifen, Remote, Nicht-ACP-Runner, Tickets mit Completion-Gate) werden mit konkreten Gründen abgelehnt.
 
 Vertrag, Randfälle, Pause/Fortsetzen, Persistenz und Grenzen stehen in [backend/service/agents/branching/README.md](../backend/service/agents/branching/README.md). Im Editor tragen die Ports eigene Farben und Beschriftungen (Bedingung/Boolean violett, `true` grün, `false` bernstein, Ereignis blau); eine Kante endet exakt auf der Mitte ihres Ports, auch nach Zoom und Größenänderung.
+
+## Pläne rufen Pläne auf (Jump und Signal)
+
+Ab Vertragsversion 19 kann ein Plan an einem benannten Einstieg eines anderen
+Plans einen neuen Run starten und, je nach Einstellung, auf dessen Ende oder auf
+eine Zwischenmeldung warten. Der gerufene Run ist ein gewöhnlicher, eigener Run
+des Zielplans mit eigener Run-ID, eigenem Verlauf und eigenem Schutz des
+Workspaces. Drei Nodes tragen den Aufruf: **Jump IN** (Einstieg), **Jump OUT**
+(Aufruf) und **Signal senden**. Start und End tragen den Vertrag des Einstiegs.
+
+### Einstiege
+
+Ein Einstieg ist ein Node, an dem ein Run beginnen kann:
+
+- Der **Start** hat den Schalter **Von anderen Plänen aufrufbar**, standardmäßig
+  aus. Er trägt optional einen Namen und die Eingaben, die ein Aufruf annimmt;
+  die Eingaben bleiben auch bei ausgeschaltetem Schalter gespeichert.
+  Pläne, die vor den Einstiegen gespeichert wurden, haben nichts davon und
+  starten nur von Hand.
+- Der **Jump IN** ist ein benannter Einstieg ohne Flusseingang: Name (bis 120
+  Zeichen), ein Schalter, ob andere Pläne ihn rufen dürfen (bei der Anlage an)
+  und seine Eingaben. Er steht nur auf der äußersten Ebene, nie in einer Gruppe
+  oder Schleife.
+
+Ein Aufruf startet den Plan genau an dem gewählten Einstieg; die anderen
+Einstiege nehmen an diesem Run nicht teil, und nur was von ihm bis zu einem End
+führt, läuft. Ein ausgeschalteter Einstieg lässt sich nicht rufen. Ein Plan, der
+nur Jump IN enthält, lässt sich nicht von Hand starten: Das Starten meldet
+`plan_manual_start_unavailable`, die Prüfung den Befund `manualStart`.
+
+### Eingaben und Rückgaben
+
+- Eine **Eingabe** hat einen Namen (Buchstabe zuerst, dann Buchstaben, Ziffern
+  und `_`, höchstens 64 Zeichen, je Einstieg eindeutig), einen Typ (`text`,
+  `number`, `ticket`, `workspace`, `wiki` oder `asset`), eine Pflichtangabe und
+  optional einen Standardwert desselben Typs. Eine Pflichteingabe mit
+  Standardwert ist durch ihn erfüllt. Ein Einstieg hat höchstens 16 Eingaben.
+- Eine **Rückgabe** wird am End deklariert (Name und Typ, höchstens 16) und dort
+  durch die Bindung gleichen Namens gefüllt. Alle Ends, die ein Einstieg
+  erreicht, deklarieren dieselben Rückgaben (sonst Befund `returnContract`). Nur
+  ein gerufener Run, der erfolgreich endet, gibt sie zurück. Kann ein End einen
+  deklarierten Wert nicht liefern, scheitert der Run mit
+  `plan_jump_input_invalid`, statt weniger zurückzugeben.
+- Der **Jump OUT** trägt Eingaben und Rückgaben des Ziels so, wie sie waren, als
+  der Einstieg gewählt wurde; jede Eingabe füllt eine Bindung gleichen Namens.
+  Beim Aufruf prüft Pages sie gegen den aktuellen Einstieg und friert Revision
+  und Schnittstelle des Ziels in den Aufruf ein. Weicht der Einstieg inzwischen
+  ab, scheitert der Aufruf mit `plan_jump_interface_changed`; eine spätere
+  Änderung des Zielplans ändert einen laufenden Aufruf nicht.
+
+Werte eines Einstiegs und eines Aufrufs lesen andere Nodes über Bindungen der
+Art `port`: `entry:<Name>` am Start und am Jump IN (die angenommene Eingabe),
+`run-id-out` (Run-ID des gerufenen Runs), `reason-out` (sicherer Fehlergrund),
+`payload-out` (Nutzlast des Signals, nur bei `signal`) und `return:<Name>` (eine
+Rückgabe, nur bei `completion`) am Jump OUT. Der Typ des Ports muss zur Eingabe
+passen; die Werte eines Jump OUT liest ein Node nur, wenn er im Ablauf hinter
+ihm liegt.
+
+### Warten
+
+Der Jump OUT wartet auf eine von drei Bedingungen (`wait`):
+
+- `continue`: Der Plan geht weiter, sobald der Aufruf dauerhaft angenommen ist.
+  Das sagt nichts darüber, ob das Ziel schon gestartet ist oder Erfolg hat.
+- `completion`: Der Plan wartet, bis genau der gerufene Run erfolgreich endet und
+  sein Cleanup bestätigt ist. Danach stehen die Rückgaben bereit.
+- `signal`: Der Plan wartet auf das benannte Signal dieses Aufrufs. Das sagt
+  nichts über das Ende des Ziels; es läuft danach unabhängig weiter.
+
+Der Node hat die Ausgänge `flow-out`, `error-out` und, bei endlicher Frist,
+`timeout-out`. Ist ein Fehler- oder Fristausgang verbunden, gilt der Node als
+erfolgreich und der Run geht dort weiter; ist er nicht verbunden, scheitert der
+Node und damit der Run mit dem Grund des Aufrufs.
+
+### Fristen
+
+Ein wartender Jump OUT wartet standardmäßig 60 Minuten ab der dauerhaften
+Annahme des Aufrufs. Wählbar sind 1 Minute bis 30 Tage (43 200 Minuten) oder
+**Unbegrenzt**; bei `continue` gibt es keine Frist. Läuft die Frist ab, ist der
+Grund `plan_jump_timeout`. Pausiert der aufrufende Run, läuft die Frist weiter;
+der Ausgang wird nach dem Fortsetzen genommen.
+
+### Signale
+
+Der Node **Signal senden** schickt eine Zwischenmeldung ausschließlich an den
+Aufrufer des eigenen Runs; ein anderes Ziel gibt es nicht. Er hat einen
+Signalnamen (Buchstabe zuerst; Buchstaben, Ziffern, `_`, `.` und `-`; höchstens
+64 Zeichen) und optional eine Nutzlast: Typ und Bindung `payload`. Dass die
+Meldung nicht zugestellt wird, lässt den Plan nicht scheitern. Das Ergebnis des
+Nodes sagt in `signal`, ob die Meldung angenommen wurde (`delivered`), warum
+nicht (`reason`) und unter welchem Namen (`name`):
+
+- `delivered`: Die Meldung ist angenommen.
+- `duplicate`: Der Aufruf hat ein Signal dieses Namens schon; das erste Signal
+  eines Namens gewinnt, jedes spätere wird nicht gezählt.
+- `closed`: Der Aufruf ist bereits entschieden.
+- `no_caller`: Der Run hat keinen Aufrufer, etwa weil eine Person ihn gestartet
+  hat. Er läuft ohne Zustellung weiter (`delivered` ist `false`).
+
+Ein angenommenes Signal bleibt gespeichert, auch wenn der Aufrufer noch nicht
+darauf wartet. Wartet ein Aufruf auf `signal` und erhält sein Signal, löst sich
+das Ziel vom Aufrufer und läuft weiter.
+
+### Aufrufregister und Identität
+
+Jeder Aufruf wird in einem dauerhaften Register gespeichert, bevor der gerufene
+Run entsteht. Seine Identität ist abgeleitet, nicht gezogen: aufrufender Run,
+Jump-Node und Start des Nodes (in einer Schleife zusätzlich die Iteration). Ein
+neuer Start des Nodes oder eine neue Iteration ist ein neuer Aufruf; ein
+wiederholter oder nach einem Absturz wiederaufgenommener Versand desselben
+Starts findet seinen Aufruf wieder und legt keinen zweiten an. Der Aufruf hält
+das eingefrorene Ziel, die Eingaben, die Wartebedingung, die Frist, den Zustand
+(`queued`, `starting`, `running`, danach `succeeded`, `failed`, `timed_out`,
+`cancelled`, `accepted` oder `signalled`) und die Run-ID des gerufenen Runs.
+Entschieden wird ein Aufruf genau einmal; ein gleichzeitig eintreffendes Signal,
+eine Frist oder ein Fehler können einander die Entscheidung nicht streitig machen.
+Der gerufene Run entsteht höchstens einmal je Aufruf, auch nach einem Neustart
+von Pages.
+
+Die Lauf-Ansicht des aufrufenden Runs zeigt am Jump-Node nur den Stand des
+Aufrufs (Ziel, Zustand, Run-ID, Frist, Grund). Die Ansicht des gerufenen Runs
+nennt den Aufruf, der ihn gestartet hat; der Link zum aufrufenden Run erscheint
+nur für Personen, die diesen Run lesen dürfen. Eingabewerte, Rückgaben und
+Nutzlasten stehen nicht in diesen Ansichten.
+
+### Start, Warteschlange und Fehlerfälle
+
+Gerufene Runs starten über die Engine von Pages, nie durch Verdrängen eines
+anderen Runs. Ein Aufruf, dessen Zielplan oder benötigter Workspace noch von
+einem anderen Run belegt ist, bleibt in der Warteschlange (`plan_jump_start_blocked`
+beschreibt das Warten) und wird beim Ende eines Runs und danach alle fünf
+Sekunden erneut versucht. Je Zielplan wird pro Durchgang der älteste Aufruf
+versucht.
+Wartet ein Aufruf auf einen Run, der selbst auf den aufrufenden Run wartet,
+scheitert er mit `plan_jump_resource_cycle`, statt ewig zu warten.
+
+### Pause, Stopp und Neustart
+
+Stoppt der aufrufende Run oder endet er, bricht Pages seine offenen Aufrufe ab
+(`plan_jump_cancelled`): ein noch nicht gestarteter Start wird zurückgezogen,
+ein laufender gerufener Run wird gestoppt. Gestoppt werden nur die an den
+aufrufenden Run **gebundenen** Ziele. Ein Aufruf mit `continue` und ein Ziel, das
+nach einem Signal weiterläuft, gehören dem aufrufenden Run nicht mehr; sie laufen
+weiter. Endet ein gerufener Run, ohne dass sein Cleanup bestätigt ist, gilt der
+Aufruf nicht als Erfolg; der Grund ist `plan_jump_cleanup_open`.
+
+Nach einem Neustart von Pages werden Aufrufe, deren aufrufender Run nicht mehr
+aktiv ist, abgebrochen; alle anderen offenen Aufrufe nimmt der wartende
+Jump-Node oder die Warteschlange wieder auf. Ein Aufruf, der ausgelaufen oder
+abgebrochen ist, bevor sein Ziel gestartet wurde, startet nie.
+
+### Workspace gemeinsam nutzen
+
+Standardmäßig bekommt das Ziel einen eigenen Workspace-Schutz. Mit **Gemeinsam
+mit diesem Plan** (`workspace: shared`) übergibt der aufrufende Plan seinen
+Workspace für die Dauer des Aufrufs; das geht nur mit den beiden wartenden
+Bedingungen `completion` und `signal`. Pages bringt den aufrufenden Run vorher
+zur Ruhe: Es wird nichts Neues gestartet, die übrigen laufenden Nodes laufen
+aus und werden nie abgebrochen. Danach gehen seine Schreibreservierungen, die
+die Ressourcen des Ziels berühren, an den gerufenen Run und nach dessen
+bestätigtem Cleanup an den aufrufenden Run zurück; ein bereits beendeter Aufrufer
+bekommt sie nicht zurück. Ressourcen, die ein anderer Run hält, bleiben dort, und
+das Ziel wartet darauf wie jeder Run. Offene Sitzungen, ein zweiter gleichzeitig
+wartender Aufruf oder Arbeit, die vor der Frist nicht zur Ruhe kommt, verweigern
+die Übergabe mit `plan_jump_handover_unavailable`.
+
+### Grenzen
+
+- Die Eingaben, die Rückgaben und jede Nutzlast eines Signals sind je auf 200 000
+  Zeichen serialisierter Werte begrenzt. Pages weist zu große Werte ab
+  (`plan_jump_payload_limit`) und kürzt nie.
+- Höchstens 16 Eingaben und 16 Rückgaben je Einstieg und End; Namen von Einstiegen
+  und Jump OUT bis 120 Zeichen.
+- **Zyklen werden abgelehnt**, direkte wie indirekte: Ein Plan darf weder sich
+  selbst noch einen Plan rufen, der ihn über eine Kette von Aufrufen gerufen hat.
+  Pages liest die Kette beim Aufruf aus dem Register der tatsächlich laufenden
+  Aufrufe, auch bei `continue`; der Grund ist `plan_jump_cycle`, in der
+  Planprüfung der Befund `jumpCycle`.
+
+### Rechte
+
+Der gerufene Run läuft mit den Rechten der Person, die den aufrufenden Plan
+ausführt, nie mit denen des Besitzers. Pages liest und beurteilt den Zielplan als
+diese Person und prüft Lese- und Startrecht, Revision, Ressourcen, Workspaces,
+Maschinen und Scripts beim Anlegen des gerufenen Runs erneut wie bei einem Start
+durch eine Person. Ein Plan, den die Person nicht lesen oder starten darf, ist
+nicht rufbar (`plan_jump_target_unavailable`).
+
+### Fehlercodes
+
+Die Codes eines Aufrufs tragen das Präfix `plan_jump_`:
+
+- `plan_jump_invalid`: Ein Jump- oder Signal-Node ist nicht richtig eingestellt.
+- `plan_jump_target_unavailable`: Der Zielplan fehlt, ist der Person nicht
+  freigegeben oder nicht startbar.
+- `plan_jump_entry_unavailable`: Der Einstieg fehlt, ist nicht freigegeben oder
+  führt nicht zu einem End.
+- `plan_jump_interface_changed`: Der Einstieg hat sich seit der Wahl geändert.
+- `plan_jump_input_invalid`: Ein Wert fehlt oder hat den falschen Typ.
+- `plan_jump_payload_limit`: Die Werte überschreiten die Grenze.
+- `plan_jump_cycle`: Der Aufruf würde einen Kreis schließen.
+- `plan_jump_timeout`: Die Frist ist abgelaufen.
+- `plan_jump_target_failed`: Der gerufene Run ist gescheitert.
+- `plan_jump_target_cancelled`: Der gerufene Run wurde gestoppt.
+- `plan_jump_no_signal`: Der gerufene Run endete ohne das erwartete Signal.
+- `plan_jump_cleanup_open`: Das Cleanup des gerufenen Runs ist nicht bestätigt.
+- `plan_jump_handover_unavailable`: Der Workspace lässt sich nicht sicher
+  übergeben.
+- `plan_jump_resource_cycle`: Aufrufer und Ziel warten gegenseitig auf einen
+  Workspace.
+- `plan_jump_cancelled`: Der aufrufende Run wurde gestoppt oder beendet.
+- `plan_jump_start_conflict`: Der gerufene Run existiert schon, oder der Aufruf
+  wurde zurückgezogen.
+- `plan_jump_start_blocked`: Das Ziel muss warten, weil Plan oder Workspace
+  belegt sind.
+- `plan_jump_invocation_missing`: Der gespeicherte Aufruf wurde nicht gefunden.
+
+Die Agentenwerkzeuge und Pica melden einen nicht lesbaren Jump- oder
+Signal-Node als `graph_invalid`. Die Planprüfung nennt ihre Befunde mit
+`jumpTarget`, `jumpEntry`, `jumpInterface`, `jumpWait`, `jumpTimeout`,
+`jumpWorkspace`, `jumpInput`, `jumpBoundary`, `jumpCycle`, `returnContract`,
+`signalName` und `manualStart`.
+
+### Agentenwerkzeuge und Notation
+
+`create_plan` und `update_plan` legen die Nodes mit `addNode` an
+(`type: jump` mit `direction: in` oder `out`, `type: signal`) und ändern sie mit
+`updateNode`; Start (`name`, `callable`, `inputs`) und End (`returns`,
+`bindings`) tragen ihre Felder ebenso. Listen und `bindings` werden als Ganzes
+ersetzt. Ein neuer Jump IN ist aufrufbar; ein neuer Jump OUT hat noch kein Ziel, geht
+ohne Warten weiter (`continue`), hat eine Frist von 60 Minuten und behält seinen
+Workspace. Die
+Ausgänge `error-out` und `timeout-out` verbindet `connect` mit `fromPort` und
+`toPort: flow-in`; ein Wertport (`entry:<Name>`, `run-id-out`, `reason-out`,
+`payload-out`, `return:<Name>`) an `input:<Name>` eines Nodes mit Eingaben oder
+an `payload-in` eines Signals ist die Bindung `port` dieser Eingabe.
+
+In der Plan-Notation heißen die Nodes `type=jump` (mit `direction=in|out`) und
+`type=signal`. Die Attribute tragen die Namen der Felder: `name`, `isEnabled`
+(nur bei `false` geschrieben), `inputs` und `returns` (als `name`, `name:typ`,
+bei Eingaben `name!` für Pflicht, bei Standardwerten als JSON), `target` (JSON),
+`wait`, `signalName`, `timeoutMinutes` (Minuten oder `unlimited`), `workspace`,
+`payloadType`; am Start `name`, `callable` und `inputs`, am End `returns`. Kanten
+verlassen einen Jump OUT mit `[branch=error]` oder `[branch=timeout]`; ein
+Wertport wird als `[in=<Eingabe>, port="entry:<Name>"]` gelesen. Was ein Plan
+ohne diese Felder nicht hat, schreibt die Notation auch nicht, und sie liest
+jede geschriebene Form unverändert zurück.
 
 ## Sequenzanzeige des Laufs
 

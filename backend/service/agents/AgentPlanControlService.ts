@@ -278,6 +278,8 @@ export class AgentPlanControlService {
   ): Promise<ExecutionIssue> {
     if (issues.some((issue) => issue.reason === "startEndDisconnected"))
       return { code: "plan_start_end_disconnected" };
+    if (issues.some((issue) => issue.reason === "manualStart"))
+      return { code: "plan_manual_start_unavailable" };
     try {
       const snapshot = await this.dependencies.preparation?.prepare(
         userId,

@@ -24,6 +24,7 @@ import {
   planReturnPath,
 } from "./plan-flow-route";
 import { planLinkChannel } from "./plan-links";
+import { planPortDisplayName } from "./plan-jump/plan-jump-model";
 
 import type { EdgeProps, InternalNode } from "@xyflow/react";
 import type { TFunction } from "i18next";
@@ -50,6 +51,8 @@ const LABEL_MARKS: Readonly<Record<PlanLinkChannel, string>> = {
   false: "",
   case: "",
   event: "",
+  error: "",
+  timeout: "",
 };
 
 /** The lowest edge of a card, or 0 while it is not measured yet. */
@@ -116,6 +119,10 @@ function dataLabelText(
   const input = link.isLoopInput
     ? t(`plans.loops.inputName.${link.parameter}`)
     : link.parameter;
+  if (link.fromPort !== undefined) {
+    const output = planPortDisplayName(link.fromPort);
+    return output === input ? input : `${output} · ${input}`;
+  }
   return link.output
     ? `${t(`plans.stack.output.${link.output}`)} · ${input}`
     : input;

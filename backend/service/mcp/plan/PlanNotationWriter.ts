@@ -1,6 +1,7 @@
 import { planEdgeBranch, planEdgeKind } from "@/definition/AgentPlanBranching";
 import { isPlanResultNode } from "@/definition/AgentPlanGraph";
 import { planGroupEdges } from "@/definition/AgentPlanGroup";
+import { isPlanEntryNode, isPlanJumpOut } from "@/definition/AgentPlanJump";
 
 import { planNotationTargetEntries } from "./PlanNotationAgentWriter";
 import { isSamePlanValue } from "./PlanNotationEquality";
@@ -86,11 +87,10 @@ function edgeStatement(edge: AgentPlanEdge): string {
   if (kind === "flow") return `${link};`;
   if (kind === "branch") {
     const branch = planEdgeBranch(edge) ?? "true";
-    // A value output `case:<id>` is quoted; true and false stay words.
-    const entry =
-      branch === "true" || branch === "false"
-        ? wordEntry("branch", branch)
-        : textEntry("branch", branch);
+    // A value output `case:<id>` is quoted; the fixed outputs stay words.
+    const entry = branch.startsWith("case:")
+      ? textEntry("branch", branch)
+      : wordEntry("branch", branch);
     return `${link}${planNotationAttributeList([entry])};`;
   }
   if (kind === "condition")
@@ -107,6 +107,11 @@ function edgeAttributes(
 ): readonly PlanNotationEntry[] | null {
   if (!source || target.type === "group") return null;
   const isLoop = target.type === "loop";
+  // A value port is read by name; a loop takes only its count and its while input.
+  if (binding.kind === "port")
+    return !isLoop && (isPlanEntryNode(source) || isPlanJumpOut(source))
+      ? [wordEntry("port", binding.port)]
+      : null;
   if (binding.kind === "source")
     return ["parameter", "task", "variable"].includes(source.type) ? [] : null;
   if (binding.kind === "stack") {
@@ -123,7 +128,8 @@ function edgeAttributes(
 function boundNode(
   binding: Exclude<AgentPlanBinding, { kind: "literal" }>,
 ): string {
-  if (binding.kind === "source") return binding.nodeId;
+  if (binding.kind === "source" || binding.kind === "port")
+    return binding.nodeId;
   return binding.kind === "stack" ? binding.stackId : binding.stepId;
 }
 
@@ -175,7 +181,8 @@ function bindingForms(
   context: PlanNotationWriterContext,
 ): readonly BindingForm[] {
   if (!("bindings" in node)) return [];
-  return Object.entries(node.bindings).map(([name, binding]) =>
+  // An end has bindings only when it returns something.
+  return Object.entries(node.bindings ?? {}).map(([name, binding]) =>
     bindingForm(node, name, { binding, context }),
   );
 }

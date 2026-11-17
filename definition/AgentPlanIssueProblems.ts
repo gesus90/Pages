@@ -84,6 +84,18 @@ export const AGENT_PLAN_ISSUE_PROBLEMS = [
   "swarmRemoteUnsupported",
   "swarmIncomplete",
   "swarmInvalid",
+  "jumpTarget",
+  "jumpEntry",
+  "jumpInterface",
+  "jumpWait",
+  "jumpTimeout",
+  "jumpWorkspace",
+  "jumpInput",
+  "jumpBoundary",
+  "jumpCycle",
+  "returnContract",
+  "signalName",
+  "manualStart",
 ] as const;
 
 export type AgentPlanIssueProblem = (typeof AGENT_PLAN_ISSUE_PROBLEMS)[number];

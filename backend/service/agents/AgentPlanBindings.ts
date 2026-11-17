@@ -79,6 +79,9 @@ export function planBindings(
         if (binding.kind === "literal") return [name, binding.value];
         if (isPendingResult(binding))
           return [name, { type: "text", text: "[pending predecessor result]" }];
+        // A value of a call exists only after the call; the entries were bound before preparation.
+        if (binding.kind === "port")
+          return [name, { type: "text", text: "[pending call result]" }];
         if (binding.kind === "stack")
           return [name, stackValue(plan, binding, declared)];
         return [name, sourceValue(plan, binding.nodeId, { tasks, declared })];

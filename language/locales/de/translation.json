@@ -903,6 +903,25 @@
         "plan_sources_failed": "Die aktuelle Agent-Vorlage konnte nicht geladen werden. Bitte erneut einfügen.",
         "plan_remote_unavailable": "Remote-Ausführung ist gesperrt: Runner, Modellroute oder Interpreter sind nicht bereit. Kein lokaler Ersatz.",
         "plan_start_end_disconnected": "Start ist nicht mit End verbunden.",
+        "plan_manual_start_unavailable": "Dieser Plan nimmt nur Aufrufe anderer Pläne entgegen. Starte ihn aus einem aufrufenden Plan oder füge einen Start hinzu, der zu einem Ende führt.",
+        "plan_jump_invalid": "Der Jump- oder Signal-Knoten ist nicht richtig eingerichtet. Prüfe Richtung, Ziel, Warten, Signalnamen und deklarierte Werte.",
+        "plan_jump_target_unavailable": "Der aufgerufene Plan steht der Person, die diesen Plan ausführt, nicht zur Verfügung. Er wurde entfernt, ist nicht mit ihr geteilt oder kann nicht gestartet werden.",
+        "plan_jump_entry_unavailable": "Der gewählte Einstieg des aufgerufenen Plans existiert nicht mehr, ist nicht für Aufrufe freigegeben oder führt nicht zu einem Ende.",
+        "plan_jump_interface_changed": "Der aufgerufene Plan hat sich nach dem Aufruf geändert. Öffne den Jump-Knoten und wähle den Einstieg erneut.",
+        "plan_jump_input_invalid": "Ein Wert für den aufgerufenen Plan fehlt oder hat den falschen Typ. Der aufgerufene Plan wurde nicht gestartet.",
+        "plan_jump_payload_limit": "Die Werte dieses Aufrufs sind größer, als ein Lauf aufbewahrt. Verkleinere sie; es wurde nichts abgeschnitten.",
+        "plan_jump_cycle": "Dieser Aufruf würde einen Plan ausführen, der schon Teil der Aufrufkette ist. Pläne dürfen sich nicht im Kreis aufrufen.",
+        "plan_jump_timeout": "Der aufgerufene Plan hat nicht innerhalb der eingestellten Zeit geantwortet.",
+        "plan_jump_target_failed": "Der aufgerufene Plan ist fehlgeschlagen.",
+        "plan_jump_target_cancelled": "Der aufgerufene Plan wurde gestoppt, bevor er geantwortet hat.",
+        "plan_jump_no_signal": "Der aufgerufene Plan ist beendet worden, ohne das erwartete Signal zu senden.",
+        "plan_jump_cleanup_open": "Der aufgerufene Plan ist beendet, aber die Bereinigung seiner Prozesse oder Arbeitskopien ist nicht bestätigt.",
+        "plan_jump_handover_unavailable": "Der Arbeitsplatz konnte nicht sicher übergeben werden: Ein anderer Schreiber dieses Plans ist noch aktiv oder die Reservierung hat sich geändert.",
+        "plan_jump_resource_cycle": "Der aufgerufene Plan wartet auf einen Arbeitsplatz, den dieser Plan hält, während er auf den aufgerufenen Plan wartet. Teile den Arbeitsplatz mit diesem Plan oder nutze einen getrennten.",
+        "plan_jump_cancelled": "Der Aufruf wurde abgebrochen, weil der aufrufende Lauf gestoppt wurde oder endete.",
+        "plan_jump_start_conflict": "Der aufgerufene Lauf wurde bereits angelegt oder der Aufruf wurde zurückgezogen.",
+        "plan_jump_start_blocked": "Der aufgerufene Plan muss warten: Sein Plan oder ein benötigter Arbeitsplatz wird von einem anderen Lauf benutzt.",
+        "plan_jump_invocation_missing": "Der Aufruf wurde nach dem Speichern nicht gefunden.",
         "plan_invalid": "Planfelder und Graphknoten prüfen.",
         "swarm_invalid": "Swarm prüfen: 1 bis 10 Helfer, eine Zeitgrenze von 1 bis 1440 Minuten und ein Arbeitsverzeichnis im Arbeitsbereich.",
         "swarm_remote_unsupported": "Swarm-Knoten laufen nur auf dem Pages-Rechner. Wähle ein lokales Ziel.",
@@ -5454,7 +5473,9 @@
       "decision": "Decision",
       "stack": "Stack",
       "asset": "Asset",
-      "swarm": "Swarm"
+      "swarm": "Swarm",
+      "jump": "Jump",
+      "signal": "Signal"
     },
     "status": {
       "waiting": "Wartet",
@@ -5555,7 +5576,19 @@
       "decisionCases": "Eine Klassifizierung braucht 2 bis 20 Werte mit eindeutigen, nicht leeren Namen von höchstens 60 Zeichen.",
       "swarmRemoteUnsupported": "Swarm-Knoten laufen nur auf dem Pages-Rechner. Wähle ein lokales Ziel.",
       "swarmIncomplete": "Dem Swarm fehlen Aufgabe, Hauptmodell oder Helfermodelle.",
-      "swarmInvalid": "Swarm prüfen: 1 bis 10 Helfer, eine Zeitgrenze von 1 bis 1440 Minuten und ein Arbeitsverzeichnis im Arbeitsbereich."
+      "swarmInvalid": "Swarm prüfen: 1 bis 10 Helfer, eine Zeitgrenze von 1 bis 1440 Minuten und ein Arbeitsverzeichnis im Arbeitsbereich.",
+      "jumpTarget": "Dieser Jump hat kein Ziel, oder der Zielplan ist nicht mehr verfügbar. Wähle einen Plan, den du aufrufen darfst.",
+      "jumpEntry": "Der gewählte Einstieg existiert nicht mehr, ist nicht für Aufrufe freigegeben oder seine Enden deklarieren widersprüchliche Rückgaben. Wähle einen anderen Einstieg.",
+      "jumpInterface": "Das Ziel hat Eingaben oder Rückgaben geändert, seit dieser Jump sie gespeichert hat. Öffne den Jump und übernimm die aktuelle Schnittstelle; Verbindungen, die nicht mehr passen, bleiben als ungültig markiert.",
+      "jumpWait": "Das Warten ist nicht gültig. Wähle Sofort weiter, Auf Abschluss warten oder Auf Signal warten und benenne bei Letzterem das Signal.",
+      "jumpTimeout": "Die Frist muss eine ganze Zahl von 1 bis 43200 Minuten sein oder Unbegrenzt.",
+      "jumpWorkspace": "Ein gemeinsamer Arbeitsplatz braucht ein Warten. Wähle den eigenen Arbeitsplatz des Zielplans oder warte auf Abschluss oder Signal.",
+      "jumpInput": "Die deklarierten Werte prüfen: höchstens 16, eindeutige Namen mit einem Buchstaben am Anfang, gültige Typen und Vorgabewerte, die zum Typ passen.",
+      "jumpBoundary": "Ein empfangender Jump gehört auf die äußere Ebene des Plans, nie in eine Gruppe oder einen Loop.",
+      "jumpCycle": "Dieser Aufruf würde einen Plan ausführen, der schon Teil der Aufrufkette ist. Pläne dürfen sich nicht im Kreis aufrufen.",
+      "returnContract": "Die von diesem Einstieg erreichbaren Enden deklarieren verschiedene Rückgaben, daher könnte sich ein Aufrufer auf keine verlassen. An jedem erreichbaren Ende dieselben Rückgaben deklarieren.",
+      "signalName": "Das Signal benennen: Es beginnt mit einem Buchstaben und hat höchstens 64 Buchstaben, Ziffern, Unterstriche, Punkte oder Bindestriche.",
+      "manualStart": "Dieser Plan nimmt nur Aufrufe entgegen. Füge einen Start hinzu, der zu einem Ende führt, um ihn von Hand zu starten."
     },
     "session": {
       "runner": {
@@ -5583,7 +5616,9 @@
       "condition": "Boolesches Ergebnis (bool)",
       "true": "Zweig true",
       "false": "Zweig false",
-      "event": "Ereignis · neuer Prompt"
+      "event": "Ereignis · neuer Prompt",
+      "error": "Fehlerzweig",
+      "timeout": "Zeitzweig"
     },
     "zoomIn": "Vergrößern",
     "zoomOut": "Verkleinern",
@@ -6104,7 +6139,8 @@
         "remotePagesUnavailable": "Pages-Zugang und Dateiübergabe sind für diesen Modellzugang nicht verfügbar. Eine Remote-CLI mit Runner 1.6.0 oder neuer wählen.",
         "remoteToolIncompatible": "Die OpenCode-Version auf dem Remote-Host erfüllt den ACP-Vertrag nicht, den Pages prüft. Die Einstellungen des Runners nennen den Grund.",
         "remoteCatalogStale": "Das Inventar dieses Runners ist veraltet oder unvollständig. Bekannte Profile bleiben sichtbar, starten aber erst nach einer vollständigen aktuellen Meldung des verbundenen Runners.",
-        "remoteInterpreterRemoved": "Der Interpreter fehlt laut vollständigem Inventar des Runners. Ihn auf dem Remote-Host installieren oder einen gemeldeten Interpreter wählen."
+        "remoteInterpreterRemoved": "Der Interpreter fehlt laut vollständigem Inventar des Runners. Ihn auf dem Remote-Host installieren oder einen gemeldeten Interpreter wählen.",
+        "startEndDisconnected": "Von diesem Einstieg führt kein Ablauf zu einem Ende, daher kann ein Aufruf nicht abgeschlossen werden."
       },
       "state": {
         "none": {
@@ -6312,7 +6348,9 @@
         "decision": "Decision",
         "stack": "Stack",
         "asset": "Asset",
-        "swarm": "Swarm"
+        "swarm": "Swarm",
+        "jump": "Jump",
+        "signal": "Signal"
       },
       "hint": {
         "start": "Beginn eines Ablaufs hinzufügen.",
@@ -6326,7 +6364,9 @@
         "decision": "Eine Verzweigung hinzufügen: Das Boolean-Ergebnis eines Agents entscheidet, welcher Zweig weiterläuft.",
         "stack": "Geordnete Tickets oder Werte; jeder Trigger übergibt den nächsten Eintrag",
         "asset": "Eine Datei als Quelle: Bild, Video, Dokument, Audio oder eine andere Datei.",
-        "swarm": "Ein Hauptmodell verteilt eine Aufgabe zur Laufzeit auf mehrere Helfer"
+        "swarm": "Ein Hauptmodell verteilt eine Aufgabe zur Laufzeit auf mehrere Helfer",
+        "jump": "Pläne verbinden: einen anderen Plan aufrufen oder einen Aufruf empfangen.",
+        "signal": "Eine Zwischenmeldung an den Aufrufer des Laufs senden."
       },
       "addTitle": "{{type}} hinzufügen",
       "add": "Hinzufügen",
@@ -7216,7 +7256,202 @@
       "false": "false",
       "event": "Ereignis · neuer Prompt",
       "case": "Wert",
-      "decisionInput": "Daten"
+      "decisionInput": "Daten",
+      "error": "Fehler",
+      "timeout": "Zeit abgelaufen"
+    },
+    "jump": {
+      "title": {
+        "out": "Jump · OUT",
+        "in": "Jump · IN"
+      },
+      "caption": {
+        "out": "Springt zu einem anderen Plan",
+        "in": "Einstieg für Aufrufe"
+      },
+      "defaultName": "Einstieg",
+      "noTarget": "Kein Ziel gewählt",
+      "noTargets": "Noch kein Plan aufrufbar. Ein Plan erscheint hier, sobald er einen Start oder einen Jump IN für Aufrufe freigibt.",
+      "none": "keine",
+      "required": "Pflicht",
+      "invalidPort": "Dieser Port gehört nicht mehr zur gespeicherten Konfiguration. Eine Verbindung nutzt ihn noch.",
+      "ports": "Ports von {{name}}",
+      "startLine": "Verbindung von {{port}} von {{name}} beginnen",
+      "unconnected": "{{ports}} unverbunden: Plan scheitert",
+      "unlimited": "Unbegrenzt",
+      "minutes": "min",
+      "interface": "Eingaben: {{inputs}} · Rückgaben: {{returns}}",
+      "takeInterface": "Aktuelle Schnittstelle übernehmen",
+      "choosePlan": "Plan wählen …",
+      "chooseEntry": "Einstieg wählen …",
+      "unavailablePlan": "{{name}} (nicht mehr verfügbar)",
+      "unavailableEntry": "{{name}} (nicht mehr verfügbar)",
+      "targetPlan": "Zielplan",
+      "targetEntry": "Einstieg",
+      "entryKind": {
+        "start": "Start",
+        "in": "Jump IN"
+      },
+      "entryName": "Name",
+      "entryNameInvalid": "Einen Namen mit 1 bis 120 Zeichen ohne Steuerzeichen eingeben.",
+      "entryEnabled": "Für Aufrufe freigegeben",
+      "entryHint": "Beginnt einen neuen Lauf, kein Sprung in einen aktiven. Nur auf der äußeren Planebene. Start bleibt für manuelle Läufe.",
+      "in": {
+        "enabled": "Für Aufrufe freigegeben",
+        "disabled": "Für Aufrufe gesperrt"
+      },
+      "dialog": {
+        "hint": "Ein Jump verbindet Pläne. Beim Wechsel von Richtung oder Ziel bleiben Verbindungen erhalten; was nicht mehr passt, bleibt im Plan und wird als ungültig markiert."
+      },
+      "direction": {
+        "label": "Richtung",
+        "out": "OUT",
+        "in": "IN"
+      },
+      "wait": {
+        "label": "Warten",
+        "continue": "Sofort weiter",
+        "continueHint": "Geht weiter, sobald der Aufruf angenommen ist. Das heißt weder, dass das Ziel gestartet ist, noch dass es erfolgreich war.",
+        "completion": "Auf Abschluss warten",
+        "completionHint": "Wartet, bis der Ziellauf erfolgreich beendet und seine Bereinigung bestätigt ist.",
+        "signal": "Auf Signal warten",
+        "signalHint": "Wartet auf das benannte Signal dieses Aufrufs. Das sagt nichts über das Ende des Ziels."
+      },
+      "signalName": "Signalname",
+      "signalNameInvalid": "Mit einem Buchstaben beginnen, danach Buchstaben, Ziffern, Unterstrich, Punkt oder Bindestrich; höchstens 64 Zeichen.",
+      "payloadType": "Typ der Nutzlast",
+      "timeout": "Frist",
+      "timeoutInvalid": "Eine ganze Zahl von 1 bis {{max}} Minuten eingeben oder Unbegrenzt wählen.",
+      "workspace": {
+        "label": "Arbeitsplatz",
+        "own": "Eigener des Zielplans",
+        "ownHint": "Der Zielplan arbeitet in seinem eigenen Arbeitsplatz.",
+        "shared": "Gemeinsam mit diesem Plan",
+        "sharedHint": "Der Zielplan übernimmt den Arbeitsplatz dieses Plans, solange dieser wartet."
+      },
+      "workspaceShort": {
+        "own": "eigener Arbeitsplatz",
+        "shared": "gemeinsamer Arbeitsplatz"
+      },
+      "continueHint": "Kein gemeinsamer Arbeitsplatz. Keine Frist.",
+      "duration": {
+        "days": "{{count}} Tg.",
+        "hours": "{{count}} Std.",
+        "minutes": "{{count}} Min."
+      },
+      "port": {
+        "out": {
+          "continue": "Beauftragt",
+          "completion": "Fertig",
+          "signal": "Signal"
+        },
+        "error": "Fehler",
+        "timeout": "Zeit abgelaufen",
+        "runId": "Lauf-ID",
+        "reason": "Grund",
+        "payload": "Nutzlast"
+      },
+      "problem": {
+        "jumpTarget": "Der Zielplan ist nicht mehr verfügbar: entfernt oder nicht mehr für dich freigegeben. Wähle einen anderen Plan.",
+        "jumpEntry": "Der gewählte Einstieg existiert nicht mehr, ist nicht für Aufrufe freigegeben oder seine Enden deklarieren widersprüchliche Rückgaben. Wähle einen anderen Einstieg.",
+        "jumpInterface": "Das Ziel hat Eingaben oder Rückgaben geändert, seit dieser Jump sie gespeichert hat. Übernimm die aktuelle Schnittstelle; Verbindungen, die nicht mehr passen, bleiben als ungültig markiert."
+      },
+      "run": {
+        "waiting": "Wartet auf {{plan}} · {{duration}}",
+        "waitingShort": "Wartet auf {{plan}}",
+        "remaining": "noch {{duration}}",
+        "overdue": "Frist erreicht",
+        "phase": {
+          "handedOver": "Arbeitsplatz übergeben",
+          "signalWaiting": "Signal empfangen, wartet auf Arbeitsplatz",
+          "resultPaused": "Ergebnis liegt vor, geht nach dem Fortsetzen weiter",
+          "timeoutPaused": "Frist abgelaufen, geht nach dem Fortsetzen weiter"
+        },
+        "state": {
+          "queued": "In der Warteschlange",
+          "starting": "Wird gestartet",
+          "running": "Läuft",
+          "succeeded": "Zielplan erfolgreich beendet",
+          "failed": "Zielplan fehlgeschlagen",
+          "timed_out": "Frist abgelaufen",
+          "cancelled": "Aufruf abgebrochen",
+          "accepted": "Aufruf beauftragt",
+          "signalled": "Signal empfangen"
+        },
+        "targetStatus": "Aufgerufener Lauf: {{status}}",
+        "openTarget": "Lauf von {{plan}} öffnen",
+        "calledBy": "Dieser Lauf wurde durch einen Aufruf aus einem anderen Plan gestartet.",
+        "openSource": "Aufrufenden Lauf öffnen",
+        "reason": "Grund: {{reason}}",
+        "reasonUnknown": "Der Aufruf war nicht erfolgreich."
+      },
+      "targetStatus": {
+        "queued": "In der Warteschlange",
+        "none": "Noch kein Lauf",
+        "running": "Läuft",
+        "pausing": "Pause angefordert",
+        "paused": "Pausiert",
+        "stopping": "Wird gestoppt",
+        "succeeded": "Erfolgreich",
+        "failed": "Fehlgeschlagen",
+        "cancelled": "Abgebrochen",
+        "work_done_closeout_open": "Arbeit fertig, Abschluss offen"
+      }
+    },
+    "signal": {
+      "title": "Signal senden",
+      "caption": "Zwischenmeldung",
+      "name": "Name",
+      "noPayload": "Keine Nutzlast",
+      "payload": "Nutzlast",
+      "payloadHint": "Mit einem Typ erhält der Knoten einen Werteingang für die Nutzlast.",
+      "receiverHint": "Der Empfänger ist immer der Aufrufer dieses Laufs und nicht änderbar. Ein Lauf, den niemand aufgerufen hat, geht ohne Zustellung weiter.",
+      "dialog": {
+        "title": "Signal",
+        "hint": "Sendet eine Zwischenmeldung an den Aufrufer des Laufs."
+      },
+      "run": {
+        "delivered": "Signal „{{name}}“ zugestellt",
+        "no_caller": "Signal „{{name}}“ nicht zugestellt: Niemand hat diesen Lauf aufgerufen. Der Lauf geht weiter.",
+        "duplicate": "Signal „{{name}}“ nicht zugestellt: Es wurde für diesen Aufruf schon gesendet.",
+        "closed": "Signal „{{name}}“ nicht zugestellt: Der Aufruf war schon entschieden."
+      }
+    },
+    "entry": {
+      "inputs": "Eingabeparameter",
+      "inputsHint": "Was ein Aufruf dieses Einstiegs übergibt. Jede Eingabe wird ein Werteausgang des Einstiegs.",
+      "returns": "Rückgaben",
+      "returnsHint": "Was ein aufgerufener Lauf von diesem Ende zurückgibt. Jede Rückgabe wird ein Werteingang, der am Ende gebunden wird.",
+      "inputsName": "Name der Eingabe {{index}}",
+      "returnsName": "Name der Rückgabe {{index}}",
+      "typeOf": "Typ von Wert {{index}}",
+      "defaultOf": "Vorgabewert der Eingabe {{index}}",
+      "defaultValue": "Vorgabewert",
+      "required": "Pflicht",
+      "remove": "Wert {{index}} entfernen",
+      "limit": "Höchstens {{count}} Werte.",
+      "add": {
+        "inputs": "Eingabe hinzufügen",
+        "returns": "Rückgabe hinzufügen"
+      },
+      "nameInvalid": "Mit einem Buchstaben beginnen, danach nur Buchstaben, Ziffern und Unterstrich; höchstens 64 Zeichen.",
+      "nameDuplicate": "Dieser Name ist doppelt vergeben. Namen müssen eindeutig sein.",
+      "type": {
+        "text": "Text",
+        "number": "Zahl",
+        "ticket": "Ticket",
+        "workspace": "Workspace",
+        "wiki": "Wiki-Seite",
+        "asset": "Datei"
+      },
+      "callable": "Von anderen Plänen aufrufbar",
+      "callableShort": "Von anderen Plänen aufrufbar",
+      "callableHint": "Standardmäßig aus. Die Eingaben unten bleiben gespeichert, solange der Schalter aus ist; ihre Werteausgänge erscheinen auf der Karte nur, solange der Start aufrufbar ist.",
+      "startName": "Name (optional)",
+      "startTitle": "Start",
+      "startHint": "Der Beginn manueller Läufe. Andere Pläne dürfen ihn aufrufen, wenn du ihn freigibst.",
+      "endTitle": "Ende",
+      "endHint": "Ein aufgerufener Lauf gibt die Rückgaben unten an seinen Aufrufer zurück, wenn er erfolgreich endet."
     },
     "decision": {
       "caption": "Logik · Boolean",

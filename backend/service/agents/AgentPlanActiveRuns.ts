@@ -73,6 +73,7 @@ export function activeStages(
           number === undefined ||
           node.type === "start" ||
           node.type === "end" ||
+          (node.type === "jump" && node.direction === "in") ||
           // A decision only reads a result and a stack only hands over an entry; neither is work a person waits for.
           node.type === "decision" ||
           node.type === "stack"

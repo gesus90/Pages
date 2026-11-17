@@ -79,12 +79,13 @@ export function hasStepStarted(step: AgentPlanStepResult | undefined): boolean {
   );
 }
 
-/** Whether the node is a step of its own: only agents and scripts count. */
+/** Whether the node is a step of its own: agents, scripts and the call of another plan count. */
 export function isSequenceStep(node: AgentPlanNode | undefined): boolean {
   return (
     node?.type === "agent" ||
     node?.type === "script" ||
-    node?.type === "git_closeout"
+    node?.type === "git_closeout" ||
+    (node?.type === "jump" && node.direction === "out")
   );
 }
 

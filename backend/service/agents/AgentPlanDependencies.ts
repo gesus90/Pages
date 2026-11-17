@@ -10,6 +10,7 @@ import type { AgentPlanRemoteExecution } from "./AgentPlanRemoteExecution";
 import type { AgentPlanRemoteTargets } from "./AgentPlanRemoteTargets";
 import type { AgentPlanRepository } from "@/backend/database/repositories/agent/AgentPlanRepository";
 import type { AgentPlanRunRepository } from "@/backend/database/repositories/agent/AgentPlanRunRepository";
+import type { AgentPlanInvocationRepository } from "@/backend/database/repositories/agent/AgentPlanInvocationRepository";
 import type { AgentWorkspaceService } from "./AgentWorkspaceService";
 import type { AgentProfileService } from "./AgentProfileService";
 import type { AgentParameterService } from "./AgentParameterService";
@@ -42,6 +43,11 @@ export interface PlanDependencies {
   /** Durable accounting read projection, separate from run controls. */
   readonly usage?: Pick<AgentSessionStore, "listRunUsage">;
   readonly startResources?: Pick<AgentPlanStartResources, "owners">;
+  /** The calls plans made to each other; absent, runs show no links between plans. */
+  readonly invocations?: Pick<
+    AgentPlanInvocationRepository,
+    "find" | "findByTargetRun" | "pendingStarts"
+  >;
   /** Changes teams and owner and records the history of plans. */
   readonly accessChanges?: AgentPlanAccessRepository;
   /** Reads the history of plans. */

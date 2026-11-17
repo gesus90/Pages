@@ -88,6 +88,7 @@ function describeFlow(plan: AgentPlan): AgentPlanRunFlow {
         isPlanFlowNode(node) &&
         node.type !== "start" &&
         node.type !== "end" &&
+        !(node.type === "jump" && node.direction === "in") &&
         node.type !== "decision" &&
         node.type !== "stack"
       );
