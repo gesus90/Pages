@@ -53,7 +53,7 @@ Der Worker läuft in einer getrennten Prozessgruppe weiter, wenn der Transport e
 
 ## OpenRouter auf dem Runner
 
-Ab Runner-Version `1.2.0` (aktuell `1.22.0`) unterstützt der Runner OpenRouter einschließlich der Modell-IDs mit `~`-Präfix; `node ~/.local/share/pages-runner/runner.mjs --version` zeigt die Version ohne Kopplung. Aktualisierungen erfolgen über den unten beschriebenen authentifizierten Paketvertrag; neue Installationen verwenden bereits dessen Startschicht.
+Ab Runner-Version `1.2.0` (aktuell `1.23.0`) unterstützt der Runner OpenRouter einschließlich der Modell-IDs mit `~`-Präfix; `node ~/.local/share/pages-runner/runner.mjs --version` zeigt die Version ohne Kopplung. Aktualisierungen erfolgen über den unten beschriebenen authentifizierten Paketvertrag; neue Installationen verwenden bereits dessen Startschicht.
 
 `POST /settings-api/runners` mit `intent=store-provider-key`, `connectionId`, `provider=openrouter` und `apiKey` verlangt eine aktive Administrator-Sitzung, Admin-Modus, denselben Origin sowie einen online gekoppelten Runner mit aktueller SSH-Revision. Pages übergibt den Schlüssel ausschließlich im authentifizierten Runner-Kanal, ohne ihn in DuckDB oder dem Jobjournal zu speichern. Pro Verbindung ist eine Provider-Anfrage gleichzeitig zulässig, mit 90 Sekunden Antwortfrist. Bei fehlendem Kanal erfolgt keine ersatzweise SSH-Übertragung.
 
@@ -78,7 +78,7 @@ Der Planeditor liest die freigegebenen Modellmetadaten aus demselben OpenRouter-
 
 Standalone-Remote-Agenten verwenden den gewählten OpenRouter-Chatweg oder ab Runner 1.4.0 Codex CLI bzw. Claude Code als native CLI-Einzelsitzung. Remote-Scripts verwenden die Runner-Identitäten Bash, Python 3 oder Node.js mit geprüftem Binärdigest. Gruppen und Schleifen mit Remote-Ziel und interaktive ACP-Gruppensitzungen bleiben gesperrt. Ressourcenparameter und Pages-Werkzeuge benötigen Runner 1.6.0 (siehe unten). Resultatbindungen werden erst beim Dispatch aus erfolgreichen Vorgängern ergänzt. Ein Pages-Prozessneustart stellt keine DAG-Fortsetzung her; der dauerhafte Jobstand bleibt erhalten und wird weiterhin abgeglichen.
 
-Die Script-Prozessgruppe erhält ausschließlich eine erlaubte Umgebung, private Quell-/HOME-Dateien, JSON-stdin, endliche Laufzeit, maximal 64 KiB Gesamtausgabe, CPU-, Dateigrößen-, Deskriptor-, Prozess- und Adressraumgrenzen. Node läuft ohne JIT/Wasm mit 128-MiB-Heap und 1-GiB-Adressraum; Bash/Python erhalten 512 MiB Adressraum. Dies ist keine Sandbox gegen bösartigen Code desselben Betriebssystemkontos und keine aggregierte Cgroup-Speicherquote. Vor Ressourcensignalen werden PID-Startzeit und eigene Prozessmarker geprüft. Bestätigtes Cleanup entfernt die privaten Laufzeitdateien. Terminale Claim-/Ergebnisjournale bleiben zur Verhinderung einer Wiederholung bestehen; pro Kopplung sind höchstens 1000 Jobs zulässig.
+Die Script-Prozessgruppe erhält ausschließlich eine erlaubte Umgebung, private Quell-/HOME-Dateien, JSON-stdin, endliche Laufzeit, maximal 64 KiB Gesamtausgabe, CPU-, Dateigrößen-, Deskriptor-, Prozess- und Adressraumgrenzen. Jeder Script-Prozess erhält 1 GiB Adressraum; jeder Node-Prozess eines Scripts läuft ohne JIT/Wasm mit 128-MiB-Heap, auch wenn ihn ein Bash- oder Python-Script startet (`NODE_OPTIONS`). Der Adressraum wird an alle Kindprozesse vererbt, und Node reserviert allein rund 620 MiB davon; ein kleinerer Wert ließ ein verschachteltes `node` beim Start abbrechen. Der Suchpfad eines Scripts enthält neben `/usr/local/bin:/usr/bin:/bin` das Verzeichnis der Node-Programmdatei, die der Runner als Node.js-Profil meldet (meist eine Versionsverwaltung außerhalb der Systempfade); der Login-PATH und andere Umgebungsvariablen des Runner-Dienstes werden nicht übernommen. Dies ist keine Sandbox gegen bösartigen Code desselben Betriebssystemkontos und keine aggregierte Cgroup-Speicherquote. Vor Ressourcensignalen werden PID-Startzeit und eigene Prozessmarker geprüft. Bestätigtes Cleanup entfernt die privaten Laufzeitdateien. Terminale Claim-/Ergebnisjournale bleiben zur Verhinderung einer Wiederholung bestehen; pro Kopplung sind höchstens 1000 Jobs zulässig.
 
 ## Remote-CLI-Agenten (Runner 1.4.0)
 
@@ -631,8 +631,8 @@ einem privaten Release, spätere Pages-Versionen bieten ihn über den lokalen,
 authentifizierten Kanal an. Der Installer startet einen bereits aktiven Runner
 nicht pauschal neu. Die lokale Loopback-Adresse bleibt unverändert.
 
-Unterstützt werden die aktuelle Version `1.22.0` und die unmittelbar vorherige
-Version `1.21.0`, jeweils nur für ihre tatsächlich gemeldeten Fähigkeiten.
+Unterstützt werden die aktuelle Version `1.23.0` und die unmittelbar vorherige
+Version `1.22.0`, jeweils nur für ihre tatsächlich gemeldeten Fähigkeiten.
 Noch ältere Runner können ihre vorhandenen Aufträge und Historien abgleichen,
 aber keine neue Arbeit erhalten. Ein Runner ohne den Updateempfänger benötigt
 einmal die aktuelle Installation mit Startschicht; die vorhandene Kopplung wird
