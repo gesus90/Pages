@@ -6,6 +6,7 @@ import { readScopeSince } from "@/backend/agents/cli/CliProcessScan";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { AgentPlanRecoveryError } from "@/backend/error/AgentPlanRecoveryError";
 import { logCaughtError } from "@/backend/logging/Logger";
+import { isPlanAdministrator } from "@/definition/AgentPlanTeam";
 import { isActivePlanRun } from "@/definition/AgentPlanRunState";
 
 import { compatibleRecoverySessions } from "./AgentPlanRecoverySessions";
@@ -183,13 +184,17 @@ export class AgentPlanRecoveryActions {
       await this.dependencies.runs.controlRun(userId, runId);
     else await this.dependencies.runs.run(userId, runId);
     const source = await this.dependencies.executions.source(runId);
-    if (source.run.userId !== userId)
-      throw new AgentPlanRecoveryError("access_denied");
-    const snapshot = readPlanSnapshot(source.snapshot);
     const plan = await this.dependencies.access.require(
       userId,
       source.run.planId,
     );
+    // Control-only decisions (stop, restart, release) are open to an administrator,
+    // as in `controlRun` and the control state; a resume continues the executor's content.
+    const mayControlForeignRun =
+      !shouldCheckHistory && isPlanAdministrator(plan);
+    if (source.run.userId !== userId && !mayControlForeignRun)
+      throw new AgentPlanRecoveryError("access_denied");
+    const snapshot = readPlanSnapshot(source.snapshot);
     const [latest, isReserved, checkpoints, executions] = await Promise.all([
       this.dependencies.planRuns.latest(plan.id),
       this.dependencies.planRuns.hasReservation(runId),

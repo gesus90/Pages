@@ -5329,6 +5329,8 @@
   },
   "plans": {
     "workspaceLocks": {
+      "menu": "Arbeitsbereich freigeben",
+      "dialogDescription": "Gibt die Sperren eines beendeten Laufs frei, sobald keine Prozesse, Einheiten oder offenen Ressourcen mehr bestehen.",
       "holder": "Arbeitsbereich gesperrt durch Lauf {{run}} · {{status}} · seit {{since}} ({{hours}} Std. {{minutes}} Min.)",
       "reason": {
         "active": "Der Lauf ist aktiv oder pausiert und behält seinen Arbeitsbereich.",

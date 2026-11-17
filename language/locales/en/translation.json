@@ -5329,6 +5329,8 @@
   },
   "plans": {
     "workspaceLocks": {
+      "menu": "Release workspace",
+      "dialogDescription": "Releases the locks of an ended run once no processes, units or open resources remain.",
       "holder": "Workspace held by run {{run}} · {{status}} · since {{since}} ({{hours}} h {{minutes}} min)",
       "reason": {
         "active": "The run is active or paused and retains its workspace.",

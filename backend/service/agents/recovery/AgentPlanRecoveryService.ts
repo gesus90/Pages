@@ -2,6 +2,7 @@ import { AgentPlanRecoveryReplayed } from "@/backend/error/AgentPlanRecoveryRepl
 import { isPlanHistoryReadFailure } from "../AgentPlanControlAccess";
 import { readPlanRecoveryCommand } from "@/backend/agents/AgentPlanRecoveryInput";
 import { planContentDigest } from "@/backend/agents/AgentPlanContentDigest";
+import { AgentError } from "@/backend/error/AgentErrors";
 import { AgentPlanRecoveryError } from "@/backend/error/AgentPlanRecoveryError";
 import { logCaughtError } from "@/backend/logging/Logger";
 import { SerialQueue } from "@/backend/concurrency/SerialQueue";
@@ -445,13 +446,34 @@ export class AgentPlanRecoveryService {
       record.run.id,
     );
     if (!readable) throw new AgentPlanRecoveryError("access_denied");
-    const options = recordingOnly(record.run, record.hasReservation);
+    const options = await this.foreignRunOptions(userId, record);
     if (readable.hiddenFields.length > 0)
       return controlRecoveryView(record, options);
     return {
       ...(await this.fullView(userId, record, options)),
       allowedActions: [],
     };
+  }
+
+  /**
+   * What a reader of another executor's run may decide: only an administrator
+   * restarts or releases it, and never resumes it, which reuses its content.
+   */
+  private async foreignRunOptions(
+    userId: string,
+    record: Awaited<ReturnType<AgentPlanRecoveryRepository["inspect"]>>,
+  ): Promise<ReturnType<typeof recordingOnly>> {
+    const recorded = recordingOnly(record.run, record.hasReservation);
+    if (!this.actions) return recorded;
+    try {
+      await this.dependencies.runs.controlRun?.(userId, record.run.id);
+    } catch (error: unknown) {
+      if (error instanceof AgentError && error.code === "plan_access_denied")
+        return recorded;
+      throw error;
+    }
+    const { facts } = await this.actions.facts(userId, record.run.id, false);
+    return { ...executingOptions(facts), resume: recorded.resume };
   }
 
   private async fullView(

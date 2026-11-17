@@ -2,6 +2,7 @@ import {
   BrushCleaning,
   Copy,
   History,
+  LockOpen,
   MoreHorizontal,
   Pencil,
   Plus,
@@ -22,6 +23,10 @@ import {
 import { isActivePlanRun } from "@/definition/AgentPlanRunState";
 
 import { hasPlanCleanups, PlanCleanupDialog } from "./plan-cleanup-dialog";
+import {
+  PlanWorkspaceReleaseDialog,
+  releasableWorkspaceLocks,
+} from "./plan-workspace-release-dialog";
 
 import type { AgentPlanPage, AgentPlanRun } from "@/definition/AgentPlan";
 import type { AgentPlanControl } from "@/definition/AgentPlanControl";
@@ -44,7 +49,7 @@ function deleteBlocker(
 }
 
 /**
- * The plan menu behind ⋯: Neu, Bearbeiten, Klonen, Als Einmal-Plan kopieren and Entfernen.
+ * The plan menu behind ⋯: Neu, Bearbeiten, Klonen, Als Einmal-Plan kopieren, Arbeitsbereich freigeben and Entfernen.
  * @remarks
  * While cleanups or forced releases of the plan exist, Bereinigungen opens
  * them with their decisions; the expanded panel does not repeat them.
@@ -62,6 +67,8 @@ export function PlanPanelMenu(props: {
   const { t } = useTranslation();
   const { page } = props;
   const [isCleanupOpen, setCleanupOpen] = useState(false);
+  const [isReleaseOpen, setReleaseOpen] = useState(false);
+  const releasable = releasableWorkspaceLocks(props.control);
   const blocker = deleteBlocker(page, props.control);
   return (
     <>
@@ -117,24 +124,25 @@ export function PlanPanelMenu(props: {
               })}
             </DropdownMenuItem>
           ) : null}
+          {releasable.length > 0 ? (
+            <DropdownMenuItem
+              onSelect={() => setReleaseOpen(true)}
+              data-plan-workspace-release
+            >
+              <LockOpen aria-hidden="true" className={ITEM_ICON_CLASS} />
+              {t("plans.workspaceLocks.menu")}
+            </DropdownMenuItem>
+          ) : null}
           <DropdownMenuSeparator />
-          <DropdownMenuItem
-            disabled={blocker !== null}
-            className="text-destructive data-highlighted:bg-destructive-subtle"
-            onSelect={() => props.onOpen("delete")}
-          >
-            <Trash2 aria-hidden="true" className={ITEM_ICON_CLASS} />
-            <span className="flex min-w-0 flex-col">
-              {t("plans.manage.remove")}
-              {blocker ? (
-                <span className="text-xs text-muted-foreground">
-                  {t(blocker)}
-                </span>
-              ) : null}
-            </span>
-          </DropdownMenuItem>
+          <PlanDeleteMenuItem blocker={blocker} onOpen={props.onOpen} />
         </DropdownMenuContent>
       </DropdownMenu>
+      {isReleaseOpen && releasable.length > 0 ? (
+        <PlanWorkspaceReleaseDialog
+          entries={releasable}
+          onClose={() => setReleaseOpen(false)}
+        />
+      ) : null}
       {isCleanupOpen && page.selected ? (
         <PlanCleanupDialog
           planId={page.selected.id}
@@ -171,5 +179,30 @@ function PlanAccessMenuItems(props: {
         {t("plans.access.historyMenu")}
       </DropdownMenuItem>
     </>
+  );
+}
+
+/** Entfernen, which names why it is not available now. */
+function PlanDeleteMenuItem(props: {
+  readonly blocker: string | null;
+  readonly onOpen: (dialog: PlanManagementDialog) => void;
+}): React.ReactElement {
+  const { t } = useTranslation();
+  return (
+    <DropdownMenuItem
+      disabled={props.blocker !== null}
+      className="text-destructive data-highlighted:bg-destructive-subtle"
+      onSelect={() => props.onOpen("delete")}
+    >
+      <Trash2 aria-hidden="true" className={ITEM_ICON_CLASS} />
+      <span className="flex min-w-0 flex-col">
+        {t("plans.manage.remove")}
+        {props.blocker ? (
+          <span className="text-xs text-muted-foreground">
+            {t(props.blocker)}
+          </span>
+        ) : null}
+      </span>
+    </DropdownMenuItem>
   );
 }
