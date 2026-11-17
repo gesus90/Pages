@@ -22,6 +22,10 @@ export interface EndedRunPorts {
   readonly engine: Pick<PlanRunEnginePort, "isActive">;
   readonly findRun: (id: string) => Promise<AgentPlanRun | null>;
   readonly readRun: (userId: string, id: string) => Promise<AgentPlanRun>;
+  readonly acknowledge: (
+    run: AgentPlanRun,
+    journal?: AgentPlanRunJournal,
+  ) => Promise<AgentPlanRun>;
   readonly control: (
     userId: string,
     planId: string,
@@ -70,6 +74,14 @@ export class AgentPlanEndedRuns {
     const advisor = this.ports.advisor?.current;
     if (!advisor) throw new AgentError("plan_run_unavailable");
     const control = await this.ports.control(userId, run.planId);
+    if (control.runId && control.runId !== run.id) {
+      const latest = await this.ports.findRun(control.runId);
+      if (latest?.origin?.runId === run.id)
+        return this.ports.acknowledge(
+          await this.ports.readRun(userId, latest.id),
+          journal,
+        );
+    }
     if (control.runId !== run.id || !control.canResume)
       throw resumeRefusal(control);
     const result = await advisor.resumeEnded(

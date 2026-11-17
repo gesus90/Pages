@@ -32,7 +32,7 @@ export async function auditCleanupFailure(
       planId: run.planId,
       runId: run.id,
       planRevision: run.continuation?.planRevision ?? run.planRevision,
-      recoveryRevision: command.expectedRevision,
+      recoveryRevision: command.expectedRevision ?? 0,
       action: command.action,
       attemptId: originalAttempt(run, error.cleanupFailure.stepId),
     });

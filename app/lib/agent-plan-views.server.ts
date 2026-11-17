@@ -1,3 +1,4 @@
+import { AgentPlanCommandOperations } from "@/backend/service/agents/AgentPlanCommandOperations";
 import { AgentPlanSwarmMemoryRepository } from "@/backend/database/repositories/agent/AgentPlanSwarmMemoryRepository";
 import { AgentPlanTemplateRepository } from "@/backend/database/repositories/agent/AgentPlanTemplateRepository";
 import { AgentPlanActiveRunService } from "@/backend/service/agents/AgentPlanActiveRuns";
@@ -31,6 +32,7 @@ export async function createPlanViews(
     | "agentPlanRunHistoryService"
     | "picaMobileNotifications"
     | "picaMobileAutomationPush"
+    | "agentPlanCommands"
     | "agentPlanManagement"
     | "agentPlanTemplateService"
     | "agentPlanSwarmMemoryService"
@@ -62,12 +64,21 @@ export async function createPlanViews(
 function createPlanManagement(
   database: Database,
   service: AgentPlanService,
-): Pick<AgentPlanServices, "agentPlanManagement" | "agentPlanTemplateService"> {
+): Pick<
+  AgentPlanServices,
+  "agentPlanCommands" | "agentPlanManagement" | "agentPlanTemplateService"
+> {
+  const templates = new AgentPlanTemplateService({
+    templates: new AgentPlanTemplateRepository(database),
+    plans: service,
+  });
   return {
-    agentPlanManagement: new AgentPlanManagement({ database, plans: service }),
-    agentPlanTemplateService: new AgentPlanTemplateService({
-      templates: new AgentPlanTemplateRepository(database),
+    agentPlanCommands: new AgentPlanCommandOperations({
+      database,
       plans: service,
+      templates,
     }),
+    agentPlanManagement: new AgentPlanManagement({ database, plans: service }),
+    agentPlanTemplateService: templates,
   };
 }

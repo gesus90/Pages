@@ -1,10 +1,14 @@
-import { lazy, Suspense, useId, useState } from "react";
+import { lazy, Suspense, useEffect, useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { expandPlanGroups } from "@/definition/AgentPlanGroup";
 import { isActivePlanRun } from "@/definition/AgentPlanRunState";
 import { ScrollViewport } from "@/app/components/ui/scroll-viewport";
 
+import {
+  planRunCommandKey,
+  completePlanRunCommand,
+} from "./plan-run-command-key";
 import { keepPlanControlKeys } from "./plan-flow-keys";
 import {
   isForeignEndedRun,
@@ -157,12 +161,17 @@ function submitRunAction(
   intent: PlanRunIntent,
   replacesOpenRun = false,
 ): void {
+  const identity = JSON.stringify([
+    props.page.selected?.id,
+    props.control?.runId,
+    intent,
+  ]);
   void props.editor.command.submit(
     {
       intent,
+      requestKey: planRunCommandKey(identity),
       planId: props.page.selected?.id ?? "",
       runId: props.control?.runId ?? "",
-      revision: String(props.editor.draft.revision ?? ""),
       ...(replacesOpenRun ? { replaceOpenRun: "true" } : {}),
     },
     { method: "post", action: "/agents/plans", flushSync: true },
@@ -254,6 +263,10 @@ function useRunDecisions(
   readonly action: (intent: PlanRunIntent) => void;
   readonly resolveBlock: (action: AgentPlanResumeAction) => void;
 } {
+  const answered = props.editor.command.data;
+  useEffect(() => {
+    if (answered?.requestKey) completePlanRunCommand(answered.requestKey);
+  }, [answered]);
   const [recoveryAction, setRecoveryAction] = useState<PlanRunDecision | null>(
     null,
   );

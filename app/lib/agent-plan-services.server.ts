@@ -76,6 +76,7 @@ import type {
 } from "@/backend/service/agents/AgentPlanSessionAccess";
 import type { TaskService } from "@/backend/service/TaskService";
 import type { UserService } from "@/backend/service/UserService";
+import type { AgentPlanCommandOperations } from "@/backend/service/agents/AgentPlanCommandOperations";
 import type { PlanDependencies } from "@/backend/service/agents/AgentPlanService";
 import type { AgentPlanResumeAdvisorSlot } from "@/backend/service/agents/AgentPlanResumeAdvisor";
 import type { PicaMobileNotificationService } from "@/backend/service/mobile/notifications/PicaMobileNotificationService";
@@ -102,6 +103,7 @@ export interface AgentPlanServices {
   readonly picaMobileAutomationPush: PicaMobileAutomationPush;
   /** Creating, copying and deleting plans from the plan page, each request once. */
   readonly agentPlanManagement: AgentPlanManagement;
+  readonly agentPlanCommands: AgentPlanCommandOperations;
   /** The personal node templates of the plan editor, checked by the plan service. */
   readonly agentPlanTemplateService: AgentPlanTemplateService;
   readonly agentSessionService: AgentSessionService;

@@ -1,3 +1,5 @@
+import { AgentPlanActiveRunError } from "@/backend/error/AgentPlanActiveRunError";
+
 import { AgentError } from "@/backend/error/AgentErrors";
 import { AgentExecutionError } from "@/backend/error/AgentExecutionErrors";
 import { canRunPlan } from "@/definition/AgentPlanTeam";
@@ -6,6 +8,7 @@ import { withoutTicketFlow } from "@/definition/AgentPlanGraph";
 import { executePlanStart } from "./AgentPlanStartRejections";
 
 import type { AgentPlan, AgentPlanRun } from "@/definition/AgentPlan";
+import type { AgentPlanRunRepository } from "@/backend/database/repositories/agent/AgentPlanRunRepository";
 import type { AgentPlanRepository } from "@/backend/database/repositories/agent/AgentPlanRepository";
 import type { AgentPlanStartRejectionRepository } from "@/backend/database/repositories/agent/AgentPlanStartRejectionRepository";
 import type { AgentPlanAccess } from "./AgentPlanAccess";
@@ -19,6 +22,10 @@ import type { AgentPlanSnapshot } from "./AgentPlanSnapshot";
 interface StartDependencies {
   readonly startResources?: Pick<AgentPlanStartResources, "owners">;
   readonly access: Pick<AgentPlanAccess, "require">;
+  readonly runs: Pick<
+    AgentPlanRunRepository,
+    "activeForPlan" | "find" | "acknowledge"
+  >;
   readonly preparation: Pick<AgentPlanPreparation, "prepare">;
   readonly engine: Pick<AgentPlanRunEngine, "start">;
   readonly plans: Pick<AgentPlanRepository, "save">;
@@ -42,11 +49,9 @@ export class AgentPlanStartActions {
   public async owners(
     userId: string,
     id: string,
-    revision: number,
   ): Promise<readonly AgentPlanStartOwner[]> {
     const plan = await this.dependencies.access.require(userId, id);
     if (!canRunPlan(plan)) throw new AgentError("plan_access_denied");
-    if (plan.revision !== revision) throw new AgentError("plan_conflict");
     let snapshot: AgentPlanSnapshot;
     try {
       snapshot = await this.dependencies.preparation.prepare(userId, plan);
@@ -63,32 +68,41 @@ export class AgentPlanStartActions {
   public async play(
     userId: string,
     id: string,
-    revision: number,
+    revision: number | undefined,
     journal?: AgentPlanRunJournal,
   ): Promise<AgentPlanRun> {
     const plan = await this.dependencies.access.require(userId, id);
     if (!canRunPlan(plan)) throw new AgentError("plan_access_denied");
-    if (plan.revision !== revision) throw new AgentError("plan_conflict");
-    return executePlanStart(
-      this.dependencies,
-      {
-        userId,
-        planId: id,
-        planRevision: revision,
-        action: "play",
-        journal: journal?.recordStartRejection,
-      },
-      () => this.dependencies.preparation.prepare(userId, plan),
-      async (snapshot) => {
-        await this.dependencies.access.require(userId, id);
-        return this.dependencies.engine.start(
+    const active = await this.dependencies.runs.activeForPlan(id);
+    if (active) return this.acknowledge(userId, active, journal);
+    revision = plan.revision;
+    try {
+      return await executePlanStart(
+        this.dependencies,
+        {
           userId,
-          snapshot,
-          undefined,
-          journal,
-        );
-      },
-    );
+          planId: id,
+          planRevision: revision,
+          action: "play",
+          journal: journal?.recordStartRejection,
+        },
+        () => this.dependencies.preparation.prepare(userId, plan),
+        async (snapshot) => {
+          await this.dependencies.access.require(userId, id);
+          return this.dependencies.engine.start(
+            userId,
+            snapshot,
+            undefined,
+            journal,
+          );
+        },
+      );
+    } catch (error: unknown) {
+      if (!(error instanceof AgentPlanActiveRunError)) throw error;
+      const existing = await this.dependencies.runs.find(error.runId);
+      if (!existing) throw error;
+      return this.acknowledge(userId, existing, journal);
+    }
   }
 
   /** Saves and starts one draft atomically; a refused start leaves the draft unsaved. */
@@ -120,5 +134,14 @@ export class AgentPlanStartActions {
         );
       },
     );
+  }
+
+  private async acknowledge(
+    userId: string,
+    run: AgentPlanRun,
+    journal?: AgentPlanRunJournal,
+  ): Promise<AgentPlanRun> {
+    if (run.userId !== userId) throw new AgentError("plan_run_unavailable");
+    return this.dependencies.runs.acknowledge(run, journal);
   }
 }

@@ -76,8 +76,8 @@ export class AgentPlanStartResources {
       this.dependencies.remote,
     );
     const confirmed =
-      (await this.releaseRuntime(run.id)) &&
-      processes.every((entry) => entry.confirmed);
+      processes.every((entry) => entry.confirmed) &&
+      (await this.releaseRuntime(run.id));
     await this.dependencies.repository.complete(
       run.id,
       { ...release, processes: [...processes], confirmed },
@@ -112,6 +112,9 @@ export class AgentPlanStartResources {
     fence: PlanStartFence,
   ): Promise<readonly string[]> {
     const { repository } = this.dependencies;
+    // A Start never cancels a newer run or takes another plan's writers.
+    // An explicit restart names exactly the predecessor it may retire.
+    if (!run.sourceRunId) return [];
     const owners = await repository.conflicts(
       run.planId,
       keys,
@@ -119,7 +122,7 @@ export class AgentPlanStartResources {
     );
     const warnings: string[] = [];
     for (const owner of owners) {
-      if (owner.run.id === run.id) continue;
+      if (owner.run.id !== run.sourceRunId || owner.run.id === run.id) continue;
       const release: AgentPlanResourceRelease = {
         id: randomUUID(),
         userId: run.userId,
@@ -140,7 +143,7 @@ export class AgentPlanStartResources {
         this.dependencies.remote,
       );
       let confirmed = processes.every((process) => process.confirmed);
-      confirmed = (await this.releaseRuntime(owner.run.id)) && confirmed;
+      if (confirmed) confirmed = await this.releaseRuntime(owner.run.id);
       await repository.complete(
         owner.run.id,
         { ...release, processes: [...processes], confirmed },

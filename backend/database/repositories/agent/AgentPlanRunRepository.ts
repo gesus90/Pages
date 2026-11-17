@@ -1,3 +1,5 @@
+import { AgentPlanActiveRunError } from "@/backend/error/AgentPlanActiveRunError";
+
 import { requireAgentFiles } from "@/backend/storage/AgentPayloadFileStore";
 import { workspaceReferenceIds } from "@/backend/agents/AgentWorkspaceReferences";
 import { readAgentObject } from "@/backend/agents/AgentPayload";
@@ -188,7 +190,8 @@ export class AgentPlanRunRepository {
     `,
       { plan_id: run.planId },
     );
-    if (active) throw new AgentError("plan_run_unavailable");
+    if (active)
+      throw new AgentPlanActiveRunError(readTextColumn(active, 0, "id"));
     await reservePlanResources(transaction, run.id, workspaceIds);
     await transaction.execute(
       `
@@ -219,6 +222,39 @@ export class AgentPlanRunRepository {
       },
     );
     if (!run.origin) await queueEarlierRunPurge(transaction, run.id);
+  }
+
+  /** Reads the single admitted active run independently of who requested it. */
+  public async activeForPlan(planId: string): Promise<AgentPlanRun | null> {
+    const [row] = await this.database.query(
+      `SELECT view_json FROM agent_plan_runs
+       WHERE plan_id = $plan_id AND status IN ('running', 'pausing', 'paused', 'stopping');`,
+      { plan_id: planId },
+    );
+    return row
+      ? readPlanRun(JSON.parse(readTextColumn(row, 0, "view_json")))
+      : null;
+  }
+
+  /** Acknowledges an existing own run without advancing its progress counter. */
+  public async acknowledge(
+    run: AgentPlanRun,
+    journal?: AgentPlanRunJournal,
+  ): Promise<AgentPlanRun> {
+    return this.database.transaction(async (transaction) => {
+      const [row] = await transaction.query(
+        "SELECT view_json FROM agent_plan_runs WHERE id = $id FOR UPDATE;",
+        { id: run.id },
+      );
+      if (!row) throw new AgentError("plan_run_unavailable");
+      const current = readPlanRun(
+        JSON.parse(readTextColumn(row, 0, "view_json")),
+      );
+      if (current.userId !== run.userId || current.planId !== run.planId)
+        throw new AgentError("plan_access_denied");
+      await journal?.(transaction, current);
+      return current;
+    });
   }
 
   /** Acquires actual writer resources together, or leaves this run visibly queued. */

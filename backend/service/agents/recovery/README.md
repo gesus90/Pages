@@ -274,18 +274,23 @@ one immutable checkpoint version. Reads require the original executor and the
 current plan, workspace, agent, ticket, wiki and asset rights through
 `AgentPlanService.run`. They start no process or resource lease.
 
-`POST` to the same endpoint accepts JSON. Every command requires a nonnegative
-`expectedRevision` and an `idempotencyKey` of 8–128 ASCII letters, digits,
+`POST` to the same endpoint accepts JSON. Every command requires an `idempotencyKey` of 8–128 ASCII letters, digits,
 underscores or hyphens. Keys and the original validated payload are hashed before
 persistence; redaction cannot turn two different original instructions into one
-idempotent request. Every replay still requires current authorization.
+idempotent request. Every replay still requires current authorization. A legacy `expectedRevision`
+is accepted and ignored. Audit counters remain server-owned and never gate
+Start, Restart, Resume, Pause, Stop or cleanup. Plan edits retain their
+saved-version checks. Legacy recovery `revision` fields are also ignored;
+restarts and continuations prepare the current saved plan and atomically pin
+that version at admission. A save during preparation invalidates the prepared
+basis instead of dispatching unvalidated edits. Confirmed closeout evidence never regresses when an old
+runner report is replayed. Unchanged progress does not advance audit counters.
 
 ```json
 {
   "action": "record_repair",
   "stepId": "failed-node-id",
   "instruction": "Repair the failing test and report fresh evidence.",
-  "expectedRevision": 12,
   "idempotencyKey": "repair-request-001"
 }
 ```

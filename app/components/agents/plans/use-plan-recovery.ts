@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 
-import { createRandomUuid } from "@/app/lib/random-uuid";
+import {
+  planRunCommandKey,
+  completePlanRunCommand,
+} from "./plan-run-command-key";
 import { readPlanCleanupFailure } from "@/definition/AgentPlanCleanupResource";
 
 import { startVisiblePolling } from "./plan-visible-polling";
@@ -17,7 +20,7 @@ const RECOVERY_POLL_MILLISECONDS = 5_000;
 /** A command without the revision and key, which the hook adds itself. */
 export type PlanRecoveryRequest = AgentPlanRecoveryCommand extends infer Command
   ? Command extends AgentPlanRecoveryCommand
-    ? Omit<Command, "expectedRevision" | "idempotencyKey">
+    ? Omit<Command, "expectedRevision" | "idempotencyKey" | "revision">
     : never
   : never;
 
@@ -34,8 +37,6 @@ export interface PlanRecoveryFollowing {
 interface RecoveryDecision {
   readonly fingerprint: string;
   readonly key: string;
-  revision: number | null;
-  planRevision: number | null;
 }
 
 interface RecoveryState {
@@ -103,10 +104,9 @@ function isRecoveryResult(input: unknown): input is AgentPlanRecoveryResult {
   );
 }
 
-/** Sends one decision with the revision the executor saw and a fresh key. */
+/** Sends one decision with its stable key, independently of progress polling. */
 async function sendDecision(
   runId: string,
-  revision: number,
   request: PlanRecoveryRequest,
   idempotencyKey: string,
 ): Promise<AgentPlanRecoveryResult> {
@@ -118,7 +118,6 @@ async function sendDecision(
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         ...request,
-        expectedRevision: revision,
         idempotencyKey,
       }),
     },
@@ -151,41 +150,6 @@ async function loadView(
   return recovery;
 }
 
-/** Refreshes a changing run inside the chosen action, with one bounded retry for progress-only revisions. */
-async function decideCurrent(input: {
-  readonly runId: string;
-  readonly request: PlanRecoveryRequest;
-  readonly decision: RecoveryDecision;
-}): Promise<AgentPlanRecoveryResult> {
-  const signal = new AbortController().signal;
-  if (input.decision.revision === null) {
-    const current = await loadView(input.runId, signal);
-    input.decision.revision = current.revision;
-    input.decision.planRevision = current.currentPlanRevision;
-  }
-  try {
-    return await sendDecision(
-      input.runId,
-      input.decision.revision,
-      input.request,
-      input.decision.key,
-    );
-  } catch (error: unknown) {
-    if (!(error instanceof Error) || error.message !== "revision_conflict")
-      throw error;
-    const refreshed = await loadView(input.runId, signal);
-    if (input.decision.planRevision !== refreshed.currentPlanRevision)
-      throw error;
-    input.decision.revision = refreshed.revision;
-    return sendDecision(
-      input.runId,
-      refreshed.revision,
-      input.request,
-      input.decision.key,
-    );
-  }
-}
-
 /**
  * Reads what can happen to an ended run and sends the executor's decision.
  *
@@ -194,7 +158,7 @@ async function decideCurrent(input: {
  * @param following - What decides beyond the view when it is read again.
  *
  * @remarks
- * Each decision carries the revision the executor saw and a fresh key, so a
+ * Each decision carries a stable key, so a
  * double click or a repeated request starts nothing twice. The view is read
  * again after every decision and after a reload, from the server's state.
  * It is read cyclically only while the run has not ended or its cleanup is
@@ -246,25 +210,25 @@ export function usePlanRecovery(
     if (decision.current?.fingerprint !== fingerprint)
       decision.current = {
         fingerprint,
-        key: `ui-${createRandomUuid()}`,
-        revision: view.revision,
-        planRevision: view.currentPlanRevision,
+        key: planRunCommandKey(fingerprint),
       };
     setPending(true);
     setResult(null);
     setState({ runId, view, error: null, cleanupFailure: null });
+    const key = decision.current.key;
     try {
-      const answered = await decideCurrent({
-        runId,
-        request,
-        decision: decision.current,
-      });
+      const answered = await sendDecision(runId, request, key);
+      completePlanRunCommand(key);
       decision.current = null;
       setResult({ runId, value: answered });
       setState({ runId, view, error: null, cleanupFailure: null });
       if (answered.runId) onStarted(answered.runId);
       return answered;
     } catch (error: unknown) {
+      if (error instanceof RecoveryRequestError && error.status < 500) {
+        completePlanRunCommand(key);
+        decision.current = null;
+      }
       setState({
         runId,
         view,

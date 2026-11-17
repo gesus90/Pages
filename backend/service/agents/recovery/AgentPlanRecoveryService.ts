@@ -1,3 +1,4 @@
+import { AgentPlanRecoveryReplayed } from "@/backend/error/AgentPlanRecoveryReplayed";
 import { isPlanHistoryReadFailure } from "../AgentPlanControlAccess";
 import { readPlanRecoveryCommand } from "@/backend/agents/AgentPlanRecoveryInput";
 import { planContentDigest } from "@/backend/agents/AgentPlanContentDigest";
@@ -287,15 +288,15 @@ export class AgentPlanRecoveryService {
     userId: string,
     runId: string,
   ): Promise<AgentPlanRecoveryView> {
-    const record = await this.dependencies.recovery.inspect(runId);
-    if (record.run.userId !== userId) return this.teamView(userId, record);
+    const initial = await this.dependencies.recovery.inspect(runId);
+    if (initial.run.userId !== userId) return this.teamView(userId, initial);
     const hasHistoryAccess = await this.requireControlAccess(userId, runId);
     const options = this.actions
       ? executingOptions(
-          (await this.actions.facts(userId, runId, undefined, hasHistoryAccess))
-            .facts,
+          (await this.actions.facts(userId, runId, hasHistoryAccess)).facts,
         )
-      : recordingOnly(record.run, record.hasReservation);
+      : recordingOnly(initial.run, initial.hasReservation);
+    const record = await this.dependencies.recovery.inspect(runId);
     if (!hasHistoryAccess) return controlRecoveryView(record, options);
     return this.fullView(userId, record, options);
   }
@@ -322,8 +323,7 @@ export class AgentPlanRecoveryService {
    * Records a repair or reconciliation, cancels, or explicitly restarts,
    * resumes or releases the run.
    * @remarks
-   * Every command needs the run's current recovery revision and an
-   * idempotency key; a repeated request returns its first result and never
+   * Every command needs a stable idempotency key; a repeated request returns its first result and never
    * starts a second run.
    */
   public async control(
@@ -373,14 +373,12 @@ export class AgentPlanRecoveryService {
   ): Promise<AgentPlanRecoveryResult> {
     const { actions } = this;
     if (!actions) throw new AgentPlanRecoveryError("action_unavailable");
-    const { revision } = await actions.sourceRevision(runId);
     return this.control(
       userId,
       runId,
       {
         action: "resume",
-        expectedRevision: revision,
-        idempotencyKey: `resume-plan-${runId}-${revision}-${planRevision}`,
+        idempotencyKey: `resume-plan-${runId}-${planRevision}`,
         revision: planRevision,
         confirmContinue: true,
       },
@@ -536,13 +534,18 @@ export class AgentPlanRecoveryService {
         ? await this.dependencies.runs.controlRun(userId, runId)
         : await this.dependencies.runs.run(userId, runId);
     const requestDigest = planContentDigest(original);
-    const command = this.sanitize(original);
+    const source = await this.dependencies.recovery.inspect(runId);
+    const command = {
+      ...this.sanitize(original),
+      expectedRevision: source.revision,
+    };
     try {
       return await this.dispatchControl(userId, runId, command, {
         requestDigest,
         journal,
       });
     } catch (error: unknown) {
+      if (error instanceof AgentPlanRecoveryReplayed) return error.result;
       return auditCleanupFailure(
         this.dependencies.cleanupFailures,
         run,

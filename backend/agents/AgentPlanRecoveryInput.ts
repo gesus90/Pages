@@ -120,7 +120,7 @@ const checkpoint = z.strictObject({
   isDisplayFiltered: z.boolean().optional(),
 });
 const commandIdentity = {
-  expectedRevision: revision,
+  expectedRevision: revision.optional(),
   idempotencyKey: z.string().regex(/^[a-zA-Z0-9_-]{8,128}$/u),
 };
 const command = z.discriminatedUnion("action", [
@@ -154,7 +154,12 @@ const command = z.discriminatedUnion("action", [
   z.strictObject({
     ...commandIdentity,
     action: z.literal("restart"),
-    revision: z.number().int().positive().max(Number.MAX_SAFE_INTEGER),
+    revision: z
+      .number()
+      .int()
+      .positive()
+      .max(Number.MAX_SAFE_INTEGER)
+      .optional(),
     confirmRepeat: z.literal(true),
     reviewedStepIds: z.array(identifier).max(100).optional(),
   }),
@@ -234,11 +239,15 @@ export function readPlanCheckpoint(input: unknown): AgentPlanCheckpoint {
   return parseRecovery(checkpoint, input, "checkpoint_invalid");
 }
 
-/** Refuses unversioned control requests and unknown fields before any mutation. */
+/** Validates command identity and discards the obsolete client recovery counter. */
 export function readPlanRecoveryCommand(
   input: unknown,
 ): AgentPlanRecoveryCommand {
-  return parseRecovery(command, input);
+  const parsed = parseRecovery(command, input);
+  delete parsed.expectedRevision;
+  if (parsed.action === "restart" || parsed.action === "resume")
+    delete parsed.revision;
+  return parsed;
 }
 
 /** Narrows an append-only repair/audit record. */

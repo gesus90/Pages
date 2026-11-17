@@ -71,6 +71,7 @@ import type { TaskService } from "@/backend/service/TaskService";
 import type { AgentApplicationServices } from "./agent-services.server";
 import type { ChatApplicationServices } from "./chat-services.server";
 import type { EmployeeApplicationServices } from "./employee-services.server";
+import type { AgentPlanCommandOperations } from "@/backend/service/agents/AgentPlanCommandOperations";
 import type { AgentPlanService } from "@/backend/service/agents/AgentPlanService";
 import type { AgentSessionService } from "@/backend/service/agents/sessions/AgentSessionService";
 import type { AuthService } from "@/backend/auth/AuthService";
@@ -102,6 +103,7 @@ export interface ApplicationServices
   readonly managementService: ManagementService;
   readonly administrationService: AdministrationService;
   readonly agentPlanService: AgentPlanService;
+  readonly agentPlanCommands: AgentPlanCommandOperations;
   readonly agentLocalSessionPreparation: AgentLocalSessionPreparation;
   /** The PageAgentCLI sessions of plan nodes: history, live events and instructions. */
   readonly agentSessionService: AgentSessionService;

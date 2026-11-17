@@ -47,6 +47,7 @@ export function readPlanCommand(
     operation === "plans.pause" ||
     operation === "plans.resume" ||
     operation === "plans.stop";
+  const isRunCommand = isRun || operation === "plans.play";
   const isTemplate = operation === "plans.templates.save";
   const isClone = operation === "plans.clone";
   requireParameterKeys(
@@ -54,12 +55,13 @@ export function readPlanCommand(
     [
       "operationId",
       "planId",
-      "expectedRevision",
+      ...(isRunCommand ? [] : ["expectedRevision"]),
       ...(isRun ? ["runId"] : []),
       ...(isTemplate ? ["nodeId", "name"] : []),
       ...(isClone ? ["name"] : []),
     ],
     [
+      ...(isRunCommand ? ["expectedRevision"] : []),
       ...(isClone
         ? ["workspaceId", "oneShot", "ownerId", "teams", "executionTarget"]
         : []),
@@ -70,7 +72,9 @@ export function readPlanCommand(
     operation,
     operationId: readIdentifier(parameters.operationId),
     planId: readIdentifier(parameters.planId),
-    expectedRevision: readPageAgentRevision(parameters.expectedRevision),
+    expectedRevision: isRunCommand
+      ? 0
+      : readPageAgentRevision(parameters.expectedRevision),
     runId: isRun ? readIdentifier(parameters.runId) : null,
     nodeId: isTemplate ? readIdentifier(parameters.nodeId) : null,
     name: isTemplate

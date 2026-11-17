@@ -21,22 +21,14 @@ export async function releasePlanRun(
   input: unknown,
 ): Promise<AgentPlanRecoveryCommandResult> {
   const parameters = readParameterRecord(input);
-  requireParameterKeys(parameters, [
-    "operationId",
-    "planId",
-    "runId",
-    "expectedRecoveryRevision",
-  ]);
+  requireParameterKeys(
+    parameters,
+    ["operationId", "planId", "runId"],
+    ["expectedRecoveryRevision"],
+  );
   const operationId = readIdentifier(parameters.operationId);
   const planId = readIdentifier(parameters.planId);
   const runId = readIdentifier(parameters.runId);
-  const revision = parameters.expectedRecoveryRevision;
-  if (
-    typeof revision !== "number" ||
-    !Number.isSafeInteger(revision) ||
-    revision < 0
-  )
-    throw new AgentOperationError("INVALID_REQUEST");
   const run = await services.plans.run(userId, runId);
   if (run.planId !== planId) throw new AgentOperationError("NOT_FOUND");
   if (!services.recovery)
@@ -45,7 +37,6 @@ export async function releasePlanRun(
     });
   const result = await services.recovery.control(userId, runId, {
     action: "release",
-    expectedRevision: revision,
     idempotencyKey: planContentDigest(["agent-api-release", operationId]),
   });
   if (result.outcome !== "released")

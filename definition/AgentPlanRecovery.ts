@@ -130,7 +130,8 @@ export interface AgentPlanCheckpoint extends AgentPlanCheckpointInput {
 }
 
 interface RecoveryCommandIdentity {
-  readonly expectedRevision: number;
+  /** Accepted from older clients for compatibility; never gates a run command. */
+  readonly expectedRevision?: number;
   readonly idempotencyKey: string;
 }
 
@@ -153,7 +154,7 @@ export type AgentPlanRecoveryCommand = RecoveryCommandIdentity &
         readonly action: "resume";
         /** An explicit session decision; absent, the server chooses from the session capabilities. */
         readonly mode?: AgentPlanRecoveryMode;
-        /** The saved plan revision deliberately selected for the continuation. */
+        /** Legacy saved-version field; commands use the current server-side plan. */
         readonly revision?: number;
         /** Started nodes whose possible side effects the executor reviewed; each runs again. */
         readonly reviewedStepIds?: readonly string[];
@@ -168,8 +169,8 @@ export type AgentPlanRecoveryCommand = RecoveryCommandIdentity &
       }
     | {
         readonly action: "restart";
-        /** The saved plan revision the new run starts with, as the executor saw it. */
-        readonly revision: number;
+        /** Legacy saved-version field; commands use the current server-side plan. */
+        readonly revision?: number;
         /** The executor knows that every node runs again, including earlier side effects. */
         readonly confirmRepeat: true;
         readonly reviewedStepIds?: readonly string[];

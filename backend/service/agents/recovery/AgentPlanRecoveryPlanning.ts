@@ -114,6 +114,8 @@ export function restartScriptReview(run: AgentPlanRun): readonly string[] {
 /** An explicit restart may retire another active owner when it reserves the new run's resources. */
 export function restartOption(facts: RecoveryFacts): AgentPlanRecoveryOption {
   if (!facts.plan.canEdit) return blocked("plan_read_only");
+  if (facts.latest && facts.latest.id !== facts.run.id)
+    return blocked("superseded");
   return AVAILABLE;
 }
 
