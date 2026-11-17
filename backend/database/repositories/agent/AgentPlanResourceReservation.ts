@@ -85,7 +85,9 @@ export async function retireRestartSource(
   );
   if (!row) throw new AgentError("plan_run_unavailable");
   const previous = readPlanRun(JSON.parse(readTextColumn(row, 0, "view_json")));
-  if (previous.planId !== run.planId || previous.userId !== run.userId)
+  // Who may restart a run was decided before this transaction: its executor or an
+  // administrator, whose new run then retires the earlier run of another executor.
+  if (previous.planId !== run.planId)
     throw new AgentError("plan_access_denied");
   if (!isActivePlanRun(previous.status)) return;
   const retired: AgentPlanRun = {
