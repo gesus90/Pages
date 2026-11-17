@@ -5,9 +5,24 @@ import { cn } from "@/app/lib/cn";
 import styles from "./plan-canvas.module.css";
 import { usePlanFlowContext } from "./plan-flow-context";
 
-/** The colour of a port by what it carries; the boolean result, both branches and the new prompt have their own. */
+/**
+ * The colour and shape of a port by what it carries.
+ * @remarks
+ * The boolean result, both branches and the new prompt have their own colour.
+ * A signal payload is blue, the failure output of a Jump a filled red diamond
+ * and its timeout output a hollow amber diamond, so the shape names them as
+ * well as the colour.
+ */
 export type PlanHandleKind =
-  "flow" | "data" | "logic" | "true" | "false" | "event";
+  | "flow"
+  | "data"
+  | "logic"
+  | "true"
+  | "false"
+  | "event"
+  | "signal"
+  | "error"
+  | "timeout";
 
 const HANDLE_CLASSES: Readonly<Record<PlanHandleKind, string>> = {
   flow: styles.flowHandle,
@@ -16,6 +31,9 @@ const HANDLE_CLASSES: Readonly<Record<PlanHandleKind, string>> = {
   true: styles.trueHandle,
   false: styles.falseHandle,
   event: styles.eventHandle,
+  signal: styles.signalHandle,
+  error: styles.errorHandle,
+  timeout: styles.timeoutHandle,
 };
 
 /** Large pointer targets supplement the labelled port buttons used by keyboards. */

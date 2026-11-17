@@ -45,8 +45,18 @@ import type { AgentPlanIssue } from "./AgentPlanGraph";
 
 /** The node types an edge of each kind may leave. */
 const SOURCE_TYPES: Readonly<Record<AgentPlanEdgeKind, readonly string[]>> = {
-  flow: ["start", "agent", "script", "git_closeout", "stack", "swarm"],
-  branch: ["decision"],
+  flow: [
+    "start",
+    "agent",
+    "script",
+    "git_closeout",
+    "stack",
+    "swarm",
+    "jump",
+    "signal",
+  ],
+  // A Jump leaves through `error-out` and `timeout-out` like a decision through its outputs.
+  branch: ["decision", "jump"],
   condition: ["agent"],
   event: ["agent", "script"],
 };
@@ -61,6 +71,8 @@ const TARGET_TYPES: Readonly<Record<AgentPlanEdgeKind, readonly string[]>> = {
     "stack",
     "decision",
     "swarm",
+    "jump",
+    "signal",
   ],
   branch: [
     "end",
@@ -70,6 +82,8 @@ const TARGET_TYPES: Readonly<Record<AgentPlanEdgeKind, readonly string[]>> = {
     "stack",
     "decision",
     "swarm",
+    "jump",
+    "signal",
   ],
   condition: ["decision"],
   event: ["agent"],

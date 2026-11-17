@@ -283,7 +283,7 @@ export class AgentPlanRecoveryActions {
   ): Promise<AgentPlanRecoveryResult> {
     const replayed = await this.replayed(request);
     if (replayed) return replayed;
-    const { facts } = await this.facts(
+    const { facts, snapshot: source } = await this.facts(
       request.userId,
       request.runId,
       request.command.expectedRevision,
@@ -301,9 +301,11 @@ export class AgentPlanRecoveryActions {
     await cleanupRestartSource(this.dependencies, facts.run);
     let snapshot: AgentPlanSnapshot;
     try {
+      // A restart of a called run begins at the entry and with the inputs of that call.
       snapshot = await this.dependencies.preparation.prepare(
         request.userId,
         facts.plan,
+        source.invocation,
       );
     } catch (error: unknown) {
       if (!(error instanceof AgentError)) throw error;
@@ -359,6 +361,7 @@ export class AgentPlanRecoveryActions {
     const proposed = await this.dependencies.preparation.prepare(
       userId,
       facts.plan,
+      previous.invocation,
     );
     const plan = compatibleRecoverySessions(planned, previous, proposed);
     const mode = resumeSessionMode(plan, command.mode);

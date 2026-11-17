@@ -22,7 +22,7 @@ export interface PlanNodeDispatchContext {
   readonly writes: SerialQueue;
   readonly dependencies: Pick<
     EngineDependencies,
-    "scripts" | "runs" | "start" | "decisions" | "swarms"
+    "scripts" | "runs" | "start" | "decisions" | "swarms" | "invocations"
   >;
 }
 
@@ -59,12 +59,47 @@ export function dispatchPlanLocalNode(
     return dispatchPlanDecision(active, node, controller, context);
   if (node.type === "swarm")
     return dispatchPlanSwarm(active, node, controller, context);
+  if (node.type === "jump" || node.type === "signal" || node.type === "end")
+    return dispatchPlanInvocationNode(active, node, controller, context);
   if (node.type !== "stack") return null;
   return triggerOuterPlanStack(active, node, {
     writes,
     runs: dependencies.runs,
     authorize: () =>
       dependencies.start.control(active.view, active.snapshot, node),
+  });
+}
+
+/**
+ * An outgoing Jump calls another plan, a signal messages the caller of the run, an end hands back the
+ * returns of a called run. A receiving Jump and a plain end are authorized checkpoints like a start.
+ * @returns The outcome, or `null` for a node that only needs the checkpoint.
+ */
+function dispatchPlanInvocationNode(
+  active: ActivePlanRun,
+  node: Extract<AgentPlanNode, { type: "jump" | "signal" | "end" }>,
+  controller: AbortController,
+  context: PlanNodeDispatchContext,
+): Promise<Partial<AgentPlanStepResult>> | null {
+  const { invocations, start } = context.dependencies;
+  if (node.type === "jump" && node.direction === "in") return null;
+  if (node.type === "end" && !active.snapshot.invocation) return null;
+  if (!invocations)
+    return Promise.resolve({
+      status: "failed",
+      error: "plan_session_unavailable",
+      output: null,
+    });
+  const authorize = (): Promise<void> =>
+    start.control(active.view, active.snapshot, node);
+  if (node.type === "end")
+    return invocations.end(active, node, { authorize });
+  if (node.type === "signal")
+    return invocations.signal(active, node, { authorize });
+  return invocations.call(active, node, controller, {
+    authorize,
+    writes: context.writes,
+    runs: context.dependencies.runs,
   });
 }
 

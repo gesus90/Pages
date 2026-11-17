@@ -47,6 +47,9 @@ export function planSequencePreview(
     if (!node) return id;
     if (node.type === "decision")
       return node.name ?? translate("plans.nodeType.decision");
+    if (node.type === "jump")
+      return translate(`plans.jump.title.${node.direction}`);
+    if (node.type === "signal") return translate("plans.signal.title");
     return node.type === "start" || node.type === "end"
       ? translate(`plans.nodeType.${node.type}`)
       : planNodeLabel(node, sources);

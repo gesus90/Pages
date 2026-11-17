@@ -2,6 +2,7 @@ import { AgentPlanRunEngine } from "@/backend/service/agents/AgentPlanRunEngine"
 
 import type { AgentPlanWorkspaceLocks } from "@/backend/service/agents/AgentPlanWorkspaceLocks";
 import type { AgentPlanPreparation } from "@/backend/service/agents/AgentPlanPreparation";
+import type { AgentPlanInvocations } from "@/backend/service/agents/invocation/AgentPlanInvocations";
 
 import { CodexPlanUsageRepository } from "@/backend/database/repositories/agent/CodexPlanUsageRepository";
 import { CodexAgentBudget } from "@/backend/service/agents/usage/CodexAgentBudget";
@@ -230,6 +231,7 @@ async function initializePlanProcessing(input: PlanProcessingInput): Promise<{
     resumeAdvisor,
     diagnosis,
     workspaceLocks,
+    invocations,
   } = await createProcessingCore(input, {
     execution,
     runnerScripts,
@@ -262,6 +264,7 @@ async function initializePlanProcessing(input: PlanProcessingInput): Promise<{
       runs,
       remoteExecution,
       workspaceLocks,
+      invocations,
     },
     resumeAdvisor,
   );
@@ -307,11 +310,24 @@ async function startOwnedPlanProcessing(
     readonly engine: PlanRunEnginePort;
     readonly remoteExecution: AgentPlanRemoteExecution;
     readonly workspaceLocks: AgentPlanWorkspaceLocks;
+    readonly invocations?: AgentPlanInvocations;
   },
 ): Promise<void> {
   if (!canProcessRuns()) return;
   const { service, runs, engine, remoteExecution, workspaceLocks } = parts;
   await recoverRuns(input, service);
+  // Calls are taken up only after the runs a restart left are restored, so none of their callers looks gone.
+  if (parts.invocations) {
+    await parts.invocations.start();
+    const { invocations } = parts;
+    registerShutdownTask(
+      () => {
+        invocations.stop();
+        return Promise.resolve();
+      },
+      { step: "run_command_inbox" },
+    );
+  }
   startWorkspaceCleanup({
     database: input.database,
     runs,
@@ -335,7 +351,9 @@ async function startOwnedPlanProcessing(
 /** Builds the recovery and lets the runs a restart interrupted continue; the wait runs in the background. */
 async function startPlanRecovery(
   input: Parameters<typeof createAgentPlanService>[0],
-  parts: Parameters<typeof createRecoveryService>[1],
+  parts: Parameters<typeof createRecoveryService>[1] & {
+    readonly invocations?: AgentPlanInvocations;
+  },
   advisor: AgentPlanResumeAdvisorSlot,
 ): Promise<AgentPlanRecoveryService> {
   await startOwnedPlanProcessing(input, parts);

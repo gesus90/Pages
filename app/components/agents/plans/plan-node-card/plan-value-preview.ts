@@ -2,6 +2,8 @@ import { findPlanLoopMember } from "@/definition/AgentPlanLoopEdit";
 import { findPlanStep } from "@/definition/AgentPlanGroupEdit";
 
 import { planNodeLabel } from "../plan-layout";
+import { planPortDisplayName } from "../plan-jump/plan-jump-model";
+import { firstFilledText } from "../plan-jump/plan-jump-text";
 
 import type { TFunction } from "i18next";
 import type { AgentParameterValue } from "@/definition/AgentParameters";
@@ -129,7 +131,27 @@ function stackBindingPreview(
   return translate("plans.stack.preview.content", { name });
 }
 
-/** Names the value source of a connected input: a value node, a ticket, a frame's port or a predecessor's result. */
+/** Names a port binding: the entry or the Jump it reads, and the value of it. */
+function portBindingPreview(
+  binding: Extract<AgentPlanBinding, { kind: "port" }>,
+  context: PlanValueContext,
+): string {
+  const { draft, sources, translate } = context;
+  const node = draft.nodes.find((entry) => entry.id === binding.nodeId);
+  if (!node) return translate("plans.validation.source");
+  let name = planNodeLabel(node, sources);
+  if (node.type === "start")
+    name = firstFilledText(node.name) || translate("plans.nodeType.start");
+  if (node.type === "jump")
+    name =
+      firstFilledText(
+        node.name,
+        node.direction === "out" ? node.target?.planName : undefined,
+      ) || translate(`plans.jump.title.${node.direction}`);
+  return `${name} · ${planPortDisplayName(binding.port)}`;
+}
+
+/** Names the value source of a connected input: a value node, a ticket, a frame's port, a port of an entry or a Jump, or a predecessor's result. */
 export function planBindingPreview(
   binding: AgentPlanBinding,
   context: PlanValueContext,
@@ -140,6 +162,7 @@ export function planBindingPreview(
   if (binding.kind === "result" || binding.kind === "previous")
     return resultBindingPreview(binding, context);
   if (binding.kind === "stack") return stackBindingPreview(binding, context);
+  if (binding.kind === "port") return portBindingPreview(binding, context);
   const source = draft.nodes.find((node) => node.id === binding.nodeId);
   if (source?.type === "parameter")
     return planValuePreview(source.value, context);

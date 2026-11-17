@@ -108,7 +108,9 @@ export function planBindingNodes(
       node.type === "agent" ||
       node.type === "script" ||
       node.type === "git_closeout" ||
-      node.type === "loop",
+      node.type === "loop" ||
+      node.type === "signal" ||
+      (node.type === "jump" && node.direction === "out"),
   );
 }
 
@@ -133,7 +135,13 @@ function orderIssues(
 /** A remote runner has no access to the state of a stack in the run. */
 function remoteIssues(plan: AgentPlanInput): AgentPlanIssue[] {
   return planBindingNodes(plan).flatMap((node) => {
-    if (node.type === "loop" || node.type === "group") return [];
+    if (
+      node.type === "loop" ||
+      node.type === "group" ||
+      node.type === "jump" ||
+      node.type === "signal"
+    )
+      return [];
     const target =
       node.type === "git_closeout"
         ? plan.executionTarget

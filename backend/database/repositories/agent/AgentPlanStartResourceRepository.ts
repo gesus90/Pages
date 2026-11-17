@@ -14,6 +14,7 @@ import { isActivePlanRun } from "@/definition/AgentPlanRunState";
 import { sharedAgentPlanRunObservers } from "@/backend/service/agents/AgentPlanRunObservers";
 
 import { CURRENT_PLAN_SNAPSHOT } from "./AgentPlanContinuationRepository";
+import { returnHandedOverPlanLocks } from "./AgentPlanHandoverLocks";
 
 import type {
   Database,
@@ -175,6 +176,7 @@ export class AgentPlanStartResourceRepository {
       `,
         { run_id: runId, released_at: release.createdAt },
       );
+      await returnHandedOverPlanLocks(transaction, runId);
       await transaction.execute(
         "DELETE FROM agent_plan_workspace_locks WHERE run_id = $run_id;",
         { run_id: runId },

@@ -2,7 +2,7 @@ import type {
   AgentPlanDecisionCase,
   AgentPlanDecisionModel,
 } from "./AgentPlanDecision.js";
-import type { AgentParameterValue } from "./AgentParameters.js";
+import type { AgentPlanBindingEntry } from "./AgentPlanBindingEntry.js";
 
 /**
  * A decision as a client reads it: a boolean (default) or a model that answers yes or no or classifies.
@@ -26,16 +26,7 @@ export interface AgentPlanDecisionNodeEntry {
   readonly model?: AgentPlanDecisionModel;
   readonly output?: "boolean" | "classification";
   readonly cases?: readonly AgentPlanDecisionCase[];
-  readonly input?:
-    | { readonly kind: "literal"; readonly value: AgentParameterValue | null }
-    | { readonly kind: "source"; readonly nodeId: string }
-    | { readonly kind: "result"; readonly stepId: string }
-    | { readonly kind: "previous"; readonly stepId: string }
-    | {
-        readonly kind: "stack";
-        readonly stackId: string;
-        readonly output: "content" | "count";
-      };
+  readonly input?: AgentPlanBindingEntry;
 }
 
 /** The decisions a group or loop holds; absent without one. */

@@ -11,6 +11,12 @@ import {
   targetAttribute,
   typedAttribute,
 } from "./PlanNotationContext";
+import {
+  readPlanNotationEnd,
+  readPlanNotationJump,
+  readPlanNotationSignal,
+  readPlanNotationStart,
+} from "./PlanNotationJump";
 
 import type { AgentParameterValue } from "@/definition/AgentParameters";
 import type { AgentPlanStack } from "@/definition/AgentPlanStack";
@@ -289,8 +295,10 @@ function readSwarm(
 }
 
 const FIELD_READERS: Readonly<Record<PlanNotationNodeType, FieldReader>> = {
-  start: () => ({}),
-  end: () => ({}),
+  start: readPlanNotationStart,
+  end: readPlanNotationEnd,
+  jump: (attributes, _, id) => readPlanNotationJump(attributes, id),
+  signal: readPlanNotationSignal,
   agent: readPlanNotationAgent,
   script: readScript,
   git_closeout: readGitCloseout,

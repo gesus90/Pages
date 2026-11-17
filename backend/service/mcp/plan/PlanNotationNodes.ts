@@ -46,7 +46,12 @@ export interface PlanNotationNodeRecords {
   readonly loops: Map<string, PlanNotationLoopFields>;
 }
 
-/** Node types that hold bindings. */
+/**
+ * Node types that always hold bindings.
+ * @remarks
+ * A receiving Jump has none, and an end holds them only when it declares
+ * returns; the reader leaves what a notation does not give absent.
+ */
 const BINDING_TYPES: readonly string[] = [
   "agent",
   "script",
@@ -54,6 +59,8 @@ const BINDING_TYPES: readonly string[] = [
   "group",
   "loop",
   "swarm",
+  "jump",
+  "signal",
 ];
 
 /** The declarations of one block: its nodes and frames in written order. */
@@ -302,7 +309,8 @@ export class PlanNotationNodeReader {
     attributes: PlanNotationAttributes,
     location: PlanNotationLocation,
   ): AgentPlanNode | null {
-    if (!("bindings" in node)) return node;
+    // An end has bindings only when it returns something, so it is asked too.
+    if (!("bindings" in node) && node.type !== "end") return node;
     const bindings = attributeBindings(node, attributes, this.context);
     if (Object.keys(bindings).length === 0) return node;
     return this.check({ ...node, bindings }, location);

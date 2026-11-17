@@ -18,6 +18,7 @@ import type { RunnerPlanExecution } from "@/backend/service/runner/RunnerPlanExe
 import type { RunnerPlanScripts } from "@/backend/service/runner/RunnerPlanScripts";
 import type { AgentPlanRemoteExecution } from "@/backend/service/agents/AgentPlanRemoteExecution";
 import type { AgentPlanScriptPreparation } from "@/backend/service/agents/AgentPlanScriptPreparation";
+import type { AgentPlanInvocations } from "@/backend/service/agents/invocation/AgentPlanInvocations";
 import type { AgentPlanRunRepository } from "@/backend/database/repositories/agent/AgentPlanRunRepository";
 import type { AgentPlanStepStart } from "@/backend/service/agents/AgentPlanStepStart";
 import type { AgentPlanTasks } from "@/backend/service/agents/AgentPlanTasks";
@@ -59,6 +60,7 @@ async function createPlanEngine(
     readonly tasks: AgentPlanTasks;
     readonly sessions: AgentPlanSessionGrants;
     readonly pageAgentSessions: AgentSessionService;
+    readonly invocations?: AgentPlanInvocations;
   },
 ): Promise<PlanRunEnginePort> {
   const runtime = await getPagesRuntime();
@@ -99,6 +101,7 @@ async function createPlanEngine(
     ),
     runs: parts.runs,
     start: parts.start,
+    invocations: parts.invocations,
     resources: input.agents.acpResourceScheduler,
     steps: new AgentPlanStepRunner({
       localSessions: input.agents.localSessions ?? undefined,

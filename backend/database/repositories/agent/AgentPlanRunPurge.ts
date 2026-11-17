@@ -109,6 +109,29 @@ async function deleteRun(
     `,
     parameters,
   );
+  // Only decided calls go: a call somebody still waits for keeps its record until it is decided.
+  await transaction.execute(
+    `
+      DELETE FROM agent_plan_invocation_signals
+      WHERE invocation_id IN (
+          SELECT id
+          FROM agent_plan_invocations
+          WHERE decided_at IS NOT NULL
+              AND start_state <> 'pending'
+              AND (source_run_id = $run_id OR target_run_id = $run_id)
+      );
+    `,
+    parameters,
+  );
+  await transaction.execute(
+    `
+      DELETE FROM agent_plan_invocations
+      WHERE decided_at IS NOT NULL
+          AND start_state <> 'pending'
+          AND (source_run_id = $run_id OR target_run_id = $run_id);
+    `,
+    parameters,
+  );
   for (const table of SESSION_TABLES)
     await transaction.execute(
       `

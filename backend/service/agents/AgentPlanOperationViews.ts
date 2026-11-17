@@ -225,6 +225,20 @@ function referenceLabel(
   return task ? `${task.key} · ${task.title}` : "";
 }
 
+/**
+ * The label of a start, a signal or a Jump: the name it carries, or what it points at.
+ * @returns `null` for a node of another kind.
+ */
+function callLabel(node: AgentPlanNode): string | null {
+  if (node.type === "start") return node.name?.trim() ? node.name : "Start";
+  if (node.type === "signal") return node.name ?? node.signalName;
+  if (node.type !== "jump") return null;
+  if (node.direction === "in") return node.name;
+  const { target } = node;
+  const pointsAt = target ? `${target.planName} · ${target.entryName}` : "Jump";
+  return node.name ?? pointsAt;
+}
+
 function nodeLabel(node: AgentPlanNode, sources: AgentPlanSources): string {
   if (
     node.type === "group" ||
@@ -238,9 +252,11 @@ function nodeLabel(node: AgentPlanNode, sources: AgentPlanSources): string {
   if (node.type === "parameter" || node.type === "variable") return node.name;
   if (node.type === "decision") return node.name ?? "Decision";
   if (node.type === "swarm") return node.name ?? "Swarm";
+  const call = callLabel(node);
+  if (call !== null) return call;
   const reference = referenceLabel(node, sources);
   if (reference !== null) return reference;
-  return node.type === "start" ? "Start" : "End";
+  return "End";
 }
 
 /** A node as the plan stores it, with the label the plan page shows. */
@@ -351,6 +367,8 @@ function stepStatus(step: AgentPlanStepResult): AgentPlanRunStepEntry {
     ...stepTimes(step),
     hasReport: hasReport(step),
     ...(step.agentTodos ? { agentTodos: step.agentTodos } : {}),
+    ...(step.jump ? { call: step.jump } : {}),
+    ...(step.signal ? { signal: step.signal } : {}),
     ...stepRetry(step),
   };
 }

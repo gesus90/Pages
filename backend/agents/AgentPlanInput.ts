@@ -44,6 +44,12 @@ import {
   readPlanContainedDecisions,
   readPlanDecisionNode,
 } from "./AgentPlanDecisionInput";
+import {
+  readPlanEndNode,
+  readPlanJumpNode,
+  readPlanSignalNode,
+  readPlanStartNode,
+} from "./AgentPlanJumpInput";
 
 import type { AgentPlanGroup } from "@/definition/AgentPlanGroup";
 import type {
@@ -109,13 +115,15 @@ export function readPlanBinding(input: unknown): AgentPlanBinding {
     result: ["kind", "stepId"],
     previous: ["kind", "stepId"],
     stack: ["kind", "stackId", "output"],
+    port: ["kind", "nodeId", "port"],
   };
   if (
     binding.kind !== "literal" &&
     binding.kind !== "source" &&
     binding.kind !== "result" &&
     binding.kind !== "previous" &&
-    binding.kind !== "stack"
+    binding.kind !== "stack" &&
+    binding.kind !== "port"
   )
     throw new AgentError("plan_invalid");
   const keys = allowed[binding.kind];
@@ -131,6 +139,12 @@ export function readPlanBinding(input: unknown): AgentPlanBinding {
     return { kind: "source", nodeId: readPlanText(binding.nodeId) };
   if (binding.kind === "result")
     return { kind: "result", stepId: readPlanText(binding.stepId) };
+  if (binding.kind === "port")
+    return {
+      kind: "port",
+      nodeId: readPlanText(binding.nodeId),
+      port: readPlanText(binding.port, 120),
+    };
   if (binding.kind === "stack") {
     if (binding.output !== "content" && binding.output !== "count")
       throw new AgentError("plan_binding_invalid");
@@ -160,8 +174,11 @@ function readBindings(
 export function readPlanNode(input: unknown): AgentPlanNode {
   const node = readPlanObject(input);
   const base = readNodeBase(node);
-  if (node.type === "start" || node.type === "end")
-    return { ...base, type: node.type };
+  const readers = { text: readPlanText, bindings: readBindings };
+  if (node.type === "start") return readPlanStartNode(node, base, readers);
+  if (node.type === "end") return readPlanEndNode(node, base, readers);
+  if (node.type === "jump") return readPlanJumpNode(node, base, readers);
+  if (node.type === "signal") return readPlanSignalNode(node, base, readers);
   if (node.type === "parameter") return readParameterNode(node, base);
   if (node.type === "group") return readGroupNode(node, base);
   if (node.type === "loop") return readLoopNode(node, base);

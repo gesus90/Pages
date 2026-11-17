@@ -1,10 +1,12 @@
 import {
   PLAN_NODE_FIELDS,
   PLAN_ADDABLE_TYPES,
+  PLAN_JUMP_FIELDS,
 } from "@/definition/AgentPlanChangeFields";
 import { readPlanBinding } from "@/backend/agents/AgentPlanInput";
 import { AgentOperationError } from "@/backend/error/AgentOperationError";
 import { planExecutionTargetSchema } from "@/definition/AgentPlanExecution";
+import { PLAN_JUMP_DEFAULT_MINUTES } from "@/definition/AgentPlanJump";
 
 import { readPlanGroupChange } from "./AgentPlanGroupChangeInput";
 import {
@@ -197,6 +199,46 @@ function readNodeType(input: unknown): (typeof ADDABLE_TYPES)[number] {
   return type;
 }
 
+/**
+ * The fields a node of a type may carry when it is added.
+ * @remarks
+ * A Jump is added in one direction, and only the fields of that direction
+ * make sense on it; a field of the other one is refused instead of ignored.
+ */
+function addableFields(
+  type: (typeof ADDABLE_TYPES)[number],
+  node: Readonly<Record<string, unknown>>,
+): readonly string[] {
+  if (type !== "jump") return AGENT_PLAN_NODE_FIELDS[type];
+  if (node.direction === "in") return ["direction", ...PLAN_JUMP_FIELDS.in];
+  if (node.direction === "out") return ["direction", ...PLAN_JUMP_FIELDS.out];
+  throw invalid();
+}
+
+/**
+ * The fields a new signal or Jump starts with, as the palette creates them.
+ * @remarks
+ * What the call names wins. A receiving entry is open for calls, a calling
+ * Jump has no target yet, goes on without waiting and keeps its workspace.
+ */
+function newCallFields(
+  type: (typeof ADDABLE_TYPES)[number],
+  node: Readonly<Record<string, unknown>>,
+): Readonly<Record<string, unknown>> {
+  if (type === "signal") return { bindings: {} };
+  if (type !== "jump") return {};
+  if (node.direction === "in") return { isEnabled: true, inputs: [] };
+  return {
+    target: null,
+    wait: "continue",
+    timeout: { kind: "minutes", minutes: PLAN_JUMP_DEFAULT_MINUTES },
+    workspace: "own",
+    inputs: [],
+    returns: [],
+    bindings: {},
+  };
+}
+
 function readAddNode(
   change: Readonly<Record<string, unknown>>,
 ): AgentPlanChange {
@@ -206,15 +248,18 @@ function readAddNode(
   requireParameterKeys(
     node,
     ["type"],
-    ["id", ...POSITION_FIELDS, ...AGENT_PLAN_NODE_FIELDS[type]],
+    ["id", ...POSITION_FIELDS, ...addableFields(type, node)],
   );
   return {
     action: "addNode",
     type,
     id: readOptionalIdentifier(node.id),
-    fields: Object.fromEntries(
-      Object.entries(node).filter(([key]) => key !== "type" && key !== "id"),
-    ),
+    fields: {
+      ...newCallFields(type, node),
+      ...Object.fromEntries(
+        Object.entries(node).filter(([key]) => key !== "type" && key !== "id"),
+      ),
+    },
   };
 }
 

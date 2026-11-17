@@ -11,6 +11,7 @@ import {
   findPlanBindingTarget,
   replacePlanNode,
 } from "@/definition/AgentPlanGroupEdit";
+import { isPlanEntryNode, isPlanJumpOut } from "@/definition/AgentPlanJump";
 import {
   PLAN_LOOP_RUNS_BINDING,
   PLAN_LOOP_WHILE_BINDING,
@@ -26,10 +27,15 @@ import {
 
 import type {
   AgentPlanBinding,
+  AgentPlanEnd,
   AgentPlanInput,
   AgentPlanNode,
 } from "@/definition/AgentPlan";
 import type { AgentDefinitionChoice } from "@/definition/AgentAvailability";
+import type {
+  AgentPlanJumpOut,
+  AgentPlanSignal,
+} from "@/definition/AgentPlanJump";
 import type { AgentPlanLoop } from "@/definition/AgentPlanLoop";
 import type { AgentPlanBranch } from "@/definition/AgentPlanBranching";
 import type { PlanNotationAttributes } from "./PlanNotationAttributes";
@@ -39,9 +45,11 @@ import type { PlanNotationIssueCode } from "./PlanNotationIssue";
 export interface PlanNotationEdgeSpec {
   /** The input a data edge enters; absent for a flow or branch edge. */
   readonly input?: string;
-  /** `true`, `false` or the value output `case:<id>` of a classification. */
+  /** `true`, `false`, `error`, `timeout` or the value output `case:<id>` of a classification. */
   readonly branch?: AgentPlanBranch;
   readonly output?: "content" | "count";
+  /** The value port of a start or Jump a data edge reads, such as `entry:<name>` or `return:<name>`. */
+  readonly port?: string;
   readonly isPrevious: boolean;
 }
 
@@ -51,7 +59,7 @@ export type PlanNotationEdgeResult =
   | { readonly code: PlanNotationIssueCode; readonly nodeId: string };
 
 /**
- * Reads the attributes of an edge statement: `in`, `branch`, `out` and `previous`.
+ * Reads the attributes of an edge statement: `in`, `branch`, `out`, `port` and `previous`.
  * @param attributes - The attributes; any other key is `unknown_attribute`.
  */
 export function readPlanNotationEdgeSpec(
@@ -63,12 +71,14 @@ export function readPlanNotationEdgeSpec(
   if (written !== undefined && branch === undefined)
     attributes.invalid("branch");
   const out = attributes.choice("out", ["entry", "count"]);
+  const port = attributes.text("port");
   const isPrevious = attributes.boolean("previous") ?? false;
   attributes.finish();
   return {
     ...(input === undefined ? {} : { input }),
     ...(branch === undefined ? {} : { branch }),
     ...(out === undefined ? {} : { output: PLAN_NOTATION_STACK_OUTPUTS[out] }),
+    ...(port === undefined ? {} : { port }),
     isPrevious,
   };
 }
@@ -85,6 +95,13 @@ function sourceBinding(
   source: AgentPlanNode,
   spec: PlanNotationEdgeSpec,
 ): AgentPlanBinding | null {
+  // A start or a Jump offers named value ports; the edge says which one it reads.
+  if (spec.port !== undefined) {
+    const isPort = isPlanEntryNode(source) || isPlanJumpOut(source);
+    return isPort && !spec.isPrevious && spec.output === undefined
+      ? { kind: "port", nodeId: source.id, port: spec.port }
+      : null;
+  }
   const isSource = ["parameter", "task", "variable"].includes(source.type);
   if (isSource && !spec.isPrevious && spec.output === undefined)
     return { kind: "source", nodeId: source.id };
@@ -132,6 +149,29 @@ function bindLoopInput(
   };
 }
 
+/**
+ * A value into an input of a calling Jump, a signal or an end: the payload, an input of the call or a return.
+ * @remarks
+ * These nodes stand on the top level and are no step of a group or loop, so
+ * their bindings are set on the node itself.
+ */
+function bindCallInput(
+  plan: AgentPlanInput,
+  target: AgentPlanJumpOut | AgentPlanSignal | AgentPlanEnd,
+  input: { readonly name: string; readonly binding: AgentPlanBinding },
+): PlanNotationEdgeResult {
+  const { name, binding } = input;
+  const bindings = target.bindings ?? {};
+  if (Object.hasOwn(bindings, name))
+    return refused("duplicate_field", target.id);
+  return {
+    plan: replacePlanNode(plan, {
+      ...target,
+      bindings: { ...bindings, [name]: binding },
+    }),
+  };
+}
+
 function connectData(
   plan: AgentPlanInput,
   link: { readonly source: AgentPlanNode; readonly target: AgentPlanNode },
@@ -146,6 +186,13 @@ function connectData(
   if (binding === null) return refused("unknown_port", source.id);
   if (target.type === "loop")
     return bindLoopInput(plan, target, { name: input.name, binding });
+  if (
+    (isPlanJumpOut(target) ||
+      target.type === "signal" ||
+      target.type === "end") &&
+    planNotationInputs(target, input.agents).has(input.name)
+  )
+    return bindCallInput(plan, target, { name: input.name, binding });
   const holder = findPlanBindingTarget(plan, target.id);
   if (
     !holder ||
@@ -214,17 +261,32 @@ function connectWire(
   };
 }
 
-/** A flow edge, or the branch of a decision. */
+/** Whether a node has the output of a branch: a decision its values, a calling Jump its failures. */
+function hasBranchOutput(
+  source: AgentPlanNode,
+  branch: AgentPlanBranch,
+): boolean {
+  const isFailure = branch === "error" || branch === "timeout";
+  if (source.type === "decision") return !isFailure;
+  return isPlanJumpOut(source) && isFailure;
+}
+
+/** A flow edge, or the branch of a decision or of a calling Jump's failure. */
 function connectOrder(
   plan: AgentPlanInput,
   link: { readonly source: AgentPlanNode; readonly target: AgentPlanNode },
   spec: PlanNotationEdgeSpec,
 ): PlanNotationEdgeResult {
   const { source, target } = link;
-  if (spec.output !== undefined || spec.isPrevious)
+  if (
+    spec.output !== undefined ||
+    spec.port !== undefined ||
+    spec.isPrevious
+  )
     return refused("invalid_value", source.id);
   if (spec.branch !== undefined) {
-    if (source.type !== "decision") return refused("unknown_port", source.id);
+    if (!hasBranchOutput(source, spec.branch))
+      return refused("unknown_port", source.id);
     return {
       plan: connectPlanBranching(plan, {
         kind: "branch",
@@ -250,11 +312,14 @@ function connectOrder(
  * @returns The plan with the edge or binding, or the finding that refuses it.
  * @remarks
  * A plain link is a flow edge (`flow-out` to `flow-in`), `branch` leaves a
- * decision, `in=condition` and `in=event` are the two wires of branching,
+ * decision, or a calling Jump through `error` or `timeout`, `in=condition`
+ * and `in=event` are the two wires of branching,
  * and any other `in` binds a data input: a parameter or ticket as `source`,
  * an agent or script as `result` (`previous` with `previous=true`), a stack
- * as `stack` with its `out`. Flow edges between members land in their group
- * or loop, as in the editor.
+ * as `stack` with its `out`, a start or Jump as `port` with the `port` it
+ * reads. A calling Jump, a signal (`payload`) and an end (its returns) take
+ * data edges too. Flow edges between members land in their group or loop, as
+ * in the editor.
  */
 export function applyPlanNotationEdge(
   plan: AgentPlanInput,
@@ -273,6 +338,11 @@ export function applyPlanNotationEdge(
   const ends = { source, target };
   if (spec.input === undefined) return connectOrder(plan, ends, spec);
   if (spec.branch !== undefined) return refused("invalid_value", source.id);
+  const isWire =
+    spec.input === PLAN_NOTATION_CONDITION_INPUT ||
+    spec.input === PLAN_NOTATION_EVENT_INPUT;
+  if (isWire && spec.port !== undefined)
+    return refused("invalid_value", source.id);
   if (spec.input === PLAN_NOTATION_CONDITION_INPUT)
     return connectWire(plan, ends, "condition");
   if (spec.input === PLAN_NOTATION_EVENT_INPUT)

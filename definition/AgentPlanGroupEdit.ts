@@ -20,12 +20,14 @@ import type {
   AgentPlanBinding,
   AgentPlanDecision,
   AgentPlanEdge,
+  AgentPlanEnd,
   AgentPlanInput,
   AgentPlanNode,
   AgentPlanPosition,
   AgentPlanStep,
 } from "./AgentPlan";
 import type { AgentPlanGroup, AgentPlanGroupRefusal } from "./AgentPlanGroup";
+import type { AgentPlanJumpOut, AgentPlanSignal } from "./AgentPlanJump";
 import type { AgentPlanLoop } from "./AgentPlanLoop";
 import type { AgentPlanGitCloseout } from "./AgentPlanGitCloseout";
 import type { AgentPlanScript } from "./AgentPlanScript";
@@ -104,7 +106,11 @@ function loopStep(loop: AgentPlanLoop, id: string): PlanStepLocation | null {
 
 /**
  * Finds the node whose inputs a binding fills: an agent, also inside a
- * frame, a script, or a frame with its retained legacy inputs.
+ * frame, a script, a frame with its retained legacy inputs, an outgoing Jump
+ * or a signal.
+ * @remarks
+ * An end binds its returns too, but it declares them optionally; use
+ * {@link bindPlanParameter} and {@link unbindPlanParameter} for those.
  */
 export function findPlanBindingTarget(
   plan: AgentPlanInput,
@@ -115,6 +121,8 @@ export function findPlanBindingTarget(
   | AgentPlanGitCloseout
   | AgentPlanGroup
   | AgentPlanLoop
+  | AgentPlanJumpOut
+  | AgentPlanSignal
   | null {
   return (
     findPlanStep(plan, id)?.step ??
@@ -130,11 +138,15 @@ export function findPlanBindingTarget(
         | AgentPlanScript
         | AgentPlanGitCloseout
         | AgentPlanGroup
-        | AgentPlanLoop =>
+        | AgentPlanLoop
+        | AgentPlanJumpOut
+        | AgentPlanSignal =>
         (node.type === "script" ||
           node.type === "git_closeout" ||
           node.type === "group" ||
-          node.type === "loop") &&
+          node.type === "loop" ||
+          node.type === "signal" ||
+          (node.type === "jump" && node.direction === "out")) &&
         node.id === id,
     ) ??
     null
@@ -504,19 +516,57 @@ export function withExplicitGroupFlow<Plan extends AgentPlanInput>(
   };
 }
 
-/** Binds an input of an agent node, also of one inside a frame, or of a script. */
+/** The end of the plan with the id, which binds its returns like an input. */
+function findPlanEnd(plan: AgentPlanInput, id: string): AgentPlanEnd | null {
+  return (
+    plan.nodes.find(
+      (node): node is AgentPlanEnd => node.type === "end" && node.id === id,
+    ) ?? null
+  );
+}
+
+/**
+ * Binds an input of an agent node, also of one inside a frame, of a script,
+ * of an outgoing Jump or of a signal, or a returned value of an end.
+ */
 export function bindPlanParameter<Plan extends AgentPlanInput>(
   plan: Plan,
   targetId: string,
   parameter: string,
   binding: AgentPlanBinding,
 ): Plan {
+  const end = findPlanEnd(plan, targetId);
+  if (end)
+    return replacePlanNode(plan, {
+      ...end,
+      bindings: { ...end.bindings, [parameter]: binding },
+    });
   const target = findPlanBindingTarget(plan, targetId);
   if (!target) return plan;
   return replacePlanNode(plan, {
     ...target,
     bindings: { ...target.bindings, [parameter]: binding },
   });
+}
+
+/**
+ * Releases the binding of one input or returned value; the node and its declarations stay.
+ * @param plan - The draft.
+ * @param targetId - The node whose input is released.
+ * @param parameter - The name of the input, or of the returned value of an end.
+ */
+export function unbindPlanParameter<Plan extends AgentPlanInput>(
+  plan: Plan,
+  targetId: string,
+  parameter: string,
+): Plan {
+  const end = findPlanEnd(plan, targetId);
+  const target = end ?? findPlanBindingTarget(plan, targetId);
+  if (!target) return plan;
+  const bindings = Object.fromEntries(
+    Object.entries(target.bindings ?? {}).filter(([key]) => key !== parameter),
+  );
+  return replacePlanNode(plan, { ...target, bindings });
 }
 
 /** Keeps edges between members in their container, including after reparenting, so group templates retain every internal connection. */

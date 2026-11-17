@@ -1,6 +1,9 @@
 import { LOCAL_RUNNER_CONNECTION_ID } from "@/backend/service/runner/LocalRunnerIdentity";
 import { withPlanReadOrigin } from "@/backend/error/AgentPlanReadDenied";
 
+import { readCallTargets } from "./invocation/AgentPlanCallTargets";
+
+import type { AgentPlanAccess } from "./AgentPlanAccess";
 import type { AgentPlanRemoteExecution } from "./AgentPlanRemoteExecution";
 import type { AgentPlanSources } from "@/definition/AgentPlan";
 import type { AgentWorkspaceChoice } from "@/definition/AgentWorkspace";
@@ -19,6 +22,8 @@ interface SourceDependencies {
   readonly scripts: AgentPlanScripts;
   readonly remoteTargets?: AgentPlanRemoteTargets;
   readonly decisionModels?: Pick<PlanDecisionModels, "list" | "defaultName">;
+  /** Reads the plans the person may call; without it no plan is offered as a target. */
+  readonly access?: Pick<AgentPlanAccess, "list">;
 }
 
 /** Reads authorized editor and tool choices without executing agents or connecting to remote hosts. */
@@ -52,6 +57,12 @@ export async function readPlanSources(
   const decisions = await withPlanReadOrigin("source_models", async () =>
     readDecisionModels(dependencies, userId),
   );
+  const { access } = dependencies;
+  const callTargets = access
+    ? await withPlanReadOrigin("source_plans", () =>
+        readCallTargets(access, userId),
+      )
+    : undefined;
   return {
     agents,
     tasks,
@@ -62,6 +73,7 @@ export async function readPlanSources(
       (target) => target.connectionId !== LOCAL_RUNNER_CONNECTION_ID,
     ),
     remoteStatus: remote?.statuses,
+    ...(callTargets ? { callTargets } : {}),
     ...decisions,
   };
 }

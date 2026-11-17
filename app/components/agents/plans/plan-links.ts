@@ -19,12 +19,12 @@ import {
 import { disconnectLoopFlow } from "@/definition/AgentPlanLoopEdit";
 import {
   disconnectPlanGroupFlow,
-  findPlanBindingTarget,
   findPlanStep,
-  replacePlanNode,
+  unbindPlanParameter,
 } from "@/definition/AgentPlanGroupEdit";
 
 import { planNodeLabel } from "./plan-layout";
+import { planPortDisplayName } from "./plan-jump/plan-jump-model";
 
 import type {
   AgentPlanBinding,
@@ -32,13 +32,10 @@ import type {
   AgentPlanEdge,
   AgentPlanInput,
   AgentPlanSources,
-  AgentPlanStep,
 } from "@/definition/AgentPlan";
 import type { AgentPlanBranch } from "@/definition/AgentPlanBranching";
-import type { AgentPlanGitCloseout } from "@/definition/AgentPlanGitCloseout";
 import type { AgentPlanGroup } from "@/definition/AgentPlanGroup";
 import type { AgentPlanLoop } from "@/definition/AgentPlanLoop";
-import type { AgentPlanScript } from "@/definition/AgentPlanScript";
 import type { AgentPlanStackOutput } from "@/definition/AgentPlanStack";
 
 /** A flow edge between steps; it orders execution. */
@@ -60,6 +57,8 @@ interface PlanDataLink {
   readonly parameter: string;
   /** The boundary port a member reads; `from` then names its frame. */
   readonly port?: string;
+  /** The named value output of an entry or a Jump the binding reads; `from` then names that node. */
+  readonly fromPort?: string;
   /** The data output of a stack the binding reads; `from` then names the stack. */
   readonly output?: AgentPlanStackOutput;
   /** The binding feeds a loop's own input, its count or its while boolean. */
@@ -101,13 +100,22 @@ export type PlanLink = PlanFlowLink | PlanDataLink | PlanWireLink;
  * difference between them.
  */
 export type PlanLinkChannel =
-  "flow" | "data" | "condition" | "true" | "false" | "case" | "event";
+  | "flow"
+  | "data"
+  | "condition"
+  | "true"
+  | "false"
+  | "case"
+  | "event"
+  | "error"
+  | "timeout";
 
-/** The channel of an output of a decision: true, false, or a value of a classification. */
+/** The channel of an output of a decision or a Jump: true, false, a value of a classification, a failure or a timeout. */
 export function planBranchChannel(
   branch: AgentPlanBranch | undefined,
-): "true" | "false" | "case" {
-  if (branch === "false") return "false";
+): "true" | "false" | "case" | "error" | "timeout" {
+  if (branch === "false" || branch === "error" || branch === "timeout")
+    return branch;
   return branch === undefined || branch === "true" ? "true" : "case";
 }
 
@@ -141,13 +149,14 @@ function isPlainFlow(edge: AgentPlanEdge): boolean {
   return kind === null || kind === "flow";
 }
 
+/** A node whose bindings the grid draws: its identifier and what fills its inputs. */
+interface BindingHolder {
+  readonly id: string;
+  readonly bindings: Readonly<Record<string, AgentPlanBinding>>;
+}
+
 function bindingLinks(
-  target:
-    | AgentPlanStep
-    | AgentPlanScript
-    | AgentPlanGitCloseout
-    | AgentPlanGroup
-    | AgentPlanLoop,
+  target: BindingHolder,
   ids: ReadonlySet<string>,
   frame: AgentPlanGroup | null,
 ): readonly PlanLink[] {
@@ -156,6 +165,18 @@ function bindingLinks(
       // A previous iteration's result needs no line: the input names its source, and a
       // line from a later member back to an earlier one would cross every card between them.
       if (binding.kind === "literal" || binding.kind === "previous") return [];
+      if (binding.kind === "port")
+        return ids.has(binding.nodeId)
+          ? [
+              {
+                kind: "data",
+                from: binding.nodeId,
+                to: target.id,
+                parameter,
+                fromPort: binding.port,
+              },
+            ]
+          : [];
       if (binding.kind === "stack")
         return ids.has(binding.stackId)
           ? [
@@ -300,9 +321,19 @@ export function planLinks(plan: AgentPlanInput): readonly PlanLink[] {
     if (
       target.type === "agent" ||
       target.type === "script" ||
-      target.type === "git_closeout"
+      target.type === "git_closeout" ||
+      target.type === "signal" ||
+      (target.type === "jump" && target.direction === "out")
     )
       links.push(...bindingLinks(target, ids, null));
+    if (target.type === "end" && target.bindings)
+      links.push(
+        ...bindingLinks(
+          { id: target.id, bindings: target.bindings },
+          ids,
+          null,
+        ),
+      );
     if (target.type === "decision") links.push(...decisionLinks([target], ids));
     if (target.type === "loop") links.push(...loopLinks(target, ids));
     if (target.type === "group") links.push(...groupLinks(target, ids));
@@ -343,16 +374,7 @@ export function removePlanLink(
           edge.from !== link.from || edge.to !== link.to || !isPlainFlow(edge),
       ),
     };
-  const target = findPlanBindingTarget(draft, link.to);
-  if (!target) return draft;
-  return replacePlanNode(draft, {
-    ...target,
-    bindings: Object.fromEntries(
-      Object.entries(target.bindings).filter(
-        ([parameter]) => parameter !== link.parameter,
-      ),
-    ),
-  });
+  return unbindPlanParameter(draft, link.to, link.parameter);
 }
 
 /** The plain names of a stack's outputs in the accessible label of a connection. */
@@ -386,10 +408,11 @@ export function planLinkLabel(
     group?.type === "group" && link.kind === "data"
       ? group.parameters.find((entry) => entry.id === link.port)?.name
       : undefined;
-  const output =
-    link.kind === "data" && link.output !== undefined
-      ? STACK_OUTPUT_LABELS[link.output]
-      : port;
+  let output = port;
+  if (link.kind === "data" && link.output !== undefined)
+    output = STACK_OUTPUT_LABELS[link.output];
+  if (link.kind === "data" && link.fromPort !== undefined)
+    output = planPortDisplayName(link.fromPort);
   const start = output ? `${label(link.from)} · ${output}` : label(link.from);
   const ends = `${start} → ${label(link.to)}`;
   return link.kind === "data" ? `${ends} · ${link.parameter}` : ends;

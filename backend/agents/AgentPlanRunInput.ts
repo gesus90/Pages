@@ -18,6 +18,7 @@ import {
 import { readPlanText } from "./AgentPlanInput";
 import { readPlanLoopRuns } from "./AgentPlanLoopRunInput";
 import { readPlanStepResult } from "./AgentPlanStepResultInput";
+import { readRunInvocation } from "./AgentPlanJumpInput";
 import { readPlanStackRuns } from "./AgentPlanStackRunInput";
 import { readAgentObject } from "./AgentPayload";
 import {
@@ -106,6 +107,9 @@ function readOptionalRunFields(
     ...(run.origin === undefined
       ? {}
       : { origin: readPlanRunOrigin(run.origin) }),
+    ...(run.invocation === undefined
+      ? {}
+      : { invocation: readRunInvocation(run.invocation) }),
     ...(run.loops === undefined ? {} : { loops: readPlanLoopRuns(run.loops) }),
     ...(run.stacks === undefined
       ? {}

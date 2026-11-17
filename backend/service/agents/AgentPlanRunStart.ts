@@ -73,8 +73,22 @@ export function initialPlanRun(
     })),
   };
   const loops = initialLoopRuns(snapshot);
+  const call = snapshot.invocation;
+  const called: AgentPlanRun = call
+    ? {
+        ...view,
+        invocation: {
+          invocationId: call.id,
+          entryNodeId: call.entryNodeId,
+          sourcePlanId: call.sourcePlanId,
+          sourceRunId: call.sourceRunId,
+          sourceNodeId: call.sourceNodeId,
+          wait: call.wait,
+        },
+      }
+    : view;
   return withGroupResults(
-    loops.length > 0 ? { ...view, loops } : view,
+    loops.length > 0 ? { ...called, loops } : called,
     snapshot,
   );
 }
@@ -117,6 +131,8 @@ export function recoveredPlanRun(
   return withGroupResults(
     {
       ...initial,
+      // The run keeps the entry and inputs of the call, but nobody waits for it as the call's target.
+      invocation: undefined,
       origin: recovered.origin,
       steps,
       ...(loops ? { loops } : {}),
@@ -164,6 +180,11 @@ function runStepName(snapshot: AgentPlanSnapshot, node: AgentPlanNode): string {
     return remote.step.configuration?.name ?? node.type;
   if (node.type === "decision") return node.name ?? "Decision";
   if (node.type === "swarm") return node.name ?? "Swarm";
+  if (node.type === "jump")
+    return node.direction === "in"
+      ? node.name
+      : (node.name ?? node.target?.planName ?? "Jump");
+  if (node.type === "signal") return node.name ?? node.signalName;
   return node.type === "loop" ||
     node.type === "script" ||
     node.type === "git_closeout" ||

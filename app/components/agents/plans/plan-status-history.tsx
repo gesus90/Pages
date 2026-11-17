@@ -10,7 +10,7 @@ import type {
 } from "@/definition/AgentPlan";
 import type { AgentPlanBranch } from "@/definition/AgentPlanBranching";
 
-/** The word of an output: true or false, or the value a model named for a classification. */
+/** The word of an output: true or false, the failure or timeout of a Jump, or the value a model named for a classification. */
 function branchWord(
   t: TFunction,
   branch: AgentPlanBranch,
@@ -18,13 +18,21 @@ function branchWord(
 ): string {
   if (branch === "true" || branch === "false")
     return t(`plans.decision.branch.${branch}`);
+  if (branch === "error" || branch === "timeout")
+    return t(`plans.jump.port.${branch}`);
   return typeof start.verdict?.decision === "string"
     ? start.verdict.decision
     : t("plans.decision.caseUnnamed");
 }
 
-/** Whether a result belongs to a decision: it names the output it activated or the value it read. */
+/**
+ * Whether a result belongs to a decision: it names the output it activated or the value it read.
+ * @remarks
+ * A calling Jump also names the output it took, its failure or timeout
+ * output, but it is no decision.
+ */
 export function isPlanDecisionResult(step: AgentPlanStepResult): boolean {
+  if (step.jump !== undefined) return false;
   return (
     step.branch !== undefined ||
     step.condition !== undefined ||

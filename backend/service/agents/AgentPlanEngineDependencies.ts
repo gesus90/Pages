@@ -7,6 +7,7 @@ import type { AgentPlanDecisionModel } from "./branching/AgentPlanDecisionModel"
 import type { AgentPlanSwarmRunner } from "./swarm/AgentPlanSwarmRunner";
 import type { AgentPlanStepStart } from "./AgentPlanStepStart";
 import type { AgentPlanStepRunner } from "./AgentPlanStepRunner";
+import type { AgentPlanInvocations } from "./invocation/AgentPlanInvocations";
 import type { AgentRunArchive } from "./AgentRunArchive";
 import type { AcpResourceScheduler } from "./AcpResourceScheduler";
 import type { AgentDefinitionFiles } from "./AgentDefinitionFiles";
@@ -19,7 +20,7 @@ export interface EngineDependencies {
   };
   readonly startResources?: Pick<
     AgentPlanStartResources,
-    "release" | "releaseResources" | "reconcile"
+    "release" | "releaseResources" | "reconcile" | "blockers"
   >;
   /** Startup restores state and consumes pending controls before releasing dispatch. */
   readonly deferScheduling?: boolean;
@@ -32,6 +33,8 @@ export interface EngineDependencies {
   readonly decisions?: Pick<AgentPlanDecisionModel, "run">;
   /** Runs swarm nodes; without it a swarm fails instead of running. */
   readonly swarms?: Pick<AgentPlanSwarmRunner, "run">;
+  /** Runs outgoing Jumps, signals and the returns of ends; without it they fail instead of running. */
+  readonly invocations?: Pick<AgentPlanInvocations, "call" | "signal" | "end">;
   readonly resources?: Pick<AcpResourceScheduler, "pauseRun" | "resumeRun"> &
     Partial<Pick<AcpResourceScheduler, "setWaitObserver" | "controlRun">>;
   readonly runs: Pick<

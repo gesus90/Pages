@@ -41,6 +41,8 @@ export interface ActivePlanRun {
   isInterrupted?: boolean;
   /** Decisions, skipped branches and returning events; absent until a plan with them needs it. */
   branching?: PlanBranchingState;
+  /** A call is handing the workspace of this run to the run it called; nothing new starts until it is back. */
+  isHandingOver?: boolean;
 }
 
 /** Native OpenCode turns that a paused run must continue after a Pages restart. */
@@ -176,6 +178,7 @@ export function readySteps(active: ActivePlanRun): readonly AgentPlanNode[] {
 export function canSchedule(active: ActivePlanRun): boolean {
   return (
     !active.view.stopRequested &&
+    !active.isHandingOver &&
     active.view.status === "running" &&
     !active.view.controlError &&
     !active.hasPersistenceFailure

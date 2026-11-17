@@ -7,6 +7,8 @@ import {
 } from "@/definition/AgentPlanBranching";
 import { planNodeParameters } from "@/definition/AgentPlanGroup";
 
+import { planNodePortSignature } from "./plan-jump/plan-jump-model";
+
 import type {
   AgentPlanInput,
   AgentPlanNode,
@@ -17,7 +19,8 @@ import type {
 /**
  * Everything beside its inputs that changes how tall a card is, or where its
  * ports lie: a connected event input shows a chip, a decision names what it
- * reads, and a run adds notes and a line to a card.
+ * reads, a Jump, a signal, a start or an end follows its stored configuration,
+ * and a run adds notes and a line to a card.
  * @returns A text that differs whenever one of these appears or disappears.
  */
 export function planPortLayout(
@@ -34,6 +37,10 @@ export function planPortLayout(
     result?.condition !== undefined,
     node.type === "stack" ? node.entries.length : null,
     node.type === "loop" ? [node.mode ?? "count", node.runsSource] : null,
+    planNodePortSignature(draft, node),
+    result?.jump
+      ? [result.jump.state, result.jump.handover, result.jump.hasSignal]
+      : null,
   ]);
 }
 

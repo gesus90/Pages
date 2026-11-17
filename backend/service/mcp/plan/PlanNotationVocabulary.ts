@@ -2,6 +2,10 @@ import { PLAN_ADDABLE_TYPES } from "@/definition/AgentPlanChangeFields";
 import { PLAN_GIT_CLOSEOUT_PARAMETERS } from "@/definition/AgentPlanGitCloseout";
 import { planNodeParameters } from "@/definition/AgentPlanGroup";
 import {
+  PLAN_SIGNAL_PAYLOAD_BINDING,
+  isPlanJumpOut,
+} from "@/definition/AgentPlanJump";
+import {
   PLAN_LOOP_RUNS_BINDING,
   PLAN_LOOP_WHILE_BINDING,
 } from "@/definition/AgentPlanLoop";
@@ -11,9 +15,10 @@ import type { AgentParameterType } from "@/definition/AgentParameters";
 import type { AgentPlanInput, AgentPlanNode } from "@/definition/AgentPlan";
 
 /**
- * The node types a notation writes: those the editor adds, the decision
- * among them, the asset whose file only the editor uploads, and the legacy
- * variable and Git closeout, so that every stored plan can be written back.
+ * The node types a notation writes: those the editor adds, the decision, the
+ * Jump and the signal among them, the asset whose file only the editor
+ * uploads, and the legacy variable and Git closeout, so that every stored
+ * plan can be written back.
  */
 export const PLAN_NOTATION_NODE_TYPES = [
   ...PLAN_ADDABLE_TYPES,
@@ -73,12 +78,27 @@ export function isPlanNotationNodeType(
  * @param node - The node a data edge enters.
  * @param agents - The agents of the workspace; an agent node without its own copy takes its inputs from them.
  * @returns The inputs by name; a loop's while input has no type a fixed value could have.
+ * @remarks
+ * A calling Jump takes the inputs it declares, a signal its payload when it
+ * has a payload type, and an end the returns it declares.
  */
 export function planNotationInputs(
   node: AgentPlanNode,
   agents: readonly AgentDefinitionChoice[],
 ): ReadonlyMap<string, AgentParameterType | null> {
   if (node.type === "loop") return new Map(Object.entries(LOOP_INPUTS));
+  if (isPlanJumpOut(node))
+    return new Map(node.inputs.map((input) => [input.name, input.type]));
+  if (node.type === "signal")
+    return new Map(
+      node.payloadType === undefined
+        ? []
+        : [[PLAN_SIGNAL_PAYLOAD_BINDING, node.payloadType]],
+    );
+  if (node.type === "end")
+    return new Map(
+      (node.returns ?? []).map((entry) => [entry.name, entry.type]),
+    );
   const parameters =
     node.type === "git_closeout"
       ? PLAN_GIT_CLOSEOUT_PARAMETERS

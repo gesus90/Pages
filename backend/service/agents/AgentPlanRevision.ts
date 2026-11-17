@@ -13,6 +13,7 @@ import {
 } from "./AgentPlanOwnership";
 import { requireNoNewGitCloseout } from "./AgentPlanGitCloseoutLegacy";
 import { validatePlanReferences } from "./AgentPlanReferences";
+import { requireNoPlanCallCycle } from "./invocation/AgentPlanCallCycleCheck";
 
 import type {
   AgentPlan,
@@ -113,6 +114,7 @@ export async function reviseAgentPlan(
     revision: proposed.revision ?? 1,
   };
   await dependencies.access.validateSharing(plan);
+  await requireNoPlanCallCycle(dependencies.plans, plan);
   if (!team.isManagement)
     await prepareExecutableGroups(dependencies, userId, plan);
   return plan;

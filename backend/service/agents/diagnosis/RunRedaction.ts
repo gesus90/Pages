@@ -62,6 +62,8 @@ export function hideStepContent(
     stack: hiddenStack,
     resourceAccess: hiddenAccess,
     assetFailure: hiddenAsset,
+    jumpOutputs: hiddenOutputs,
+    returned: hiddenReturned,
     ...rest
   } = step;
   void [
@@ -71,6 +73,8 @@ export function hideStepContent(
     hiddenStack,
     hiddenAccess,
     hiddenAsset,
+    hiddenOutputs,
+    hiddenReturned,
   ];
   return {
     ...rest,
@@ -111,8 +115,9 @@ export function hideRunContent(
   run: AgentPlanRun,
   ticketSteps: ReadonlySet<string> = new Set(),
 ): AgentPlanRun {
-  const { stacks: hiddenStacks, ...rest } = run;
-  void hiddenStacks;
+  // The link to the calling run names a run the reader may not be allowed to see.
+  const { stacks: hiddenStacks, invocation: hiddenInvocation, ...rest } = run;
+  void [hiddenStacks, hiddenInvocation];
   return {
     ...rest,
     steps: run.steps.map((step) => hideStepContent(step, ticketSteps)),

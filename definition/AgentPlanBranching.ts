@@ -23,6 +23,10 @@ export const PLAN_PORT = {
   falseOut: "false-out",
   /** The optional input of an agent that carries a new prompt for its open session. */
   eventIn: "event-in",
+  /** The output of an outgoing Jump that leads on when the call failed. */
+  errorOut: "error-out",
+  /** The output of an outgoing Jump with a finite wait that leads on when the wait ran out. */
+  timeoutOut: "timeout-out",
 } as const;
 
 /**
@@ -43,7 +47,12 @@ export type AgentPlanEdgeKind = "flow" | "branch" | "condition" | "event";
  * A value of a classification is its output port `case:<id>`, so
  * the branch and the port of the edge it activates are the same text.
  */
-export type AgentPlanBranch = "true" | "false" | `case:${string}`;
+export type AgentPlanBranch =
+  | "true"
+  | "false"
+  | "error"
+  | "timeout"
+  | `case:${string}`;
 
 /**
  * How often one node may start again inside one run.
@@ -73,6 +82,8 @@ export function planEdgeKind(
     if (
       fromPort === PLAN_PORT.trueOut ||
       fromPort === PLAN_PORT.falseOut ||
+      fromPort === PLAN_PORT.errorOut ||
+      fromPort === PLAN_PORT.timeoutOut ||
       planDecisionCaseId(fromPort) !== null
     )
       return "branch";
@@ -91,6 +102,8 @@ export function planEdgeBranch(
 ): AgentPlanBranch | null {
   if (edge.fromPort === PLAN_PORT.trueOut) return "true";
   if (edge.fromPort === PLAN_PORT.falseOut) return "false";
+  if (edge.fromPort === PLAN_PORT.errorOut) return "error";
+  if (edge.fromPort === PLAN_PORT.timeoutOut) return "timeout";
   const caseId = planDecisionCaseId(edge.fromPort);
   return caseId === null ? null : `case:${caseId}`;
 }
@@ -98,6 +111,8 @@ export function planEdgeBranch(
 /** The output port of a decision for a branch. */
 export function planBranchPort(branch: AgentPlanBranch): string {
   if (branch === "true") return PLAN_PORT.trueOut;
+  if (branch === "error") return PLAN_PORT.errorOut;
+  if (branch === "timeout") return PLAN_PORT.timeoutOut;
   return branch === "false" ? PLAN_PORT.falseOut : branch;
 }
 
@@ -106,6 +121,8 @@ export function isPlanBranch(value: unknown): value is AgentPlanBranch {
   return (
     value === "true" ||
     value === "false" ||
+    value === "error" ||
+    value === "timeout" ||
     (typeof value === "string" && planDecisionCaseId(value) !== null)
   );
 }
@@ -140,7 +157,10 @@ export function hasPlanBranching(
 ): boolean {
   return (
     plan.nodes.some(
-      (node) => node.type === "decision" || node.type === "stack",
+      (node) =>
+        node.type === "decision" ||
+        node.type === "stack" ||
+        (node.type === "jump" && node.direction === "out"),
     ) ||
     plan.edges.some((edge) => {
       const kind = planEdgeKind(edge);

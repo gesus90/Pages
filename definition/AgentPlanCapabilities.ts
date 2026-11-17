@@ -5,8 +5,14 @@ import type {
   AgentPlanCommandOperation,
 } from "./AgentPlanOperations.js";
 
-/** Additive contract revision, independently observable from a client's MCP bundle version. */
-export const AGENT_PLAN_CONTRACT_VERSION = 18;
+/**
+ * Additive contract revision, independently observable from a client's MCP bundle version.
+ * @remarks
+ * Revision 19 adds plans that call each other: the `jump` and `signal` nodes,
+ * callable starts, the declared returns of an end, `port` bindings and the
+ * failure outputs `error-out` and `timeout-out`.
+ */
+export const AGENT_PLAN_CONTRACT_VERSION = 19;
 
 /** Implementation discovery never substitutes for current per-plan access and availability. */
 export interface AgentPlanCapabilities {

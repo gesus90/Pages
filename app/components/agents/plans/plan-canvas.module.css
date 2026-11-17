@@ -106,6 +106,34 @@
   --plan-port-color: var(--color-info);
 }
 
+/* The payload of a signal is blue like the event input. The failure and
+   timeout outputs of a Jump are diamonds, so that their shape names them
+   as well as their colour: the failure output is filled, the timeout hollow. */
+.canvas .signalHandle {
+  --plan-port-color: var(--color-info);
+}
+
+.canvas .errorHandle {
+  --plan-port-color: var(--color-destructive);
+}
+
+.canvas .timeoutHandle {
+  --plan-port-color: var(--color-warning);
+}
+
+.canvas .errorHandle::after,
+.canvas .timeoutHandle::after {
+  inset: 0.09375rem;
+  border-radius: 0.125rem;
+  transform: rotate(45deg);
+}
+
+.canvas .timeoutHandle::after {
+  background: var(--color-surface);
+  border: 2px solid var(--plan-port-color);
+  box-shadow: none;
+}
+
 .canvas .invalidHandle::after {
   outline: 2px solid var(--color-destructive);
   outline-offset: 3px;

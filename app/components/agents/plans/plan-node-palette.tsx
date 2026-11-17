@@ -32,6 +32,8 @@ const PALETTE_KINDS: readonly PlanPaletteKind[] = [
   "decision",
   "stack",
   "swarm",
+  "jump",
+  "signal",
 ];
 
 // The dialogs of a dropped node load when one is requested.

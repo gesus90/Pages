@@ -903,6 +903,25 @@
         "plan_sources_failed": "The current agent template could not be loaded. Please insert it again.",
         "plan_remote_unavailable": "Remote execution is blocked: the runner, model route or interpreter is not ready. No local fallback.",
         "plan_start_end_disconnected": "Start is not connected to End.",
+        "plan_manual_start_unavailable": "This plan only receives calls from other plans. Start it from a calling plan, or add a Start that leads to an End.",
+        "plan_jump_invalid": "The Jump or signal node is not configured correctly. Check its direction, target, wait, signal name and declared values.",
+        "plan_jump_target_unavailable": "The called plan is not available to the person who runs this plan. It was removed, is not shared with them or cannot be started.",
+        "plan_jump_entry_unavailable": "The chosen entry of the called plan no longer exists, is not released for calls or does not lead to an end.",
+        "plan_jump_interface_changed": "The called plan changed after the call was made. Open the Jump node and choose the entry again.",
+        "plan_jump_input_invalid": "A value handed to the called plan is missing or has the wrong type. The called plan was not started.",
+        "plan_jump_payload_limit": "The values of this call are larger than a run keeps. Reduce them; nothing was cut off.",
+        "plan_jump_cycle": "This call would run a plan that is already part of the chain of calls. Plans may not call each other in a circle.",
+        "plan_jump_timeout": "The called plan did not answer within the set time.",
+        "plan_jump_target_failed": "The called plan failed.",
+        "plan_jump_target_cancelled": "The called plan was stopped before it answered.",
+        "plan_jump_no_signal": "The called plan ended without sending the awaited signal.",
+        "plan_jump_cleanup_open": "The called plan ended, but its processes or working copies are not confirmed to be cleaned up.",
+        "plan_jump_handover_unavailable": "The workspace could not be handed over safely: another writer of this plan is still active or the reservation changed.",
+        "plan_jump_resource_cycle": "The called plan waits for a workspace that this plan holds while it waits for the called plan. Share the workspace with this plan, or use a separate workspace.",
+        "plan_jump_cancelled": "The call was cancelled because the calling run stopped or ended.",
+        "plan_jump_start_conflict": "The called run was already created or the call was withdrawn.",
+        "plan_jump_start_blocked": "The called plan has to wait: its plan or a workspace it needs is in use by another run.",
+        "plan_jump_invocation_missing": "The call could not be found after it was stored.",
         "plan_invalid": "Check the plan fields and graph nodes.",
         "swarm_invalid": "Check the swarm: 1 to 10 helpers, a time limit of 1 to 1440 minutes and a working directory inside the workspace.",
         "swarm_remote_unsupported": "Swarm nodes run only on the Pages host. Choose a local target.",
@@ -5454,7 +5473,9 @@
       "decision": "Decision",
       "stack": "Stack",
       "asset": "Asset",
-      "swarm": "Swarm"
+      "swarm": "Swarm",
+      "jump": "Jump",
+      "signal": "Signal"
     },
     "status": {
       "waiting": "Waiting",
@@ -5555,7 +5576,19 @@
       "decisionCases": "A classification needs 2 to 20 values with unique, non-empty names of at most 60 characters.",
       "swarmRemoteUnsupported": "Swarm nodes run only on the Pages host. Choose a local target.",
       "swarmIncomplete": "The swarm lacks a task, a main model or helper models.",
-      "swarmInvalid": "Check the swarm: 1 to 10 helpers, a time limit of 1 to 1440 minutes and a working directory inside the workspace."
+      "swarmInvalid": "Check the swarm: 1 to 10 helpers, a time limit of 1 to 1440 minutes and a working directory inside the workspace.",
+      "jumpTarget": "This Jump has no target, or the target plan is no longer available. Choose a plan you may call.",
+      "jumpEntry": "The chosen entry no longer exists, is not released for calls, or its ends declare contradicting returns. Choose another entry.",
+      "jumpInterface": "The target changed its inputs or returns after this Jump stored them. Open the Jump and take over the current interface; connections that no longer fit stay marked as invalid.",
+      "jumpWait": "The wait is not valid. Choose Continue at once, Wait for completion or Wait for signal, and name the signal for the last one.",
+      "jumpTimeout": "The time limit must be a whole number of minutes from 1 to 43200, or Unlimited.",
+      "jumpWorkspace": "A shared workspace needs a wait. Choose the target plan's own workspace, or wait for completion or a signal.",
+      "jumpInput": "Check the declared values: at most 16, unique names starting with a letter, valid types and default values that match their type.",
+      "jumpBoundary": "A receiving Jump belongs on the outer level of the plan, never inside a group or a loop.",
+      "jumpCycle": "This call would run a plan that is already part of the chain of calls. Plans may not call each other in a circle.",
+      "returnContract": "The ends reachable from this entry declare different returns, so a caller could not rely on any of them. Declare the same returns at every reachable end.",
+      "signalName": "Name the signal: it starts with a letter and has at most 64 letters, digits, underscores, dots or hyphens.",
+      "manualStart": "This plan only receives calls. Add a Start that leads to an End to start it by hand."
     },
     "session": {
       "runner": {
@@ -5583,7 +5616,9 @@
       "condition": "Boolean result (bool)",
       "true": "Branch true",
       "false": "Branch false",
-      "event": "Event · new prompt"
+      "event": "Event · new prompt",
+      "error": "Failure branch",
+      "timeout": "Timeout branch"
     },
     "zoomIn": "Zoom in",
     "zoomOut": "Zoom out",
@@ -6104,7 +6139,8 @@
         "remotePagesUnavailable": "Pages access and file delivery are unavailable for this model route. Select a remote CLI with Runner 1.6.0 or later.",
         "remoteToolIncompatible": "The OpenCode version on the remote host does not meet the ACP contract Pages checks. The runner's settings name the reason.",
         "remoteCatalogStale": "This runner's inventory is stale or incomplete. Known profiles stay visible but start only after a complete, current report from the connected runner.",
-        "remoteInterpreterRemoved": "A complete inventory of the runner no longer lists this interpreter. Install it on the remote host or choose a reported interpreter."
+        "remoteInterpreterRemoved": "A complete inventory of the runner no longer lists this interpreter. Install it on the remote host or choose a reported interpreter.",
+        "startEndDisconnected": "No flow leads from this entry to an end, so a call of it cannot finish."
       },
       "state": {
         "none": {
@@ -6312,7 +6348,9 @@
         "decision": "Decision",
         "stack": "Stack",
         "asset": "Asset",
-        "swarm": "Swarm"
+        "swarm": "Swarm",
+        "jump": "Jump",
+        "signal": "Signal"
       },
       "hint": {
         "start": "Add the beginning of a flow.",
@@ -6326,7 +6364,9 @@
         "decision": "Add a branch: the boolean result of an agent decides which branch continues.",
         "stack": "Ordered tickets or values; every trigger hands over the next entry",
         "asset": "A file as a source: image, video, document, audio or any other file.",
-        "swarm": "A main model splits one task among several helpers at run time"
+        "swarm": "A main model splits one task among several helpers at run time",
+        "jump": "Connect plans: call another plan or receive a call.",
+        "signal": "Send an intermediate message to the caller of the run."
       },
       "addTitle": "Add {{type}}",
       "add": "Add",
@@ -7216,7 +7256,202 @@
       "false": "false",
       "event": "Event · new prompt",
       "case": "value",
-      "decisionInput": "data"
+      "decisionInput": "data",
+      "error": "error",
+      "timeout": "timed out"
+    },
+    "jump": {
+      "title": {
+        "out": "Jump · OUT",
+        "in": "Jump · IN"
+      },
+      "caption": {
+        "out": "Calls another plan",
+        "in": "Entry for calls"
+      },
+      "defaultName": "Entry",
+      "noTarget": "No target chosen",
+      "noTargets": "No plan can be called yet. A plan appears here once it releases a Start or a Jump IN for calls.",
+      "none": "none",
+      "required": "required",
+      "invalidPort": "This port is not in the stored configuration any more. A connection still uses it.",
+      "ports": "Ports of {{name}}",
+      "startLine": "Start a connection from {{port}} of {{name}}",
+      "unconnected": "{{ports}} not connected: the plan fails",
+      "unlimited": "Unlimited",
+      "minutes": "min",
+      "interface": "Inputs: {{inputs}} · Returns: {{returns}}",
+      "takeInterface": "Take over current interface",
+      "choosePlan": "Choose a plan …",
+      "chooseEntry": "Choose an entry …",
+      "unavailablePlan": "{{name}} (no longer available)",
+      "unavailableEntry": "{{name}} (no longer available)",
+      "targetPlan": "Target plan",
+      "targetEntry": "Entry",
+      "entryKind": {
+        "start": "Start",
+        "in": "Jump IN"
+      },
+      "entryName": "Name",
+      "entryNameInvalid": "Enter a name of 1 to 120 characters without control characters.",
+      "entryEnabled": "Release for calls",
+      "entryHint": "Begins a new run, never a jump into an active one. Only on the outer level of the plan. Start stays for manual runs.",
+      "in": {
+        "enabled": "Released for calls",
+        "disabled": "Not released for calls"
+      },
+      "dialog": {
+        "hint": "A Jump connects plans. Switching the direction or the target keeps connections; those that no longer fit stay in the plan and show as invalid."
+      },
+      "direction": {
+        "label": "Direction",
+        "out": "OUT",
+        "in": "IN"
+      },
+      "wait": {
+        "label": "Wait",
+        "continue": "Continue at once",
+        "continueHint": "Goes on once the call is accepted. This does not mean the target has started or succeeded.",
+        "completion": "Wait for completion",
+        "completionHint": "Waits until the target run has ended successfully and its cleanup is confirmed.",
+        "signal": "Wait for signal",
+        "signalHint": "Waits for the named signal of this call. This says nothing about the end of the target."
+      },
+      "signalName": "Signal name",
+      "signalNameInvalid": "Start with a letter, then letters, digits, underscore, dot or hyphen; at most 64 characters.",
+      "payloadType": "Type of the payload",
+      "timeout": "Time limit",
+      "timeoutInvalid": "Enter a whole number of minutes from 1 to {{max}}, or choose Unlimited.",
+      "workspace": {
+        "label": "Workspace",
+        "own": "The target plan's own",
+        "ownHint": "The target plan works in its own workspace.",
+        "shared": "Shared with this plan",
+        "sharedHint": "The target plan takes over the workspace of this plan while this plan waits."
+      },
+      "workspaceShort": {
+        "own": "own workspace",
+        "shared": "shared workspace"
+      },
+      "continueHint": "No shared workspace. No time limit.",
+      "duration": {
+        "days": "{{count}} d",
+        "hours": "{{count}} h",
+        "minutes": "{{count}} min"
+      },
+      "port": {
+        "out": {
+          "continue": "Requested",
+          "completion": "Done",
+          "signal": "Signal"
+        },
+        "error": "Error",
+        "timeout": "Timed out",
+        "runId": "Run ID",
+        "reason": "Reason",
+        "payload": "Payload"
+      },
+      "problem": {
+        "jumpTarget": "The target plan is no longer available: it was removed or is no longer shared with you. Choose another plan.",
+        "jumpEntry": "The chosen entry no longer exists, is not released for calls, or its ends declare contradicting returns. Choose another entry.",
+        "jumpInterface": "The target changed its inputs or returns after this Jump stored them. Take over the current interface; connections that no longer fit stay marked as invalid."
+      },
+      "run": {
+        "waiting": "Waiting for {{plan}} · {{duration}}",
+        "waitingShort": "Waiting for {{plan}}",
+        "remaining": "{{duration}} left",
+        "overdue": "time limit reached",
+        "phase": {
+          "handedOver": "Workspace handed over",
+          "signalWaiting": "Signal received, waiting for workspace",
+          "resultPaused": "Result is in, continues after resume",
+          "timeoutPaused": "Time limit expired, continues after resume"
+        },
+        "state": {
+          "queued": "Queued",
+          "starting": "Starting",
+          "running": "Running",
+          "succeeded": "Target plan succeeded",
+          "failed": "Target plan failed",
+          "timed_out": "Time limit expired",
+          "cancelled": "Call cancelled",
+          "accepted": "Call requested",
+          "signalled": "Signal received"
+        },
+        "targetStatus": "Called run: {{status}}",
+        "openTarget": "Open run of {{plan}}",
+        "calledBy": "This run was started by a call from another plan.",
+        "openSource": "Open calling run",
+        "reason": "Reason: {{reason}}",
+        "reasonUnknown": "The call did not succeed."
+      },
+      "targetStatus": {
+        "queued": "Queued",
+        "none": "No run yet",
+        "running": "Running",
+        "pausing": "Pause requested",
+        "paused": "Paused",
+        "stopping": "Stopping",
+        "succeeded": "Succeeded",
+        "failed": "Failed",
+        "cancelled": "Cancelled",
+        "work_done_closeout_open": "Work done, closeout open"
+      }
+    },
+    "signal": {
+      "title": "Send signal",
+      "caption": "Intermediate message",
+      "name": "Name",
+      "noPayload": "No payload",
+      "payload": "Payload",
+      "payloadHint": "With a type the node gets a value input for the payload.",
+      "receiverHint": "The receiver is always the caller of this run and cannot be changed. A run that nobody called goes on without delivery.",
+      "dialog": {
+        "title": "Signal",
+        "hint": "Sends an intermediate message to the caller of the run."
+      },
+      "run": {
+        "delivered": "Signal “{{name}}” delivered",
+        "no_caller": "Signal “{{name}}” not delivered: nobody called this run. The run goes on.",
+        "duplicate": "Signal “{{name}}” not delivered: it was already sent for this call.",
+        "closed": "Signal “{{name}}” not delivered: the call was already decided."
+      }
+    },
+    "entry": {
+      "inputs": "Input parameters",
+      "inputsHint": "What a call of this entry hands over. Each input becomes a value output of the entry.",
+      "returns": "Returns",
+      "returnsHint": "What a called run hands back from this end. Each return becomes a value input bound at the end.",
+      "inputsName": "Name of input {{index}}",
+      "returnsName": "Name of return {{index}}",
+      "typeOf": "Type of value {{index}}",
+      "defaultOf": "Default value of input {{index}}",
+      "defaultValue": "Default value",
+      "required": "Required",
+      "remove": "Remove value {{index}}",
+      "limit": "At most {{count}} values.",
+      "add": {
+        "inputs": "Add input",
+        "returns": "Add return"
+      },
+      "nameInvalid": "Start with a letter; then only letters, digits and underscore, at most 64 characters.",
+      "nameDuplicate": "This name is used twice. Names must be unique.",
+      "type": {
+        "text": "Text",
+        "number": "Number",
+        "ticket": "Ticket",
+        "workspace": "Workspace",
+        "wiki": "Wiki page",
+        "asset": "File"
+      },
+      "callable": "Callable by other plans",
+      "callableShort": "Callable by other plans",
+      "callableHint": "Off by default. The inputs below are kept while this is off; their value outputs show on the card only while the Start is callable.",
+      "startName": "Name (optional)",
+      "startTitle": "Start",
+      "startHint": "The beginning of manual runs. Other plans may call it when you release it.",
+      "endTitle": "End",
+      "endHint": "A run that was called hands the returns below back to its caller when it ends successfully."
     },
     "decision": {
       "caption": "Logic · Boolean",

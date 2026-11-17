@@ -17,13 +17,17 @@ import { PlanStatusRetry, PlanStatusStop } from "./plan-status-retry";
 import { PlanRemoteHistory } from "./plan-remote-history";
 import { PlanStatusReport } from "./plan-status-report";
 import { PlanScriptReport } from "./plan-script/plan-script-report";
+import { PlanJumpRunLines } from "./plan-jump/plan-jump-run";
+import { PlanSignalRunLine } from "./plan-jump/plan-signal-run";
 
 import type { TFunction } from "i18next";
-import type { AgentPlanStepResult } from "@/definition/AgentPlan";
+import type { AgentPlanRun, AgentPlanStepResult } from "@/definition/AgentPlan";
 import type { PlanSequenceBlockKind } from "./plan-step-sequence";
 
 interface StatusDetailsProps {
   readonly step: AgentPlanStepResult | undefined;
+  /** The status of the shown run, which says whether a decided Jump waits for the continuation. */
+  readonly runStatus?: AgentPlanRun["status"];
   readonly blockedByName?: string | null;
   readonly number: number;
   /** The loop iteration or start of a repeated execution; absent for a node that runs once. */
@@ -43,13 +47,20 @@ function isScript(step: AgentPlanStepResult): boolean {
   );
 }
 
-/** An agent node, as opposed to a script or a decision. */
+/** An agent node, as opposed to a script, a decision, a Jump or a signal. */
 function isAgentStep(step: AgentPlanStepResult): boolean {
-  return !isScript(step) && !isPlanDecisionResult(step);
+  return (
+    !isScript(step) &&
+    !isPlanDecisionResult(step) &&
+    step.jump === undefined &&
+    step.signal === undefined
+  );
 }
 
 /** The line under the heading: what kind of node the step is. */
 function nodeKind(step: AgentPlanStepResult, translate: TFunction): string {
+  if (step.jump) return translate("plans.jump.title.out");
+  if (step.signal) return translate("plans.signal.title");
   if (isPlanDecisionResult(step)) return translate("plans.nodeType.decision");
   return isScript(step)
     ? translate("plans.nodeType.script")
@@ -72,6 +83,7 @@ function PlanStatusSkippedNote(props: {
 /** Consistent run-step details, with honest empty states when the runner reports no live activity. */
 export function PlanStatusDetails({
   step,
+  runStatus,
   blockedByName,
   number,
   pass,
@@ -142,7 +154,7 @@ export function PlanStatusDetails({
           <PlanStatusReport acceptance={step.session?.acceptance} />
           <PlanScriptReport report={step.report} />
           <PlanExecutionDetails step={step} />
-          <StepConfiguration step={step} end={end} />
+          <StepConfiguration step={step} end={end} runStatus={runStatus} />
           {hasAgentList ? <PlanStatusActivity step={step} /> : null}
           <PlanRemoteHistory step={step} />
           <Button
@@ -169,10 +181,23 @@ export function PlanStatusDetails({
 function StepConfiguration({
   step,
   end,
-}: Pick<StatusDetailsProps, "step" | "end">): React.ReactElement | null {
+  runStatus,
+}: Pick<
+  StatusDetailsProps,
+  "step" | "end" | "runStatus"
+>): React.ReactElement | null {
   const { t } = useTranslation();
   if (!step) return null;
   if (isPlanDecisionResult(step)) return null;
+  if (step.jump)
+    return (
+      <PlanJumpRunLines
+        jump={step.jump}
+        stepStatus={step.status}
+        runStatus={runStatus}
+      />
+    );
+  if (step.signal) return <PlanSignalRunLine signal={step.signal} />;
   if (step.swarm)
     return (
       <PlanSwarmRun

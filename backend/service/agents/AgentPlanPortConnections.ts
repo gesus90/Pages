@@ -12,17 +12,38 @@ import {
 } from "@/definition/AgentPlanBranchingEdit";
 import { findPlanDecision } from "@/definition/AgentPlanDecisionEdit";
 import { planConnectionIssues } from "@/definition/AgentPlanGraph";
-import { connectPlanFlow } from "@/definition/AgentPlanGroupEdit";
+import {
+  connectPlanFlow,
+  findPlanBindingTarget,
+  replacePlanNode,
+} from "@/definition/AgentPlanGroupEdit";
+import {
+  PLAN_JUMP_PORT,
+  PLAN_SIGNAL_PAYLOAD_BINDING,
+  isPlanJumpOut,
+  planPortType,
+} from "@/definition/AgentPlanJump";
 import { joinPlanStack } from "@/definition/AgentPlanStackEdit";
 
 import type { AgentDefinitionChoice } from "@/definition/AgentAvailability";
 import type {
   AgentPlanBinding,
   AgentPlanEdge,
+  AgentPlanEnd,
   AgentPlanInput,
+  AgentPlanStep,
 } from "@/definition/AgentPlan";
+import type { AgentPlanGitCloseout } from "@/definition/AgentPlanGitCloseout";
 import type { AgentPlanIssue } from "@/definition/AgentPlanGraph";
+import type {
+  AgentPlanJumpOut,
+  AgentPlanSignal,
+} from "@/definition/AgentPlanJump";
+import type { AgentPlanScript } from "@/definition/AgentPlanScript";
 import type { AgentPlanChangePorts } from "./AgentPlanOperationInput";
+
+/** The prefix of the input port of a node with named inputs; the editor draws `input:<name>`. */
+const INPUT_PORT_PREFIX = "input:";
 
 /** A connection between two nodes through the ports the editor names. */
 export interface AgentPlanPortConnection {
@@ -77,7 +98,8 @@ function joinStack(
  * Builds the edge of a port connection with the functions the editor uses.
  *
  * @remarks
- * The decision outputs `true-out`/`false-out` and `case:<id>` branch, the
+ * The decision outputs `true-out`/`false-out` and `case:<id>`, and the
+ * failure outputs `error-out`/`timeout-out` of a calling Jump, branch, the
  * boolean result of an agent becomes the one condition of a decision, a
  * boolean parameter, a ticket or a text result becomes its bound data input,
  * a text result enters the
@@ -155,6 +177,122 @@ function attemptFlowInput(
     : connected;
 }
 
+/** The nodes that hold bindings other than the agents' own: a calling Jump, a signal and an end. */
+type CallHolder = AgentPlanJumpOut | AgentPlanSignal | AgentPlanEnd;
+
+/** A node whose named inputs a value port can fill. */
+type ValueHolder =
+  | AgentPlanStep
+  | AgentPlanScript
+  | AgentPlanGitCloseout
+  | CallHolder;
+
+/** A value port connected to a named input: the node and input it fills, and the binding it makes. */
+interface ValueConnection {
+  readonly holder: ValueHolder;
+  readonly name: string;
+  readonly binding: Extract<AgentPlanBinding, { kind: "port" }>;
+}
+
+/** The input a port names: `input:<name>`, or the payload input of a signal. */
+function inputNameOf(toPort: string): string | null {
+  if (toPort === PLAN_JUMP_PORT.payloadIn) return PLAN_SIGNAL_PAYLOAD_BINDING;
+  return toPort.startsWith(INPUT_PORT_PREFIX)
+    ? toPort.slice(INPUT_PORT_PREFIX.length)
+    : null;
+}
+
+/** The node whose input bindings a value connection changes; frames and decisions hold none. */
+function valueHolder(plan: AgentPlanInput, id: string): ValueHolder | null {
+  const member = findPlanBindingTarget(plan, id);
+  if (member && member.type !== "group" && member.type !== "loop")
+    return member;
+  const node = plan.nodes.find((entry) => entry.id === id);
+  if (node?.type === "signal" || node?.type === "end" || isPlanJumpOut(node))
+    return node;
+  return null;
+}
+
+/**
+ * The binding a value port connection makes, or `null` when the connection is no value connection.
+ * @remarks
+ * The output must be a value port the source really has (`planPortType`) and
+ * the input one the target holds; any other pair is refused like every
+ * other pair of ports that carries nothing the plan understands.
+ */
+function valueConnectionOf(
+  plan: AgentPlanInput,
+  connection: AgentPlanPortConnection,
+): ValueConnection | null {
+  const { from, to, ports } = connection;
+  const name = inputNameOf(ports.toPort);
+  const holder = valueHolder(plan, to);
+  if (name === null || holder === null) return null;
+  if (planPortType(plan, from, ports.fromPort) === null) return null;
+  return {
+    holder,
+    name,
+    binding: { kind: "port", nodeId: from, port: ports.fromPort },
+  };
+}
+
+/** The holder with one binding set, or removed with `null`. */
+function withValueBinding(
+  plan: AgentPlanInput,
+  value: Pick<ValueConnection, "holder" | "name">,
+  binding: AgentPlanBinding | null,
+): AgentPlanInput {
+  const kept = Object.fromEntries(
+    Object.entries(value.holder.bindings ?? {}).filter(
+      ([name]) => name !== value.name,
+    ),
+  );
+  return replacePlanNode(plan, {
+    ...value.holder,
+    bindings: binding === null ? kept : { ...kept, [value.name]: binding },
+  });
+}
+
+/** Connects or disconnects a value port; an input has one source, so a filled one is refused. */
+function applyValueConnection(
+  plan: AgentPlanInput,
+  connection: AgentPlanPortConnection,
+  value: ValueConnection,
+): AgentPlanInput {
+  const current = value.holder.bindings?.[value.name];
+  if (connection.action === "connect") {
+    if (current !== undefined)
+      throw new AgentOperationError("INVALID_REQUEST", {
+        reason: "element_exists",
+      });
+    return withValueBinding(plan, value, value.binding);
+  }
+  const { binding } = value;
+  if (
+    current?.kind !== "port" ||
+    current.nodeId !== binding.nodeId ||
+    current.port !== binding.port
+  )
+    throw new AgentOperationError("INVALID_REQUEST", {
+      reason: "element_missing",
+    });
+  return withValueBinding(plan, value, null);
+}
+
+/** The attempt, unless it adds a finding the plan did not have; only what the new edge adds counts. */
+function requireNoNewIssues(
+  plan: AgentPlanInput,
+  attempt: AgentPlanInput,
+  agents: readonly AgentDefinitionChoice[],
+): AgentPlanInput {
+  const known = new Set(planConnectionIssues(plan, agents).map(issueKey));
+  const issue = planConnectionIssues(attempt, agents).find(
+    (entry) => !known.has(issueKey(entry)),
+  );
+  if (issue) throw refusedConnection(issue);
+  return attempt;
+}
+
 /**
  * Adds or removes one edge named by its nodes and ports.
  *
@@ -171,12 +309,23 @@ function attemptFlowInput(
  * As in the editor, only what the new edge adds counts: findings the plan
  * already had do not block it. A stack entry is data of the stack, not an
  * edge, so it leaves the stack through a change of the stack's entries.
+ * A value port of a start or a Jump (`entry:<name>`, `run-id-out`,
+ * `reason-out`, `payload-out`, `return:<name>`) connected to `input:<name>`
+ * of a node with inputs, or to `payload-in` of a signal, is no edge either:
+ * it is the `port` binding of that input.
  */
 export function applyPlanPortConnection(
   plan: AgentPlanInput,
   connection: AgentPlanPortConnection,
   agents: readonly AgentDefinitionChoice[],
 ): AgentPlanInput {
+  const value = valueConnectionOf(plan, connection);
+  if (value) {
+    const bound = applyValueConnection(plan, connection, value);
+    return connection.action === "connect"
+      ? requireNoNewIssues(plan, bound, agents)
+      : bound;
+  }
   const edge = edgeOf(connection);
   const input = decisionInputOf(plan, connection);
   const exists =
@@ -203,10 +352,5 @@ export function applyPlanPortConnection(
     });
   const attempt = attemptPorts(plan, connection);
   if (!("nodes" in attempt)) throw refusedConnection(attempt);
-  const known = new Set(planConnectionIssues(plan, agents).map(issueKey));
-  const issue = planConnectionIssues(attempt, agents).find(
-    (entry) => !known.has(issueKey(entry)),
-  );
-  if (issue) throw refusedConnection(issue);
-  return attempt;
+  return requireNoNewIssues(plan, attempt, agents);
 }

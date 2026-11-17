@@ -60,6 +60,16 @@ import type {
 import type { AgentPlanGitCloseout } from "./AgentPlanGitCloseout";
 import type { AgentPlanAsset } from "./AgentPlanAsset";
 import type { AgentPlanSwarm } from "./AgentPlanSwarm";
+import type {
+  AgentPlanCallTarget,
+  AgentPlanEntryInput,
+  AgentPlanEntryReturn,
+  AgentPlanJump,
+  AgentPlanJumpRun,
+  AgentPlanRunInvocation,
+  AgentPlanSignal,
+  AgentPlanSignalRun,
+} from "./AgentPlanJump";
 import type { AgentPlanSwarmRun } from "./AgentPlanSwarmRun";
 import type { AgentPlanScriptAssessment } from "./AgentPlanScriptReport";
 import type {
@@ -81,6 +91,9 @@ import type {
  * `stack` reads one of the two data outputs of a stack node: the entry its
  * newest trigger handed over, or the number of its entries. Reading never
  * triggers the stack and never consumes an entry.
+ * `port` reads a named value output of a flow node: an input accepted by a
+ * receiving entry (`entry:<name>`), or the run id, reason, payload or a
+ * returned value of an outgoing Jump.
  */
 export type AgentPlanBinding =
   | { readonly kind: "literal"; readonly value: AgentParameterValue | null }
@@ -91,6 +104,11 @@ export type AgentPlanBinding =
       readonly kind: "stack";
       readonly stackId: string;
       readonly output: AgentPlanStackOutput;
+    }
+  | {
+      readonly kind: "port";
+      readonly nodeId: string;
+      readonly port: string;
     };
 
 export interface AgentPlanPosition {
@@ -181,6 +199,35 @@ export interface AgentPlanDecision extends AgentPlanPosition {
   readonly input?: AgentPlanBinding;
 }
 
+/**
+ * The start of a plan: the manual entry, and optionally an entry other plans may call.
+ * @remarks
+ * A plan saved before entries has neither field: it starts manually only.
+ */
+export interface AgentPlanStart extends AgentPlanPosition {
+  readonly id: string;
+  readonly type: "start";
+  /** Shown instead of the type name when set. */
+  readonly name?: string;
+  /** Whether other plans may call this start; absent means they may not. */
+  readonly callable?: boolean;
+  /** What a call of this start accepts; kept while `callable` is off. */
+  readonly inputs?: readonly AgentPlanEntryInput[];
+}
+
+/**
+ * The end of a plan, which also hands the declared returns to a caller.
+ * @remarks
+ * The returns are values bound at the end; only a run that was called hands
+ * them over, and only when it ends successfully.
+ */
+export interface AgentPlanEnd extends AgentPlanPosition {
+  readonly id: string;
+  readonly type: "end";
+  readonly returns?: readonly AgentPlanEntryReturn[];
+  readonly bindings?: Readonly<Record<string, AgentPlanBinding>>;
+}
+
 /** Source nodes provide input; they never create an execution dependency. */
 export type AgentPlanNode =
   | AgentPlanStep
@@ -193,11 +240,10 @@ export type AgentPlanNode =
   | AgentPlanSwarm
   | AgentPlanParameter
   | AgentPlanAsset
-  | (AgentPlanPosition & { readonly id: string; readonly type: "end" })
-  | (AgentPlanPosition & {
-      readonly id: string;
-      readonly type: "start";
-    })
+  | AgentPlanJump
+  | AgentPlanSignal
+  | AgentPlanEnd
+  | AgentPlanStart
   | (AgentPlanPosition & {
       readonly id: string;
       readonly type: "task";
@@ -366,6 +412,8 @@ export interface AgentPlanSources {
   readonly phases?: readonly AgentPlanPhase[];
   /** The configured interpreter profiles of script nodes; absent before a workspace is chosen. */
   readonly interpreters?: readonly AgentPlanInterpreter[];
+  /** The other plans a Jump may call, with their released entries; absent before a workspace is chosen. */
+  readonly callTargets?: readonly AgentPlanCallTarget[];
 }
 
 export interface AgentPlanPage {
@@ -529,6 +577,22 @@ export interface AgentPlanStepResult {
   readonly stack?: AgentPlanStackHandover;
   /** Main model, helpers and board of a swarm node. */
   readonly swarm?: AgentPlanSwarmRun;
+  /** The call an outgoing Jump made, with where it stands. */
+  readonly jump?: AgentPlanJumpRun;
+  /** What a signal node did with its message; `delivered: false` is no successful sending. */
+  readonly signal?: AgentPlanSignalRun;
+  /**
+   * The values an outgoing Jump handed on: the run id, the reason, the payload and the returns.
+   * @remarks
+   * Server-side only; it never appears in a view that is sent to a client.
+   */
+  readonly jumpOutputs?: Readonly<Record<string, AgentParameterValue>>;
+  /**
+   * The values an end handed back to the caller of its run, by name.
+   * @remarks
+   * Server-side only, like {@link jumpOutputs}; set only on an end of a run that was called.
+   */
+  readonly returned?: Readonly<Record<string, AgentParameterValue>>;
 }
 
 /** Only the executor may read this sanitized view or request its stop. */
@@ -578,6 +642,8 @@ export interface AgentPlanRun {
   readonly manualInputAt?: string;
   readonly steps: readonly AgentPlanStepResult[];
   readonly runnerJobs?: readonly PlanRunnerJob[];
+  /** The call this run was started by; absent for a run started by a person. */
+  readonly invocation?: AgentPlanRunInvocation;
   /** The iterations and sessions of the loops of the plan; absent in runs without a loop. */
   readonly loops?: readonly AgentPlanLoopRun[];
   /** What each stack of the plan handed over so far; absent in runs without a stack. */

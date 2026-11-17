@@ -1,5 +1,8 @@
 import { SerialQueue } from "@/backend/concurrency/SerialQueue";
+import { AgentPlanCallBlockedError } from "@/backend/error/AgentPlanCallBlockedError";
 import { logCaughtError } from "@/backend/logging/Logger";
+
+import { isCallStart } from "./invocation/AgentPlanCallStart";
 
 import type { AgentPlanRun } from "@/definition/AgentPlan";
 import type { AgentPlanSnapshot } from "./AgentPlanSnapshot";
@@ -31,8 +34,12 @@ export class AgentPlanEngineStarts {
     launch: (run: AgentPlanRun) => Promise<AgentPlanRun>,
   ): Promise<AgentPlanRun> {
     return this.queue.run(async () => {
+      // A call never displaces anything: whoever holds the target or its resources keeps them.
+      if (isCallStart(run, snapshot)) await this.requireFree(snapshot);
       const warnings =
-        run.origin?.kind === "resume" ? [] : await this.release(run, snapshot);
+        run.origin?.kind === "resume" || isCallStart(run, snapshot)
+          ? []
+          : await this.release(run, snapshot);
       return launch(
         warnings.length ? { ...run, startCleanupUnconfirmed: warnings } : run,
       );
@@ -68,6 +75,16 @@ export class AgentPlanEngineStarts {
         await this.context.dependencies.startResources?.reconcile(stored);
       } else await this.context.reset(id, () => Promise.resolve(stored));
     }
+  }
+
+  private async requireFree(snapshot: AgentPlanSnapshot): Promise<void> {
+    const blockers =
+      (await this.context.dependencies.startResources?.blockers(snapshot)) ??
+      [];
+    if (blockers.length > 0)
+      throw new AgentPlanCallBlockedError(
+        blockers.map((owner) => owner.runId),
+      );
   }
 
   private async release(

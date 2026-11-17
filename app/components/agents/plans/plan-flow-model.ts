@@ -7,6 +7,13 @@ import {
 } from "@/definition/AgentPlanGroupLoop";
 import { PLAN_PORT, planEdgeBranch } from "@/definition/AgentPlanBranching";
 import { isPlanFlowNode, isPlanResultNode } from "@/definition/AgentPlanGraph";
+import {
+  PLAN_JUMP_PORT,
+  PLAN_SIGNAL_PAYLOAD_BINDING,
+  isPlanEntryNode,
+  isPlanJumpOut,
+  planPortType,
+} from "@/definition/AgentPlanJump";
 import { planLoopEntries, planLoopExits } from "@/definition/AgentPlanLoop";
 import { PLAN_STACK_PORT } from "@/definition/AgentPlanStack";
 import {
@@ -194,7 +201,7 @@ export function planFlowEdges(
         frame(link.from) === link.from
           ? sourceHandle(link)
           : `route:${planLinkKey(link)}:from`,
-      targetHandle: targetHandle(link, frame(link.to)),
+      targetHandle: targetHandle(plan, link, frame(link.to)),
       data: {
         link,
         name: planLinkLabel(plan, sources, link),
@@ -267,32 +274,74 @@ function loopBoundaryEdges(loop: AgentPlanLoop): PlanFlowEdge[] {
   ];
 }
 
-function targetHandle(link: PlanLink, targetId: string): string {
+/**
+ * The input a binding ends at.
+ * @remarks
+ * A calling Jump and an end name their value inputs by the declared name, a
+ * signal has its one payload input; every other node uses `input:<name>`.
+ */
+function dataTargetHandle(
+  plan: AgentPlanInput,
+  link: Extract<PlanLink, { kind: "data" }>,
+): string {
+  const target = plan.nodes.find((node) => node.id === link.to);
+  if (target?.type === "signal") return PLAN_JUMP_PORT.payloadIn;
+  if (isPlanJumpOut(target) || target?.type === "end") return link.parameter;
+  return `input:${link.parameter}`;
+}
+
+function targetHandle(
+  plan: AgentPlanInput,
+  link: PlanLink,
+  targetId: string,
+): string {
   if (targetId !== link.to) return `route:${planLinkKey(link)}:to`;
   if (link.kind === "wire") return link.toPort;
   if (link.kind === "data" && link.isDecisionInput)
     return PLAN_PORT.conditionIn;
-  return link.kind === "flow" ? "flow-in" : `input:${link.parameter}`;
+  return link.kind === "flow" ? "flow-in" : dataTargetHandle(plan, link);
 }
 
 // A data link with a boundary port starts at its legacy group frame, and
 // links of such a frame are never drawn; every drawn data link leaves a value
-// OUT, or one of the two data outputs of a stack. A wire names the port its edge leaves.
+// OUT, one of the two data outputs of a stack, or a named value output of an
+// entry or a Jump. A wire names the port its edge leaves.
 function sourceHandle(link: PlanLink): string {
   if (link.kind === "wire") return link.fromPort;
   if (link.kind === "flow") return "flow-out";
+  if (link.fromPort !== undefined) return link.fromPort;
   if (link.output === "content") return PLAN_STACK_PORT.contentOut;
   return link.output === "count" ? PLAN_STACK_PORT.countOut : "value-out";
 }
 
-/** The output of a decision a source handle belongs to, as an open connection. */
+/**
+ * The output of a decision, or the failure or timeout output of a calling Jump, a source handle belongs to.
+ * @returns The open connection, or `null` for any other handle.
+ */
 function branchSource(
   node: AgentPlanNode,
   handle: string | null,
 ): PlanConnection | null {
-  if (node.type !== "decision" || handle === null) return null;
+  if (handle === null) return null;
+  const isFailure =
+    handle === PLAN_JUMP_PORT.errorOut || handle === PLAN_JUMP_PORT.timeoutOut;
+  if (node.type !== "decision" && !(isPlanJumpOut(node) && isFailure))
+    return null;
   const branch = planEdgeBranch({ fromPort: handle });
   return branch === null ? null : { kind: "branch", nodeId: node.id, branch };
+}
+
+/** A named value output of an entry or a calling Jump, as an open connection. */
+function portSource(
+  plan: AgentPlanInput,
+  node: AgentPlanNode,
+  handle: string | null,
+): PlanConnection | null {
+  if (handle === null || !(isPlanEntryNode(node) || isPlanJumpOut(node)))
+    return null;
+  return planPortType(plan, node.id, handle) === null
+    ? null
+    : { kind: "port", nodeId: node.id, port: handle };
 }
 
 /** Resolves a visible source handle to its Pages source, never a visual group route. */
@@ -320,7 +369,11 @@ export function planFlowSource(
     return { kind: "source", nodeId: id };
   if (handle === PLAN_PORT.passedOut && node.type === "agent")
     return { kind: "passed", nodeId: id };
-  return stackSource(node, handle) ?? branchSource(node, handle);
+  return (
+    stackSource(node, handle) ??
+    branchSource(node, handle) ??
+    portSource(plan, node, handle)
+  );
 }
 
 /** A node of the plan, a member of a frame or of a group inside a loop included. */
@@ -347,6 +400,28 @@ const WIRE_INPUTS: readonly string[] = [
   PLAN_PORT.eventIn,
 ];
 
+/**
+ * The binding a handle of a calling Jump, a signal or an end fills.
+ * @returns The declared name of a value input, `payload` for the input of a
+ * signal that carries a payload, or `null` for any other handle.
+ */
+function declaredInput(
+  plan: AgentPlanInput,
+  nodeId: string,
+  handle: string | null,
+): string | null {
+  const node = plan.nodes.find((entry) => entry.id === nodeId);
+  if (handle === null || !node) return null;
+  if (node.type === "signal")
+    return handle === PLAN_JUMP_PORT.payloadIn && node.payloadType
+      ? PLAN_SIGNAL_PAYLOAD_BINDING
+      : null;
+  if (isPlanJumpOut(node))
+    return node.inputs.some((input) => input.name === handle) ? handle : null;
+  if (node.type !== "end") return null;
+  return node.returns?.some((entry) => entry.name === handle) ? handle : null;
+}
+
 /** Converts only explicit, known handle kinds into a domain connection request. */
 export function planFlowConnection(
   plan: AgentPlanInput,
@@ -363,7 +438,12 @@ export function planFlowConnection(
     return { source, targetId: connection.target };
   if (handle && WIRE_INPUTS.includes(handle))
     return { source, targetId: connection.target, parameter: handle };
-  if (!handle?.startsWith("input:")) return null;
+  if (!handle?.startsWith("input:")) {
+    const named = declaredInput(plan, connection.target, handle);
+    return named === null
+      ? null
+      : { source, targetId: connection.target, parameter: named };
+  }
   return {
     source,
     targetId: connection.target,

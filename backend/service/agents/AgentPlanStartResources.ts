@@ -63,6 +63,34 @@ export class AgentPlanStartResources {
       }));
   }
 
+  /**
+   * The runs that stand in the way of a call.
+   * @remarks
+   * A call never ends another run: it neither forces a run of its target plan
+   * to close nor takes a resource from its owner. Whoever holds a resource the
+   * called run needs, or runs the target plan, keeps it, and the call waits
+   * in the queue. Only the resources the calling run itself hands over are
+   * free for the call, and only when it hands them over.
+   */
+  public async blockers(
+    snapshot: AgentPlanSnapshot,
+  ): Promise<readonly AgentPlanStartOwner[]> {
+    const call = snapshot.invocation;
+    const owners = await this.dependencies.repository.conflicts(
+      snapshot.plan.id,
+      planWritingWorkspaces(snapshot),
+    );
+    return owners
+      .filter(
+        ({ run }) => !(call?.hasHandover && run.id === call.sourceRunId),
+      )
+      .map(({ run }) => ({
+        runId: run.id,
+        planName: sanitizeArtifactText(run.planName),
+        startedAt: run.startedAt,
+      }));
+  }
+
   /** Retries physical cleanup when an unavailable elected owner reconnects after API-side forced admission. */
   public async reconcile(run: AgentPlanRun): Promise<void> {
     const release = run.resourceReleases?.at(-1);

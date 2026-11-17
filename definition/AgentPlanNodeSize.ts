@@ -184,6 +184,12 @@ export function planMemberPosition(
   return { x: origin.x + step.x, y: origin.y + step.y };
 }
 
+/** The least width and height of a Jump card and of a signal card, before their ports are counted. */
+const PLAN_JUMP_CARD_WIDTH = 340;
+const PLAN_JUMP_CARD_HEIGHT = 220;
+const PLAN_SIGNAL_CARD_WIDTH = 260;
+const PLAN_SIGNAL_CARD_HEIGHT = 140;
+
 /**
  * The height of a swarm card: head, task, main line and one row of helper
  * badges per five helpers.
@@ -206,6 +212,8 @@ export function planNodeWidth(node: AgentPlanNode): number {
     return PLAN_AGENT_WIDTH;
   if (node.type === "decision") return PLAN_DECISION_WIDTH;
   if (node.type === "stack") return PLAN_STACK_WIDTH;
+  if (node.type === "jump") return PLAN_JUMP_CARD_WIDTH;
+  if (node.type === "signal") return PLAN_SIGNAL_CARD_WIDTH;
   return node.type === "start" || node.type === "end"
     ? PLAN_ENDPOINT_WIDTH
     : PLAN_SOURCE_WIDTH;
@@ -237,5 +245,8 @@ export function planNodeHeight(
   if (node.type === "stack") return planStackHeight(node);
   if (node.type === "decision") return decisionHeight(node);
   if (node.type === "swarm") return planSwarmHeight(node.workers.count);
+  // The exact height follows the ports of the stored configuration, see planLayoutHeight.
+  if (node.type === "jump") return PLAN_JUMP_CARD_HEIGHT;
+  if (node.type === "signal") return PLAN_SIGNAL_CARD_HEIGHT;
   return heights[node.type];
 }

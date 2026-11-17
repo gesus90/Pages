@@ -7,6 +7,7 @@ import {
 } from "@/definition/AgentPlanConfiguration";
 
 import type { AgentPlanExecutionTarget } from "@/definition/AgentPlanExecution";
+import type { AgentPlanEntryInput } from "@/definition/AgentPlanJump";
 import type { AgentPlanScript } from "@/definition/AgentPlanScript";
 import type {
   AgentPlanInput,
@@ -285,6 +286,47 @@ export class AgentPlanCloneReferences {
     return { ...node, bindings: await this.bindings(node.bindings, node.id) };
   }
 
+  /** The defaults of the declared inputs of an entry, which may point at a reference the caller cannot use. */
+  private async entryInputs(
+    inputs: readonly AgentPlanEntryInput[],
+    nodeId: string,
+  ): Promise<readonly AgentPlanEntryInput[]> {
+    const result: AgentPlanEntryInput[] = [];
+    for (const input of inputs)
+      result.push({
+        ...input,
+        defaultValue: input.defaultValue
+          ? await this.reference(input.defaultValue, nodeId)
+          : null,
+      });
+    return result;
+  }
+
+  /**
+   * A node through which plans call each other: its defaults and fixed values are repaired like those of any other node.
+   * @remarks
+   * Entries, targets and returns are structure, not selections, and stay as they are.
+   * @returns `null` for a node of another kind.
+   */
+  private async call(node: AgentPlanNode): Promise<AgentPlanNode | null> {
+    if (node.type === "start" && node.inputs)
+      return { ...node, inputs: await this.entryInputs(node.inputs, node.id) };
+    if (node.type === "jump" && node.direction === "in")
+      return { ...node, inputs: await this.entryInputs(node.inputs, node.id) };
+    if (node.type === "jump")
+      return {
+        ...node,
+        inputs: await this.entryInputs(node.inputs, node.id),
+        bindings: await this.bindings(node.bindings, node.id),
+      };
+    if (node.type === "signal" || (node.type === "end" && node.bindings))
+      return {
+        ...node,
+        bindings: await this.bindings(node.bindings ?? {}, node.id),
+      };
+    return null;
+  }
+
   private async node(node: AgentPlanNode): Promise<AgentPlanNode> {
     if (node.type === "agent") return this.agent(node);
     if (node.type === "group") return this.group(node);
@@ -303,7 +345,7 @@ export class AgentPlanCloneReferences {
         bindings: await this.bindings(node.bindings, node.id),
       };
     }
-    return this.leaf(node);
+    return (await this.call(node)) ?? this.leaf(node);
   }
 
   private async group(

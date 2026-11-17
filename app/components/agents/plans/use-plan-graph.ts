@@ -2,11 +2,11 @@ import { useEffect } from "react";
 
 import { planContainedNodes } from "@/definition/AgentPlanGroupLoop";
 import { setPlanDecisionCondition } from "@/definition/AgentPlanBranchingEdit";
-import { planWarnings } from "@/definition/AgentPlanWarnings";
 import { replacePlanNode } from "@/definition/AgentPlanGroupEdit";
 import { findPlanNodeLocation } from "@/definition/AgentPlanLoopEdit";
 import { findPlanGroupLocation } from "@/definition/AgentPlanLoopGroupEdit";
 
+import { planCanvasIssues } from "./plan-jump/plan-entry-warnings";
 import { planLinkKey, planLinks, removePlanLink } from "./plan-links";
 import { boundedPlanCoordinate, removePlanNode } from "./plan-node-factory";
 import { usePlanConnections } from "./use-plan-connections";
@@ -89,7 +89,7 @@ function canvasIssues(
   draft: AgentPlanInput,
   sources: AgentPlanSources,
 ): readonly AgentPlanIssue[] {
-  return planWarnings(draft, sources.agents);
+  return planCanvasIssues(draft, sources);
 }
 
 function hasNodeOrPort(plan: AgentPlanInput, id: string): boolean {

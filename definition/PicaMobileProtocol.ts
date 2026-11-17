@@ -506,7 +506,9 @@ export type PicaMobileFlowNodeKind =
   | "decision"
   | "stack"
   | "loop"
-  | "swarm";
+  | "swarm"
+  | "jump"
+  | "signal";
 
 /** State of a node in `plans.flow.v1`; `skipped` lies on a branch a decision did not take. */
 export type PicaMobileFlowStatus = PicaMobileStepStatus | "skipped";
