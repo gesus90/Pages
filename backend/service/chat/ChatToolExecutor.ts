@@ -43,6 +43,13 @@ const SERVER_KEYS: ReadonlySet<string> = new Set([
   "confirmation",
 ]);
 
+/** Operations whose refusals carry the code of the ticket API. */
+const TICKET_LIFECYCLE_OPERATIONS: ReadonlySet<string> = new Set([
+  "ticket.archive",
+  "ticket.archiveSelection",
+  "ticket.restore",
+]);
+
 /** One action the agent requested. */
 export interface ChatActionRequest {
   readonly operation: string;
@@ -299,7 +306,7 @@ function failure(operation: string, error: unknown): ChatActionOutcome {
       : { ok: false, error: error.code, details: error.details };
   if (error instanceof AgentAuthorizationError)
     return { ok: false, error: "FORBIDDEN" };
-  if (operation === "ticket.archive" || operation === "ticket.restore") {
+  if (TICKET_LIFECYCLE_OPERATIONS.has(operation)) {
     const ticketError = toMcpTicketError(error);
     if (ticketError)
       return { ok: false, error: ticketError.code.toUpperCase() };

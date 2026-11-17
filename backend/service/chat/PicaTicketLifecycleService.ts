@@ -1,4 +1,5 @@
 import { AgentOperationError } from "@/backend/error/AgentOperationError";
+import { McpTicketArchiveSelectionService } from "@/backend/service/mcp/ticket/McpTicketArchiveSelectionService";
 import { McpTicketContext } from "@/backend/service/mcp/ticket/McpTicketContext";
 import { McpTicketLifecycleService } from "@/backend/service/mcp/ticket/McpTicketLifecycleService";
 
@@ -10,6 +11,7 @@ import type { McpTicketDependencies } from "@/backend/service/mcp/ticket/McpTick
 export class PicaTicketLifecycleService {
   private readonly services: McpTicketDependencies;
   private readonly lifecycle = new McpTicketLifecycleService();
+  private readonly selections = new McpTicketArchiveSelectionService();
 
   /** Captures the shared ticket services; every call resolves the acting account anew. */
   public constructor(services: McpTicketDependencies) {
@@ -17,7 +19,8 @@ export class PicaTicketLifecycleService {
   }
 
   /**
-   * Runs a Pica archive or restore, or returns null for another operation.
+   * Runs a Pica archive, selection archive or restore, or returns null for
+   * another operation.
    * @param userId - The verified acting account, supplied by the executor.
    * @param operation - The internal chat operation.
    * @param parameters - The native arguments, with an optional server-owned operation ID.
@@ -30,7 +33,11 @@ export class PicaTicketLifecycleService {
     operation: string,
     parameters: Readonly<Record<string, unknown>>,
   ): Promise<{ readonly result: unknown } | null> {
-    if (operation !== "ticket.archive" && operation !== "ticket.restore")
+    if (
+      operation !== "ticket.archive" &&
+      operation !== "ticket.archiveSelection" &&
+      operation !== "ticket.restore"
+    )
       return null;
     const input = Object.fromEntries(
       Object.entries(parameters).filter(([key]) => key !== "operationId"),
@@ -45,6 +52,8 @@ export class PicaTicketLifecycleService {
         ),
       };
     }
+    if (operation === "ticket.archiveSelection")
+      return { result: await this.archiveSelection(userId, input) };
     const parsed = PICA_WRITE_SCHEMAS.tickets_archive.safeParse(input);
     if (!parsed.success) throw new AgentOperationError("INVALID_REQUEST");
     return {
@@ -57,6 +66,25 @@ export class PicaTicketLifecycleService {
         },
       ),
     };
+  }
+
+  /**
+   * Previews or runs a selection archive; the token of the preview binds the
+   * confirmed call to the same list and the state the person saw.
+   */
+  private async archiveSelection(
+    userId: string,
+    input: Readonly<Record<string, unknown>>,
+  ): Promise<unknown> {
+    const parsed =
+      PICA_WRITE_SCHEMAS.tickets_archive_selection.safeParse(input);
+    if (!parsed.success) throw new AgentOperationError("INVALID_REQUEST");
+    const { ticketIds, selectionToken, confirmed } = parsed.data;
+    const context = await this.context(userId);
+    if (confirmed !== true) return this.selections.preview(context, ticketIds);
+    if (selectionToken === undefined)
+      throw new AgentOperationError("INVALID_REQUEST");
+    return this.selections.archive(context, ticketIds, selectionToken);
   }
 
   private async context(userId: string): Promise<McpTicketContext> {

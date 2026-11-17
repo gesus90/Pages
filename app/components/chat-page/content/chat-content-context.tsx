@@ -38,6 +38,10 @@ export interface ChatContent {
   /** Opens a card next to the chat; as full screen on a narrow screen. */
   openBeside(card: OpenedCard): void;
   closeBeside(): void;
+  /** The browser the split view shows, by ID; it shares the frame with a card and with "Medien & Dateien". */
+  readonly besideBrowserId: string | null;
+  openBrowserBeside(browserId: string): void;
+  closeBrowserBeside(): void;
   /** The card that covers the page: a viewer or the full screen of a card. */
   readonly overlay: OpenedCard | null;
   openOverlay(card: OpenedCard): void;
@@ -81,6 +85,9 @@ const STANDALONE: ChatContent = {
   beside: null,
   openBeside: () => undefined,
   closeBeside: () => undefined,
+  besideBrowserId: null,
+  openBrowserBeside: () => undefined,
+  closeBrowserBeside: () => undefined,
   overlay: null,
   openOverlay: () => undefined,
   closeOverlay: () => undefined,
@@ -145,7 +152,8 @@ function useCardStates(
 
 /**
  * The split view, the overlay, the image viewer and "Medien & Dateien"; a new
- * conversation closes them. "Medien & Dateien" and a card share the split view.
+ * conversation closes them. "Medien & Dateien", a card and a browser share the
+ * split view, one at a time.
  */
 function useOpenedCards(
   conversationKey: string,
@@ -154,6 +162,9 @@ function useOpenedCards(
   | "beside"
   | "openBeside"
   | "closeBeside"
+  | "besideBrowserId"
+  | "openBrowserBeside"
+  | "closeBrowserBeside"
   | "overlay"
   | "openOverlay"
   | "closeOverlay"
@@ -165,12 +176,14 @@ function useOpenedCards(
   | "closeMedia"
 > {
   const [beside, setBeside] = useState<OpenedCard | null>(null);
+  const [besideBrowserId, setBesideBrowserId] = useState<string | null>(null);
   const [overlay, setOverlay] = useState<OpenedCard | null>(null);
   const [viewer, setViewer] = useState<ChatImageRequest | null>(null);
   const [media, setMedia] = useState<ChatMediaPlacement | null>(null);
 
   useEffect(() => {
     setBeside(null);
+    setBesideBrowserId(null);
     setOverlay(null);
     setViewer(null);
     setMedia(null);
@@ -186,7 +199,14 @@ function useOpenedCards(
       return;
     }
     setBeside(card);
+    setBesideBrowserId(null);
     setMedia((current) => (current === "beside" ? null : current));
+  }
+
+  function openBrowserBeside(browserId: string): void {
+    setBeside(null);
+    setMedia((current) => (current === "beside" ? null : current));
+    setBesideBrowserId(browserId);
   }
 
   function openMedia(): void {
@@ -195,6 +215,7 @@ function useOpenedCards(
       return;
     }
     setBeside(null);
+    setBesideBrowserId(null);
     setMedia("beside");
   }
 
@@ -202,6 +223,9 @@ function useOpenedCards(
     beside,
     openBeside,
     closeBeside: () => setBeside(null),
+    besideBrowserId,
+    openBrowserBeside,
+    closeBrowserBeside: () => setBesideBrowserId(null),
     overlay,
     openOverlay: setOverlay,
     closeOverlay: () => setOverlay(null),

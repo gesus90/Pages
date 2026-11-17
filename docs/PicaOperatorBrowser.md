@@ -58,10 +58,27 @@ vision still gets all of this as text.
 
 ## Live browser in the chat
 
-`ChatBrowserPanel` (inside `chat-panel.tsx`) follows the administrator's
-browsers while the panel is open: state, address, a live picture refreshed
-about once a second, the list of actions (Pica and administrator), controls and
-an enlarge dialog. The interface is `POST /chat-browser-api` (overview and
+A browser belongs to the chat session it was opened in: its view carries
+`chatSessionId`, the session of the job (the direct chat of an agent, the
+session of the agent in a group, or the Pica session). The chat page and the
+Pica panel read the browsers of the administrator once
+(`ChatBrowsersProvider`) and `ChatBrowserPanel` shows only those of the open
+chat; a browser without a chat session shows in no chat. The list entry of a
+chat that owns an open browser carries a globe in the color of its state, also
+while another chat is open.
+
+In its chat a browser is a preview row of 88 px between the history and the
+input: the live picture shrunk to 128 × 80 px (one stream: the row, the side
+panel and the enlarge dialog never read frames together), the address with the
+state badge, the last action, the number of tools with the running time, and
+the buttons pause, stop, open beside, enlarge and fold. A folded browser is a
+row of 40 px without a picture and reads no frames; the choice holds until the
+browser ends. "Open beside" shows the browser in the split view of the chat page
+(`SplitPanel`, shared with cards and "Medien & Dateien") and hides the row; the
+Pica panel and screens below 1100 px have no split view. Enlarge opens the
+dialog. When a browser ends (stop, `browser_close`, revoked session) its row,
+its side panel and its globe disappear; the text of the answer stays as it is.
+The interface is `POST /chat-browser-api` (overview and
 commands), `GET /chat/browser/:id/frame` and
 `GET /chat/browser/:id/downloads/:downloadId`; each resolves the administrator
 right afresh and only serves the caller's own browsers. A person who is no
@@ -153,7 +170,10 @@ seine Gültigkeit.
 
 Die Live-Administratoroberfläche zeigt diese Instanzen zusätzlich mit dem
 Agent-Namen an. Pause und Fortsetzen steuern den Browser; Stoppen widerruft die
-ganze Browserberechtigung des aktuellen Auftrags. Administratorprofile werden
+ganze Browserberechtigung des aktuellen Auftrags und beendet nur den Browser:
+Der Lauf des Agents behält seinen eigenen Kontext
+(`AgentBrowserService.bind` hält die Browserberechtigung nur im Dienst), schreibt
+seine Antwort weiter, und weitere Browseraufrufe antworten `STOPPED_BY_ADMIN`. Administratorprofile werden
 nicht an Agents weitergegeben. Weitere freigegebene Fremdprofile sind optional
 und werden in dieser Version nicht angeboten.
 

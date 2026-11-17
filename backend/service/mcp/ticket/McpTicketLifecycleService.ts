@@ -120,6 +120,20 @@ export class McpTicketLifecycleService {
     return { deleted: true };
   }
 
+  /**
+   * Lists a ticket and every active descendant that archiving it with
+   * `include` reaches.
+   * @param context - The request.
+   * @param ticket - The ticket to archive.
+   * @returns The ticket first, then its visible active descendants.
+   */
+  public async archiveScope(
+    context: McpTicketContext,
+    ticket: WorkItemDetail,
+  ): Promise<WorkItemDetail[]> {
+    return this.affected(context, ticket, "include", "active");
+  }
+
   private question(
     ticket: WorkItemDetail,
     affected: readonly WorkItemDetail[],

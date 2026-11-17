@@ -71,6 +71,8 @@ export const picaBrowserViewSchema = z
     browserId: z.string().uuid(),
     isAgent: z.boolean().optional(),
     ownerName: z.string().optional(),
+    /** The chat session in which the browser was opened; a browser without it shows in no chat. */
+    chatSessionId: z.string().min(1).optional(),
     task: z.string(),
     state: z.enum(PICA_BROWSER_STATES),
     url: z.string(),
@@ -85,6 +87,10 @@ export const picaBrowserViewSchema = z
     handoverReason: z.string().nullable(),
     profile: z.string().nullable(),
     areLocalWritesApproved: z.boolean(),
+    /** ISO time the browser was opened. */
+    startedAt: z.string(),
+    /** All actions the browser took so far, also those the log no longer lists. */
+    actionCount: z.number().int().min(0),
     updatedAt: z.string(),
   })
   .strict();

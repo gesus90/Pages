@@ -145,6 +145,8 @@ export class PicaBrowserSession {
   private height: number;
   private frame: PicaBrowserFrame | null = null;
   private lastActivity = Date.now();
+  private readonly startedAt = new Date().toISOString();
+  private actionCount = 0;
   private lastAddress = "";
   private isCapturing = false;
   private isClosed = false;
@@ -312,6 +314,7 @@ export class PicaBrowserSession {
       summary: shorten(summary, 300),
       status,
     });
+    this.actionCount += 1;
     if (this.actions.length > MAXIMUM_ACTIONS) this.actions.shift();
   }
 
@@ -413,6 +416,8 @@ export class PicaBrowserSession {
       ...(this.init.isAgent === true
         ? { isAgent: true, ownerName: this.init.ownerName }
         : {}),
+      // The chat shows the browser only in the chat session it was opened in.
+      ...(this.conversationId ? { chatSessionId: this.conversationId } : {}),
       task: shorten(this.task, 500),
       state: this.state,
       url: page ? shorten(page.url(), 500) : this.lastAddress,
@@ -433,6 +438,8 @@ export class PicaBrowserSession {
       handoverReason: this.handoverReason,
       profile: this.profile,
       areLocalWritesApproved: this.areLocalWritesApproved,
+      startedAt: this.startedAt,
+      actionCount: this.actionCount,
       updatedAt: new Date().toISOString(),
     };
   }

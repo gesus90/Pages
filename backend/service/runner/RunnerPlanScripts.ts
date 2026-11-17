@@ -145,14 +145,43 @@ export class RunnerPlanScripts {
     script: AgentPlanScriptSnapshot,
   ): Promise<RunnerInterpreter> {
     const interpreters = await this.runners.ready(userId, connectionId);
-    const selected =
+    const interpreter =
       connectionId === LOCAL_RUNNER_CONNECTION_ID
-        ? await realpath(script.interpreter.path)
-        : script.interpreter.path;
-    const interpreter = interpreters.find((entry) => entry.path === selected);
+        ? await localInterpreter(interpreters, script.interpreter.path)
+        : interpreters.find((entry) => entry.path === script.interpreter.path);
     if (!interpreter)
       throw new AgentError("plan_script_interpreter_unavailable");
     return interpreter;
+  }
+}
+
+/**
+ * Finds the catalog entry of the local runner that names the selected program.
+ * @remarks
+ * The runner reports its fixed paths unresolved, and a distribution often
+ * links them to a versioned executable, so both sides are compared by the file
+ * they resolve to. The returned entry keeps the runner's reported path and
+ * digest, which the worker verifies again before it starts the script.
+ */
+async function localInterpreter(
+  interpreters: readonly RunnerInterpreter[],
+  selectedPath: string,
+): Promise<RunnerInterpreter | undefined> {
+  const exact = interpreters.find((entry) => entry.path === selectedPath);
+  if (exact) return exact;
+  const selected = await canonicalPath(selectedPath);
+  if (!selected) return undefined;
+  for (const entry of interpreters)
+    if ((await canonicalPath(entry.path)) === selected) return entry;
+  return undefined;
+}
+
+// A path that cannot be resolved names no installed program, so it matches nothing.
+async function canonicalPath(location: string): Promise<string | null> {
+  try {
+    return await realpath(location);
+  } catch {
+    return null;
   }
 }
 

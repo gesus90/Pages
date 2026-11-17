@@ -287,8 +287,8 @@ export class PicaAcpJob {
     });
     this.context =
       this.dependencies.adminTools?.bind(this.context) ?? this.context;
-    if (this.dependencies.agentBrowsers)
-      this.context = await this.dependencies.agentBrowsers.bind(this.context);
+    // The browser lease stays with the browser service: its end never aborts this job.
+    await this.dependencies.agentBrowsers?.bind(this.context);
     const lease = this.dependencies.bridge.open({
       jobId: this.id,
       userId: this.userId,

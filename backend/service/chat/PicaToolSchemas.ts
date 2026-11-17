@@ -180,6 +180,16 @@ const TICKET_WRITE_SCHEMAS = {
       confirmed: z.boolean().optional(),
     })
     .strict(),
+  tickets_archive_selection: z
+    .object({
+      ticketIds: z.array(identifier).min(1).max(100),
+      selectionToken: z
+        .string()
+        .regex(/^[0-9a-f]{64}$/u)
+        .optional(),
+      confirmed: z.boolean().optional(),
+    })
+    .strict(),
   tickets_restore: z.object({ ticketId: identifier }).strict(),
 } as const;
 

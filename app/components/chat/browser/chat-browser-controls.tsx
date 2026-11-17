@@ -2,6 +2,7 @@ import { Hand, OctagonX, Pause, Play, Undo2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import { Button } from "@/app/components/ui/button";
+import { cn } from "@/app/lib/cn";
 
 import type { ChatBrowsers } from "./use-chat-browser";
 import type { PicaBrowserView } from "@/definition/PicaBrowser";
@@ -9,12 +10,14 @@ import type { PicaBrowserView } from "@/definition/PicaBrowser";
 interface ChatBrowserControlsProps {
   readonly browser: PicaBrowserView;
   readonly controller: ChatBrowsers;
+  readonly className?: string;
 }
 
 /** Pause, resume, take over, hand back and stop: the controls an administrator keeps over Pica's browser. */
 export function ChatBrowserControls({
   browser,
   controller,
+  className,
 }: ChatBrowserControlsProps): React.ReactElement | null {
   const { t } = useTranslation();
   const { state } = browser;
@@ -23,7 +26,7 @@ export function ChatBrowserControls({
     command: "pause" | "resume" | "takeover" | "handback" | "stop",
   ): void => void controller.command(browser.browserId, { command });
   return (
-    <div className="flex flex-wrap items-center gap-1.5">
+    <div className={cn("flex flex-wrap items-center gap-1.5", className)}>
       {state === "running" ? (
         <Button size="xs" variant="outline" onClick={() => send("pause")}>
           <Pause aria-hidden="true" className="size-3.5" />

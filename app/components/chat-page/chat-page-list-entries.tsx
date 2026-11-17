@@ -1,8 +1,13 @@
 import { BellOff, Plus } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
+import { ChatBrowserGlobe } from "@/app/components/chat/browser/chat-browser-globe";
 import { cn } from "@/app/lib/cn";
 
+import {
+  groupSessionIds,
+  participantSessionIds,
+} from "./chat-page-browser-sessions";
 import { useListEntryMenu } from "./chat-menu/use-list-entry-menu";
 import { GroupAvatars, ParticipantStatusAvatar } from "./chat-page-avatar";
 
@@ -170,6 +175,7 @@ export function GroupEntry({
         subtitle={members.map((member) => member.name).join(", ")}
       />
       <AgentConversationBadge group={group} />
+      <ChatBrowserGlobe chatSessionIds={groupSessionIds(group)} />
       <UnreadPill count={group.unreadCount} isMuted={group.isMuted} />
     </EntryButton>
   );
@@ -202,6 +208,7 @@ export function ParticipantEntry({
       <span className="sr-only">
         {t(`chatPage.status.${participant.status}`)}
       </span>
+      <ChatBrowserGlobe chatSessionIds={participantSessionIds(participant)} />
       <UnreadPill
         count={participant.unreadCount}
         isMuted={participant.isMuted}

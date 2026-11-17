@@ -1,36 +1,58 @@
 import { useTranslation } from "react-i18next";
 
-import { ChatBrowserCard } from "./chat-browser-card";
-import { useChatBrowser } from "./use-chat-browser";
+import { cn } from "@/app/lib/cn";
+
+import { browsersOfChat } from "./chat-browser-chat";
+import { ChatBrowserEntry } from "./chat-browser-entry";
+import { useChatBrowsers } from "./chat-browsers-context";
 
 interface ChatBrowserPanelProps {
-  readonly isOpen: boolean;
+  /**
+   * The chat sessions of the open chat: the session of an agent in a direct
+   * chat, the sessions of the agents of a group, or the session of Pica.
+   */
+  readonly chatSessionIds: readonly string[];
+  /** The browser the split view shows; its row steps aside while it is open. */
+  readonly besideBrowserId?: string | null;
+  /** Opens a browser in the split view; absent where the chat has none. */
+  readonly onOpenBeside?: (browserId: string) => void;
+  /** Spacing to the neighbours, which the place of the chat decides. */
+  readonly className?: string;
 }
 
 /**
- * Pica's operator browsers in the chat: the live picture of the page, its address, the
- * actions taken and the controls to pause, stop or take over.
+ * The operator browsers of the open chat: for each a slim preview row with the
+ * shrunk live picture, its address, state and buttons.
  * @remarks
- * It shows nothing for a person without a browser, and nothing at all for a
- * person who is no administrator.
+ * It shows only browsers opened in this chat, nothing for a browser without a
+ * chat, and nothing at all for a person who is no administrator. A browser
+ * that ended is gone at once.
  */
 export function ChatBrowserPanel({
-  isOpen,
+  chatSessionIds,
+  besideBrowserId = null,
+  onOpenBeside,
+  className,
 }: ChatBrowserPanelProps): React.ReactElement | null {
   const { t } = useTranslation();
-  const controller = useChatBrowser(isOpen);
-  if (controller.browsers.length === 0) return null;
+  const controller = useChatBrowsers();
+  if (!controller) return null;
+  const shown = browsersOfChat(controller.browsers, chatSessionIds).filter(
+    (browser) => browser.browserId !== besideBrowserId,
+  );
+  if (shown.length === 0) return null;
   return (
     <section
       aria-label={t("chat.browser.label")}
-      className="max-h-[60%] shrink-0 overflow-y-auto border-t border-border bg-background px-3 py-2"
+      className={cn("shrink-0", className)}
     >
       <ul className="space-y-2">
-        {controller.browsers.map((browser) => (
-          <ChatBrowserCard
+        {shown.map((browser) => (
+          <ChatBrowserEntry
             key={browser.browserId}
             browser={browser}
             controller={controller}
+            onOpenBeside={onOpenBeside}
           />
         ))}
       </ul>

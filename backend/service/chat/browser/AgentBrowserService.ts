@@ -7,6 +7,7 @@ import { adminScope } from "../admin/PicaAdminFiles";
 import { PicaAdminError } from "../admin/PicaAdminContracts";
 import { launchPicaBrowser } from "../admin/PicaBrowserSandbox";
 import { isAgentBrowserTool } from "./PicaBrowserContracts";
+import { browserFailureOutcome } from "./PicaBrowserOutcome";
 import { PicaOperatorBrowser } from "./PicaOperatorBrowser";
 
 import type { RuntimeExecutionContext } from "@/backend/agents/runtime/RuntimeExecutionContext";
@@ -30,6 +31,8 @@ export class AgentBrowserService {
   private readonly browsers: PicaOperatorBrowser;
   private isChecking = false;
   private readonly leases = new Map<string, AgentBrowserLease>();
+  /** Jobs whose browser an administrator stopped; their later browser calls learn why. */
+  private readonly stoppedScopes = new Set<string>();
 
   /** Creates the employee browser manager on its own session authority. */
   public constructor(
@@ -59,13 +62,17 @@ export class AgentBrowserService {
     );
   }
 
-  /** Prepares the job's private state before starting its native session. */
-  public async bind(
-    context: RuntimeExecutionContext,
-  ): Promise<RuntimeExecutionContext> {
+  /**
+   * Prepares the job's private browser state before starting its native session.
+   * @remarks
+   * The lease stays in this service and the job keeps its own context. The
+   * browser can be stopped, expire or lose its credential while the agent
+   * goes on answering, so the end of the browser never aborts the job and
+   * never costs it the text it wrote.
+   */
+  public async bind(context: RuntimeExecutionContext): Promise<void> {
     const lease = await this.sessions.issue(context);
     this.leases.set(adminScope(context), lease);
-    return lease.context;
   }
 
   /** The stable private mount of this conversation; a kept native session sees renewed state. */
@@ -84,6 +91,11 @@ export class AgentBrowserService {
     input: unknown,
     context: RuntimeExecutionContext,
   ): Promise<PicaToolOutcome> {
+    if (
+      !this.leases.has(adminScope(context)) &&
+      this.stoppedScopes.has(adminScope(context))
+    )
+      return browserFailureOutcome("STOPPED_BY_ADMIN");
     const lease = this.lease(context);
     await lease.context.authorize();
     if (!isAgentBrowserTool(tool))
@@ -93,12 +105,8 @@ export class AgentBrowserService {
 
   /** Closes all browsers and revokes the state, whether the job succeeded, failed or was stopped. */
   public async release(context: RuntimeExecutionContext): Promise<void> {
-    this.leases.delete(adminScope(context));
-    try {
-      await this.sessions.release(adminScope(context));
-    } finally {
-      await this.browsers.closeScope(context);
-    }
+    this.stoppedScopes.delete(adminScope(context));
+    await this.endBrowsers(context);
   }
 
   /** Whether a browser belongs to this path; used only after the live route's administrator gate. */
@@ -136,8 +144,21 @@ export class AgentBrowserService {
       administratorId,
     );
     const lease = scope ? this.leases.get(scope) : undefined;
-    if (command.command === "stop" && lease) await this.release(lease.context);
+    if (command.command === "stop" && scope && lease) {
+      // Only the browser ends; the job goes on and tells the person what it did so far.
+      this.stoppedScopes.add(scope);
+      await this.endBrowsers(lease.context);
+    }
     return view;
+  }
+
+  private async endBrowsers(context: RuntimeExecutionContext): Promise<void> {
+    this.leases.delete(adminScope(context));
+    try {
+      await this.sessions.release(adminScope(context));
+    } finally {
+      await this.browsers.closeScope(context);
+    }
   }
 
   private lease(context: RuntimeExecutionContext): AgentBrowserLease {

@@ -77,6 +77,7 @@ export type ChatOperation = Exclude<
   | AutomationWriteOperation
   | PicaCalendarOperation
   | "ticket.archive"
+  | "ticket.archiveSelection"
   | "ticket.restore",
   ExcludedOperation
 >;
@@ -301,6 +302,8 @@ const CHAT_OPERATIONS: Readonly<Record<ChatOperation, string>> = {
   "ticket.delete": `{ticketId} Ticket samt Unterelementen in den Papierkorb (Anzahl vorher aus descendantCount), ${CONFIRMED}`,
   "ticket.archive":
     "{ticketId, children?: include|keep, confirmed?: boolean} erst ohne confirmed die betroffenen Schlüssel und Titel lesen, der Person zeigen und bestätigen lassen; dann mit confirmed: true archivieren. Standard include; keep ist für Aufgaben abgelehnt. Archivrecht des Projekts nötig",
+  "ticket.archiveSelection":
+    "{ticketIds: [], selectionToken?: string, confirmed?: boolean} konkrete Ticketliste archivieren; erst ohne confirmed Vorschau mit Verdikt je Ticket, mitarchivierten Unterelementen und selectionToken lesen, der Person zeigen und genau diese Liste bestätigen lassen; dann mit identischer Liste, selectionToken und confirmed: true. Veraltete Auswahl ergibt CONFLICT ohne Änderung; Tickets mit unfertigen Unterelementen bleiben unverändert. Ergebnis nennt je Ticket Erfolg, Übersprungen oder Fehler",
   "ticket.restore":
     "{ticketId} archiviertes Ticket samt Unterelementen mit Archivrecht wiederherstellen; Workflowstatus bleibt",
   "tags.list": `{${WINDOW}} Tag-Katalog; nur diese Tags lassen sich zuweisen`,
@@ -366,6 +369,7 @@ export function isChatWriteOperation(operation: ChatOperation): boolean {
     CHAT_AGENT_WRITE_OPERATIONS.some((write) => write === operation) ||
     COMMENT_WRITES.has(operation) ||
     operation === "ticket.archive" ||
+    operation === "ticket.archiveSelection" ||
     operation === "ticket.restore" ||
     PICA_CALENDAR_WRITE_OPERATIONS.some((write) => write === operation) ||
     PAGES_AGENT_WRITE_OPERATIONS.some((write) => write === operation)

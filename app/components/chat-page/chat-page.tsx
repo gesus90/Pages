@@ -2,6 +2,7 @@ import { useRef } from "react";
 import { useTranslation } from "react-i18next";
 
 import { ChatBrowserPanel } from "@/app/components/chat/browser/chat-browser-panel";
+import { ChatBrowsersProvider } from "@/app/components/chat/browser/chat-browsers-context";
 import { Button } from "@/app/components/ui/button";
 
 import {
@@ -12,6 +13,7 @@ import { MentionDirectoryContext } from "./mentions/mention-context";
 import { ChatDecisionHealth } from "./mentions/chat-decision-health";
 import { ChatPageCommandOutcome } from "./chat-page-command-outcome";
 import { ChatPageComposer } from "./chat-page-composer";
+import { openedSessionIds } from "./chat-page-browser-sessions";
 import { chatInputOf, isAgentChat } from "./chat-page-input";
 import { useConfidential } from "./chat-page-confidential";
 import { ChatPageDropZone } from "./chat-page-drop-zone";
@@ -27,6 +29,7 @@ import {
   useChatContent,
 } from "./content/chat-content-context";
 import { SplitPanel } from "./content/split-panel";
+import { useBesideBrowser } from "./content/use-beside-browser";
 import { useChatToastSelection } from "./use-chat-toast-selection";
 import { useVisibleChatPresence } from "./use-visible-chat-presence";
 import { useChatListCollapse } from "./use-chat-list-collapse";
@@ -209,6 +212,7 @@ function ChatPageConversation({
 }): React.ReactElement {
   const { t } = useTranslation();
   const { opened } = page;
+  const { besideBrowserId, openBrowserBeside } = useChatContent();
   const confidential = useConfidential(opened);
   const mentionRef = useRef<((username: string) => void) | null>(null);
   if (!opened)
@@ -263,7 +267,12 @@ function ChatPageConversation({
       {page.live.answers.length === 0 ? (
         <ChatPageLiveTools tools={page.liveTools} onCancel={page.cancelTool} />
       ) : null}
-      <ChatBrowserPanel isOpen />
+      <ChatBrowserPanel
+        chatSessionIds={openedSessionIds(opened)}
+        besideBrowserId={besideBrowserId}
+        onOpenBeside={openBrowserBeside}
+        className="mr-22 mb-3"
+      />
       <ConversationFoot
         key={conversationKey(opened)}
         page={page}
@@ -294,7 +303,9 @@ function ListSlot({
   readonly children: React.ReactNode;
 }): React.ReactElement {
   const { beside, media } = useChatContent();
-  const isSplit = beside !== null || media === "beside";
+  const besideBrowser = useBesideBrowser();
+  const isSplit =
+    beside !== null || besideBrowser !== null || media === "beside";
   return (
     <div className={isSplit ? "hidden 2xl:contents" : "contents"}>
       {children}
@@ -302,35 +313,18 @@ function ListSlot({
   );
 }
 
-/**
- * The chat page with people, agents and groups.
- *
- * @remarks
- * Two columns 32 px apart down to the foot of the page: the list card of 340
- * px with a scroll area for each list, and the chat without card or
- * background. The list collapses to a bar of avatars of 72 px, by its toggle
- * or `Ctrl+Shift+L`, and the chat takes the room. From 768 px on
- * the page fills the screen and the document never scrolls; only the
- * history and the list do.
- * Below `lg` the list stands above the chat; below `md` a selection replaces
- * it. Messages go to active agents, which answer over ACP, and into the
- * stored conversations with people and of groups. The list holds
- * only existing people and agents the person chose or who wrote to them, and
- * groups of them. Content of messages shows as cards; one of them opens
- * right of the chat in the split view or over the page, as does
- * "Medien & Dateien" of the chat. A right click or a long press
- * on a conversation of the list opens it with its chat menu at the point.
- */
-export function ChatPage({
-  directory,
-  requestedSelection,
-  requestedMessageId,
-}: {
+interface ChatPageProps {
   readonly directory: VirtualChatDirectory;
   readonly requestedSelection?: VirtualChatSelection;
   /** The message of a "Zur Nachricht" link in the requested chat. */
   readonly requestedMessageId?: string;
-}): React.ReactElement {
+}
+
+function ChatPageLayout({
+  directory,
+  requestedSelection,
+  requestedMessageId,
+}: ChatPageProps): React.ReactElement {
   const { t } = useTranslation();
   const page = useChatPage(directory, requestedSelection);
   useChatToastSelection({
@@ -396,5 +390,35 @@ export function ChatPage({
         </section>
       </ChatMenuRequestContext>
     </MentionDirectoryContext>
+  );
+}
+
+/**
+ * The chat page with people, agents and groups.
+ *
+ * @remarks
+ * Two columns 32 px apart down to the foot of the page: the list card of 340
+ * px with a scroll area for each list, and the chat without card or
+ * background. The list collapses to a bar of avatars of 72 px, by its toggle
+ * or `Ctrl+Shift+L`, and the chat takes the room. From 768 px on
+ * the page fills the screen and the document never scrolls; only the
+ * history and the list do.
+ * Below `lg` the list stands above the chat; below `md` a selection replaces
+ * it. Messages go to active agents, which answer over ACP, and into the
+ * stored conversations with people and of groups. The list holds
+ * only existing people and agents the person chose or who wrote to them, and
+ * groups of them. Content of messages shows as cards; one of them opens
+ * right of the chat in the split view or over the page, as does
+ * "Medien & Dateien" of the chat. A right click or a long press
+ * on a conversation of the list opens it with its chat menu at the point.
+ * The operator browser of an agent shows only in the chat it works in, as a
+ * preview row above the input or beside the chat, and its list entry carries
+ * a globe in the color of its state.
+ */
+export function ChatPage(props: ChatPageProps): React.ReactElement {
+  return (
+    <ChatBrowsersProvider isOpen>
+      <ChatPageLayout {...props} />
+    </ChatBrowsersProvider>
   );
 }

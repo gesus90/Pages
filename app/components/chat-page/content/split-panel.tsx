@@ -2,12 +2,14 @@ import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useFetcher } from "react-router";
 
+import { ChatBrowserSidePanel } from "@/app/components/chat/browser/chat-browser-side-panel";
 import { CHAT_SPLIT_MINIMUM_WIDTH } from "@/definition/ConversationContent";
 
 import { MediaOverviewPanel } from "../media/media-overview-panel";
 
 import { CardPanel } from "./card-panel";
 import { useChatContent } from "./chat-content-context";
+import { useBesideBrowser } from "./use-beside-browser";
 
 /** The width of the split view before the person changed it. */
 const DEFAULT_WIDTH = 560;
@@ -86,15 +88,52 @@ function useSplitWidth(stored: number | null): {
   };
 }
 
+const PANEL_CLASS_NAME =
+  "shrink-0 rounded-[14px] border border-border shadow-card";
+
+/** What the frame of the split view holds: the opened card, the browser, or "Medien & Dateien". */
+function SplitContent({
+  style,
+}: {
+  readonly style: React.CSSProperties;
+}): React.ReactElement {
+  const { beside, closeBeside, closeBrowserBeside, openOverlay } =
+    useChatContent();
+  const besideBrowser = useBesideBrowser();
+  if (beside)
+    return (
+      <CardPanel
+        card={beside}
+        className={PANEL_CLASS_NAME}
+        isBeside
+        onClose={closeBeside}
+        onFullscreen={() => openOverlay(beside)}
+        style={style}
+      />
+    );
+  if (besideBrowser)
+    return (
+      <ChatBrowserSidePanel
+        browser={besideBrowser.browser}
+        controller={besideBrowser.controller}
+        className={PANEL_CLASS_NAME}
+        onClose={closeBrowserBeside}
+        style={style}
+      />
+    );
+  return <MediaOverviewPanel className={PANEL_CLASS_NAME} style={style} />;
+}
+
 /**
  * The split view right of the chat: the one card opened with
- * "Daneben", or "Medien & Dateien" of the chat, behind a divider
- * that changes its width.
+ * "Daneben", a browser of the chat, or "Medien & Dateien" of the chat, behind
+ * a divider that changes its width.
  * @remarks
  * The chat stays usable left of it. Dragging the divider, or the arrow
  * keys on it, changes the width; at least 360 px remain for either side, and
  * the width is remembered for the person. Renders nothing while neither a
- * card nor "Medien & Dateien" is opened beside.
+ * card, a browser nor "Medien & Dateien" is opened beside; a browser that
+ * ends closes it.
  * @param storedWidth - The width the person chose last, or `null`.
  */
 export function SplitPanel({
@@ -103,9 +142,10 @@ export function SplitPanel({
   readonly storedWidth: number | null;
 }): React.ReactElement | null {
   const { t } = useTranslation();
-  const { beside, closeBeside, openOverlay, media } = useChatContent();
+  const { beside, media } = useChatContent();
+  const besideBrowser = useBesideBrowser();
   const split = useSplitWidth(storedWidth);
-  if (!beside && media !== "beside") return null;
+  if (!beside && !besideBrowser && media !== "beside") return null;
   // The width belongs to the person, so it is the one inline style here.
   const width = { width: split.width, minWidth: CHAT_SPLIT_MINIMUM_WIDTH };
   return (
@@ -123,21 +163,7 @@ export function SplitPanel({
       >
         <span className="h-full w-px bg-border group-hover:w-0.5 group-hover:bg-primary group-focus-visible:w-0.5 group-focus-visible:bg-primary" />
       </div>
-      {beside ? (
-        <CardPanel
-          card={beside}
-          className="shrink-0 rounded-[14px] border border-border shadow-card"
-          isBeside
-          onClose={closeBeside}
-          onFullscreen={() => openOverlay(beside)}
-          style={width}
-        />
-      ) : (
-        <MediaOverviewPanel
-          className="shrink-0 rounded-[14px] border border-border shadow-card"
-          style={width}
-        />
-      )}
+      <SplitContent style={width} />
     </>
   );
 }

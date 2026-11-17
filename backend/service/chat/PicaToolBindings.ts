@@ -138,6 +138,11 @@ export const WRITE_TOOLS: Readonly<Record<PicaWriteTool, PicaToolBinding>> = {
       "Archive a visible ticket with the project's archive right. First call without confirmed to get the keys and titles of all affected tickets without changing anything; show that list and ask the person to confirm, then call with confirmed: true to execute and receive archived: the number changed. children defaults to include; keep leaves children without a parent and is refused for a task, whose subtasks always go along.",
     operation: "ticket.archive",
   },
+  tickets_archive_selection: {
+    description:
+      "Archive a concrete list of visible tickets (keys or IDs, at most 100, no duplicates) with each ticket's project archive right. First call without confirmed: nothing changes and you get every ticket with its verdict, the descendants that go along, and a selectionToken. Show that list and ask the person to confirm exactly it, then call again with the identical ticketIds, the selectionToken and confirmed: true. If a ticket, status, archive state or right changed since the preview, the call returns CONFLICT and changes nothing; preview again. A ticket with descendants that are not done is not archived and reported as UNFINISHED_DESCENDANTS. Each ticket is archived on its own: the result names every ticket with archived, skipped or failed (with its error code) and the totals requested, succeeded, skipped, failed and archived; a failure does not undo the others. Never repeat a confirmed call to retry; preview the remaining tickets again.",
+    operation: "ticket.archiveSelection",
+  },
   tickets_restore: {
     description:
       "Restore an archived ticket and its descendants with the project's archive right; keeps the workflow status and records the acting account in history. Returns restored: the number changed and the ticket. To archive again, first call tickets_archive without confirmed, ask the person to confirm its affected list, then call with confirmed: true.",

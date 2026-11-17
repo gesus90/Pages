@@ -121,14 +121,15 @@ function approvalPrompt(
 const PREVIEWING_OPERATIONS: ReadonlySet<string> = new Set([
   "calendar.event.delete",
   "ticket.archive",
+  "ticket.archiveSelection",
 ]);
 
 /**
  * Whether a Pages operation is a consequential step: deleting or archiving.
  * @remarks
- * Archiving a ticket and deleting a calendar event preview without
- * `confirmed`; only the call that acts needs the approval, which Pages binds
- * to the person's reply, whatever the model sets.
+ * Archiving tickets, alone or as a selection, and deleting a calendar event
+ * preview without `confirmed`; only the call that acts needs the approval,
+ * which Pages binds to the person's reply, whatever the model sets.
  */
 export function isConsequentialOperation(
   operation: string,

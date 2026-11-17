@@ -24,19 +24,26 @@ export interface ChatBrowsers {
   readonly error: string | null;
   /** Gives a control to one browser; the answer replaces its view at once. */
   command(browserId: string, command: PicaBrowserCommand): Promise<void>;
+  /** Whether the person folded the row of a browser; it holds until the browser ends. */
+  isCollapsed(browserId: string): boolean;
+  setCollapsed(browserId: string, isCollapsed: boolean): void;
 }
 
 const EMPTY: PicaBrowserOverview = { browsers: [], savedSessions: [] };
 
+type OverviewState = readonly [
+  PicaBrowserOverview,
+  React.Dispatch<React.SetStateAction<PicaBrowserOverview>>,
+];
+
 /**
- * Follows the operator browsers of the signed-in administrator while the panel is open.
- * @param isOpen - Whether the chat panel is open; a closed panel reads nothing.
+ * Reads the browsers of the administrator again and again while the page is open.
+ * @param isOpen - Whether the page is open; a closed one reads nothing.
  * @remarks
  * A person who is no administrator gets a refusal once and no further reads.
  */
-export function useChatBrowser(isOpen: boolean): ChatBrowsers {
+function useBrowserOverview(isOpen: boolean): OverviewState {
   const [overview, setOverview] = useState<PicaBrowserOverview>(EMPTY);
-  const [error, setError] = useState<string | null>(null);
   const [isAvailable, setIsAvailable] = useState(true);
   const hasBrowsers = overview.browsers.length > 0;
 
@@ -69,7 +76,20 @@ export function useChatBrowser(isOpen: boolean): ChatBrowsers {
       controller.abort();
       clearTimeout(timer);
     };
-  }, [isOpen, isAvailable, hasBrowsers]);
+  }, [isOpen, isAvailable, hasBrowsers, setOverview]);
+
+  return [overview, setOverview] as const;
+}
+
+/**
+ * Follows the operator browsers of the signed-in administrator while the page is open.
+ * @param isOpen - Whether the page is open; a closed one reads nothing.
+ */
+export function useChatBrowser(isOpen: boolean): ChatBrowsers {
+  const [overview, setOverview] = useBrowserOverview(isOpen);
+  const [error, setError] = useState<string | null>(null);
+  // Browser IDs are never reused, so an ended browser leaves only its ID here.
+  const [collapsed, setCollapsedIds] = useState<ReadonlySet<string>>(new Set());
 
   async function command(
     browserId: string,
@@ -93,10 +113,21 @@ export function useChatBrowser(isOpen: boolean): ChatBrowsers {
     }
   }
 
+  function setCollapsed(browserId: string, isCollapsed: boolean): void {
+    setCollapsedIds((current) => {
+      const next = new Set(current);
+      if (isCollapsed) next.add(browserId);
+      else next.delete(browserId);
+      return next;
+    });
+  }
+
   return {
     browsers: overview.browsers,
     savedSessions: overview.savedSessions,
     error,
     command,
+    isCollapsed: (browserId) => collapsed.has(browserId),
+    setCollapsed,
   };
 }
