@@ -23,6 +23,7 @@ import type { AgentPlanConfiguration } from "./AgentPlanConfiguration";
 import type { PageAgentModel } from "./PageAgent";
 import type { AgentDefinitionChoice } from "./AgentAvailability";
 import type { AgentParameterValue } from "./AgentParameters";
+import type { AgentPlanRunBranch } from "./AgentPlanRunBranch";
 import type { AgentConfiguration } from "./AgentConfiguration";
 import type { AgentProfileDirectory } from "./AgentProfile";
 import type {
@@ -538,6 +539,8 @@ export interface AgentPlanStepResult {
   readonly script?: AgentPlanScriptRun;
   /** A declared script report, separate from process exit and the original output. */
   readonly report?: AgentPlanScriptAssessment;
+  /** The branch this preparation set up in its workspace, kept as a value of the run. */
+  readonly runBranch?: AgentPlanRunBranch;
   /** Authorized read-time projection, separate from persisted acceptance. */
   readonly progress?: AgentPlanProgress;
   /**

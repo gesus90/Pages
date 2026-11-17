@@ -23,16 +23,19 @@ interface ContextCaptionProps {
  * reuses it for every agent of a chat.
  * @param props - `percent` is the fill, `null` while unknown; `label` replaces
  * the question mark inside, such as the initial of an agent; `isBusy` pulses
- * while a compaction runs.
+ * while a compaction runs; `className` overrides its size of 28 px, such as
+ * on the chip of an agent in a group.
  */
 export function ContextRing({
   percent,
   label,
   isBusy = false,
+  className,
 }: {
   readonly percent: number | null;
   readonly label?: string;
   readonly isBusy?: boolean;
+  readonly className?: string;
 }): React.ReactElement {
   return (
     <span
@@ -40,6 +43,7 @@ export function ContextRing({
       className={cn(
         "relative inline-flex size-7 shrink-0 items-center justify-center",
         isBusy && "animate-pulse",
+        className,
       )}
     >
       <svg className="size-full -rotate-90" viewBox="0 0 36 36" fill="none">

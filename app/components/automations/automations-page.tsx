@@ -92,7 +92,7 @@ export function AutomationsPage(
   }
 
   return (
-    <section className="pages-page-fill flex w-full flex-col">
+    <section className="pages-page-fill pages-page-fixed flex w-full flex-col">
       <header className="flex shrink-0 flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">

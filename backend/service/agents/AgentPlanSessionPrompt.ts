@@ -1,6 +1,7 @@
 import { AgentError } from "@/backend/error/AgentErrors";
 
 import { renderPlanAssignment } from "./AgentPlanContract";
+import { readSessionRunBranch } from "./AgentPlanRunBranchCapture";
 import { planRetryNotice } from "./AgentPlanRetryNotice";
 import { planSessionReach } from "./AgentPlanSessionAccess";
 import { runnerLabel } from "./AgentPlanSessionRecords";
@@ -11,6 +12,7 @@ import { sessionStart } from "./sessions/AgentSessionAttempts";
 import type { GroupSessionResume } from "./AgentPlanGroupSessions";
 import type { AgentPlanSessionInput } from "@/backend/agents/AgentPlanExecution";
 import type { AgentPlanContract } from "@/definition/AgentPlanSession";
+import type { AgentSessionRunBranch } from "@/definition/AgentPlanRunBranch";
 import type { AgentPlanStepProgressTodo } from "@/definition/AgentPlanStepProgress";
 import type { NodeRun } from "./AgentPlanStepContext";
 import type { PreparedPlanStep } from "./AgentPlanStepStart";
@@ -73,8 +75,12 @@ function buildAssignmentPrompt(
   node: NodeRun,
   prepared: PreparedPlanStep,
   terms: PromptTerms,
-  directory: string,
+  workspace: {
+    readonly directory: string;
+    readonly runBranch: AgentSessionRunBranch;
+  },
 ): string {
+  const { directory, runBranch } = workspace;
   return renderPlanAssignment({
     contract: terms.contract,
     usesMcp: terms.mcp !== null,
@@ -89,6 +95,7 @@ function buildAssignmentPrompt(
     requiresAcceptance: true,
     acceptanceScope: node.step.groupId ? "group" : "node",
     hasProjectGitHub: prepared.input.github !== undefined,
+    runBranch,
   });
 }
 
@@ -125,7 +132,12 @@ export async function buildPlanSessionInput(
       ? ((await dependencies.progress?.()) ?? [])
       : [];
   const scope = `${retryNotice(node, resumeSessionId, progress)}${recovery.note}${planTurnScope(node.step, node.loop)}`;
-  const prompt = `${scope}${startBody(node, prepared)}\n\n${buildAssignmentPrompt(node, prepared, terms, directory)}`;
+  const runBranch = await readSessionRunBranch(node.run.steps, directory);
+  const assignment = buildAssignmentPrompt(node, prepared, terms, {
+    directory,
+    runBranch,
+  });
+  const prompt = `${scope}${startBody(node, prepared)}\n\n${assignment}`;
   await dependencies.pin(prompt);
   return {
     ...prepared.input,

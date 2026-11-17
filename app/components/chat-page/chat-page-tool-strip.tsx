@@ -35,6 +35,9 @@ function currentUse(
  * Werkzeuge · läuft: Read", the running time and an arrow; opened, one line
  * of 28 px per call below it, at most six visible before the list scrolls.
  * @remarks
+ * The spinner and the wrench share one place of 14 px, and the time has a
+ * minimum width with figures of equal width, so neither a change of the
+ * symbol nor of the time moves anything in the line.
  * Whether the list is open stays as it is while new calls arrive. A click on
  * a call shows its input and result.
  */
@@ -63,17 +66,17 @@ export function ChatPageToolStrip({
         data-tool-strip-head=""
         onClick={() => setIsOpen((open) => !open)}
       >
-        {current.isRunning ? (
-          <LoaderCircle
-            aria-hidden="true"
-            className="size-3.5 shrink-0 animate-spin text-primary"
-          />
-        ) : (
-          <Wrench
-            aria-hidden="true"
-            className="size-3.5 shrink-0 text-muted-foreground"
-          />
-        )}
+        <span
+          aria-hidden="true"
+          className="inline-flex size-3.5 shrink-0 items-center justify-center"
+          data-tool-strip-icon=""
+        >
+          {current.isRunning ? (
+            <LoaderCircle className="size-3.5 animate-spin text-primary" />
+          ) : (
+            <Wrench className="size-3.5 text-muted-foreground" />
+          )}
+        </span>
         <span className="shrink-0 font-semibold">
           {t("chatPage.liveAnswer.tools", { count: uses.length })}
         </span>
@@ -85,7 +88,10 @@ export function ChatPageToolStrip({
             { tool: current.use.name },
           )}
         </span>
-        <span className="ml-auto shrink-0 text-muted-foreground tabular-nums">
+        <span
+          className="ml-auto min-w-16 shrink-0 text-right text-muted-foreground tabular-nums"
+          data-elapsed=""
+        >
           {durationLabel}
         </span>
         <ChevronRight

@@ -1,4 +1,4 @@
-import { Square, TriangleAlert, UserMinus } from "lucide-react";
+import { Square, UserMinus } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -10,6 +10,7 @@ import {
   DropdownMenuTrigger,
 } from "@/app/components/ui/dropdown-menu";
 
+import { AccessBadge } from "./chat-page-access-badge";
 import { AgentSessionStatus } from "./chat-page-agent-status";
 import { useAgentMenuState } from "./chat-page-agent-menu";
 import {
@@ -31,6 +32,7 @@ import {
   GroupChatMenu,
 } from "./chat-menu/chat-page-header-menu";
 import { ChatPageScheduledTasks } from "./chat-page-scheduled-tasks";
+import { ChatPageContextRing } from "./chat-page-context-rings";
 
 import type { ReactNode } from "react";
 import type { AgentSettingsTab } from "@/app/components/agent-settings/agent-settings-tabs";
@@ -55,12 +57,15 @@ function HeaderFrame({
   title,
   subtitle,
   aside,
+  below,
   onContextMenu,
 }: {
   readonly avatar: ReactNode;
   readonly title: string;
   readonly subtitle: string;
   readonly aside: ReactNode;
+  /** A full-width line under the title, such as the member chips of a group. */
+  readonly below?: ReactNode;
   /** Takes a right click on avatar and title, as the head of an agent opens its menu with it. */
   readonly onContextMenu?: (event: React.MouseEvent) => void;
 }): React.ReactElement {
@@ -81,6 +86,7 @@ function HeaderFrame({
         </div>
       </div>
       <div className="flex flex-wrap items-center gap-2">{aside}</div>
+      {below === undefined ? null : <div className="basis-full">{below}</div>}
     </header>
   );
 }
@@ -153,38 +159,6 @@ function groupAgentOptions(
 /** Whether the opened stored conversation is muted and confidential, and the changes of both. */
 type MuteControl = ChatMenuSwitches;
 
-/**
- * The access level of an agent as a label; YOLO stands out in the
- * destructive color, so nobody overlooks that Pages does not restrict it.
- */
-function AccessBadge({
-  participant,
-}: {
-  readonly participant: VirtualParticipant;
-}): React.ReactElement | null {
-  const { t } = useTranslation();
-  const level = participant.accessLevel;
-  if (participant.kind !== "agent" || level === undefined) return null;
-  const tone: Readonly<Record<typeof level, string>> = {
-    read_only: "border-border bg-surface text-muted-foreground",
-    workspace: "border-info/40 bg-info-subtle text-info",
-    yolo: "border-destructive bg-destructive font-semibold text-primary-foreground",
-  };
-  return (
-    <span
-      className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs ${tone[level]}`}
-      title={t(`agentEmployees.access.hint.${level}`)}
-    >
-      {level === "yolo" ? (
-        <TriangleAlert aria-hidden="true" className="size-3.5" />
-      ) : null}
-      {t("chatPage.accessLabel", {
-        level: t(`agentEmployees.access.${level}`),
-      })}
-    </span>
-  );
-}
-
 /** The menu of the agent of a direct chat: the person who talks with it may always steer it. */
 function directAgentOptions(
   links: HeaderLinks,
@@ -238,8 +212,22 @@ function ParticipantHeader({
           <AccessBadge participant={participant} />
           {isAgent ? (
             <>
-              <ChatModelBadge model={participant.chatModel} />
-              <AgentSessionStatus brief={participant.session} />
+              <span className="inline-flex items-center gap-2">
+                <AgentSessionStatus brief={participant.session} />
+                <ChatPageContextRing
+                  entry={{
+                    agent: participant,
+                    brief: participant.session,
+                    model: participant.chatModel,
+                  }}
+                  chatName={participant.name}
+                  place="header"
+                />
+              </span>
+              <ChatModelBadge
+                model={participant.chatModel}
+                className="inline-flex h-8 items-center px-3 text-xs"
+              />
               <ChatPageAgentButton
                 agent={participant}
                 brief={participant.session}
@@ -261,7 +249,7 @@ function ParticipantHeader({
             </>
           ) : null}
           {isAnswering && isAgent ? (
-            <Button onClick={onStop} size="sm" type="button" variant="outline">
+            <Button onClick={onStop} size="xs" type="button" variant="outline">
               <Square aria-hidden="true" className="size-3.5" />
               {t("chatPage.stop")}
             </Button>
@@ -289,7 +277,7 @@ function MemberChip({
   const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);
   const chip = (
-    <span className="inline-flex items-center gap-1.5 rounded-full bg-surface py-1 pr-2.5 pl-1 text-[13px] text-foreground shadow-xs">
+    <span className="inline-flex h-8 items-center gap-1.5 rounded-full bg-surface pr-2.5 pl-1 text-[13px] whitespace-nowrap text-foreground shadow-xs">
       <ParticipantAvatar participant={member} size={22} />
       {member.name}
     </span>
@@ -338,7 +326,7 @@ function GroupStopButtons({
         <Button
           key={agent.id}
           onClick={() => onStopAgent(agent.id)}
-          size="sm"
+          size="xs"
           type="button"
           variant="outline"
         >
@@ -382,6 +370,7 @@ function MemberChips({
               (session) => session.agentId === member.id,
             )}
             options={groupAgentOptions(links, group, participants, member)}
+            chatName={group.name}
           />
         ) : (
           <MemberChip
@@ -443,14 +432,16 @@ function GroupHeader({
         subtitle={t("chatPage.groupSubtitle", {
           description: group.description,
         })}
+        below={
+          <MemberChips
+            group={group}
+            members={members}
+            participants={participants}
+            links={links}
+          />
+        }
         aside={
           <>
-            <MemberChips
-              group={group}
-              members={members}
-              participants={participants}
-              links={links}
-            />
             {onStopAgent ? (
               <GroupStopButtons group={group} onStopAgent={onStopAgent} />
             ) : null}
@@ -530,9 +521,12 @@ interface SettingsTarget {
  * and muting and the dissolution of a group. A right
  * click on a chat of the list opens the same menu.
  *
- * An agent shows what its session does in this chat, as a word on its chip
- * in a group and next to the button "Agent" in a direct chat. A click or a
- * right click opens its menu: the session buttons, its settings popup, its
+ * An agent shows what its session does in this chat as a colored badge
+ * with its context ring beside it, on its chip under the title of a group
+ * and before the button "Agent" in a direct chat; YOLO access shows as a
+ * sign "!" there. Every element of the right group of a direct chat's head
+ * is 32 px high. A click or a right click on the chip or button opens its
+ * menu: the session buttons, its settings popup, its
  * direct chat and its mention. The one popup "Agent-Einstellungen" belongs to
  * the head, so the menus and the sessions dialog of the group share it.
  * A stored conversation with a person or of a group can be muted for the

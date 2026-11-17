@@ -9,6 +9,7 @@ import {
 } from "@/definition/AgentPlanExecution";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { planScriptAssessmentSchema } from "@/definition/AgentPlanScriptReport";
+import { planRunBranchSchema } from "@/definition/AgentPlanRunBranch";
 import {
   assetFailureSchema,
   planRemoteAccessSchema,
@@ -26,6 +27,7 @@ import { readPlanStackHandover } from "./AgentPlanStackRunInput";
 import { readAgentParameterValue } from "./AgentConfigurationInput";
 
 import type { AgentParameterValue } from "@/definition/AgentParameters";
+import type { AgentPlanRunBranch } from "@/definition/AgentPlanRunBranch";
 import type {
   AgentPlanStepResult,
   AgentPlanStepStatus,
@@ -144,11 +146,17 @@ function readStepDisplay(
 
 function readStepArtifacts(
   step: Record<string, unknown>,
-): Pick<AgentPlanStepResult, "script" | "report" | "progress" | "agentTodos"> {
+): Pick<
+  AgentPlanStepResult,
+  "script" | "report" | "progress" | "agentTodos" | "runBranch"
+> {
   return {
     ...(step.script === undefined
       ? {}
       : { script: readPlanScriptRun(step.script) }),
+    ...(step.runBranch === undefined
+      ? {}
+      : { runBranch: readRunBranch(step.runBranch) }),
     ...(step.report === undefined
       ? {}
       : { report: readScriptReport(step.report) }),
@@ -159,6 +167,12 @@ function readStepArtifacts(
       ? {}
       : { agentTodos: readAgentTodoList(step.agentTodos) }),
   };
+}
+
+function readRunBranch(input: unknown): AgentPlanRunBranch {
+  const parsed = planRunBranchSchema.safeParse(input);
+  if (!parsed.success) throw new AgentError("plan_invalid");
+  return parsed.data;
 }
 
 function readScriptReport(

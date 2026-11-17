@@ -1,5 +1,4 @@
 import { codexRunUsage } from "../usage/CodexRunUsage";
-import { summarizeClaudeUsage } from "@/definition/ClaudeUsageSummary";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { logCaughtError } from "@/backend/logging/Logger";
 
@@ -19,17 +18,24 @@ import { decideContinuation } from "./AgentSessionContinuation";
 import { antigravityUsage } from "./AntigravityUsage";
 import { AgentSessionRecorder } from "./AgentSessionRecorder";
 import { sumOpenCodeUsage } from "./OpenCodeUsage";
-import { UNKNOWN_CONTEXT, sumTurnUsage } from "./AgentSessionUsage";
+import {
+  UNKNOWN_CONTEXT,
+  claudeNodeUsage,
+  sumTurnUsage,
+} from "./AgentSessionUsage";
 import type { OpenRouterPricing } from "./OpenRouterPricing";
 import { checkSessionWorkspace } from "./AgentSessionWorkspace";
+import { readSessionRunBranch } from "../AgentPlanRunBranchCapture";
+import { describeSessionIdentity } from "./AgentSessionModelIdentity";
 import { followRemoteSession } from "./RemoteSessionFollower";
 
-import type { ClaudeUsageSummary } from "@/definition/ClaudeUsage";
 import type { AcpSessionListener } from "@/backend/agents/acp/AcpChat";
 import type { AntigravityPriceCatalog } from "./AntigravityPriceCatalog";
+import type { SessionCatalogReader } from "./AgentSessionModelIdentity";
 import type { PlanSessionTurn } from "@/backend/agents/AgentPlanExecution";
 import type { AgentPlanRun } from "@/definition/AgentPlan";
 import type {
+  AgentSessionContinuation,
   AgentSessionEventPage,
   AgentSessionHistoryWindow,
   AgentSessionKey,
@@ -105,6 +111,8 @@ export interface AgentSessionServiceDependencies {
   readonly saveUsage?: (usage: AgentSessionTurnUsage) => Promise<void>;
   readonly priceCatalog?: Pick<AntigravityPriceCatalog, "calculate">;
   readonly pricing?: OpenRouterPricing;
+  /** The catalog of a connection, which names the models of the badges. */
+  readonly catalog?: SessionCatalogReader;
 }
 
 const UNKNOWN_VALUE = { value: null, source: null, reportedAt: null } as const;
@@ -262,20 +270,29 @@ export class AgentSessionService {
     );
     const { openRouterRunTotal, isOpenRouterRunIncomplete } =
       openRouterRunSummary(run, runTurns);
+    const model = describeSessionModel(attempt.record, stored);
     return {
       key,
       provider: attempt.record.runner,
       state,
       groupId: attempt.step.groupId ?? null,
       workspace: stored?.workspace ?? null,
-      model: describeSessionModel(attempt.record, stored),
+      runBranch: stored?.workspace
+        ? await readSessionRunBranch(run.steps, stored.workspace.directory)
+        : null,
+      model,
+      ...(await describeSessionIdentity(
+        attempt.record,
+        model,
+        this.dependencies.catalog,
+      )),
       context: stored?.context ?? UNKNOWN_CONTEXT,
       turns,
       totals: sumTurnUsage(turns),
       runTotals: sumTurnUsage(runTurns),
       codexRunUsage: codexRunUsage(run, runTurns),
       ...(attempt.record.runner === "claude_code"
-        ? { claudeUsage: this.claudeNodeUsage(runTurns, nodeAttempts) }
+        ? { claudeUsage: claudeNodeUsage(runTurns, nodeAttempts) }
         : {}),
       nodeTotals: sumTurnUsage(
         runTurns.filter((turn) => nodeAttempts.has(turn.attemptId)),
@@ -289,22 +306,7 @@ export class AgentSessionService {
       )),
       openRouterRunTotal,
       isOpenRouterRunIncomplete,
-      continuation: decideContinuation({
-        isAuthorized: true,
-        isConfigurationCompatible: true,
-        isProcessAlive: isLive,
-        acpSessionId: attempt.record.sessionId,
-        capabilities:
-          this.recorders.get(attempt.record.instanceId)?.capabilities ??
-          attempt.record.continuationCapabilities ??
-          null,
-        // Plan nodes have no resume or load path yet; it is reported, never offered.
-        canUseCapabilities: false,
-        // No path starts a reconstructed session yet; it is never offered.
-        canReconstruct: false,
-        hasPlanCheckpoint:
-          (await this.dependencies.hasPlanCheckpoint?.(run.id)) ?? false,
-      }),
+      continuation: await this.continuationOf(run, attempt, isLive),
       messages: await this.dependencies.store.listMessages(key.attemptId),
       actions: this.sessionActions(key, run, state, isLive),
     };
@@ -437,6 +439,32 @@ export class AgentSessionService {
       { turn: null, kind: "status", text: "turn cancelled by the executor" },
     ]);
     return "turn_cancelled";
+  }
+
+  /**
+   * Decides which continuation a session offers, from the rights and the stored facts.
+   */
+  private async continuationOf(
+    run: AgentPlanRun,
+    attempt: AgentSessionAttempt,
+    isLive: boolean,
+  ): Promise<AgentSessionContinuation> {
+    return decideContinuation({
+      isAuthorized: true,
+      isConfigurationCompatible: true,
+      isProcessAlive: isLive,
+      acpSessionId: attempt.record.sessionId,
+      capabilities:
+        this.recorders.get(attempt.record.instanceId)?.capabilities ??
+        attempt.record.continuationCapabilities ??
+        null,
+      // Plan nodes have no resume or load path yet; it is reported, never offered.
+      canUseCapabilities: false,
+      // No path starts a reconstructed session yet; it is never offered.
+      canReconstruct: false,
+      hasPlanCheckpoint:
+        (await this.dependencies.hasPlanCheckpoint?.(run.id)) ?? false,
+    });
   }
 
   private async openCodeSessionSummary(
@@ -669,20 +697,6 @@ export class AgentSessionService {
       hasEarlier: page.tail === true && events.length > selected.length,
       retainedFrom: null,
       source: "legacy_record",
-    };
-  }
-
-  private claudeNodeUsage(
-    turns: readonly AgentSessionTurnUsage[],
-    attempts: ReadonlySet<string>,
-  ): ClaudeUsageSummary {
-    const own = turns.filter((turn) => attempts.has(turn.attemptId));
-    const usage = summarizeClaudeUsage(own);
-    return {
-      ...usage,
-      isIncomplete:
-        usage.isIncomplete ||
-        [...attempts].some((id) => !own.some((turn) => turn.attemptId === id)),
     };
   }
 

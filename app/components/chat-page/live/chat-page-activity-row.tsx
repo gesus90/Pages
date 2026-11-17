@@ -1,6 +1,9 @@
 import { useTranslation } from "react-i18next";
 
+import { cn } from "@/app/lib/cn";
+
 import { ParticipantAvatar } from "../chat-page-avatar";
+import { useFittingChips } from "./use-fitting-chips";
 
 import type { VirtualParticipant } from "@/definition/VirtualChat";
 import type { LiveActivity } from "./live-answer-state";
@@ -12,6 +15,8 @@ export interface AgentActivity {
     "id" | "name" | "color" | "avatarImageUrl"
   >;
   readonly activity: LiveActivity;
+  /** How many messages wait for the agent's turn in this chat. */
+  readonly waitingMessages: number;
 }
 
 /**
@@ -49,13 +54,66 @@ function ActivityText({
   );
 }
 
+/** The look of the chip of an agent at work: a thin accent border, no fill. */
+const CHIP_CLASS =
+  "inline-flex h-6 items-center gap-1.5 rounded-full border border-primary/55 pr-2.5 pl-0.5 text-xs whitespace-nowrap text-foreground";
+
+/** The chip "+N" for the agents at work that do not fit into the line. */
+const MORE_CLASS =
+  "inline-flex h-6 shrink-0 items-center rounded-full border border-border px-2.5 text-xs whitespace-nowrap text-muted-foreground";
+
+/** The chip of one agent at work: avatar with its ring, what it does, and the messages waiting. */
+function ActivityChip({
+  entry,
+  className,
+}: {
+  readonly entry: AgentActivity;
+  readonly className?: string;
+}): React.ReactElement {
+  const { t } = useTranslation();
+  const { agent, activity, waitingMessages } = entry;
+  return (
+    <span className={cn(CHIP_CLASS, className)} data-activity-chip="">
+      <ParticipantAvatar
+        participant={agent}
+        size={18}
+        className="shrink-0 ring-[1.5px] ring-primary"
+      />
+      <span className="min-w-0 truncate">
+        <ActivityText name={agent.name} activity={activity} />
+        {waitingMessages > 0 ? (
+          <span className="text-muted-foreground">
+            {" · "}
+            {t("chatPage.agentStatus.waiting", { count: waitingMessages })}
+          </span>
+        ) : null}
+      </span>
+    </span>
+  );
+}
+
+/** What the chips say, so the line measures them again when it changes. */
+function contentKeyOf(entries: readonly AgentActivity[]): string {
+  return JSON.stringify(
+    entries.map(({ agent, activity, waitingMessages }) => [
+      agent.id,
+      agent.name,
+      activity,
+      waitingMessages,
+    ]),
+  );
+}
+
 /**
- * The agents at work in the opened chat above the input, each
- * with a small avatar and what it does now; an entry goes once its agent is
- * done. In a group several stand side by side.
+ * The agents at work in the opened chat above the input, each as a chip
+ * with its avatar and what it does now; a chip goes once its agent is done.
  * @remarks
- * The line is always 20 px high and stays empty while no agent works, so
- * the field below it never moves.
+ * The line is always 24 px high and stays empty while no agent works, so
+ * the field below it never moves. Agents that rest, are ready or need a
+ * restart have no chip; their state stands in the chat head. In a group the
+ * chips stand side by side; those that do not fit are counted by a chip
+ * "+N" that names them in its title, and the line never wraps. Only the
+ * text of a chip is truncated, never its avatar and ring.
  */
 export function ChatPageActivityRow({
   entries,
@@ -63,28 +121,51 @@ export function ChatPageActivityRow({
   readonly entries: readonly AgentActivity[];
 }): React.ReactElement {
   const { t } = useTranslation();
+  const chips = useFittingChips(contentKeyOf(entries));
+  const shown = entries.slice(0, chips.visibleCount);
+  const hidden = entries.slice(shown.length);
   return (
-    <ul
-      aria-label={t("chatPage.liveAnswer.activityLabel")}
-      aria-live="polite"
-      className="mb-2 flex h-5 min-w-0 items-center gap-x-4 overflow-hidden whitespace-nowrap"
-      data-activity-row=""
-    >
-      {entries.map(({ agent, activity }) => (
-        <li
-          key={agent.id}
-          className="inline-flex min-w-0 items-center gap-1.5 text-xs text-foreground"
-        >
-          <ParticipantAvatar
-            participant={agent}
-            size={18}
-            className="shrink-0 rounded-full ring-1 ring-primary"
+    <div className="relative mb-2 h-6 overflow-hidden">
+      <ul
+        ref={chips.row}
+        aria-label={t("chatPage.liveAnswer.activityLabel")}
+        aria-live="polite"
+        className="flex h-6 min-w-0 items-center gap-2 overflow-hidden whitespace-nowrap"
+        data-activity-row=""
+      >
+        {shown.map((entry, index) => (
+          <li
+            key={entry.agent.id}
+            className={cn("flex min-w-0", index === 0 ? "shrink" : "shrink-0")}
+          >
+            <ActivityChip entry={entry} className="max-w-full" />
+          </li>
+        ))}
+        {hidden.length > 0 ? (
+          <li className="flex shrink-0">
+            <span
+              className={MORE_CLASS}
+              title={hidden.map((entry) => entry.agent.name).join(", ")}
+            >
+              {`+${String(hidden.length)}`}
+            </span>
+          </li>
+        ) : null}
+      </ul>
+      <div
+        ref={chips.measurer}
+        aria-hidden="true"
+        className="pointer-events-none invisible absolute top-0 left-0 flex w-max gap-2 whitespace-nowrap"
+      >
+        {entries.map((entry) => (
+          <ActivityChip
+            key={entry.agent.id}
+            entry={entry}
+            className="shrink-0"
           />
-          <span className="min-w-0 truncate">
-            <ActivityText name={agent.name} activity={activity} />
-          </span>
-        </li>
-      ))}
-    </ul>
+        ))}
+        <span className={MORE_CLASS}>{`+${String(entries.length)}`}</span>
+      </div>
+    </div>
   );
 }

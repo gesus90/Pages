@@ -1,6 +1,7 @@
 import { useTranslation } from "react-i18next";
 
 import { cn } from "@/app/lib/cn";
+import { sessionAttemptId } from "@/definition/AgentSessionJournal";
 
 import { PlanPaletteButton } from "../plan-palette-button";
 
@@ -11,20 +12,57 @@ import type { AgentPlanProgressItem } from "@/definition/AgentPlanProgress";
 
 const TODO_TOOLTIP_DELAY_MS = 1500;
 
+/** The native list of the attempt the session runs now; a list of an earlier attempt never counts. */
+function currentAgentTodos(
+  step: AgentPlanStepResult,
+): AgentPlanStepResult["agentTodos"] | null {
+  const list = step.agentTodos;
+  if (!list || list.todos.length === 0) return null;
+  const session = step.session;
+  if (session && sessionAttemptId(session, step.id) !== list.attemptId)
+    return null;
+  return list;
+}
+
+/**
+ * The entries the console lists.
+ * @remarks
+ * The agent's own structured plan comes first. An empty native list hides
+ * nothing: the todos of the current assignment and attempt stand instead.
+ * Without any source the honest empty state remains.
+ */
 function displayedTodos(
   step: AgentPlanStepResult,
 ): readonly AgentPlanProgressItem[] {
-  if (step.agentTodos) return step.agentTodos.todos;
+  const native = currentAgentTodos(step);
+  if (native) return native.todos;
+  const progress = currentProgressTodos(step);
+  if (progress.length > 0) return progress;
   return (
-    step.progress?.todos ??
     step.session?.contract?.todos.map((todo): AgentPlanProgressItem => ({
       id: todo.id,
       contractId: todo.id,
       text: todo.text,
       status: todo.checked ? "done" : "open",
-    })) ??
-    []
+    })) ?? []
   );
+}
+
+/** The live todo states of the current attempt; an observation of another attempt is left out. */
+function currentProgressTodos(
+  step: AgentPlanStepResult,
+): readonly AgentPlanProgressItem[] {
+  const progress = step.progress;
+  if (!progress) return [];
+  const observed = progress.scope?.attemptId ?? null;
+  const session = step.session;
+  if (
+    observed !== null &&
+    session &&
+    sessionAttemptId(session, step.id) !== observed
+  )
+    return [];
+  return progress.todos;
 }
 
 function ConsoleTodoRow({
@@ -62,6 +100,7 @@ export function ConsoleTodoList({
 }): React.ReactElement {
   const { t } = useTranslation();
   const todos = displayedTodos(step);
+  const isNative = currentAgentTodos(step) !== null;
   const done = todos.filter((todo) => todo.status === "done").length;
   const heading = t("plans.console.terminal.sidebar.todos");
   return (
@@ -79,8 +118,8 @@ export function ConsoleTodoList({
       </div>
       {todos.length > 0 ? (
         <ul
-          key={step.agentTodos ? "agent" : "assignment"}
-          data-agent-todo-list={step.agentTodos ? "" : undefined}
+          key={isNative ? "agent" : "assignment"}
+          data-agent-todo-list={isNative ? "" : undefined}
           className="max-h-56 min-w-0 overflow-y-auto text-sm"
         >
           {todos.map((todo) => (

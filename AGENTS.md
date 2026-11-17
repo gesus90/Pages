@@ -200,6 +200,17 @@ plans:
   dependencies from the frozen lockfile.
 - `node scripts/qa-evidence.mjs fingerprint --scope pages [--manifest <file>]`
   identifies the source population and installed dependency state.
+- `node scripts/qa-evidence.mjs gate --scope pages [--evidence <file>] [--previous <file>]`
+  runs `corepack pnpm --version`, `check` and `lint` once on the clean,
+  committed HEAD and writes evidence with exit codes, signals, start errors
+  and log paths. Exit 1 means code findings a repair can fix; exit 3 means a
+  start, signal, resource, package manager or address space failure, a dirty
+  tree, or a repeat on the HEAD of a failed `--previous` run, which no code
+  repair can fix. Run it in the native agent context: the script runtime
+  limits the address space to 1 GiB, under which the checks cannot start.
+- `node scripts/qa-evidence.mjs verify --scope pages --evidence <file>` exits
+  0 only when that evidence shows every step green on exactly the current,
+  clean HEAD; a used-up loop count never replaces it.
 
 Backup restoration verification and offline database transfer remain operating
 commands. They are not an automated behavior suite. See

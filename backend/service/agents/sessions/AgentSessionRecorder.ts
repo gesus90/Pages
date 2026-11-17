@@ -2,7 +2,10 @@ import { AgentError } from "@/backend/error/AgentErrors";
 import { logCaughtError, logDiagnostic } from "@/backend/logging/Logger";
 
 import { codexPromptTokens } from "../usage/CodexPromptTokens";
-import { activityEvent } from "./AgentSessionRecorderEvents";
+import {
+  activityEvent,
+  isClaudeCompaction,
+} from "./AgentSessionRecorderEvents";
 import { AgentToolCallEvents } from "./AgentToolCallEvents";
 import { buildPromptUsage } from "./AgentSessionRecorderUsage";
 import { readContinuationCapabilities } from "./AgentSessionContinuation";
@@ -221,6 +224,7 @@ export class AgentSessionRecorder implements AcpSessionListener {
       this.readUsage(update);
       return;
     }
+    if (isClaudeCompaction(update)) this.forgetContextOccupancy();
     // Like the plan session's own reader, thoughts, tools and plans end the current message.
     if (MESSAGE_BOUNDARIES.has(update.sessionUpdate)) this.flushMessage();
     const event = this.toolCalls.event(update) ?? activityEvent(update);
@@ -451,6 +455,20 @@ export class AgentSessionRecorder implements AcpSessionListener {
       },
       confirmedModel,
       updatedAt: reportedAt,
+    });
+  }
+
+  /**
+   * A compaction makes the stored occupancy wrong; it stays unknown until the
+   * next usage report names it again. The window size stays.
+   */
+  private forgetContextOccupancy(): void {
+    const { context } = this.attempt;
+    if (context.contextUsed === null) return;
+    this.persist({
+      ...this.attempt,
+      context: { ...context, contextUsed: null, percent: null },
+      updatedAt: this.clock(),
     });
   }
 

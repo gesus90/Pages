@@ -92,6 +92,22 @@ A script declares zero or one named text output. With no output its flow can
 succeed and its data result is null. With one output, empty stdout is `""`.
 Removing an output invalidates consumer bindings instead of inventing data.
 
+### Run branch
+
+A script that prepares the branch of a run reports it on a line of its stdout,
+`PAGES_RUN_BRANCH=<branch>`; the last valid line counts and an invalid name is
+ignored, never repaired. After a successful local script Pages reads `HEAD` of
+the script's workspace again and stores a run branch in the step result when the
+script declared one or when the checked-out branch changed while it ran. The
+value belongs to the run and its workspace: several workspaces keep separate
+values, nothing is held in process memory and no other run sees it. It records
+the declaration, the Git state Pages read after the script and whether both
+match (`confirmed`) or differ (`mismatch`, the declared name stays the target).
+Later agent nodes of the same workspace receive it in their run contract
+together with the Git state read when their session starts or continues, and
+the session view compares it with the state read for each view; neither ever
+checks a branch out. Scripts on a remote target set no run branch.
+
 An output can explicitly select `report` or `gate`. Both require one JSON object
 with exactly `status`, `summary`, and a nonempty `checks` array. Each check has
 exactly `name`, `status`, and `detail`; statuses are `passed`, `failed`, or

@@ -108,7 +108,10 @@ async function events(scope) {
   try {
     return await readFile(`${scope.path}/cgroup.events`, "utf8");
   } catch (error) {
-    if (error.code === "ENOENT") return "populated 0\nfrozen 0\n";
+    // The kernel removes only an empty cgroup; a read during that removal
+    // reports ENODEV instead of ENOENT. Access errors remain failures.
+    if (["ENOENT", "ENODEV"].includes(error.code))
+      return "populated 0\nfrozen 0\n";
     throw error;
   }
 }
@@ -181,7 +184,11 @@ export async function stopScope(scope, jobId) {
       try {
         await writeFile(`${scope.path}/cgroup.kill`, "1");
       } catch (error) {
-        if (!["ENOENT", "EACCES", "EPERM", "EOPNOTSUPP"].includes(error.code))
+        if (
+          !["ENOENT", "ENODEV", "EACCES", "EPERM", "EOPNOTSUPP"].includes(
+            error.code,
+          )
+        )
           throw error;
         if ((await events(scope)).includes("populated 0")) return "confirmed";
         await killScope(scope);

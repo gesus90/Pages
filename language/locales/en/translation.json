@@ -4488,7 +4488,7 @@
       "removeDomain": "Remove the release for {{domain}}"
     },
     "agentStatus": {
-      "working": "working …",
+      "working": "working",
       "ready": "ready",
       "resting": "resting",
       "restart_needed": "restart needed",
@@ -4642,11 +4642,15 @@
     },
     "liveAnswer": {
       "live": "live",
-      "working": "working",
+      "phrase1": "is working on it …",
+      "phrase2": "is thinking …",
+      "phrase3": "is taking a look …",
+      "phrase4": "is finding details …",
+      "phrase5": "is sorting it out …",
+      "phrase6": "is almost there …",
       "onlyForYou": "visible only to you",
       "thinkingNow": "Thinking …",
       "thoughts": "Thoughts",
-      "thoughtsSummary": "Thoughts · {{duration}}",
       "tools_one": "{{count}} tool",
       "tools_other": "{{count}} tools",
       "toolsSummary": "{{tools}} · {{duration}}",
@@ -5997,6 +6001,19 @@
           "working": "Agent is working",
           "resume": "Resume planned",
           "resumeIn": "in {{seconds}} s"
+        },
+        "toolRunning": "running …",
+        "toolExit": "Exit {{code}}",
+        "toolLines_one": "{{count}} line",
+        "toolLines_other": "{{count}} lines",
+        "toolDuration": "{{seconds}} s",
+        "toolShowDetails": "Show details",
+        "toolHideDetails": "Hide details",
+        "toolOutputLimited": "Output ends at the stored limit",
+        "history": {
+          "retained": "Older entries of this attempt are no longer stored.",
+          "legacy": "Only the short lines of an older run are stored.",
+          "missing": "No history is stored for this attempt."
         }
       }
     },
@@ -10244,5 +10261,45 @@
     "mappingsHint": "Optional, one mapping per line: gpt-6-luna = openai/gpt-6-luna. Leave blank for unambiguous automatic matching.",
     "monthlyLimit": "Monthly Codex cost limit (USD)",
     "monthlyLimitHint": "Calculated equivalent including subscription usage; blank means unlimited. Further requests are refused once the limit is reached."
+  },
+  "agentBadges": {
+    "model": {
+      "label": "Model {{vendor}} {{name}}, {{status}}",
+      "status": {
+        "confirmed": "confirmed by the adapter",
+        "requested": "requested, not confirmed yet",
+        "configured": "configured model"
+      }
+    },
+    "reasoning": {
+      "label": "Reasoning {{level}}, {{notes}}",
+      "level": {
+        "none": "none",
+        "minimal": "minimal",
+        "low": "low",
+        "medium": "medium",
+        "high": "high",
+        "xhigh": "very high",
+        "max": "max",
+        "ultra": "ultra"
+      },
+      "notOffered": "not offered by the model",
+      "default": "Model default"
+    },
+    "access": {
+      "yolo": "YOLO",
+      "read_only": "READ",
+      "workspace_write": "Workspace (earlier)",
+      "full_environment": "Full environment (earlier)"
+    },
+    "branch": {
+      "missing": "not known yet",
+      "workspace": "Workspace {{name}}",
+      "checkedOut": "Checked out: {{branch}}",
+      "detached": "Detached HEAD {{commit}}",
+      "noRepository": "No Git repository",
+      "unreadable": "Git state unreadable",
+      "preparationMismatch": "After the preparation: {{observed}}"
+    }
   }
 }

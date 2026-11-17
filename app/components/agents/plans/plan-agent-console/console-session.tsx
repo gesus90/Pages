@@ -69,8 +69,12 @@ function modelLabel(
   view: AgentSessionView | null,
   step: AgentPlanStepResult,
 ): string {
+  // The catalog name of a Claude model, such as Haiku 5.5, rather than an alias such as haiku.
   return (
-    view?.model.confirmedModel.value ?? step.session?.requested.model ?? ""
+    view?.modelIdentity?.name ??
+    view?.model.confirmedModel.value ??
+    step.session?.requested.model ??
+    ""
   );
 }
 

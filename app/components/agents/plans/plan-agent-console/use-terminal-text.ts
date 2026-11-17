@@ -153,13 +153,14 @@ export function useTerminalText(
     surface: null,
     rows: [],
     lineStarts: [],
+    toggles: [],
   });
   useEffect(() => {
     if (!surface) return;
     const current =
       written.current.surface === surface
         ? written.current
-        : { surface, rows: [], lineStarts: [] };
+        : { surface, rows: [], lineStarts: [], toggles: [] };
     write(surface.terminal, current, next);
     written.current = { surface, ...next };
   }, [surface, next]);

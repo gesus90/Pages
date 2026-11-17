@@ -13,10 +13,6 @@ import { ChatDecisionHealth } from "./mentions/chat-decision-health";
 import { ChatPageCommandOutcome } from "./chat-page-command-outcome";
 import { ChatPageComposer } from "./chat-page-composer";
 import { chatInputOf, isAgentChat } from "./chat-page-input";
-import {
-  ChatPageContextRings,
-  contextRingEntries,
-} from "./chat-page-context-rings";
 import { useConfidential } from "./chat-page-confidential";
 import { ChatPageDropZone } from "./chat-page-drop-zone";
 import { ChatPageHeader } from "./chat-page-header";
@@ -154,10 +150,6 @@ function ConversationFoot({
   });
   const memberIds =
     opened.kind === "group" ? opened.group.memberIds : [opened.participant.id];
-  const aside =
-    contextRingEntries(opened).length > 0 ? (
-      <ChatPageContextRings opened={opened} chatName={name} />
-    ) : undefined;
   return (
     <div className="flex shrink-0 flex-col gap-2">
       {page.sendFailure ? (
@@ -180,7 +172,6 @@ function ConversationFoot({
         onSend={handleSend}
         answering={composerAnswering(page)}
         activity={page.activity}
-        aside={aside}
         memberIds={memberIds}
         attachments={input.attachments}
         voice={input.voice}

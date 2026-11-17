@@ -30,6 +30,7 @@ import type {
   VirtualParticipant,
   VirtualToolUse,
 } from "@/definition/VirtualChat";
+import type { AgentChatModelLabel } from "@/definition/AgentChatControl";
 import type { LiveAnswerView, LiveDelivery } from "./live/live-answer-state";
 
 /** What the history shows of the answers agents are writing. */
@@ -43,7 +44,7 @@ export interface HistoryLive {
   /** Names an agent of the chat. */
   readonly nameOf: (agentId: string) => string;
   /** The model label of an agent in this chat, such as "Opus 5.5 · hoch". */
-  readonly modelOf?: (agentId: string) => string | undefined;
+  readonly modelOf?: (agentId: string) => AgentChatModelLabel | undefined;
   /** Cancels the running tool calls of an agent. */
   readonly onCancelTool?: (agentId: string) => void;
 }
@@ -596,7 +597,7 @@ export function ChatPageHistory({
             key={view.answerId}
             view={view}
             author={author}
-            modelLabel={live.modelOf?.(view.agentId)}
+            model={live.modelOf?.(view.agentId)}
             onCancelTool={
               onCancelTool ? () => onCancelTool(view.agentId) : undefined
             }

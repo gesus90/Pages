@@ -29,6 +29,7 @@ export class AgentToolCallEvents {
   ): Omit<AgentSessionEventInput, "turn"> | null {
     if (update.sessionUpdate === "tool_call") {
       const state: ToolCallState = {
+        callId: update.toolCallId,
         title: update.title,
         kind: update.kind ?? "other",
         input: describeInput(update.rawInput),
@@ -62,13 +63,15 @@ export class AgentToolCallEvents {
     update: Extract<SessionUpdate, { sessionUpdate: "tool_call_update" }>,
   ): ToolCallState {
     const state = this.tools.get(update.toolCallId) ?? {
+      callId: update.toolCallId,
       title: "",
       kind: "other",
       input: "",
     };
     if (update.title) state.title = update.title;
     if (update.kind) state.kind = update.kind;
-    if (update.rawInput !== undefined)
+    // claude-agent-acp repeats `rawInput: null` in later updates; it keeps the command already known.
+    if (update.rawInput !== undefined && update.rawInput !== null)
       state.input = describeInput(update.rawInput);
     if (PROGRESS_TOOL.test(state.title) && update.rawInput !== undefined)
       state.raw = update.rawInput;

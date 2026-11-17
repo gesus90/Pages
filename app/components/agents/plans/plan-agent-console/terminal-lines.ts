@@ -1,6 +1,19 @@
 import { wrapTerminalLine } from "./terminal-wrap";
+import {
+  applyToolEvent,
+  firstLine,
+  plainText as plain,
+  toolLines,
+  toolParts,
+} from "./terminal-tools";
 
 import type { AgentSessionEvent } from "@/definition/AgentSessionJournal";
+import type {
+  TerminalLine,
+  ToolLine,
+  ToolLineTexts,
+  ToolPainter,
+} from "./terminal-tools";
 
 /** ANSI styles of the Pages terminal; the colors are the `agent-terminal` tokens of the theme. */
 const STYLE = {
@@ -9,6 +22,7 @@ const STYLE = {
   muted: "\u001b[90m",
   thought: "\u001b[2;3m",
   tool: "\u001b[36m",
+  toolName: "\u001b[1;36m",
   success: "\u001b[32m",
   error: "\u001b[31m",
   todo: "\u001b[33m",
@@ -17,8 +31,6 @@ const STYLE = {
 
 type Style = keyof typeof STYLE;
 
-/** The longest result line of a tool call. */
-const RESULT_LENGTH = 160;
 /** The rule after the start line of an attempt. */
 const RULE = "─".repeat(14);
 
@@ -56,15 +68,21 @@ export interface TerminalAttempt {
   readonly startedAt: string | null;
   readonly events: readonly AgentSessionEvent[];
   readonly ending: TerminalEnding | null;
+  /** Why the stored history of the attempt is incomplete; `null` when it is complete. */
+  readonly historyNote?: TerminalHistoryNote | null;
 }
 
+/**
+ * How the stored history of an attempt is incomplete: older entries were
+ * removed by retention, only the short lines of an older record exist, or
+ * nothing is stored.
+ */
+export type TerminalHistoryNote = "retained" | "legacy" | "missing";
+
 /** The translated words of the terminal. */
-export interface TerminalTexts {
+export interface TerminalTexts extends ToolLineTexts {
   readonly attempt: (number: number) => string;
-  /** The name of a tool kind such as `read` or `execute`; `null` where the title names the call better. */
-  readonly toolKind: (kind: string) => string | null;
-  readonly done: string;
-  readonly aborted: string;
+  readonly history: (note: TerminalHistoryNote) => string;
   readonly todoActive: (id: string, text: string) => string;
   readonly todoDone: (id: string) => string;
   readonly turnEnded: string;
@@ -101,6 +119,16 @@ export interface TerminalInput {
   /** Columns of a measured terminal; `null` keeps the lines unwrapped. */
   readonly columns: number | null;
   readonly texts: TerminalTexts;
+  /** The `toolCallId` of every call whose full output the reader opened. */
+  readonly expandedCalls: ReadonlySet<string>;
+}
+
+/** Where a toggle of a call's output stands among the rows, columns from 1 and inclusive. */
+export interface TerminalRowToggle {
+  readonly row: number;
+  readonly startColumn: number;
+  readonly endColumn: number;
+  readonly callId: string;
 }
 
 /** The rows of the Pages terminal and where each line before wrapping starts. */
@@ -109,6 +137,8 @@ export interface TerminalRows {
   readonly rows: readonly string[];
   /** For each line before wrapping, the index of its first row. */
   readonly lineStarts: readonly number[];
+  /** The rows that open or close the output of a call. */
+  readonly toggles: readonly TerminalRowToggle[];
 }
 
 /** The newest tool call of the running attempt that has no result yet. */
@@ -121,17 +151,6 @@ export interface TerminalRunningTool {
   readonly startedAt: number | null;
 }
 
-/** One tool call as the terminal draws it. */
-interface ToolLine {
-  readonly kind: "tool";
-  readonly title: string;
-  readonly toolKind: string;
-  input: string;
-  readonly startedAt: number;
-  state: "running" | "completed" | "failed";
-  output: string;
-}
-
 type Block =
   | { readonly kind: "lines"; readonly lines: readonly string[] }
   | { readonly kind: "text"; text: string; readonly style: Style | null }
@@ -141,12 +160,7 @@ function styled(style: Style, text: string): string {
   return `${STYLE[style]}${text}${STYLE.reset}`;
 }
 
-/** Removes control sequences an adapter may send, so only Pages colors the terminal. */
-function plain(text: string): string {
-  return text
-    .replace(/\u001b\[[0-9;?]*[ -/]*[@-~]/gu, "")
-    .replace(/[\u0000-\u0008\u000b-\u001f\u007f]/gu, "");
-}
+const paintTool: ToolPainter = (style, text) => styled(style, text);
 
 function localTime(at: string | null): string {
   const date = at ? new Date(at) : null;
@@ -155,48 +169,6 @@ function localTime(at: string | null): string {
     hour: "2-digit",
     minute: "2-digit",
   });
-}
-
-function firstLine(text: string): string {
-  const line = text.split("\n").find((entry) => entry.trim() !== "") ?? "";
-  const trimmed = line.trim();
-  return trimmed.length > RESULT_LENGTH
-    ? `${trimmed.slice(0, RESULT_LENGTH)} …`
-    : trimmed;
-}
-
-/** Title, kind, command and output of a tool event: `title`, `@kind k`, `$ command`, then the output. */
-function readTool(text: string): {
-  readonly title: string;
-  readonly toolKind: string;
-  readonly input: string;
-  readonly output: string;
-} {
-  const [title = "", ...rest] = plain(text).split("\n");
-  const hasKind = rest[0]?.startsWith("@kind ") === true;
-  const afterKind = hasKind ? rest.slice(1) : rest;
-  const hasInput = afterKind[0]?.startsWith("$ ") === true;
-  return {
-    title: title.trim(),
-    toolKind: hasKind ? (rest[0]?.slice(6).trim() ?? "other") : "other",
-    input: hasInput ? (afterKind[0]?.slice(2).trim() ?? "") : "",
-    output: (hasInput ? afterKind.slice(1) : afterKind).join("\n"),
-  };
-}
-
-/**
- * The running call a result belongs to: the one with the same title, else
- * the oldest one, since an adapter may rename a call when it ends.
- */
-function runningTool(
-  blocks: readonly Block[],
-  title: string,
-): ToolLine | undefined {
-  const running = blocks.filter(
-    (block): block is ToolLine =>
-      block.kind === "tool" && block.state === "running",
-  );
-  return running.find((block) => block.title === title) ?? running[0];
 }
 
 /** The todo states of an `update_step_progress` event; an unreadable one reports none. */
@@ -231,32 +203,11 @@ interface BlockState {
 }
 
 function addTool(state: BlockState, event: AgentSessionEvent): void {
-  const tool = readTool(event.text);
-  const running =
-    event.kind === "tool_started"
-      ? undefined
-      : runningTool(state.blocks, tool.title);
-  if (running) {
-    running.state = event.kind === "tool_completed" ? "completed" : "failed";
-    running.output = tool.output;
-    // The input is complete only once the call ended.
-    running.input = tool.input || running.input;
-    return;
-  }
-  state.blocks.push({
-    kind: "tool",
-    title: tool.title,
-    toolKind: tool.toolKind,
-    input: tool.input,
-    startedAt: Date.parse(event.createdAt),
-    state: toolState(event.kind),
-    output: tool.output,
-  });
-}
-
-function toolState(kind: AgentSessionEvent["kind"]): ToolLine["state"] {
-  if (kind === "tool_completed") return "completed";
-  return kind === "tool_failed" ? "failed" : "running";
+  const calls = state.blocks.filter(
+    (block): block is ToolLine => block.kind === "tool",
+  );
+  const added = applyToolEvent(calls, event);
+  if (added) state.blocks.push(added);
 }
 
 function addProgress(state: BlockState, event: AgentSessionEvent): void {
@@ -299,8 +250,13 @@ function addText(state: BlockState, text: string, style: Style | null): void {
 
 /** A prompt ended: a tool call it left without a result was cut short. */
 function abortRunningTools(state: BlockState): void {
+  // A start without an ID cannot be joined with its end, so it is never called cut short.
   for (const block of state.blocks)
-    if (block.kind === "tool" && block.state === "running")
+    if (
+      block.kind === "tool" &&
+      block.state === "running" &&
+      block.callId !== null
+    )
       block.state = "failed";
 }
 
@@ -374,65 +330,29 @@ function addEvent(state: BlockState, event: AgentSessionEvent): void {
   }
 }
 
-/** Name and detail of a call: a known kind names it, its command or path follows. */
-function toolParts(
-  tool: ToolLine,
-  texts: TerminalTexts,
-): { readonly name: string; readonly detail: string } {
-  const label = texts.toolKind(tool.toolKind);
-  // Arguments of Pages tools and other JSON say less than the title of the call.
-  const detail = /^[[{]/u.test(tool.input) ? "" : firstLine(tool.input);
-  if (label) return { name: label, detail: detail || tool.title };
-  return {
-    name: tool.title || "Tool",
-    detail: detail && detail !== tool.title ? detail : "",
-  };
-}
-
-/** `Title  command or path`. */
-function toolHead(tool: ToolLine, texts: TerminalTexts): string {
-  const { name, detail } = toolParts(tool, texts);
-  return detail ? `${name}  ${detail}` : name;
-}
-
-function toolLines(
-  tool: ToolLine,
-  input: TerminalInput,
-  hasEnded: boolean,
-): readonly string[] {
-  const { texts } = input;
-  const head = styled("tool", `● ${toolHead(tool, texts)}`);
-  // The JSON answer of a Pages tool says less than „done“; its station follows.
-  const result = /^[[{]/u.test(tool.output.trimStart())
-    ? ""
-    : firstLine(tool.output);
-  if (tool.state === "completed")
-    return [head, styled("success", `  ✓ ${result || texts.done}`)];
-  if (tool.state === "failed" || hasEnded)
-    return [
-      head,
-      styled("error", `  ✗ ${firstLine(tool.output) || texts.aborted}`),
-    ];
-  // How long it runs is the status line below the terminal, so the text never depends on the time.
-  return [head];
-}
-
 function blockLines(
   block: Block,
   input: TerminalInput,
   hasEnded: boolean,
-): readonly string[] {
-  if (block.kind === "lines") return block.lines;
-  if (block.kind === "tool") return toolLines(block, input, hasEnded);
+): readonly TerminalLine[] {
+  if (block.kind === "lines") return block.lines.map((text) => ({ text }));
+  if (block.kind === "tool")
+    return toolLines(block, {
+      hasEnded,
+      isExpanded:
+        block.callId !== null && input.expandedCalls.has(block.callId),
+      texts: input.texts,
+      paint: paintTool,
+    });
   const lines = block.text
     .replace(/\s+$/u, "")
     .replace(/^\n+/u, "")
     .split("\n");
-  const text = lines.map((line) =>
-    block.style ? styled(block.style, line) : line,
-  );
+  const text = lines.map((line) => ({
+    text: block.style ? styled(block.style, line) : line,
+  }));
   // An answer stands apart from tools and todos, as in a CLI.
-  return ["", ...text, ""];
+  return [{ text: "" }, ...text, { text: "" }];
 }
 
 function endingLines(
@@ -472,35 +392,68 @@ function attemptLines(
   attempt: TerminalAttempt,
   input: TerminalInput,
   todos: Map<string, string>,
-): readonly string[] {
+): readonly TerminalLine[] {
   const header = styled(
     "muted",
     `── ${input.provider} · ${input.model} · ${input.texts.attempt(attempt.number)} · ${localTime(attempt.startedAt)} ${RULE}`,
   );
+  const note = attempt.historyNote
+    ? [
+        {
+          text: styled(
+            "muted",
+            `◇ ${input.texts.history(attempt.historyNote)}`,
+          ),
+        },
+      ]
+    : [];
   const state: BlockState = { blocks: [], todos, input };
   const prompt =
     attempt.number === 1 && input.prompt
       ? plain(input.prompt)
           .split("\n")
-          .map((line, index) =>
-            styled("strong", `${index === 0 ? "> " : "  "}${line}`),
-          )
+          .map((line, index) => ({
+            text: styled("strong", `${index === 0 ? "> " : "  "}${line}`),
+          }))
       : [];
   for (const event of attempt.events) addEvent(state, event);
   const body = state.blocks.flatMap((block) =>
     blockLines(block, input, attempt.ending !== null),
   );
-  const ending = attempt.ending ? endingLines(attempt.ending, input.texts) : [];
-  return [header, ...prompt, ...body, ...ending];
+  const ending = attempt.ending
+    ? endingLines(attempt.ending, input.texts).map((text) => ({ text }))
+    : [];
+  return [{ text: header }, ...note, ...prompt, ...body, ...ending];
 }
 
 /** Collapses runs of empty lines and drops them at the edges of an attempt. */
-function compact(lines: readonly string[]): readonly string[] {
-  const kept: string[] = [];
+function compact(lines: readonly TerminalLine[]): readonly TerminalLine[] {
+  const kept: TerminalLine[] = [];
   for (const line of lines)
-    if (line !== "" || (kept.length > 0 && kept.at(-1) !== "")) kept.push(line);
-  while (kept.at(-1) === "") kept.pop();
+    if (line.text !== "" || (kept.length > 0 && kept.at(-1)?.text !== ""))
+      kept.push(line);
+  while (kept.at(-1)?.text === "") kept.pop();
   return kept;
+}
+
+/** The columns of a toggle's label in the last row of its wrapped line. */
+function toggleOf(
+  rows: readonly string[],
+  line: TerminalLine,
+): (Omit<TerminalRowToggle, "row"> & { readonly offset: number }) | null {
+  const toggle = line.toggle;
+  if (!toggle) return null;
+  for (let offset = rows.length - 1; offset >= 0; offset -= 1) {
+    const column = plain(rows[offset] ?? "").lastIndexOf(toggle.label);
+    if (column >= 0)
+      return {
+        offset,
+        startColumn: column + 1,
+        endColumn: column + toggle.label.length,
+        callId: toggle.callId,
+      };
+  }
+  return null;
 }
 
 /**
@@ -514,22 +467,33 @@ function compact(lines: readonly string[]): readonly string[] {
  * local time. Prompts and inputs of people are bold, answers plain,
  * thoughts dimmed, tool calls cyan with a green result or a red abort, todo
  * changes yellow, resumes orange and closing stations green. Tool IDs never
- * appear: a tool is named by its title and its command or path.
+ * appear: a tool is named by its title and its command or path, and its
+ * start and end are joined by the stored `toolCallId` within its turn alone.
+ * A journal without identities pairs a result only with the one running call
+ * of its title.
  */
 export function renderTerminal(input: TerminalInput): TerminalRows {
   const todos = new Map<string, string>();
   const lines = input.attempts.flatMap((attempt, index) => [
-    ...(index > 0 ? [""] : []),
+    ...(index > 0 ? [{ text: "" }] : []),
     ...compact(attemptLines(attempt, input, todos)),
   ]);
   const { columns } = input;
   const rows: string[] = [];
   const lineStarts: number[] = [];
+  const toggles: TerminalRowToggle[] = [];
   for (const line of lines) {
     lineStarts.push(rows.length);
-    rows.push(...(columns === null ? [line] : wrapTerminalLine(line, columns)));
+    const wrapped =
+      columns === null ? [line.text] : wrapTerminalLine(line.text, columns);
+    const toggle = toggleOf(wrapped, line);
+    if (toggle) {
+      const { offset, ...columnsOfLabel } = toggle;
+      toggles.push({ ...columnsOfLabel, row: rows.length + offset });
+    }
+    rows.push(...wrapped);
   }
-  return { rows, lineStarts };
+  return { rows, lineStarts, toggles };
 }
 
 /**
@@ -550,8 +514,5 @@ export function runningTerminalTool(
       block.kind === "tool" && block.state === "running",
   );
   if (!tool) return null;
-  return {
-    ...toolParts(tool, input.texts),
-    startedAt: Number.isFinite(tool.startedAt) ? tool.startedAt : null,
-  };
+  return { ...toolParts(tool, input.texts), startedAt: tool.startedAt };
 }

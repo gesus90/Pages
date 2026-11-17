@@ -1,10 +1,12 @@
 import { AgentEmployeeError } from "@/backend/error/AgentEmployeeError";
 import { logCaughtError } from "@/backend/logging/Logger";
+import { isAgentProvider } from "@/definition/AgentConnection";
 
 import type { EmployeeStore } from "@/backend/database/repositories/employee/EmployeeStore";
 import type { UserRepository } from "@/backend/database/repositories/UserRepository";
 import type { ConversationService } from "@/backend/service/conversation/ConversationService";
 import type {
+  AgentChatModelLabel,
   ChatGroupMemberView,
   ChatGroupMembersView,
 } from "@/definition/AgentChatControl";
@@ -115,17 +117,7 @@ export class ChatGroupMembershipService {
         isOwner: entry.isOwner,
         canControl:
           !isAgent && (entry.isOwner || controllers.includes(user.id)),
-        ...(stored
-          ? {
-              model: {
-                name: (await this.dependencies.models.describe(stored))
-                  .modelName,
-                reasoningEffort: stored.reasoningEffort,
-                isOverride: true,
-                contextWindow: null,
-              },
-            }
-          : {}),
+        ...(stored ? { model: await this.memberModel(stored) } : {}),
       });
     }
     return { groupId: id, members, canManage: isOwner };
@@ -212,6 +204,24 @@ export class ChatGroupMembershipService {
   }
 
   /** Stops the answer of an agent in the group and closes and deletes its session and model there. */
+  private async memberModel(stored: {
+    readonly connectionId: string;
+    readonly model: string;
+    readonly reasoningEffort: string | null;
+  }): Promise<AgentChatModelLabel> {
+    const description = await this.dependencies.models.describe(stored);
+    return {
+      name: description.modelName,
+      provider: isAgentProvider(description.provider)
+        ? description.provider
+        : null,
+      modelId: stored.model,
+      reasoningEffort: stored.reasoningEffort,
+      isOverride: true,
+      contextWindow: null,
+    };
+  }
+
   private async closeAgent(
     viewer: User,
     conversationId: string,

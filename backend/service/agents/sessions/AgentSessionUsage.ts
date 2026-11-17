@@ -7,6 +7,8 @@ import type {
 } from "@/definition/AgentSessionJournal";
 
 import type { AcpUsageCapability } from "@/definition/AgentSessionUsageCapabilities";
+import { summarizeClaudeUsage } from "@/definition/ClaudeUsageSummary";
+import type { ClaudeUsageSummary } from "@/definition/ClaudeUsage";
 export { ACP_USAGE_CAPABILITIES } from "@/definition/AgentSessionUsageCapabilities";
 export type {
   AcpTokenCounting,
@@ -248,4 +250,24 @@ export function sumTurnUsage(
       unique.filter((turn) => turn.provider === provider),
     ),
   );
+}
+
+/**
+ * Sums the Claude usage of one node; an attempt without stored turns makes the sum incomplete.
+ * @param turns - Turns of the run; only the turns of `attempts` count.
+ * @param attempts - The attempt ids of the node.
+ * @returns The Claude usage of the node.
+ */
+export function claudeNodeUsage(
+  turns: readonly AgentSessionTurnUsage[],
+  attempts: ReadonlySet<string>,
+): ClaudeUsageSummary {
+  const own = turns.filter((turn) => attempts.has(turn.attemptId));
+  const usage = summarizeClaudeUsage(own);
+  return {
+    ...usage,
+    isIncomplete:
+      usage.isIncomplete ||
+      [...attempts].some((id) => !own.some((turn) => turn.attemptId === id)),
+  };
 }

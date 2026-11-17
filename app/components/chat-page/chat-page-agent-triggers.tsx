@@ -2,11 +2,15 @@ import { Bot, ChevronDown } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import { Button } from "@/app/components/ui/button";
+import { ClaudeModelBadge } from "@/app/components/agents/badges/claude-model-badge";
+import { cn } from "@/app/lib/cn";
 import { shortModelName } from "@/definition/AgentChatControl";
 
+import { AccessMark } from "./chat-page-access-badge";
 import { ParticipantAvatar } from "./chat-page-avatar";
 import { AgentSessionStatus } from "./chat-page-agent-status";
 import { ChatPageAgentMenu, useAgentMenuState } from "./chat-page-agent-menu";
+import { ChatPageContextRing } from "./chat-page-context-rings";
 
 import type { AgentChatModelLabel } from "@/definition/AgentChatControl";
 import type { AgentChatSessionBrief } from "@/definition/AgentChatSession";
@@ -21,18 +25,34 @@ interface AgentTriggerProps {
 
 /**
  * The short name of the model of an agent, such as "Opus", where the chat
- * deviates from the agent's own model; nothing otherwise.
+ * deviates from the agent's own model; nothing otherwise. A Claude Code model
+ * shows the shared Claude badge instead. `className` changes its size, such as
+ * to the 32 px of the direct chat's head.
  */
 export function ChatModelBadge({
   model,
+  className,
 }: {
   readonly model: AgentChatModelLabel | undefined;
+  readonly className?: string;
 }): React.ReactElement | null {
   const { t } = useTranslation();
   if (model?.isOverride !== true) return null;
+  if (model.provider === "claude_code")
+    return (
+      <span
+        className={className}
+        title={t("chatPage.modelChoice.badgeHint", { model: model.name })}
+      >
+        <ClaudeModelBadge name={model.name} />
+      </span>
+    );
   return (
     <span
-      className="rounded-full border border-primary/40 bg-primary-subtle px-1.5 text-[11px] text-primary"
+      className={cn(
+        "shrink-0 rounded-full border border-primary/40 bg-primary-subtle px-1.5 text-[11px] whitespace-nowrap text-primary",
+        className,
+      )}
       title={t("chatPage.modelChoice.badgeHint", { model: model.name })}
     >
       {shortModelName(model.name)}
@@ -41,18 +61,24 @@ export function ChatModelBadge({
 }
 
 /**
- * An agent in the member chips of a group: avatar, name and what its session
- * does in this chat. A click or a right click opens the menu of the agent.
+ * An agent in the member chips of a group, 32 px high: avatar, name, the
+ * sign "!" of YOLO access, the badge of what its session does in this chat
+ * and its context ring. A click or a right click on the chip opens the menu
+ * of the agent; the ring opens its own details.
  */
 export function ChatPageAgentChip({
   agent,
   brief,
   options,
-}: AgentTriggerProps): React.ReactElement {
+  chatName,
+}: AgentTriggerProps & {
+  /** The name of the group, for the details of the context ring. */
+  readonly chatName: string;
+}): React.ReactElement {
   const { t } = useTranslation();
   const state = useAgentMenuState();
   return (
-    <li className="inline-flex items-center gap-1.5">
+    <li className="inline-flex h-8 items-center gap-1 rounded-full bg-surface pr-1 shadow-xs">
       <ChatPageAgentMenu
         agent={agent}
         brief={brief}
@@ -60,17 +86,23 @@ export function ChatPageAgentChip({
         state={state}
       >
         <button
-          className="inline-flex items-center gap-1.5 rounded-full bg-surface py-1 pr-2.5 pl-1 text-[13px] text-foreground shadow-xs hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none data-[state=open]:ring-2 data-[state=open]:ring-primary"
+          className="inline-flex h-8 items-center gap-1.5 rounded-full py-1 pr-1 pl-1 text-[13px] whitespace-nowrap text-foreground hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none data-[state=open]:ring-2 data-[state=open]:ring-primary"
           onContextMenu={state.openFromContextMenu}
           title={t("chatPage.agentMenu.hint")}
           type="button"
         >
           <ParticipantAvatar participant={agent} size={22} />
           {agent.name}
+          <AccessMark participant={agent} />
           <ChatModelBadge model={options.control?.model} />
-          <AgentSessionStatus brief={brief} />
+          <AgentSessionStatus brief={brief} size="chip" />
         </button>
       </ChatPageAgentMenu>
+      <ChatPageContextRing
+        entry={{ agent, brief, model: options.control?.model }}
+        chatName={chatName}
+        place="chip"
+      />
     </li>
   );
 }
@@ -101,7 +133,7 @@ export function ChatPageAgentButton({
       <Button
         aria-label={t("chatPage.agentMenu.triggerLabel")}
         onContextMenu={state.openFromContextMenu}
-        size="sm"
+        size="xs"
         title={t("chatPage.agentMenu.hint")}
         variant="outline"
       >

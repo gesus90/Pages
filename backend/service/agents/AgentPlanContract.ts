@@ -7,6 +7,7 @@ import type {
 } from "@/definition/AgentPlanSession";
 import type { AgentPlanCompletionGate } from "@/definition/AgentPlanWork";
 import type { AgentPlanTicketChecklist } from "./AgentPlanTasks";
+import type { AgentSessionRunBranch } from "@/definition/AgentPlanRunBranch";
 
 /** The criterion of a node whose tickets list no acceptance criteria. */
 const DEFAULT_CRITERION =
@@ -48,6 +49,40 @@ export interface AgentPlanAssignment extends AgentPlanContractOptions {
   readonly acceptanceScope?: "node" | "group";
   /** The session reaches GitHub through the connection of its project. */
   readonly hasProjectGitHub?: boolean;
+  /** The run branch of the workspace, compared with its Git state at the start of this turn. */
+  readonly runBranch?: AgentSessionRunBranch;
+}
+
+function actualGitText(branch: AgentSessionRunBranch): string {
+  const { actual } = branch;
+  if (actual.state === "branch") return `\`${actual.branch}\` is checked out`;
+  if (actual.state === "detached")
+    return `HEAD is detached at \`${actual.commit.slice(0, 12)}\``;
+  if (actual.state === "no_repository")
+    return "the workspace is no Git repository";
+  return "Pages could not read the Git state";
+}
+
+/**
+ * The run branch line of the contract.
+ * @remarks
+ * It names the stored target and the state Pages read; Pages never checks a
+ * branch out for the agent, so a difference is stated, not repaired.
+ */
+function runBranchLines(assignment: AgentPlanAssignment): readonly string[] {
+  const branch = assignment.runBranch;
+  if (!branch) return [];
+  if (branch.expected === null)
+    return branch.actual.state === "branch"
+      ? [
+          `Run branch: no preparation of this run set one up; ${actualGitText(branch)}.`,
+        ]
+      : [];
+  const target = `Run branch: \`${branch.expected.branch}\``;
+  if (branch.check === "matches") return [`${target} (checked out).`];
+  return [
+    `${target}, but ${actualGitText(branch)}. Do not switch branches unless the task requires it; name the difference in your report.`,
+  ];
 }
 
 /**
@@ -281,6 +316,7 @@ function renderTodoAssignment(assignment: AgentPlanAssignment): string {
     "## Pages run contract",
     `Runner: ${assignment.runnerLabel} · session instance \`${assignment.instanceId}\``,
     `Workspace: \`${assignment.directory}\``,
+    ...runBranchLines(assignment),
     ...(tickets.length > 0 ? ["", "### Tickets", ...tickets] : []),
     "",
     "### Todo list",
@@ -337,6 +373,7 @@ export function renderPlanAssignment(assignment: AgentPlanAssignment): string {
     "## Pages run contract",
     `Runner: ${assignment.runnerLabel} · session instance \`${assignment.instanceId}\``,
     `Workspace: \`${assignment.directory}\``,
+    ...runBranchLines(assignment),
     ...(tickets.length > 0 ? ["", "### Tickets", ...tickets] : []),
     "",
     "### Todo list",

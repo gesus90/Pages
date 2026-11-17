@@ -58,8 +58,6 @@ interface ChatPageComposerProps {
   readonly attachments?: ComposerAttachments;
   /** Receives what puts `@username ` into the field, for the menu of an agent in the chat head. */
   readonly mentionRef?: React.RefObject<((username: string) => void) | null>;
-  /** What stands before "Abschicken", such as the context rings of the agents. */
-  readonly aside?: React.ReactNode;
 }
 
 /** A web address alone, which the chat shows as a link card. */
@@ -130,7 +128,6 @@ interface ComposerFooterActionsProps {
   readonly onInsert: (text: string) => void;
   readonly voice: ChatPageComposerProps["voice"];
   readonly recordRef: React.RefObject<(() => void) | null>;
-  readonly aside: React.ReactNode;
   readonly answering: ComposerAnswering | undefined;
   readonly canSend: boolean;
   readonly onSubmit: (after: boolean) => void;
@@ -138,11 +135,11 @@ interface ComposerFooterActionsProps {
 
 /**
  * The foot of the input: "+" and the microphone at the left, at the right
- * the context rings and the buttons in an area of a fixed 248 px.
+ * the buttons in an area of a fixed 248 px.
  * @remarks
  * The area holds "Senden" or, while agents answer, stop, "Umlenken ↵" and
- * the arrow; its width never changes, so the rings stay where they are.
- * Below 768 px the rings move into a line above the buttons, at the right.
+ * the arrow; its width never changes. The context rings of the agents stand
+ * in the chat head, next to the state of each agent, not here.
  */
 function ComposerFooterActions({
   canAttach,
@@ -150,13 +147,11 @@ function ComposerFooterActions({
   onInsert,
   voice,
   recordRef,
-  aside,
   answering,
   canSend,
   onSubmit,
 }: ComposerFooterActionsProps): React.ReactElement {
   const { t } = useTranslation();
-  const hasAside = aside !== undefined && aside !== null;
   return (
     <div
       className="mt-2 flex flex-wrap items-center gap-2"
@@ -176,17 +171,9 @@ function ComposerFooterActions({
         />
       ) : null}
       <div
-        className="ml-auto flex max-w-full min-w-0 items-center gap-2 max-md:flex-col max-md:items-end max-md:gap-1"
+        className="ml-auto flex max-w-full min-w-0 items-center gap-2"
         data-composer-end=""
       >
-        {hasAside ? (
-          <div
-            className="ml-auto flex min-w-0 items-center justify-end gap-1.5"
-            data-composer-rings=""
-          >
-            {aside}
-          </div>
-        ) : null}
         <div
           className="flex w-[248px] max-w-full shrink-0 items-center justify-end"
           data-composer-actions=""
@@ -294,7 +281,6 @@ export function ChatPageComposer({
   voice,
   attachments,
   mentionRef,
-  aside,
   answering,
   activity = [],
   memberIds = [],
@@ -360,7 +346,6 @@ export function ChatPageComposer({
       </div>
       <ComposerFooterActions
         answering={answering}
-        aside={aside}
         canAttach={canAttach}
         canSend={canSend}
         onInsert={(text) => {

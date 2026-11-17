@@ -76,6 +76,29 @@ function extensionOf(fileName: string): string {
 }
 
 /**
+ * Checks an answer file before anything is stored: no credentials, a plain
+ * name with an allowed extension and at least one byte.
+ * @param file - The file the run produced.
+ * @returns The cleaned name the file is stored under.
+ * @throws {ChatAnswerFileError} `FILE_CREDENTIALS`, `FILE_NAME_INVALID` or `FILE_EMPTY`.
+ */
+export function checkedAnswerFileName(file: ChatAnswerFileInput): string {
+  if (containsAgentBrowserSecret(file.bytes.toString("utf8")))
+    throw new ChatAnswerFileError("FILE_CREDENTIALS");
+  const fileName = sanitizeFileName(file.fileName);
+  // A name is never a path: a model that names folders gets a refusal, not a cleaned name.
+  if (
+    /[\\/]/u.test(file.fileName) ||
+    !fileName ||
+    Array.from(fileName).length > CHAT_LIMITS.fileNameCharacters ||
+    !file.extensions.has(extensionOf(fileName))
+  )
+    throw new ChatAnswerFileError("FILE_NAME_INVALID");
+  if (file.bytes.length === 0) throw new ChatAnswerFileError("FILE_EMPTY");
+  return fileName;
+}
+
+/**
  * Files Pica attaches to its answer.
  * @remarks
  * A file comes only from the bytes the run actually produced: the text of a
@@ -170,18 +193,7 @@ export class ChatAnswerFileService {
     run: ChatAnswerRun,
     file: ChatAnswerFileInput,
   ): Promise<ChatAttachment> {
-    if (containsAgentBrowserSecret(file.bytes.toString("utf8")))
-      throw new ChatAnswerFileError("FILE_CREDENTIALS");
-    const fileName = sanitizeFileName(file.fileName);
-    // A name is never a path: a model that names folders gets a refusal, not a cleaned name.
-    if (
-      /[\\/]/u.test(file.fileName) ||
-      !fileName ||
-      Array.from(fileName).length > CHAT_LIMITS.fileNameCharacters ||
-      !file.extensions.has(extensionOf(fileName))
-    )
-      throw new ChatAnswerFileError("FILE_NAME_INVALID");
-    if (file.bytes.length === 0) throw new ChatAnswerFileError("FILE_EMPTY");
+    const fileName = checkedAnswerFileName(file);
     const staged = await this.dependencies.attachments.answerFiles(
       run.sessionId,
       run.runId,

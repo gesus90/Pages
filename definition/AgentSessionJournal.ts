@@ -17,6 +17,11 @@ import type {
   AgentSessionState,
 } from "./AgentSessionEvents.js";
 import type { AntigravityUsageTotal } from "./AgentSessionPricing";
+import type { AgentSessionRunBranch } from "./AgentPlanRunBranch";
+import type {
+  AgentModelIdentity,
+  AgentReasoningIdentity,
+} from "./AgentModelIdentity";
 
 export type {
   AgentSessionKey,
@@ -208,7 +213,13 @@ export interface AgentSessionView {
   /** The group of the node; members share the process, never the attempt. */
   readonly groupId: string | null;
   readonly workspace: AgentSessionWorkspace | null;
+  /** The run branch of the workspace against its Git state read for this view; `null` without a checked workspace. */
+  readonly runBranch?: AgentSessionRunBranch | null;
   readonly model: AgentSessionModelReport;
+  /** The model as catalog identity for the shared badges; present only for Claude Code. */
+  readonly modelIdentity?: AgentModelIdentity | null;
+  /** The reasoning level for the shared badge; present only for Claude Code. */
+  readonly reasoning?: AgentReasoningIdentity;
   readonly context: AgentSessionContextUsage;
   readonly turns: readonly AgentSessionTurnUsage[];
   /** Sums of this attempt, one per provider counting. */

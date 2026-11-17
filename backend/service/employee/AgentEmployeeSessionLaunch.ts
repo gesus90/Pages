@@ -7,6 +7,7 @@ import { employeeAccessRun } from "./AgentEmployeeAccessRun";
 import { createAgentEmployeeInstructions } from "./AgentEmployeeInstructions";
 import { agentIdentity } from "./AgentEmployeeAssignments";
 import {
+  answerFileToolOf,
   attachmentToolOf,
   chatToolsOf,
   imageToolOf,
@@ -208,6 +209,10 @@ export async function buildEmployeeRun(
       conversationId: chat.scope.conversationId,
       employee,
       assignment,
+    }),
+    ...answerFileToolOf(dependencies.answerFiles, {
+      agentId: agent.id,
+      conversationId: chat.scope.conversationId,
     }),
     ...attachmentToolOf(dependencies.attachments?.(), {
       agentId: agent.id,

@@ -57,6 +57,25 @@ events: message chunks become one `agent_message` when a thought, tool call or
 plan ends the message or the prompt ends; tool calls carry a dedupe key per
 call and status, so a repeated update is stored once.
 
+The text of a tool event is the title, then marker lines and the command and
+output: `@kind <kind>`, `@call <identity>`, `@exit <code>` only when the
+adapter reported a numeric exit code (a completed call alone is no exit code
+0), `@limited` when the output was cut to its stored limit of 3,000
+characters, then `$ <command or path>` and the output; every line after the
+title is optional. The identity is the one the provider gave the call (the ACP
+`toolCallId`, the `tool_use_id` of Claude, the item ID of Codex) as one line
+without blanks or control characters, at most 200 characters. The Pages
+terminal joins the start and the end of a call by the identity within the same
+turn, so overlapping calls and calls with the same name keep their own results,
+never by an equal title or the order of arrival. A runner splits a long result
+into several events and repeats the title and the identity line in each; the
+terminal appends the parts, and a failure is never turned into a success by a
+later part. Events recorded before identities were kept have no `@call` line:
+such a result pairs only with the one running call of its title and otherwise
+stands alone, never with the oldest running call. A Claude Code compaction (a
+tool call with `_meta.claudeCode.toolName` `compact`) makes the context
+occupancy unknown until the next `usage_update`.
+
 - Order: appends of one attempt run one after another; sequences start at 1
   and only grow. The event ID is `attemptId:sequence`.
 - Payload storage: new event bodies and immutable history chunks are synchronized

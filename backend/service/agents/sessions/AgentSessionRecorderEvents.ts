@@ -13,8 +13,13 @@ export const PROGRESS_TOOL = /update_step_progress/u;
 /** Longest command or output kept of one tool call; the journal limits the event as a whole. */
 const TOOL_TEXT = 3_000;
 
-/** What a tool call reported so far: its title, kind and input. */
+/** Longest identity of a tool call that is kept; a provider ID is far shorter. */
+const CALL_IDENTITY_LENGTH = 200;
+
+/** What a tool call reported so far: its identity, title, kind and input. */
 export interface ToolCallState {
+  /** The `toolCallId` of the provider, which pairs every update and result with its call. */
+  readonly callId: string;
   title: string;
   kind: string;
   input: string;
@@ -58,14 +63,40 @@ export function describeInput(raw: unknown): string {
   return shortened(JSON.stringify(raw));
 }
 
-/** What a tool call returned: its text content, diffs and raw output. */
-export function describeOutput(
+/** What a tool call returned, as far as the adapter reported it. */
+export interface ToolOutput {
+  readonly text: string;
+  /** The text was cut to the stored limit. */
+  readonly isLimited: boolean;
+  /** A numeric exit code the adapter reported; `null` when it reported none. */
+  readonly exitCode: number | null;
+}
+
+const EXIT_CODE_FIELDS = ["exit_code", "exitCode", "returncode"] as const;
+const FENCED_OUTPUT = /^```[^\n`]*\n(?<body>[\s\S]*?)\n?```$/u;
+
+/** An integer exit code the raw output names; a completed call alone proves none. */
+function reportedExitCode(raw: unknown): number | null {
+  const output = readRecord(raw);
+  for (const field of EXIT_CODE_FIELDS) {
+    const value = output?.[field];
+    if (typeof value === "number" && Number.isInteger(value)) return value;
+  }
+  return null;
+}
+
+/** claude-agent-acp wraps a command's output in a fenced block; the terminal shows the output itself. */
+function unfenced(text: string): string {
+  return FENCED_OUTPUT.exec(text.trim())?.groups?.body ?? text;
+}
+
+function outputParts(
   update: Extract<SessionUpdate, { sessionUpdate: "tool_call_update" }>,
-): string {
+): string[] {
   const parts: string[] = [];
   for (const entry of update.content ?? []) {
     if (entry.type === "content" && entry.content.type === "text")
-      parts.push(entry.content.text);
+      parts.push(unfenced(entry.content.text));
     else if (entry.type === "diff")
       parts.push(`diff ${entry.path}\n${entry.newText}`);
   }
@@ -85,24 +116,48 @@ export function describeOutput(
     }
     if (parts.length === 0) parts.push(JSON.stringify(raw));
   }
-  return shortened(parts.join("\n").trim());
+  return parts;
+}
+
+/** What a tool call returned: its text content, diffs and raw output. */
+export function describeOutput(
+  update: Extract<SessionUpdate, { sessionUpdate: "tool_call_update" }>,
+): ToolOutput {
+  const text = outputParts(update).join("\n").trim();
+  return {
+    text: shortened(text),
+    isLimited: text.length > TOOL_TEXT,
+    exitCode: reportedExitCode(update.rawOutput),
+  };
+}
+
+/** The identity of a call as one line without blanks or control characters; empty when the provider sent none. */
+function callIdentity(callId: string): string {
+  return callId.replace(/[\s\p{Cc}]/gu, "").slice(0, CALL_IDENTITY_LENGTH);
 }
 
 /**
- * The text of a tool call: its title, its kind, the command and, once it ended, its output.
- *
+ * The text of a tool call: its title, its kind, its identity, the command and, once it ended, its output.
  * @remarks
  * A call without a title is named by its kind, never by the internal ID of
  * the call, which says nothing to a reader. The kind line (`@kind read`)
  * lets the Pages terminal name the call the same way for every provider.
+ * The call line (`@call <id>`) carries the adapter's stable `toolCallId`, the
+ * only key the terminal joins the start and the end of a call by; the
+ * terminal never shows it. `@exit` appears only for an exit code the adapter
+ * reported, `@limited` when the output was cut to the stored limit.
  */
-export function toolText(state: ToolCallState, output = ""): string {
+export function toolText(state: ToolCallState, output?: ToolOutput): string {
   const title = state.title.trim() || state.kind;
+  const identity = callIdentity(state.callId);
   return [
     title,
     `@kind ${state.kind}`,
-    state.input ? `$ ${state.input}` : "",
-    output,
+    identity ? `@call ${identity}` : "",
+    output && output.exitCode !== null ? `@exit ${output.exitCode}` : "",
+    output?.isLimited ? "@limited" : "",
+    state.input ? `$ ${state.input.replace(/\n/gu, " ")}` : "",
+    output?.text ?? "",
   ]
     .filter((part) => part !== "")
     .join("\n");
@@ -160,4 +215,21 @@ export function progressText(raw: unknown): string | null {
   const activity =
     typeof input.activity === "string" ? input.activity.slice(0, 200) : null;
   return JSON.stringify({ todos, activity });
+}
+
+/**
+ * Whether an update starts or reports Claude Code's compaction of the conversation.
+ * @remarks
+ * claude-agent-acp reports a compaction as a tool call whose
+ * `_meta.claudeCode.toolName` is `compact`; afterwards the occupancy of the
+ * context is unknown until the next usage report.
+ */
+export function isClaudeCompaction(update: SessionUpdate): boolean {
+  if (
+    update.sessionUpdate !== "tool_call" &&
+    update.sessionUpdate !== "tool_call_update"
+  )
+    return false;
+  const claudeCode = readRecord(readRecord(update._meta)?.claudeCode);
+  return claudeCode?.toolName === "compact";
 }

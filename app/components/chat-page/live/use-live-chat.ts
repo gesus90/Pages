@@ -1,5 +1,3 @@
-import { useTranslation } from "react-i18next";
-
 import {
   activityOf,
   answersOfChat,
@@ -80,6 +78,21 @@ function modelLabelOf(
     : undefined;
 }
 
+/** How many messages wait for the turn of an agent in the opened chat, from its session. */
+function waitingMessagesOf(
+  opened: OpenedConversation | null,
+  agentId: string,
+): number {
+  if (!opened) return 0;
+  if (opened.kind === "group")
+    return (
+      opened.group.agentSessions?.find((entry) => entry.agentId === agentId)
+        ?.waitingMessages ?? 0
+    );
+  if (opened.participant.id !== agentId) return 0;
+  return opened.participant.session?.waitingMessages ?? 0;
+}
+
 /** The newest running answer of each agent. */
 function runningByAgent(
   views: readonly LiveAnswerView[],
@@ -102,7 +115,6 @@ export function useLiveChat({
   findParticipant,
   onCancelTool,
 }: LiveChatInput): LiveChatView {
-  const { t } = useTranslation();
   const views = answersOfChat(state, liveChatOf(opened));
   const storedIds = new Set(messages.map((message) => message.id));
   const running = runningByAgent(views);
@@ -122,13 +134,9 @@ export function useLiveChat({
     );
   }
 
-  function modelOf(agentId: string): string | undefined {
-    const model = modelLabelOf(opened, agentId);
-    if (!model) return undefined;
-    const effort = model.reasoningEffort;
-    return effort
-      ? `${model.name} · ${t(`chatPage.modelChoice.effort.${effort}`, { defaultValue: effort })}`
-      : model.name;
+  // The structured label goes on as it is, so the badges never read a joined text back.
+  function modelOf(agentId: string): AgentChatModelLabel | undefined {
+    return modelLabelOf(opened, agentId);
   }
 
   const activity: AgentActivity[] = workingAgentIds.flatMap((agentId) => {
@@ -144,6 +152,7 @@ export function useLiveChat({
           avatarImageUrl: participant?.avatarImageUrl ?? null,
         },
         activity: current,
+        waitingMessages: waitingMessagesOf(opened, agentId),
       },
     ];
   });

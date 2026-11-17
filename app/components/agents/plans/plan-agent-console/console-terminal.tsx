@@ -9,6 +9,7 @@ import { terminalTexts } from "./terminal-texts";
 import { useTerminalSurface } from "./use-terminal-surface";
 import { useTerminalHistory } from "./use-terminal-history";
 import { useTerminalColumns, useTerminalText } from "./use-terminal-text";
+import { useExpandedCalls, useToolToggleLinks } from "./use-tool-toggles";
 
 import type { TerminalSurface } from "@/app/components/agents/workspaces/remote/console/terminal-surface";
 import type { AgentPlanStepResult } from "@/definition/AgentPlan";
@@ -16,7 +17,11 @@ import type {
   AgentSessionEvent,
   AgentSessionKey,
 } from "@/definition/AgentSessionJournal";
-import type { TerminalAttempt, TerminalInput } from "./terminal-lines";
+import type {
+  TerminalAttempt,
+  TerminalHistoryNote,
+  TerminalInput,
+} from "./terminal-lines";
 import type { AgentSessionData } from "./use-agent-session";
 import type { SessionCommands } from "./use-session-commands";
 import type { TerminalHistory } from "./use-terminal-history";
@@ -58,23 +63,37 @@ function terminalAttempts(
   const index = (props.step.session?.retry?.attempts ?? []).findIndex(
     (attempt) => attempt.attemptId === props.sessionKey.attemptId,
   );
+  const events = joined(history.older, props.session.events);
   return [
     ...earlier.map((attempt) => {
-      const events = history.earlier.get(attempt.attemptId) ?? [];
+      const attemptEvents = history.earlier.get(attempt.attemptId) ?? [];
       return {
         number: attempt.number,
-        startedAt: events[0]?.createdAt ?? null,
-        events,
+        startedAt: attemptEvents[0]?.createdAt ?? null,
+        events: attemptEvents,
         ending: attempt.ending,
       };
     }),
     {
       number: index >= 0 ? index + 1 : earlier.length + 1,
       startedAt: props.step.session?.startedAt ?? null,
-      events: joined(history.older, props.session.events),
+      events,
       ending: currentEnding(props.step),
+      historyNote: currentHistoryNote(props.session, history, events),
     },
   ];
+}
+
+/** Marks the current attempt's history as limited or missing, never as complete when it is not. */
+function currentHistoryNote(
+  session: AgentSessionData,
+  history: TerminalHistory,
+  events: readonly AgentSessionEvent[],
+): TerminalHistoryNote | null {
+  if (session.source === "legacy_record") return "legacy";
+  if (session.retainedFrom !== null && !history.hasOlder) return "retained";
+  if (events.length === 0 && session.view?.state === "ended") return "missing";
+  return null;
 }
 
 /** Reads older history once the reader reaches the top, by scrolling or by the wheel at the top. */
@@ -135,8 +154,9 @@ function TerminalFooter(props: {
 export function ConsoleTerminal(
   props: ConsoleTerminalProps,
 ): React.ReactElement {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const container = useRef<HTMLDivElement | null>(null);
+  const { expandedCalls, toggle } = useExpandedCalls();
   const { onCloseRequest } = props;
   // The terminal is created once; it calls the newest close handler.
   const latestClose = useRef(onCloseRequest);
@@ -164,9 +184,12 @@ export function ConsoleTerminal(
     attempts: terminalAttempts(props, history),
     todoTexts,
     columns,
-    texts: terminalTexts(t),
+    texts: terminalTexts(t, i18n.language),
+    expandedCalls,
   };
-  useTerminalText(surface, renderTerminal(input));
+  const rows = renderTerminal(input);
+  useTerminalText(surface, rows);
+  useToolToggleLinks(surface, rows, toggle);
   useLoadOlderAtTop(surface, container, history);
   const retry = props.step.session?.retry;
   return (

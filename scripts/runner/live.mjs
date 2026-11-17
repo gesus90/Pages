@@ -3,27 +3,83 @@ import { createHash } from "node:crypto";
 
 const MAXIMUM_TEXT_BYTES = 4000;
 const DEDUPE_WINDOW = 64;
+const MAXIMUM_CALL_TITLE = 600;
+const MAXIMUM_CALL_IDENTITY = 200;
+const CALL_WINDOW = 256;
 
-function textEnd(bytes, start) {
-  let end = Math.min(start + MAXIMUM_TEXT_BYTES, bytes.length);
+function textEnd(bytes, start, limit) {
+  let end = Math.min(start + limit, bytes.length);
   while (end < bytes.length && (bytes[end] & 0xc0) === 0x80) end -= 1;
   return end;
 }
 
-async function note(state, kind, text, channel = "stdout") {
-  if (typeof text !== "string" || !text.trim()) return;
-  const bytes = Buffer.from(state.redact(text));
+/** Splits redacted bytes into pieces of at most `limit` bytes that never cut a character. */
+function textPieces(bytes, limit) {
+  const pieces = [];
   for (let start = 0; start < bytes.length;) {
-    const end = textEnd(bytes, start);
+    const end = textEnd(bytes, start, limit);
+    pieces.push(bytes.subarray(start, end).toString("utf8"));
+    start = end;
+  }
+  return pieces;
+}
+
+/**
+ * Emits text as events of at most 4000 bytes.
+ * With a head, every piece repeats it, so each event names its call; a head without text still emits one event.
+ */
+async function note(state, kind, text, channel = "stdout", head = "") {
+  if (typeof text !== "string") return;
+  if (!head && !text.trim()) return;
+  const lead = head ? state.redact(head) : "";
+  const prefix = lead ? `${lead}\n` : "";
+  // Title and identity are bounded, so the floor only keeps a long redaction marker from stalling the split.
+  const limit = Math.max(MAXIMUM_TEXT_BYTES - Buffer.byteLength(prefix), 1000);
+  const pieces = textPieces(Buffer.from(state.redact(text)), limit);
+  // A head without text is a complete event, such as a call that ended with an empty result.
+  for (const piece of pieces.length ? pieces : [null])
     await state.emit({
       kind,
-      text: bytes.subarray(start, end).toString("utf8"),
+      text: piece === null ? lead : `${prefix}${piece}`,
       channel,
       createdAt: new Date().toISOString(),
       isTruncated: false,
     });
-    start = end;
-  }
+}
+
+/** The provider's identity of a call as one safe line; empty when the provider sent none. */
+function callIdentity(id) {
+  if (typeof id !== "string" && typeof id !== "number") return "";
+  return String(id)
+    .replace(/[\s\p{Cc}]/gu, "")
+    .slice(0, MAXIMUM_CALL_IDENTITY);
+}
+
+/** Remembers the name of a call until its result arrives, which some providers send without it. */
+function rememberCall(state, identity, title) {
+  state.calls.delete(identity);
+  state.calls.set(identity, title);
+  if (state.calls.size > CALL_WINDOW)
+    state.calls.delete(state.calls.keys().next().value);
+}
+
+/**
+ * Emits the start or the result of a tool call with its provider identity.
+ * The text is `title`, `@call identity`, then the rest of the title and the output; a call without an identity keeps the plain text.
+ */
+async function noteCall(state, kind, call) {
+  const title = String(call.title ?? "");
+  const output = call.output ?? "";
+  if (!call.identity)
+    return note(
+      state,
+      kind,
+      [title, output].filter((part) => part !== "").join("\n"),
+    );
+  const [first = "", ...rest] = title.split("\n");
+  const body = [rest.join("\n"), output].filter((part) => part !== "");
+  const head = `${first.trim().slice(0, MAXIMUM_CALL_TITLE)}\n@call ${call.identity}`;
+  await note(state, kind, body.join("\n"), "stdout", head);
 }
 
 async function planNote(state, entries) {
@@ -108,19 +164,24 @@ async function readCodex(event, state) {
         status: entry.completed ? "completed" : "pending",
       })),
     );
-  const text = codexTool(item);
-  if (text === null) return;
-  let kind = "tool_started";
-  if (event.type === "item.completed")
-    kind = item.status === "failed" ? "tool_failed" : "tool_completed";
-  await note(state, kind, text);
-  if (event.type === "item.completed")
-    await note(state, kind, item.aggregated_output);
+  const title = codexTool(item);
+  if (title === null) return;
+  const identity = callIdentity(item.id);
+  if (event.type !== "item.completed")
+    return noteCall(state, "tool_started", { title, identity });
+  const kind = item.status === "failed" ? "tool_failed" : "tool_completed";
+  const output =
+    typeof item.aggregated_output === "string" && item.aggregated_output.trim()
+      ? item.aggregated_output
+      : "";
+  await noteCall(state, kind, { title, identity, output });
 }
 
 async function claudeTool(block, state) {
+  const identity = callIdentity(block.id);
+  if (identity) rememberCall(state, identity, String(block.name ?? ""));
   if (!isDuplicate(state, `claude-tool:${block.id}`, block))
-    await note(state, "tool_started", block.name);
+    await noteCall(state, "tool_started", { title: block.name, identity });
   if (block.name === "TodoWrite" && Array.isArray(block.input?.todos))
     await planNote(
       state,
@@ -129,6 +190,23 @@ async function claudeTool(block, state) {
         status: todo.status,
       })),
     );
+}
+
+/** A result belongs to the call named by `tool_use_id`, whatever the order in which calls end. */
+async function claudeResult(block, state) {
+  const identity = callIdentity(block.tool_use_id);
+  const output =
+    typeof block.content === "string"
+      ? block.content
+      : (block.content ?? [])
+          .filter((content) => content.type === "text")
+          .map((content) => content.text)
+          .join("\n");
+  await noteCall(state, block.is_error ? "tool_failed" : "tool_completed", {
+    title: state.calls.get(identity) ?? "",
+    identity,
+    output,
+  });
 }
 
 async function readClaude(event, state) {
@@ -156,15 +234,8 @@ async function readClaude(event, state) {
     state.hasPartialText = false;
   }
   if (event.type === "user") {
-    for (const block of event.message?.content ?? []) {
-      if (block.type !== "tool_result") continue;
-      const kind = block.is_error ? "tool_failed" : "tool_completed";
-      if (typeof block.content === "string")
-        await note(state, kind, block.content);
-      else
-        for (const content of block.content ?? [])
-          if (content.type === "text") await note(state, kind, content.text);
-    }
+    for (const block of event.message?.content ?? [])
+      if (block.type === "tool_result") await claudeResult(block, state);
   }
   if (event.type === "result")
     await note(
@@ -172,6 +243,14 @@ async function readClaude(event, state) {
       event.is_error ? "error" : "status",
       event.is_error ? "Agent failed" : "Agent completed",
     );
+}
+
+/** An ACP call or its end; a call that is still running reports no result. */
+async function openCodeCall(state, kind, update) {
+  const identity = callIdentity(update.toolCallId);
+  const title = update.title ?? state.calls.get(identity) ?? "";
+  if (identity && update.title) rememberCall(state, identity, update.title);
+  await noteCall(state, kind, { title, identity });
 }
 
 async function readOpenCode(event, state) {
@@ -198,12 +277,15 @@ async function readOpenCode(event, state) {
   if (update?.sessionUpdate === "agent_message")
     return note(state, "agent_message", update.text);
   if (update?.sessionUpdate === "tool_call")
-    return note(state, "tool_started", update.title);
-  if (update?.sessionUpdate === "tool_call_update")
-    return note(
+    return openCodeCall(state, "tool_started", update);
+  if (
+    update?.sessionUpdate === "tool_call_update" &&
+    ["completed", "failed"].includes(update.status)
+  )
+    return openCodeCall(
       state,
       update.status === "failed" ? "tool_failed" : "tool_completed",
-      update.title ?? update.toolCallId,
+      update,
     );
   if (update?.sessionUpdate === "plan")
     await planNote(state, update.entries ?? []);
@@ -213,6 +295,7 @@ async function readOpenCode(event, state) {
 export function createLiveHistory(command, redact, emit) {
   const state = {
     seen: new Map(),
+    calls: new Map(),
     hasPartialText: false,
     redact,
     emit,

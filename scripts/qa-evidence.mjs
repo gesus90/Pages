@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 
 import { withCommandTemporaryDirectory } from "./command-temporary-directory.mjs";
 import { runStep } from "./command-step.mjs";
+import { describeExitCode, runQaGate, verifyQaEvidence } from "./qa-gate.mjs";
 
 import { isFingerprintedFile, walkFiles } from "./source-population.mjs";
 
@@ -164,7 +165,9 @@ async function preflightCommand(root, scope, shouldInstall, signal) {
       },
     );
     if (code !== 0) {
-      console.error(`[qa] FAILED: install of ${scope} ended with ${code}.`);
+      console.error(
+        `[qa] FAILED: install of ${scope} ended with ${describeExitCode(code)}.`,
+      );
       return code;
     }
     issues = dependencyIssues(root, directory);
@@ -185,7 +188,7 @@ async function main(args, signal) {
   const scope = readOption(args, "--scope");
   if (!Object.hasOwn(PACKAGES, scope ?? "")) {
     console.error(
-      "Usage: qa-evidence.mjs preflight --scope pages [--install] | fingerprint --scope pages [--manifest <file>]",
+      "Usage: qa-evidence.mjs preflight --scope pages [--install] | fingerprint --scope pages [--manifest <file>] | gate --scope pages [--evidence <file>] [--previous <file>] | verify --scope pages --evidence <file>",
     );
     return USAGE_EXIT_CODE;
   }
@@ -194,6 +197,17 @@ async function main(args, signal) {
   }
   if (command === "fingerprint") {
     return fingerprintCommand(root, scope, readOption(args, "--manifest"));
+  }
+  if (command === "gate") {
+    return runQaGate({
+      root,
+      evidenceFile: readOption(args, "--evidence"),
+      previousFile: readOption(args, "--previous"),
+      signal,
+    });
+  }
+  if (command === "verify" && readOption(args, "--evidence")) {
+    return verifyQaEvidence(root, readOption(args, "--evidence"));
   }
   console.error(`Unknown command: ${command}`);
   return USAGE_EXIT_CODE;

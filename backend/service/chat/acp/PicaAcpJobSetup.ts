@@ -108,6 +108,9 @@ export function employeeJobDependencies(
     ...(employee.recipes ? { recipes: employee.recipes } : {}),
     ...(employee.agentChat ? { agentChat: employee.agentChat } : {}),
     ...(employee.liveAnswer ? { liveAnswer: employee.liveAnswer } : {}),
+    ...(employee.answerFiles === undefined
+      ? {}
+      : { answerFiles: employee.answerFiles ?? undefined }),
     access: {
       requireUser: (_, connectionId) =>
         employee.requireConnection(connectionId),

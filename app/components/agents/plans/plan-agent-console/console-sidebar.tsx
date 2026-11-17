@@ -2,12 +2,11 @@ import { useTranslation } from "react-i18next";
 
 import { PLAN_BLOCKER_RETRIES } from "@/definition/AgentPlanRetry";
 
-import { ClaudeUsageDetails } from "../claude-usage-details";
-
 import { hasSessionEnded, infrastructureRestarts } from "./console-step-state";
 import { AntigravityUsageSection } from "./antigravity-usage-section";
 import { formatClock } from "./console-time";
 import { ConsoleTodoList } from "./console-todo-list";
+import { ClaudeSessionFacts } from "./console-session-badges";
 import { OpenCodeUsageSection } from "./open-code-usage-section";
 import { useNow } from "./use-terminal-surface";
 
@@ -290,16 +289,43 @@ interface UsageSectionProps {
   readonly isTurnRunning: boolean;
 }
 
+/**
+ * The usage of a Claude Code session: only the context occupancy.
+ * @remarks
+ * The values come from the newest `usage_update`; a missing occupancy, also
+ * after a compaction, stays unknown. Costs, token sums, cache and
+ * subscription details are not part of the Claude console.
+ */
+function ClaudeContextSection({
+  view,
+}: {
+  readonly view: AgentSessionView;
+}): React.ReactElement {
+  const { t, i18n } = useTranslation();
+  const key = "plans.console.terminal.sidebar";
+  return (
+    <SidebarSection title={t(`${key}.usage`)}>
+      <dl className="space-y-1.5">
+        <ContextMeter
+          context={view.context}
+          label={t(`${key}.context`)}
+          unknown={t(`${key}.unknown`)}
+          numbers={new Intl.NumberFormat(i18n.language)}
+        />
+      </dl>
+    </SidebarSection>
+  );
+}
+
 function UsageSection(props: UsageSectionProps): React.ReactElement {
   const { t } = useTranslation();
+  if (props.view.provider === "claude_code")
+    return <ClaudeContextSection view={props.view} />;
   if (props.view.openCode)
     return <OpenCodeUsageSection {...props.view.openCode} />;
   return (
     <SidebarSection title={t("plans.console.terminal.sidebar.usage")}>
       <UsageFacts view={props.view} isTurnRunning={props.isTurnRunning} />
-      {props.view.claudeUsage ? (
-        <ClaudeUsageDetails usage={props.view.claudeUsage} />
-      ) : null}
     </SidebarSection>
   );
 }
@@ -399,10 +425,6 @@ function SessionSection(props: ConsoleSidebarProps): React.ReactElement {
   const { t } = useTranslation();
   const key = "plans.console.terminal.sidebar";
   const unknown = t(`${key}.unknown`);
-  const requested = props.step.session?.requested;
-  const { model, workspace } = props.view;
-  const access = requested?.options?.access;
-  const git = workspace?.git;
   return (
     <SidebarSection title={t(`${key}.session`)}>
       <dl className="space-y-1.5">
@@ -411,32 +433,52 @@ function SessionSection(props: ConsoleSidebarProps): React.ReactElement {
           label={t(`${key}.runtime`)}
           unknown={unknown}
         />
-        <Fact
-          label={t(`${key}.model`)}
-          value={model.confirmedModel.value ?? requested?.model ?? unknown}
-        />
-        <Fact
-          label={t(`${key}.reasoning`)}
-          value={
-            model.confirmedReasoning.value ??
-            requested?.reasoningEffort ??
-            unknown
-          }
-        />
-        <Fact
-          label={t(`${key}.access`)}
-          value={access ? t(`${key}.accessMode.${access}`) : unknown}
-        />
-        <Fact
-          label={t(`${key}.branch`)}
-          value={git?.state === "branch" ? git.branch : unknown}
-        />
+        {props.view.provider === "claude_code" ? (
+          <ClaudeSessionFacts step={props.step} view={props.view} />
+        ) : (
+          <GenericSessionFacts step={props.step} view={props.view} />
+        )}
         <Fact
           label={t(`${key}.restarts`)}
           value={`${infrastructureRestarts(props.step)} / ${PLAN_BLOCKER_RETRIES.infrastructure}`}
         />
       </dl>
     </SidebarSection>
+  );
+}
+
+/** Model, reasoning, access and branch of every provider other than Claude Code, as text. */
+function GenericSessionFacts(props: ConsoleSidebarProps): React.ReactElement {
+  const { t } = useTranslation();
+  const key = "plans.console.terminal.sidebar";
+  const unknown = t(`${key}.unknown`);
+  const requested = props.step.session?.requested;
+  const { model, workspace } = props.view;
+  const access = requested?.options?.access;
+  const git = workspace?.git;
+  return (
+    <>
+      <Fact
+        label={t(`${key}.model`)}
+        value={model.confirmedModel.value ?? requested?.model ?? unknown}
+      />
+      <Fact
+        label={t(`${key}.reasoning`)}
+        value={
+          model.confirmedReasoning.value ??
+          requested?.reasoningEffort ??
+          unknown
+        }
+      />
+      <Fact
+        label={t(`${key}.access`)}
+        value={access ? t(`${key}.accessMode.${access}`) : unknown}
+      />
+      <Fact
+        label={t(`${key}.branch`)}
+        value={git?.state === "branch" ? git.branch : unknown}
+      />
+    </>
   );
 }
 

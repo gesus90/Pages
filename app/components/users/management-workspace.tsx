@@ -43,7 +43,7 @@ export function ManagementWorkspace({
     tabs.push({ value: "activity", label: t("users.management.activity") });
   const current = tabs.some((tab) => tab.value === section) ? section : "users";
   return (
-    <section className="pages-page-fill mx-auto flex w-full max-w-6xl flex-col">
+    <section className="pages-page-fill pages-page-fixed mx-auto flex w-full max-w-6xl flex-col">
       <ManagementFeedback />
       <header className="shrink-0">
         <h1 className="text-2xl font-semibold tracking-tight">

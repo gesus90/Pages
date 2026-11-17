@@ -16,8 +16,12 @@ const TOOL_KINDS: ReadonlySet<string> = new Set([
  * The words of the Pages terminal in the language of the reader.
  * @param t - The translation function of the console.
  */
-export function terminalTexts(t: TFunction): TerminalTexts {
+export function terminalTexts(t: TFunction, language: string): TerminalTexts {
   const key = "plans.console.terminal";
+  const secondsFormat = new Intl.NumberFormat(language, {
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1,
+  });
   const session = (isSameSession: boolean): string =>
     t(`${key}.${isSameSession ? "sameSession" : "newSession"}`);
   return {
@@ -26,6 +30,17 @@ export function terminalTexts(t: TFunction): TerminalTexts {
       TOOL_KINDS.has(kind) ? t(`${key}.toolKind.${kind}`) : null,
     done: t(`${key}.done`),
     aborted: t(`${key}.aborted`),
+    running: t(`${key}.toolRunning`),
+    exitCode: (code) => t(`${key}.toolExit`, { code }),
+    lineCount: (count) => t(`${key}.toolLines`, { count }),
+    duration: (milliseconds) =>
+      t(`${key}.toolDuration`, {
+        seconds: secondsFormat.format(milliseconds / 1000),
+      }),
+    showDetails: t(`${key}.toolShowDetails`),
+    hideDetails: t(`${key}.toolHideDetails`),
+    outputLimited: t(`${key}.toolOutputLimited`),
+    history: (note) => t(`${key}.history.${note}`),
     todoActive: (id, text) => t(`${key}.todoActive`, { id, text }),
     todoDone: (id) => t(`${key}.todoDone`, { id }),
     turnEnded: t(`${key}.turnEnded`),

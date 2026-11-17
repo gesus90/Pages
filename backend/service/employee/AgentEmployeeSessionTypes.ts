@@ -7,6 +7,7 @@ import { CHAT_LIMITS } from "@/definition/Chat";
 import type { AgentImageToolDependencies } from "./AgentImageTool";
 import type { AgentMediaToolDependencies } from "./AgentMediaTool";
 import type { AgentAttachmentToolDependencies } from "./AgentAttachmentTool";
+import type { ConversationAnswerFileDependencies } from "@/backend/service/conversation/content/ConversationAnswerFiles";
 import type { ConversationAnswerStream } from "@/backend/service/conversation/ConversationAnswerStream";
 import type { LiveAnswerSink } from "@/backend/service/conversation/ConversationLiveAnswer";
 import type { ConversationDelivery } from "@/definition/ConversationLiveAnswer";
@@ -145,6 +146,12 @@ export interface AgentEmployeeSessionDependencies {
    * and no `audio_erzeugen`.
    */
   readonly media?: AgentMediaToolDependencies;
+  /**
+   * Stores the files a round in a conversation attaches to its answer, with
+   * `chat_file_create` or as blocks of the answer, as attachments of the
+   * answer in the conversation; absent offers no answer files there.
+   */
+  readonly answerFiles?: ConversationAnswerFileDependencies;
   /**
    * Searches and reads the attachments of the chat of a round. A
    * function, because the conversations are wired after the sessions; absent

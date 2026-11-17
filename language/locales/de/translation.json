@@ -4488,9 +4488,9 @@
       "removeDomain": "Freigabe für {{domain}} entfernen"
     },
     "agentStatus": {
-      "working": "arbeitet …",
+      "working": "arbeitet",
       "ready": "bereit",
-      "resting": "ruht",
+      "resting": "ruhend",
       "restart_needed": "Neustart nötig",
       "waiting_one": "{{count}} Nachricht wartet",
       "waiting_other": "{{count}} Nachrichten warten"
@@ -4642,11 +4642,15 @@
     },
     "liveAnswer": {
       "live": "live",
-      "working": "arbeitet",
+      "phrase1": "arbeitet daran …",
+      "phrase2": "denkt nach …",
+      "phrase3": "sieht sich das an …",
+      "phrase4": "sucht die Details …",
+      "phrase5": "ordnet die Gedanken …",
+      "phrase6": "ist gleich so weit …",
       "onlyForYou": "nur für dich sichtbar",
       "thinkingNow": "Denkt nach …",
       "thoughts": "Gedanken",
-      "thoughtsSummary": "Gedanken · {{duration}}",
       "tools_one": "{{count}} Werkzeug",
       "tools_other": "{{count}} Werkzeuge",
       "toolsSummary": "{{tools}} · {{duration}}",
@@ -5997,6 +6001,19 @@
           "working": "Agent arbeitet",
           "resume": "Wiederaufnahme geplant",
           "resumeIn": "in {{seconds}} s"
+        },
+        "toolRunning": "läuft …",
+        "toolExit": "Exit {{code}}",
+        "toolLines_one": "{{count}} Zeile",
+        "toolLines_other": "{{count}} Zeilen",
+        "toolDuration": "{{seconds}} s",
+        "toolShowDetails": "Details einblenden",
+        "toolHideDetails": "Details ausblenden",
+        "toolOutputLimited": "Ausgabe endet an der gespeicherten Grenze",
+        "history": {
+          "retained": "Ältere Einträge dieses Versuchs sind nicht mehr gespeichert.",
+          "legacy": "Nur die kurzen Zeilen eines älteren Laufs sind gespeichert.",
+          "missing": "Für diesen Versuch ist keine Historie gespeichert."
         }
       }
     },
@@ -10251,5 +10268,45 @@
     "mappingsHint": "Optional, eine Zuordnung je Zeile: gpt-6-luna = openai/gpt-6-luna. Leer lassen für eindeutige automatische Zuordnung.",
     "monthlyLimit": "Monatliches Codex-Kostenlimit (USD)",
     "monthlyLimitHint": "Rechnerische Kosten einschließlich Abo-Verbrauch; leer bedeutet unbegrenzt. Neue Anfragen werden nach Erreichen des Limits abgewiesen."
+  },
+  "agentBadges": {
+    "model": {
+      "label": "Modell {{vendor}} {{name}}, {{status}}",
+      "status": {
+        "confirmed": "vom Adapter bestätigt",
+        "requested": "angefordert, noch nicht bestätigt",
+        "configured": "eingestelltes Modell"
+      }
+    },
+    "reasoning": {
+      "label": "Reasoning {{level}}, {{notes}}",
+      "level": {
+        "none": "ohne",
+        "minimal": "minimal",
+        "low": "niedrig",
+        "medium": "mittel",
+        "high": "hoch",
+        "xhigh": "sehr hoch",
+        "max": "max",
+        "ultra": "ultra"
+      },
+      "notOffered": "vom Modell nicht angeboten",
+      "default": "Standard des Modells"
+    },
+    "access": {
+      "yolo": "YOLO",
+      "read_only": "READ",
+      "workspace_write": "Arbeitsbereich (früher)",
+      "full_environment": "Volle Umgebung (früher)"
+    },
+    "branch": {
+      "missing": "noch nicht bekannt",
+      "workspace": "Arbeitsplatz {{name}}",
+      "checkedOut": "Ausgecheckt: {{branch}}",
+      "detached": "Detached HEAD {{commit}}",
+      "noRepository": "Kein Git-Repository",
+      "unreadable": "Git-Zustand nicht lesbar",
+      "preparationMismatch": "Nach der Vorbereitung: {{observed}}"
+    }
   }
 }

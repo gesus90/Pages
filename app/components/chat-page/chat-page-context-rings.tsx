@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { clampContextPercent } from "@/app/components/agent-settings/agent-session-display";
 import { ContextRing } from "@/app/components/chat/chat-context-indicator";
 import { useChatContextDetails } from "@/app/components/chat/use-chat-context-details";
+import { cn } from "@/app/lib/cn";
 import { AGENT_CHAT_SESSION_RESTART_DEFAULT_PERCENT } from "@/definition/AgentChatSession";
 
 import { effortLabel } from "./chat-page-model-dialog";
@@ -11,43 +12,12 @@ import { effortLabel } from "./chat-page-model-dialog";
 import type { AgentChatModelLabel } from "@/definition/AgentChatControl";
 import type { AgentChatSessionBrief } from "@/definition/AgentChatSession";
 import type { VirtualParticipant } from "@/definition/VirtualChat";
-import type { OpenedConversation } from "./use-chat-page";
 
 /** One agent of the chat with its session and model there. */
 export interface ContextRingEntry {
   readonly agent: VirtualParticipant;
   readonly brief: AgentChatSessionBrief | undefined;
   readonly model: AgentChatModelLabel | undefined;
-}
-
-/**
- * The agents of the opened chat whose context the foot shows: the agent of a
- * direct chat, or every agent of a group.
- * @param opened - The opened conversation.
- * @returns No entry for a conversation with a person.
- */
-export function contextRingEntries(
-  opened: OpenedConversation,
-): ContextRingEntry[] {
-  if (opened.kind === "participant") {
-    const { participant } = opened;
-    if (participant.kind !== "agent") return [];
-    return [
-      {
-        agent: participant,
-        brief: participant.session,
-        model: participant.chatModel,
-      },
-    ];
-  }
-  const { group, members } = opened;
-  return members
-    .filter((member) => member.kind === "agent")
-    .map((agent) => ({
-      agent,
-      brief: group.agentSessions?.find((entry) => entry.agentId === agent.id),
-      model: group.agentModels?.[agent.id],
-    }));
 }
 
 /** "124k" or "1.2M", as the context ring of Pica names token counts. */
@@ -132,23 +102,50 @@ function RingDetails({
   );
 }
 
-/** One ring with the initial of its agent and its details on hover, focus and tap. */
-function AgentContextRing({
+/** Where a ring stands: the 32 px field of the direct chat's head, or the chip of an agent in a group. */
+type ContextRingPlace = "header" | "chip";
+
+/**
+ * The field of the ring's button, the size of the doughnut and the edge its
+ * details align with, per place: the head's ring sits at the right, the
+ * chips start at the left.
+ */
+const RING_PLACE: Readonly<
+  Record<ContextRingPlace, { button: string; ring: string; details: string }>
+> = {
+  header: { button: "size-8", ring: "size-7", details: "right-0" },
+  chip: { button: "size-6", ring: "size-6", details: "left-0" },
+};
+
+/**
+ * The context ring of one agent, beside its state: how full the context of
+ * its current session in this chat is.
+ * @remarks
+ * It is the ring of Pica's chat with the initial of the agent. Its details
+ * open below it on hover, focus and tap and name the model, the fill, the
+ * restart threshold and the state of the session; it pulses while the
+ * session is being compacted.
+ */
+export function ChatPageContextRing({
   entry,
   chatName,
+  place,
 }: {
   readonly entry: ContextRingEntry;
   readonly chatName: string;
+  readonly place: ContextRingPlace;
 }): React.ReactElement {
   const { t } = useTranslation();
   const tooltipId = useId();
   const details = useChatContextDetails();
   const percent = clampContextPercent(entry.brief?.contextPercent ?? null);
   const isCompacting = entry.brief?.state === "restart_needed";
+  const size = RING_PLACE[place];
   return (
     <span
       ref={details.container}
       className="relative inline-flex shrink-0"
+      data-context-ring=""
       onMouseEnter={details.handleMouseEnter}
       onMouseLeave={details.handlePointerLeave}
       onPointerEnter={details.handlePointerEnter}
@@ -162,7 +159,10 @@ function AgentContextRing({
           agent: entry.agent.name,
           percent: percent ?? "–",
         })}
-        className="inline-flex min-h-11 items-center rounded-lg px-0.5 text-muted-foreground hover:bg-surface-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary xl:min-h-9"
+        className={cn(
+          "inline-flex shrink-0 items-center justify-center rounded-full text-muted-foreground hover:bg-surface-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary",
+          size.button,
+        )}
         onFocus={details.open}
         onBlur={details.close}
         onClick={details.toggle}
@@ -171,52 +171,19 @@ function AgentContextRing({
           percent={percent}
           label={entry.agent.name.slice(0, 1).toLocaleUpperCase()}
           isBusy={isCompacting}
+          className={size.ring}
         />
       </button>
       <span
         id={tooltipId}
         role="tooltip"
         hidden={!details.isOpen}
-        className="absolute right-0 bottom-full z-50 w-64 pb-2"
+        className={cn("absolute top-full z-50 w-64 pt-2", size.details)}
       >
         <span className="block rounded-lg bg-surface p-3 text-xs leading-relaxed text-foreground shadow-panel ring-1 ring-border">
           <RingDetails entry={entry} chatName={chatName} percent={percent} />
         </span>
       </span>
-    </span>
-  );
-}
-
-/**
- * The context rings at the foot of the input field: how full the
- * context of the current session is, one ring in a direct chat with an agent
- * and one per agent in a group. It is the ring of Pica's chat; its details
- * name the model, the fill, the restart threshold and the state of the
- * session, and it pulses while the session is being compacted.
- */
-export function ChatPageContextRings({
-  opened,
-  chatName,
-}: {
-  readonly opened: OpenedConversation;
-  readonly chatName: string;
-}): React.ReactElement | null {
-  const { t } = useTranslation();
-  const entries = contextRingEntries(opened);
-  if (entries.length === 0) return null;
-  return (
-    <span
-      aria-label={t("chatPage.contextRing.group")}
-      className="flex flex-wrap items-center justify-end gap-1.5"
-      role="group"
-    >
-      {entries.map((entry) => (
-        <AgentContextRing
-          key={entry.agent.id}
-          entry={entry}
-          chatName={chatName}
-        />
-      ))}
     </span>
   );
 }

@@ -42,6 +42,7 @@ import type {
   PicaAcpMessage,
 } from "./PicaAcpSteering";
 import type { PicaAcpRunner } from "./PicaAcpRunners";
+import type { PicaAnswerFiles } from "./PicaAcpAnswerOutput";
 import type { AgentHostFileTarget } from "@/backend/service/employee/AgentHostFiles";
 import type { AgentImageToolInput } from "@/backend/service/employee/AgentImageTool";
 import type { AgentMediaToolInput } from "@/backend/service/employee/AgentMediaTool";
@@ -170,6 +171,13 @@ export interface PicaAcpEmployeeRun {
    * written into the job's working folder for the model to open.
    */
   readonly readAttachments?: AgentAttachmentToolRun;
+  /**
+   * The answer files of a round in a conversation: they become attachments
+   * of the answer stored in the conversation, not of the hidden chat
+   * session of the job. `null` offers no answer files at all; absent keeps
+   * those of the chat session, which its chat page shows.
+   */
+  readonly answerFiles?: PicaAnswerFiles | null;
   /**
    * Called once when the job ended, however it ended, so the caller frees
    * the place of the session among the limits of the agent.

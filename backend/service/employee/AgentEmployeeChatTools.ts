@@ -1,6 +1,7 @@
 import { agentImageTool } from "./AgentImageTool";
 import { agentMediaTool } from "./AgentMediaTool";
 import { agentAttachmentTool } from "./AgentAttachmentTool";
+import { ConversationAnswerFiles } from "@/backend/service/conversation/content/ConversationAnswerFiles";
 
 import type { PicaAcpStart } from "../chat/acp/PicaAcpService";
 import type {
@@ -9,6 +10,7 @@ import type {
 } from "./AgentImageTool";
 import type { AgentMediaToolDependencies } from "./AgentMediaTool";
 import type { AgentAttachmentToolDependencies } from "./AgentAttachmentTool";
+import type { ConversationAnswerFileDependencies } from "@/backend/service/conversation/content/ConversationAnswerFiles";
 import type { ResolvedAgentAssignment } from "@/backend/service/agents/AgentAssignmentResolution";
 import type { User } from "@/definition/User";
 import type {
@@ -197,6 +199,30 @@ export function attachmentToolOf(
       conversationId,
       // Unknown counts as able: the adapter still decides what reaches the model.
       canSeeImages: turn.assignment.supportsImages !== false,
+    }),
+  };
+}
+
+/**
+ * The answer files of a round in a conversation: `chat_file_create` and the
+ * files of the answer's blocks become attachments of the answer stored in
+ * the conversation. A round in a conversation without their storage offers
+ * none, so no file is reported as attached that never arrives; every other
+ * job keeps the answer files of its chat session.
+ * @param answerFiles - The storage of the conversation; absent offers none.
+ * @param turn - The agent and the conversation of the round or `null`.
+ */
+export function answerFileToolOf(
+  answerFiles: ConversationAnswerFileDependencies | undefined,
+  turn: { readonly agentId: string; readonly conversationId: string | null },
+): Pick<NonNullable<PicaAcpStart["employee"]>, "answerFiles"> {
+  const { agentId, conversationId } = turn;
+  if (conversationId === null) return {};
+  if (!answerFiles) return { answerFiles: null };
+  return {
+    answerFiles: new ConversationAnswerFiles(answerFiles, {
+      agentId,
+      conversationId,
     }),
   };
 }

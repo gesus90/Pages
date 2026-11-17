@@ -11,6 +11,7 @@ import { AgentSessionRepository } from "@/backend/database/repositories/agent/Ag
 import { AgentSessionInbox } from "@/backend/service/agents/sessions/AgentSessionInbox";
 import { AgentSessionJournal } from "@/backend/service/agents/sessions/AgentSessionJournal";
 import { AgentSessionService } from "@/backend/service/agents/sessions/AgentSessionService";
+import { AgentCatalogRepository } from "@/backend/database/repositories/agent/AgentCatalogRepository";
 
 import type { AgentSessionRunAccess } from "@/backend/service/agents/sessions/AgentSessionService";
 import type { Database } from "@/backend/database/Database";
@@ -52,6 +53,9 @@ export async function createPageAgentSessions(
         : store.saveTurnUsage(usage),
     journal,
     inbox,
+    catalog: async (connectionId) =>
+      (await new AgentCatalogRepository(input.database).find(connectionId))
+        .models,
     hasPlanCheckpoint: async (runId) =>
       (await new AgentPlanCheckpointRepository(input.database).find(runId)) !==
       null,

@@ -103,6 +103,9 @@ export function shouldRevalidate(args: ShouldRevalidateFunctionArgs): boolean {
  * swapped once. Each area gets a scrolling element of its own, so the edge
  * fades of the previous area never show over the next one; the scrollbar's
  * gutter is always reserved, so the width does not change with the height.
+ * The scrolling element spans the whole content area, so its only scrollbar
+ * sits at the content area's edge; title, navigation and the area's content
+ * keep the centred column, and the document itself never scrolls.
  */
 export default function SettingsLayoutRoute(): React.ReactElement {
   const { t } = useTranslation();
@@ -118,16 +121,18 @@ export default function SettingsLayoutRoute(): React.ReactElement {
     ) ?? loaded;
 
   return (
-    <section className="pages-page-fill mx-auto flex w-full max-w-6xl flex-col">
-      <h1 className="shrink-0 text-2xl font-semibold tracking-tight text-foreground">
-        {t("settings.title")}
-      </h1>
-      <SettingsNavigation canViewSystem={canViewSystem} />
+    <section className="pages-page-fill pages-page-fixed flex w-full flex-col">
+      <header className="mx-auto flex w-full max-w-6xl shrink-0 flex-col">
+        <h1 className="text-2xl font-semibold tracking-tight text-foreground">
+          {t("settings.title")}
+        </h1>
+        <SettingsNavigation canViewSystem={canViewSystem} />
+      </header>
 
       <VerticalScrollArea
         key={settingsAreaOf(pathname) ?? pathname}
         className="mt-6 min-h-0 flex-1"
-        contentClassName="pt-1 pl-2 pr-4 sm:pr-6 md:pr-8 xl:pr-12 pb-12"
+        contentClassName="mx-auto w-full max-w-6xl pt-1 pl-2 pr-4 sm:pr-6 md:pr-8 xl:pr-12 pb-12"
         fadeClassName="z-20"
         viewportClassName="[scrollbar-gutter:stable]"
         viewportRef={scroll.viewportRef}

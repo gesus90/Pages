@@ -1,5 +1,6 @@
 import { modelConsumerRefusal } from "@/definition/AgentModelConsumers";
 import { isPicaModel } from "@/definition/PicaModelSelection";
+import { isAgentProvider } from "@/definition/AgentConnection";
 
 import type { StoredAgentEmployee } from "@/backend/database/repositories/employee/AgentEmployeeRepository";
 import type { EmployeeStore } from "@/backend/database/repositories/employee/EmployeeStore";
@@ -126,6 +127,8 @@ export function chatModelLabel(
   );
   return {
     name: choice?.name ?? setting.model,
+    provider: choice?.provider ?? null,
+    modelId: setting.model,
     reasoningEffort: setting.reasoningEffort,
     isOverride,
     contextWindow: choice?.contextWindow ?? null,
@@ -167,6 +170,10 @@ export async function chatModelLabels(
     const description = await models.describe(setting);
     labels[agentId] = {
       name: description.modelName,
+      provider: isAgentProvider(description.provider)
+        ? description.provider
+        : null,
+      modelId: setting.model,
       reasoningEffort: setting.reasoningEffort,
       isOverride: override !== undefined,
       contextWindow: null,

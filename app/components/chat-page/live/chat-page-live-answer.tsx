@@ -2,7 +2,9 @@ import { Brain } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 
+import { ChatLivePhraseLine } from "@/app/components/chat/chat-live-status";
 import { cn } from "@/app/lib/cn";
+import { AgentModelBadges } from "@/app/components/agents/badges/agent-model-badges";
 
 import { MentionMarkdown } from "../mentions/mention-markdown";
 import { ParticipantAvatar } from "../chat-page-avatar";
@@ -25,47 +27,14 @@ import type {
   VirtualParticipant,
   VirtualToolUse,
 } from "@/definition/VirtualChat";
+import type { AgentChatModelLabel } from "@/definition/AgentChatControl";
 import type { LiveAnswerView } from "./live-answer-state";
 
-/** How often the text of a live answer shows its next word. */
-const WORD_MILLISECONDS = 35;
 /** How often the running times tick. */
 const TICK_MILLISECONDS = 1_000;
 
 function hideImages(): boolean {
   return false;
-}
-
-/** The end of the next word after a position, with the space after it. */
-function nextWordEnd(text: string, from: number): number {
-  const match = /\s*\S+\s*/uy;
-  match.lastIndex = from;
-  return match.exec(text) ? match.lastIndex : text.length;
-}
-
-/**
- * Reveals a growing text word by word, as it was written.
- * @remarks
- * The server sends complete words in short bursts; the page shows them one
- * after the other. A text that no longer continues the shown one, such as
- * the next message after a tool call, starts anew.
- */
-export function useRevealedText(text: string): string {
-  const [shown, setShown] = useState(text);
-  const isBehind = shown.length < text.length && text.startsWith(shown);
-  const visible = text.startsWith(shown) ? shown : "";
-  useEffect(() => {
-    if (!text.startsWith(shown)) {
-      setShown("");
-      return undefined;
-    }
-    if (!isBehind) return undefined;
-    const timer = window.setTimeout(() => {
-      setShown(text.slice(0, nextWordEnd(text, shown.length)));
-    }, WORD_MILLISECONDS);
-    return () => window.clearTimeout(timer);
-  }, [text, shown, isBehind]);
-  return visible;
 }
 
 /** The current time, ticking once a second while `isRunning`. */
@@ -103,10 +72,25 @@ export function liveToolUse(
   };
 }
 
+/** The sentences of the waiting line of a live answer, in their order. */
+const LIVE_PHRASE_KEYS = [
+  "phrase1",
+  "phrase2",
+  "phrase3",
+  "phrase4",
+  "phrase5",
+  "phrase6",
+] as const;
+
 /**
- * The thoughts of an answer for the one reader who may see them: a hint
- * with the running time while the model thinks, folded "Gedanken · 12 s"
- * after that.
+ * The thoughts of an answer for the one reader who may see them, in one
+ * line of 20 px: "Denkt nach …" with the running time while the model
+ * thinks, "Gedanken ·" with the time it thought after that.
+ * @remarks
+ * Both states are the same element, the brain keeps one place of 14 px and
+ * the time a minimum width with figures of equal width, so the line never
+ * changes its height and nothing in it moves. Once the model is done the
+ * line opens the thoughts below it; they move only what stands below.
  */
 export function ChatPageThoughts({
   thought,
@@ -123,35 +107,62 @@ export function ChatPageThoughts({
     elapsedMilliseconds(thought.startedAt, end),
     i18n.language,
   );
-  if (isThinking)
-    return (
-      <p
-        className="inline-flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground"
-        role="status"
-      >
-        <Brain
-          aria-hidden="true"
-          className="size-3.5 animate-pulse text-primary"
-        />
-        <span className="font-medium text-foreground">
-          {t("chatPage.liveAnswer.thinkingNow")}
-        </span>
-        <span>{duration}</span>
-        <span aria-hidden="true">·</span>
-        <span>{t("chatPage.liveAnswer.onlyForYou")}</span>
-      </p>
-    );
+
+  // Nothing is there to read while the model still thinks.
+  function handleSummaryClick(event: React.MouseEvent): void {
+    if (isThinking) event.preventDefault();
+  }
+
   return (
-    <details className="group w-full max-w-[62%] min-w-0 text-xs text-muted-foreground">
-      <summary className="inline-flex cursor-pointer items-center gap-1.5">
-        <Brain aria-hidden="true" className="size-3.5" />
-        {t("chatPage.liveAnswer.thoughtsSummary", { duration })}
-        <span aria-hidden="true">·</span>
-        <span>{t("chatPage.liveAnswer.onlyForYou")}</span>
+    <details
+      className="group w-full max-w-[62%] min-w-0 text-xs text-muted-foreground"
+      data-thoughts={isThinking ? "thinking" : "done"}
+    >
+      <summary
+        className={cn(
+          "flex h-5 list-none items-center gap-1.5 overflow-hidden whitespace-nowrap [&::-webkit-details-marker]:hidden",
+          !isThinking && "cursor-pointer",
+        )}
+        role={isThinking ? "status" : undefined}
+        onClick={handleSummaryClick}
+      >
+        <span
+          aria-hidden="true"
+          className="inline-flex size-3.5 shrink-0 items-center justify-center"
+        >
+          <Brain
+            className={cn(
+              "size-3.5",
+              isThinking &&
+                "animate-pulse text-primary motion-reduce:animate-none",
+            )}
+          />
+        </span>
+        <span
+          className={cn(
+            "shrink-0",
+            isThinking && "font-medium text-foreground",
+          )}
+        >
+          {isThinking
+            ? t("chatPage.liveAnswer.thinkingNow")
+            : `${t("chatPage.liveAnswer.thoughts")} ·`}
+        </span>
+        <span className="min-w-14 shrink-0 tabular-nums" data-elapsed="">
+          {duration}
+        </span>
+        <span aria-hidden="true" className="shrink-0">
+          ·
+        </span>
+        <span className="min-w-0 truncate">
+          {t("chatPage.liveAnswer.onlyForYou")}
+        </span>
       </summary>
-      <p className="mt-1.5 border-l-2 border-border pl-3 whitespace-pre-wrap break-words">
-        {thought.text}
-      </p>
+      {isThinking ? null : (
+        <p className="mt-1.5 border-l-2 border-border pl-3 whitespace-pre-wrap break-words">
+          {thought.text}
+        </p>
+      )}
     </details>
   );
 }
@@ -204,32 +215,94 @@ function LiveTools({
   );
 }
 
-/** The text of a live answer, revealed word by word with a blinking caret. */
+/**
+ * Where the text of a live answer stands: while the run goes on a line with
+ * three pulsing dots and a sentence that changes every 20 s, never a growing
+ * text with a caret; once it ended the whole answer at once.
+ */
 function LiveText({
   text,
-  isWriting,
+  isRunning,
+  now,
 }: {
   readonly text: string;
-  readonly isWriting: boolean;
+  readonly isRunning: boolean;
+  readonly now: number;
 }): React.ReactElement | null {
-  const shown = useRevealedText(text);
-  if (shown === "" && !isWriting) return null;
+  const { t } = useTranslation();
+  const [shownAt] = useState(() => Date.now());
+  if (isRunning)
+    return (
+      <div className="flex w-full max-w-[62%] min-w-0" data-live-waiting="">
+        <ChatLivePhraseLine
+          phrases={LIVE_PHRASE_KEYS.map((key) =>
+            t(`chatPage.liveAnswer.${key}`),
+          )}
+          elapsedSeconds={Math.floor((now - shownAt) / 1000)}
+        />
+      </div>
+    );
+  if (text === "") return null;
   return (
-    <div className="flex max-w-[62%] min-w-0 flex-col gap-1 py-1">
+    <div className="flex max-w-[62%] min-w-0 flex-col">
       <MentionMarkdown
         className="text-[15px] text-foreground"
         isDisplayableImage={hideImages}
-        source={isWriting ? `${shown}▍` : shown}
+        source={text}
       />
     </div>
+  );
+}
+
+/** Name, model and the hint "live" above a live answer, in one line of 24 px. */
+function LiveAnswerHead({
+  author,
+  model,
+  isRunning,
+}: {
+  readonly author: VirtualParticipant;
+  readonly model: AgentChatModelLabel | undefined;
+  readonly isRunning: boolean;
+}): React.ReactElement {
+  const { t } = useTranslation();
+  const colors = participantColors(author.color);
+  return (
+    <p
+      className="flex h-6 max-w-full min-w-0 items-center gap-1.5 overflow-hidden text-[13px] whitespace-nowrap"
+      data-live-head=""
+    >
+      <span
+        className={cn(
+          "truncate leading-5 font-semibold",
+          colors.text.className,
+        )}
+        style={colors.text.style}
+      >
+        {author.name}
+      </span>
+      {model ? (
+        <span className="inline-flex h-5 min-w-0 shrink-0 items-center">
+          <AgentModelBadges model={model} />
+        </span>
+      ) : null}
+      {isRunning ? (
+        <span className="inline-flex h-5 shrink-0 items-center gap-1 rounded-full bg-primary/10 px-2 text-[11px] leading-5 font-medium text-primary">
+          <span
+            aria-hidden="true"
+            className="size-1.5 animate-pulse rounded-full bg-primary motion-reduce:animate-none"
+          />
+          {t("chatPage.liveAnswer.live")}
+        </span>
+      ) : null}
+    </p>
   );
 }
 
 interface ChatPageLiveAnswerProps {
   readonly view: LiveAnswerView;
   readonly author: VirtualParticipant;
-  /** The model and reasoning level of the agent in this chat, such as "Opus 5.5 · hoch". */
-  readonly modelLabel?: string;
+  /** The model and reasoning level of the agent in this chat, as structured values. */
+  readonly model?: AgentChatModelLabel;
   /** Cancels the running tool calls of this agent; absent where nobody may. */
   readonly onCancelTool?: () => void;
 }
@@ -237,21 +310,23 @@ interface ChatPageLiveAnswerProps {
 /**
  * The answer an agent is writing now: name, model and a "live"
  * hint above, an orange ring around the avatar, then its thoughts for the
- * reader allowed to see them, its tool calls and the text as it grows.
+ * reader allowed to see them, its tool calls and, while it runs, a line that
+ * says the agent works; the text shows whole once the run ended.
+ * @remarks
+ * Every line has a fixed height and the lines stand 8 px apart, so a ticking
+ * time or a changing symbol never moves another line.
  */
 export function ChatPageLiveAnswer({
   view,
   author,
-  modelLabel,
+  model,
   onCancelTool,
 }: ChatPageLiveAnswerProps): React.ReactElement {
   const { t } = useTranslation();
   const isRunning = view.end === null;
   const now = useTicking(isRunning);
-  const colors = participantColors(author.color);
   const isThinking =
     isRunning && view.thought !== null && view.lastAt === view.thought.endedAt;
-  const hasRunningTool = view.tools.some((tool) => tool.status === "running");
   return (
     <article
       aria-label={t("chatPage.liveAnswer.liveAnswer", { name: author.name })}
@@ -269,30 +344,7 @@ export function ChatPageLiveAnswer({
         )}
       />
       <div className="flex min-w-0 flex-1 flex-col items-start gap-2">
-        <p className="flex flex-wrap items-center gap-1.5 text-[13px]">
-          <span
-            className={cn("font-semibold", colors.text.className)}
-            style={colors.text.style}
-          >
-            {author.name}
-          </span>
-          {modelLabel ? (
-            <span className="rounded-full border border-border px-2 py-0.5 text-[11px] text-muted-foreground">
-              {modelLabel}
-            </span>
-          ) : null}
-          {isRunning ? (
-            <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">
-              <span
-                aria-hidden="true"
-                className="size-1.5 animate-pulse rounded-full bg-primary"
-              />
-              {view.text === "" || hasRunningTool
-                ? t("chatPage.liveAnswer.working")
-                : t("chatPage.liveAnswer.live")}
-            </span>
-          ) : null}
-        </p>
+        <LiveAnswerHead author={author} model={model} isRunning={isRunning} />
         {view.thought ? (
           <ChatPageThoughts
             thought={view.thought}
@@ -305,7 +357,7 @@ export function ChatPageLiveAnswer({
           now={now}
           onCancel={isRunning ? onCancelTool : undefined}
         />
-        <LiveText text={view.text} isWriting={isRunning} />
+        <LiveText text={view.text} isRunning={isRunning} now={now} />
         {isRunning ? <GeneratingImages tools={view.tools} /> : null}
       </div>
     </article>

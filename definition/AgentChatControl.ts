@@ -61,6 +61,10 @@ export interface AgentChatModelChoice {
 export interface AgentChatModelLabel {
   /** The catalog name of the model, or its ID when the catalog lost it. */
   readonly name: string;
+  /** The provider of the model's connection, such as `claude_code`; `null` when the connection is gone. */
+  readonly provider: AgentProviderId | null;
+  /** The model ID of the setting, as the catalog names it; never a connection detail. */
+  readonly modelId: string;
   readonly reasoningEffort: string | null;
   /** Whether the chat deviates from the agent's own model. */
   readonly isOverride: boolean;

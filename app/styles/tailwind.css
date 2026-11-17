@@ -177,6 +177,68 @@
     transparent
   );
 
+  /* Agent badges: Claude's brand orange outlines the model badge; every
+     reasoning level has its own hue, from grey (none) to violet (ultra), its
+     background mixed from the same hue (light 12 %, dark 18 %). High is
+     yellow so that it stays apart from the orange "working" state. */
+  --color-claude: #d97757;
+  --color-reasoning-none: #4b5563;
+  --color-reasoning-minimal: #1d4ed8;
+  --color-reasoning-low: #4d7c0f;
+  --color-reasoning-medium: #0f766e;
+  --color-reasoning-high: #92600a;
+  --color-reasoning-xhigh: #be123c;
+  --color-reasoning-max: #a21caf;
+  --color-reasoning-ultra: #6d28d9;
+  --color-reasoning-none-dot: #9ca3af;
+  --color-reasoning-minimal-dot: #3b82f6;
+  --color-reasoning-low-dot: #65a30d;
+  --color-reasoning-medium-dot: #0d9488;
+  --color-reasoning-high-dot: #ca8a04;
+  --color-reasoning-xhigh-dot: #e11d48;
+  --color-reasoning-max-dot: #c026d3;
+  --color-reasoning-ultra-dot: #7c3aed;
+  --color-reasoning-none-subtle: color-mix(
+    in srgb,
+    var(--color-reasoning-none-dot) 12%,
+    var(--color-surface)
+  );
+  --color-reasoning-minimal-subtle: color-mix(
+    in srgb,
+    var(--color-reasoning-minimal-dot) 12%,
+    var(--color-surface)
+  );
+  --color-reasoning-low-subtle: color-mix(
+    in srgb,
+    var(--color-reasoning-low-dot) 12%,
+    var(--color-surface)
+  );
+  --color-reasoning-medium-subtle: color-mix(
+    in srgb,
+    var(--color-reasoning-medium-dot) 12%,
+    var(--color-surface)
+  );
+  --color-reasoning-high-subtle: color-mix(
+    in srgb,
+    var(--color-reasoning-high-dot) 12%,
+    var(--color-surface)
+  );
+  --color-reasoning-xhigh-subtle: color-mix(
+    in srgb,
+    var(--color-reasoning-xhigh-dot) 12%,
+    var(--color-surface)
+  );
+  --color-reasoning-max-subtle: color-mix(
+    in srgb,
+    var(--color-reasoning-max-dot) 12%,
+    var(--color-surface)
+  );
+  --color-reasoning-ultra-subtle: color-mix(
+    in srgb,
+    var(--color-reasoning-ultra-dot) 12%,
+    var(--color-surface)
+  );
+
   /* Plan node types stay distinct from their execution status: start and end
      green, parameters violet, agents cyan, scripts rose, tickets yellow, apart
      from the orange of the flow ports and of a running node. */
@@ -622,6 +684,64 @@
     --color-terminal-cyan: #67d5e5;
 
     --color-code-keyword: #c4a2ff;
+
+    --color-claude: #d97757;
+    --color-reasoning-none: #c3c9d2;
+    --color-reasoning-minimal: #93c5fd;
+    --color-reasoning-low: #bef264;
+    --color-reasoning-medium: #5eead4;
+    --color-reasoning-high: #fde047;
+    --color-reasoning-xhigh: #fda4af;
+    --color-reasoning-max: #f0abfc;
+    --color-reasoning-ultra: #c4b5fd;
+    --color-reasoning-none-dot: #9ca3af;
+    --color-reasoning-minimal-dot: #60a5fa;
+    --color-reasoning-low-dot: #a3e635;
+    --color-reasoning-medium-dot: #2dd4bf;
+    --color-reasoning-high-dot: #facc15;
+    --color-reasoning-xhigh-dot: #fb7185;
+    --color-reasoning-max-dot: #e879f9;
+    --color-reasoning-ultra-dot: #a78bfa;
+    --color-reasoning-none-subtle: color-mix(
+      in srgb,
+      var(--color-reasoning-none-dot) 18%,
+      var(--color-surface)
+    );
+    --color-reasoning-minimal-subtle: color-mix(
+      in srgb,
+      var(--color-reasoning-minimal-dot) 18%,
+      var(--color-surface)
+    );
+    --color-reasoning-low-subtle: color-mix(
+      in srgb,
+      var(--color-reasoning-low-dot) 18%,
+      var(--color-surface)
+    );
+    --color-reasoning-medium-subtle: color-mix(
+      in srgb,
+      var(--color-reasoning-medium-dot) 18%,
+      var(--color-surface)
+    );
+    --color-reasoning-high-subtle: color-mix(
+      in srgb,
+      var(--color-reasoning-high-dot) 18%,
+      var(--color-surface)
+    );
+    --color-reasoning-xhigh-subtle: color-mix(
+      in srgb,
+      var(--color-reasoning-xhigh-dot) 18%,
+      var(--color-surface)
+    );
+    --color-reasoning-max-subtle: color-mix(
+      in srgb,
+      var(--color-reasoning-max-dot) 18%,
+      var(--color-surface)
+    );
+    --color-reasoning-ultra-subtle: color-mix(
+      in srgb,
+      var(--color-reasoning-ultra-dot) 18%,
+      var(--color-surface)
+    );
 
     --color-plan-agent: #3cc6d6;
     --color-plan-agent-subtle: #0f262d;

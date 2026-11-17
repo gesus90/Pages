@@ -25,6 +25,7 @@ import type { InstanceSecretCipher } from "@/backend/security/InstanceSecretCiph
 import type { ConversationAttachments } from "@/backend/service/conversation/content/ConversationAttachments";
 import type { ConversationAttachmentLibrary } from "@/backend/service/conversation/content/ConversationAttachmentLibrary";
 import type { AgentImageToolDependencies } from "@/backend/service/employee/AgentImageTool";
+import type { ConversationAnswerFileDependencies } from "@/backend/service/conversation/content/ConversationAnswerFiles";
 import type { AgentMediaToolDependencies } from "@/backend/service/employee/AgentMediaTool";
 import type { AgentChatQuestionService } from "@/backend/service/conversation/AgentChatQuestionService";
 import type { AgentChatTaskService } from "@/backend/service/employee/AgentChatTaskService";
@@ -76,6 +77,7 @@ import {
 import { createAgentChatControl } from "./agent-chat-control-services.server";
 import { wireEmployeeConversations } from "./employee-conversation-wiring.server";
 import { defaultAgentTemplateTexts } from "./agent-template-texts.server";
+import { isSafeSvg } from "./settings-actions/svg-safety.server";
 
 import type { AgentChatTools } from "@/definition/AgentChat";
 import type { SpeechRecognitionSetting } from "@/backend/config/SpeechRecognitionConfig";
@@ -402,6 +404,26 @@ function createImageTool(
 }
 
 /**
+ * The files an agent attaches to its answer in a conversation: stored as
+ * attachments of the conversation and bound to the stored answer, as the
+ * generated images are.
+ */
+function createAnswerFiles(
+  late: LateServices,
+): ConversationAnswerFileDependencies {
+  return {
+    attachments: {
+      stage: (target, file) => lateAttachments(late).stage(target, file),
+      release: (senderId, attachmentIds) =>
+        lateAttachments(late).release(senderId, attachmentIds),
+    },
+    // Answer files wait for the same answer as the generated images.
+    pending: sharedConversationGeneratedImages(),
+    isSafeSvg,
+  };
+}
+
+/**
  * The generation of videos and sounds with an agent's own model in
  * conversations; without a cipher for the stored keys there is none.
  */
@@ -558,6 +580,7 @@ function createEmployeeSessions(
     agentChat: () => late.agentChat,
     ...optionalImages(createImageTool(input, base, late)),
     ...createMediaTool(input, base, late),
+    answerFiles: createAnswerFiles(late),
     attachments: () => (late.library ? { library: late.library } : null),
     chatQuestions: () => late.chatQuestions,
     chatTasks: () => late.chatTasks,
