@@ -130,6 +130,24 @@ export async function loginPath() {
   return process.env.PATH ?? "/usr/bin:/bin";
 }
 
+/**
+ * The CLI search path of a native job.
+ *
+ * The managed CLI generations come first, so a host starter of the same name
+ * (one that looks for its installation below the real home) never replaces
+ * the CLI of the connection; the login PATH follows unchanged for every other
+ * host program, then the runner's own PATH. Empty entries would search the
+ * working directory and are dropped.
+ */
+export function nativeCliPath(login, environment = process.env) {
+  const entries = [
+    environment.PAGES_RUNNER_MANAGED_CLI_PATH,
+    login,
+    environment.PAGES_RUNNER_CLI_PATH ?? environment.PATH,
+  ].flatMap((searchPath) => (searchPath ? searchPath.split(":") : []));
+  return [...new Set(entries.filter((entry) => entry !== ""))].join(":");
+}
+
 async function controlGroupOf(unit) {
   if (!isNativeUnitName(unit)) throw new Error("Invalid native job unit");
   const { stdout } = await runFile(

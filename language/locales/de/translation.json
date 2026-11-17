@@ -1095,7 +1095,7 @@
         "reasoningUnsupported": "Eine gespeicherte Reasoning-Stufe wird vom gewählten Modell nicht unterstützt. Es wurde nichts gespeichert oder gestartet und keine andere Stufe eingesetzt. Die Stufe im markierten Node ausdrücklich neu wählen.",
         "opencode_free_tier_refused": "OpenCode Zen hat den kostenlosen Tarif für diese Anfrage abgelehnt („nur innerhalb von OpenCode“). Zen bedient seine kostenlosen Modelle nur in Sitzungen mit den OpenCode-eigenen Werkzeugen; Pica läuft bewusst ohne sie, Agent-Knoten in Plänen sind nicht betroffen. Es wurde kein anderes Modell verwendet. Für Pica bitte ein Modell eines Providers mit Schlüssel in Pages wählen, etwa ein kostenloses OpenRouter-Modell.",
         "plan_stop_unconfirmed": "Der Lauf ist gestoppt. Die Prozessbereinigung ist noch nicht bestätigt. Ziel verbinden und unter Wiederherstellung → Freigeben erneut bereinigen. Ein neuer Start ist möglich.",
-        "antigravity_acp_unsupported": "Antigravity benötigt den offiziellen ACP-Adapter 1.4.4. Es wurde kein Modell aufgerufen.",
+        "antigravity_acp_unsupported": "Antigravity benötigt die Antigravity CLI ab 1.5.9 mit ihrem offiziellen ACP-Einstieg (agy acp). Es wurde kein Modell aufgerufen.",
         "antigravity_acp_session_failed": "Die Antigravity-ACP-Sitzung ist fehlgeschlagen. Adapter, Anmeldung und Kontingent am Ausführungsort prüfen.",
         "antigravity_configuration_unmanaged": "Zusätzliche Antigravity-Konfiguration könnte die Sitzungsrechte erweitern. Den isolierten Pages-Kontext verwenden.",
         "antigravity_runner_update_required": "Antigravity benötigt Runner 1.14.0 oder neuer am ausgewählten Ausführungsort. Den Runner ausdrücklich aktualisieren; es gibt keinen lokalen Ersatz.",

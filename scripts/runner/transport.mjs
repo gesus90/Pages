@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { randomUUID } from "node:crypto";
 import { createInterface } from "node:readline/promises";
 import { Writable } from "node:stream";
-import { localToolPath } from "./local-accounts.mjs";
+import { localToolDirectories } from "./local-accounts.mjs";
 import { renewExecutionLease, hasExecutionLease } from "./revocation.mjs";
 import { readRecord, readOwnedLaunch } from "./journal.mjs";
 import { agentAccounts, prepareAgentHome } from "./accounts.mjs";
@@ -58,10 +58,13 @@ async function refreshLocalPaths() {
   if (process.env.PAGES_ANTIGRAVITY_CONTEXT_ROOT)
     process.env.PAGES_RUNNER_ANTIGRAVITY_CONTEXT_ROOT ??=
       process.env.PAGES_ANTIGRAVITY_CONTEXT_ROOT;
-  process.env.PAGES_RUNNER_CLI_PATH = await localToolPath(
-    paths.tools,
-    inheritedCliPath,
-  );
+  const managed = await localToolDirectories(paths.tools);
+  // A native job puts the login PATH behind these, so a host starter never replaces a managed CLI.
+  process.env.PAGES_RUNNER_MANAGED_CLI_PATH = managed.join(":");
+  process.env.PAGES_RUNNER_CLI_PATH = [
+    ...managed,
+    inheritedCliPath ?? "/usr/local/bin:/usr/bin:/bin",
+  ].join(":");
 }
 await refreshLocalPaths();
 if (process.argv[2] === "--agent-home") {

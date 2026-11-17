@@ -151,8 +151,14 @@ is part of the acceptance and is not claimed by this description.
 
 ## Remote execution
 
-Runner **1.14.0** adds Antigravity inventory and the native ACP worker. The host
-must provision the same official adapter pair on its runner PATH. Its dedicated
+Runner **1.14.0** adds Antigravity inventory and the native ACP worker. The
+runner starts the same official entry point as Pages, `agy acp` from a stable
+Antigravity CLI **1.5.9** or later, with the connection's Gemini folder,
+`--app-data-dir=antigravity-acp`, `--disable-telemetry` and
+`AGY_CLI_DISABLE_AUTO_UPDATE=1`. It checks the same sign-in file and the same
+configuration rules as Pages; the earlier `agy_acp_server.par` adapter is no
+longer started. A local runner finds the managed `agy` generation first on its
+search path, also for a native YOLO job. Its dedicated
 context defaults to `$PAGES_RUNNER_CLI_HOME/.pages-antigravity` (the runner user's
 home when that setting is absent); an explicit absolute
 `PAGES_RUNNER_ANTIGRAVITY_HOME` may select another dedicated context. No local

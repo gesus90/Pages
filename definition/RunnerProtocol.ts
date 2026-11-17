@@ -75,7 +75,7 @@ export const runnerPlanBindingSchema = z
   .strict();
 export type RunnerPlanBinding = z.infer<typeof runnerPlanBindingSchema>;
 
-/** The causes a runner may name for a failed OpenCode node, each a Pages agent error code. */
+/** The causes a runner may name for a failed CLI node, each a Pages agent error code. */
 export const REMOTE_OPENCODE_FAILURES = [
   "plan_paused_before_launch",
   "plan_script_interpreter_unavailable",
@@ -86,6 +86,7 @@ export const REMOTE_OPENCODE_FAILURES = [
   "cli_isolation_unavailable",
   "plan_mcp_unavailable",
   "provider_auth_failed",
+  "cli_check_failed",
   "provider_quota_exhausted",
   "provider_rate_limited",
   "provider_model_not_found",

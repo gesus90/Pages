@@ -159,6 +159,41 @@ function validModel(model) {
   );
 }
 
+function claudeStatus(stdout) {
+  try {
+    const status = JSON.parse(stdout);
+    return typeof status?.loggedIn === "boolean" ? status : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * The sign-in the status command of a CLI reported.
+ *
+ * Only an answer of the CLI itself decides between signed in and not signed
+ * in. A status program that could not run or answered something else, such as
+ * a host starter that misses its installation, stays `unknown`, so a local
+ * program failure is never reported as a rejected sign-in.
+ */
+function authenticationOf(tool, status) {
+  if (tool === "codex") {
+    const text = status.stdout + status.stderr;
+    if (status.ok && /Logged in using ChatGPT/.test(text))
+      return "authenticated";
+    return /Logged in using|Not logged in/.test(text)
+      ? "not_logged_in"
+      : "unknown";
+  }
+  const reported = claudeStatus(status.stdout);
+  if (!reported) return "unknown";
+  return status.ok &&
+    reported.loggedIn === true &&
+    reported.authMethod === "claude.ai"
+    ? "authenticated"
+    : "not_logged_in";
+}
+
 /** Queries status and the CLI picker only; no user prompt or paid model turn is sent. */
 export async function cliInventory(context = {}) {
   const tools = [];
@@ -180,15 +215,8 @@ export async function cliInventory(context = {}) {
         undefined,
         context,
       );
-      const isLoggedIn =
-        tool === "codex"
-          ? status.ok &&
-            /Logged in using ChatGPT/.test(status.stdout + status.stderr)
-          : status.ok &&
-            JSON.parse(status.stdout).loggedIn === true &&
-            JSON.parse(status.stdout).authMethod === "claude.ai";
-      entry.authentication = isLoggedIn ? "authenticated" : "not_logged_in";
-      if (isLoggedIn) {
+      entry.authentication = authenticationOf(tool, status);
+      if (entry.authentication === "authenticated") {
         const input =
           tool === "claude"
             ? JSON.stringify({
@@ -499,10 +527,15 @@ export async function spawnCli(command, jobId, signal, folder) {
     })
   ).find((entry) => entry.tool === tool);
   const model = inventory?.models.find((entry) => entry.id === program.model);
-  if (inventory?.authentication !== "authenticated")
+  if (inventory?.authentication === "not_logged_in")
     throw Object.assign(new Error("Runner agent account login required"), {
       failureCode: "provider_auth_failed",
     });
+  if (inventory?.authentication !== "authenticated")
+    throw Object.assign(
+      new Error(`Runner could not run the ${tool} status check`),
+      { failureCode: "cli_check_failed" },
+    );
   if (
     (!command.managed?.ownerId &&
       inventory.catalogRevision !== program.route.catalogRevision) ||

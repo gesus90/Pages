@@ -24,6 +24,7 @@ import {
   NATIVE_LAUNCHER,
   isNativeJob,
   loginPath,
+  nativeCliPath,
   nativeLaunchArguments,
   nativeUnitName,
 } from "./native.mjs";
@@ -107,7 +108,7 @@ async function launchWorker(context) {
     ownership,
     temporaryDirectory,
     temporary: unit ? temporaryDirectory : "/tmp",
-    cliPath: unit ? await loginPath() : null,
+    cliPath: unit ? nativeCliPath(await loginPath()) : null,
     unit,
     account,
     scope,

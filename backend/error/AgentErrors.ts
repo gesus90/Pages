@@ -62,7 +62,7 @@ export const AGENT_ERROR_MESSAGES = {
   antigravity_runner_update_required:
     "Antigravity requires Runner 1.14.0 or later at the selected execution host. Update this runner explicitly; no local fallback was used.",
   antigravity_acp_unsupported:
-    "Pages requires the official Antigravity ACP adapter 1.4.4. No model was called.",
+    "Pages requires the Antigravity CLI 1.5.9 or later with its official ACP entry point (agy acp). No model was called.",
   antigravity_acp_session_failed:
     "The Antigravity ACP session failed. Check the adapter, authentication and quota at its execution location.",
   antigravity_configuration_unmanaged:

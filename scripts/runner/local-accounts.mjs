@@ -87,8 +87,8 @@ export function localCliEnvironment(home) {
   };
 }
 
-/** Adds the existing managed CLI generations to PATH without installing or changing a release. */
-export async function localToolPath(root, inherited) {
+/** The program folders of the active managed CLI generations, without installing or changing one. */
+export async function localToolDirectories(root) {
   if (typeof root !== "string" || !root.startsWith("/"))
     throw new Error("Local tool directory required");
   const directories = [];
@@ -114,7 +114,5 @@ export async function localToolPath(root, inherited) {
         : join(release, "node_modules", ".bin"),
     );
   }
-  return [...directories, inherited ?? "/usr/local/bin:/usr/bin:/bin"].join(
-    ":",
-  );
+  return directories;
 }

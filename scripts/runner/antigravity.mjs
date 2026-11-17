@@ -1,13 +1,20 @@
 import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
-import { lstat, readFile } from "node:fs/promises";
+import { lstat } from "node:fs/promises";
 import { join, isAbsolute, normalize, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { once } from "node:events";
 
+import {
+  ANTIGRAVITY_APP_DATA_DIRECTORY,
+  requireAntigravityContext,
+} from "./antigravity-context.mjs";
 import { OpenCodeAcpClient, classifyOpenCodeFailure } from "./opencode.mjs";
 
-const VERSION = "1.4.4";
+// The official ACP entry point `agy acp` and its contract, as in
+// backend/agents/acp/AntigravityAcpLaunch.ts, which the Pages host applies.
+const VERIFIED_VERSION = "1.5.9";
+const AGENT_NAME = "Antigravity ACP Server";
 const READ_TOOLS = [
   "view_file",
   "list_directory",
@@ -144,59 +151,16 @@ async function validateBoundContext() {
   await requireBoundContext(expected);
 }
 
-async function contextMetadata(file) {
-  try {
-    return await lstat(file);
-  } catch (error) {
-    if (error.code === "ENOENT") return null;
-    throw Object.assign(new Error("Unmanaged configuration"), {
-      pagesCode: "antigravity_configuration_unmanaged",
-    });
-  }
-}
-
-async function requireContext(environment, workspace) {
-  const root = environment.GEMINI_HOME;
-  const directory = await contextMetadata(join(root, "antigravity-acp"));
-  if (directory && (!directory.isDirectory() || directory.isSymbolicLink()))
-    throw Object.assign(new Error("Unmanaged configuration"), {
-      pagesCode: "antigravity_configuration_unmanaged",
-    });
-  const token = await lstat(join(root, "antigravity-acp/acp_token.json")).catch(
-    () => null,
+/** Whether `initialize` came from a stable `agy acp` at or above the verified release. */
+function isSupportedAgent(agent) {
+  const version = /^v?(\d{1,6})\.(\d{1,6})\.(\d{1,9})$/u.exec(
+    typeof agent?.version === "string" ? agent.version.trim() : "",
   );
-  if (!token?.isFile() || token.isSymbolicLink())
-    throw Object.assign(new Error("Login required"), {
-      pagesCode: "provider_auth_failed",
-    });
-  for (const name of [
-    "config",
-    "antigravity-cli",
-    "antigravity-acp/hooks.json",
-    "antigravity-acp/mcp_config.json",
-  ]) {
-    if (await contextMetadata(join(root, name)))
-      throw Object.assign(new Error("Unmanaged configuration"), {
-        pagesCode: "antigravity_configuration_unmanaged",
-      });
-  }
-  if (workspace)
-    for (const folder of [".agents", ".agent", "_agents", "_agent"])
-      if (await contextMetadata(join(workspace, folder, "hooks.json")))
-        throw Object.assign(new Error("Unmanaged workspace hooks"), {
-          pagesCode: "antigravity_configuration_unmanaged",
-        });
-  const file = join(root, "antigravity-acp/settings.json");
-  const metadata = await lstat(file);
-  if (!metadata.isFile() || metadata.isSymbolicLink() || metadata.size > 4096)
-    throw new Error("Invalid Antigravity settings");
-  const settings = JSON.parse(await readFile(file, "utf8"));
-  if (
-    Object.keys(settings).length !== 1 ||
-    Object.keys(settings.auth ?? {}).length !== 1 ||
-    settings.auth.type !== "oauth-personal"
-  )
-    throw new Error("Invalid Antigravity settings");
+  if (agent?.name !== AGENT_NAME || !version) return false;
+  const minimum = VERIFIED_VERSION.split(".").map(Number);
+  const parts = version.slice(1).map(Number);
+  const index = parts.findIndex((part, position) => part !== minimum[position]);
+  return index === -1 || parts[index] > minimum[index];
 }
 
 function refuse(options) {
@@ -220,18 +184,31 @@ async function publish(event) {
 }
 
 function start(environment, directory, options = {}) {
-  const child = spawn("agy_acp_server.par", ["--uid="], {
-    cwd: directory,
-    env: environment,
-    stdio: ["pipe", "pipe", "pipe"],
-  });
+  const child = spawn(
+    "agy",
+    [
+      "acp",
+      `--gemini-dir=${environment.GEMINI_HOME}`,
+      `--app-data-dir=${ANTIGRAVITY_APP_DATA_DIRECTORY}`,
+      "--disable-telemetry",
+    ],
+    {
+      cwd: directory,
+      // A managed generation never replaces itself; updates go through the tool manager.
+      env: { ...environment, AGY_CLI_DISABLE_AUTO_UPDATE: "1" },
+      stdio: ["pipe", "pipe", "pipe"],
+    },
+  );
   child.stdin.on("error", () => child.kill("SIGKILL"));
   // Inventory and execution never start a new login or wait for a browser.
   let tail = "";
   let requiresLogin = false;
   child.stderr.setEncoding("utf8").on("data", (chunk) => {
     tail = (tail + chunk).slice(-16384);
-    if (tail.includes("Open the following link to authenticate")) {
+    if (
+      tail.includes("Open the following link to authenticate") ||
+      /https:\/\/accounts\.google\.com\/o\/oauth2\//u.test(tail)
+    ) {
       requiresLogin = true;
       child.kill("SIGKILL");
     }
@@ -281,8 +258,7 @@ async function initialize(client) {
   });
   if (
     response.protocolVersion !== 1 ||
-    response.agentInfo?.name !== "antigravity-acp" ||
-    response.agentInfo.version !== VERSION ||
+    !isSupportedAgent(response.agentInfo) ||
     !response.authMethods?.some((method) => method.id === "oauth-personal")
   )
     throw Object.assign(new Error("Adapter incompatible"), {
@@ -333,8 +309,15 @@ export async function antigravityInventory(base, context = {}) {
   try {
     const response = await initialize(client);
     entry.version = response.agentInfo.version;
-    entry.acp = { status: "verified", reason: "exact_version" };
-    await requireContext(environment, base.HOME);
+    // Pages accepts every stable `agy acp` from the verified release on.
+    entry.acp = {
+      status: "verified",
+      reason:
+        entry.version === VERIFIED_VERSION
+          ? "exact_version"
+          : "contract_matches",
+    };
+    await requireAntigravityContext(environment, base.HOME);
     const session = await client.call("session/new", {
       cwd: base.HOME,
       mcpServers: [],
@@ -414,7 +397,7 @@ export function antigravityTurnFailure(text, hasMcp) {
 export async function executeAntigravity(job, prompt, base = process.env) {
   const environment = antigravityEnvironment(base);
   if (base.PAGES_RUNNER_AGENT_ACCOUNT !== "1") await validateBoundContext();
-  await requireContext(environment, job.workspace);
+  await requireAntigravityContext(environment, job.workspace);
   if (!["read_only", "yolo"].includes(job.access))
     throw new Error("Invalid Antigravity mode");
   const { child, client } = start(environment, job.workspace, {

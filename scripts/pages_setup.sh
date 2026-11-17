@@ -439,6 +439,11 @@ cat > "$antigravity_temporary" <<'ANTIGRAVITY'
 __PAGES_RUNNER_ANTIGRAVITY__
 ANTIGRAVITY
 mv -f -- "$antigravity_temporary" "$runner_directory/antigravity.mjs"
+antigravity_context_temporary=$(mktemp "$runner_directory/.antigravity-context.XXXXXX")
+cat > "$antigravity_context_temporary" <<'ANTIGRAVITYCONTEXT'
+__PAGES_RUNNER_ANTIGRAVITY_CONTEXT__
+ANTIGRAVITYCONTEXT
+mv -f -- "$antigravity_context_temporary" "$runner_directory/antigravity-context.mjs"
 
 opencode_temporary=$(mktemp "$runner_directory/.opencode.XXXXXX")
 cat > "$opencode_temporary" <<'OPENCODE'
