@@ -178,12 +178,19 @@ function runStepName(snapshot: AgentPlanSnapshot, node: AgentPlanNode): string {
   const remote = snapshot.remoteSteps?.find((step) => step.step.id === node.id);
   if (remote?.step.type === "agent")
     return remote.step.configuration?.name ?? node.type;
+  return fallbackStepName(node);
+}
+
+function jumpStepName(node: Extract<AgentPlanNode, { type: "jump" }>): string {
+  return node.direction === "in"
+    ? node.name
+    : (node.name ?? node.target?.planName ?? "Jump");
+}
+
+function fallbackStepName(node: AgentPlanNode): string {
   if (node.type === "decision") return node.name ?? "Decision";
   if (node.type === "swarm") return node.name ?? "Swarm";
-  if (node.type === "jump")
-    return node.direction === "in"
-      ? node.name
-      : (node.name ?? node.target?.planName ?? "Jump");
+  if (node.type === "jump") return jumpStepName(node);
   if (node.type === "signal") return node.name ?? node.signalName;
   return node.type === "loop" ||
     node.type === "script" ||

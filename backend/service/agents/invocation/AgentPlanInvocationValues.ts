@@ -33,12 +33,14 @@ export function redactInvocationValues(
   values: InvocationValues,
 ): InvocationValues {
   return Object.fromEntries(
-    Object.entries(values).map(([name, value]): [string, AgentParameterValue] => [
-      name,
-      value.type === "text"
-        ? { type: "text", text: sanitizePlanOutput(value.text) }
-        : value,
-    ]),
+    Object.entries(values).map(
+      ([name, value]): [string, AgentParameterValue] => [
+        name,
+        value.type === "text"
+          ? { type: "text", text: sanitizePlanOutput(value.text) }
+          : value,
+      ],
+    ),
   );
 }
 

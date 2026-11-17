@@ -92,8 +92,7 @@ function dispatchPlanInvocationNode(
     });
   const authorize = (): Promise<void> =>
     start.control(active.view, active.snapshot, node);
-  if (node.type === "end")
-    return invocations.end(active, node, { authorize });
+  if (node.type === "end") return invocations.end(active, node, { authorize });
   if (node.type === "signal")
     return invocations.signal(active, node, { authorize });
   return invocations.call(active, node, controller, {

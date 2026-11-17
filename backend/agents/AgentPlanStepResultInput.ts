@@ -95,12 +95,11 @@ function readNamedValues(
 /** Reads the call of an outgoing Jump, the values it handed on and the returns of an end. */
 function readStepJump(
   step: Record<string, unknown>,
-): Pick<
-  AgentPlanStepResult,
-  "jump" | "jumpOutputs" | "returned" | "signal"
-> {
+): Pick<AgentPlanStepResult, "jump" | "jumpOutputs" | "returned" | "signal"> {
   const jump =
-    step.jump === undefined ? undefined : planJumpRunSchema.safeParse(step.jump);
+    step.jump === undefined
+      ? undefined
+      : planJumpRunSchema.safeParse(step.jump);
   const signal =
     step.signal === undefined
       ? undefined

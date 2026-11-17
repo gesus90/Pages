@@ -223,6 +223,18 @@ const ISSUE_PROBLEMS: Readonly<Record<AgentPlanIssueProblem, true>> = {
   swarmRemoteUnsupported: true,
   swarmIncomplete: true,
   swarmInvalid: true,
+  jumpTarget: true,
+  jumpEntry: true,
+  jumpInterface: true,
+  jumpWait: true,
+  jumpTimeout: true,
+  jumpWorkspace: true,
+  jumpInput: true,
+  jumpBoundary: true,
+  jumpCycle: true,
+  returnContract: true,
+  signalName: true,
+  manualStart: true,
 };
 
 /** Findings a refusal carries at most. */

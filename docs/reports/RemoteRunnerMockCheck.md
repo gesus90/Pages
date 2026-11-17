@@ -61,64 +61,64 @@ alle wie erwartet. Jeder Nachweis ist simuliert.
 
 ### Szenario A: Ablauf von Start bis End mit Störungen
 
-| Nr. | Prüfpunkt                                                                                                                           | Ergebnis                                     |
-| --- | ----------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------- |
-| A0  | Runner nach `reconcile` gekoppelt und verbunden                                                                                     | bestanden                                    |
-| A1  | Skriptschritt als verwalteter Runner-Auftrag abgeschlossen                                                                          | bestanden (`completed`)                      |
-| A2  | Skript im Lauf `succeeded`                                                                                                          | bestanden                                    |
-| A3  | Schleife `running`, Iteration 1 aktiv                                                                                               | bestanden                                    |
-| A4  | TODOs live übernommen: erster Eintrag erledigt, zweiter in Arbeit                                                                   | bestanden (`done`, `active`)                 |
-| A5  | Token live je Versuch gespeichert                                                                                                   | bestanden (Eingabe 17, Ausgabe 7, gesamt 24) |
-| A6  | Pause zweimal während des Zugs: Lauf `paused`, Runner-Scope `frozen`                                                                | bestanden (2/2)                              |
-| A7  | Fortsetzen zweimal: Lauf `running`, Runner-Scope `thawed`                                                                           | bestanden (2/2)                              |
-| A8  | Verbindungsabbruch vor einem Ack: Pages meldet den Runner nicht mehr als verbunden                                                  | bestanden                                    |
-| A9  | Nach Wiederverbindung das unbestätigte Ereignis erneut gesendet; genau einmal gespeichert, Sequenzen gleich                         | bestanden (Sequenz 9/9)                      |
-| A10 | Runner-Neustart mit überlebendem Worker: laufender Auftrag bleibt `running`, kein `lost`                                            | bestanden                                    |
-| A11 | Pages-Neustart: der neue Prozess kennt den Runner erst nach `reconcile` als verbunden                                               | bestanden                                    |
-| A12 | Pages-Neustart: Journal mit Sequenz und Aufträgen erhalten, Abschlusszug weiter `running`                                           | bestanden (Sequenz 19 → 19)                  |
-| A13 | Lauf endet `succeeded`                                                                                                              | bestanden                                    |
-| A14 | Start, Skript, Schleife, Abschluss und End `succeeded`                                                                              | bestanden                                    |
-| A15 | Genau zwei Iterationen, beide `succeeded`                                                                                           | bestanden                                    |
-| A16 | Drei Agent-Versuche (zwei Aufgaben, Abschluss), vier Dispatches einschließlich Skript, kein doppelter Dispatch                      | bestanden                                    |
-| A17 | TODOs je Versuch am Ende vollständig erledigt                                                                                       | bestanden                                    |
-| A18 | Token je Versuch genau einmal gespeichert                                                                                           | bestanden (3 Züge, 67 Token)                 |
-| A19 | Kostenberechnung bewertet das `:free`-Modell als kostenlos                                                                          | bestanden (`free`, 0)                        |
-| A20 | Kostenstatus der Runner-Token-Zeilen                                                                                                | **Befund**, siehe unten                      |
-| A21 | Alle Runner-Aufträge `completed`, Pages- und Runner-Sequenz gleich                                                                  | bestanden (21/21)                            |
-| A22 | `runnerJobs` der Laufansicht: kein offener Eintrag, letzter Eintrag entspricht dem letzten Runner-Auftrag                           | bestanden; bestätigte Vorgänger werden planmäßig entfernt |
-| A23 | Gespeichertes Lese-Modell der Laufansicht (`readPlanRun`) gleicht dem Engine-Zustand in Lauf-, Schritt- und Iterationsstatus        | bestanden                                    |
-| A24 | Runner-Zeile der Einstellungen (`overview`): verbunden, Version 1.22.0, Pause mitten im Zug verfügbar                               | bestanden                                    |
-| A25 | Heartbeat beantwortet, Zustand unverändert                                                                                          | bestanden                                    |
-| A26 | Ereignis mit Sequenzlücke abgewiesen                                                                                                | bestanden (`Runner event out of sequence`)   |
-| A27 | Nach End keine offene Schleifensitzung und kein aktiver Runner-Auftrag                                                              | bestanden (`cleanup=not_needed`)             |
+| Nr. | Prüfpunkt                                                                                                                    | Ergebnis                                                  |
+| --- | ---------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------- |
+| A0  | Runner nach `reconcile` gekoppelt und verbunden                                                                              | bestanden                                                 |
+| A1  | Skriptschritt als verwalteter Runner-Auftrag abgeschlossen                                                                   | bestanden (`completed`)                                   |
+| A2  | Skript im Lauf `succeeded`                                                                                                   | bestanden                                                 |
+| A3  | Schleife `running`, Iteration 1 aktiv                                                                                        | bestanden                                                 |
+| A4  | TODOs live übernommen: erster Eintrag erledigt, zweiter in Arbeit                                                            | bestanden (`done`, `active`)                              |
+| A5  | Token live je Versuch gespeichert                                                                                            | bestanden (Eingabe 17, Ausgabe 7, gesamt 24)              |
+| A6  | Pause zweimal während des Zugs: Lauf `paused`, Runner-Scope `frozen`                                                         | bestanden (2/2)                                           |
+| A7  | Fortsetzen zweimal: Lauf `running`, Runner-Scope `thawed`                                                                    | bestanden (2/2)                                           |
+| A8  | Verbindungsabbruch vor einem Ack: Pages meldet den Runner nicht mehr als verbunden                                           | bestanden                                                 |
+| A9  | Nach Wiederverbindung das unbestätigte Ereignis erneut gesendet; genau einmal gespeichert, Sequenzen gleich                  | bestanden (Sequenz 9/9)                                   |
+| A10 | Runner-Neustart mit überlebendem Worker: laufender Auftrag bleibt `running`, kein `lost`                                     | bestanden                                                 |
+| A11 | Pages-Neustart: der neue Prozess kennt den Runner erst nach `reconcile` als verbunden                                        | bestanden                                                 |
+| A12 | Pages-Neustart: Journal mit Sequenz und Aufträgen erhalten, Abschlusszug weiter `running`                                    | bestanden (Sequenz 19 → 19)                               |
+| A13 | Lauf endet `succeeded`                                                                                                       | bestanden                                                 |
+| A14 | Start, Skript, Schleife, Abschluss und End `succeeded`                                                                       | bestanden                                                 |
+| A15 | Genau zwei Iterationen, beide `succeeded`                                                                                    | bestanden                                                 |
+| A16 | Drei Agent-Versuche (zwei Aufgaben, Abschluss), vier Dispatches einschließlich Skript, kein doppelter Dispatch               | bestanden                                                 |
+| A17 | TODOs je Versuch am Ende vollständig erledigt                                                                                | bestanden                                                 |
+| A18 | Token je Versuch genau einmal gespeichert                                                                                    | bestanden (3 Züge, 67 Token)                              |
+| A19 | Kostenberechnung bewertet das `:free`-Modell als kostenlos                                                                   | bestanden (`free`, 0)                                     |
+| A20 | Kostenstatus der Runner-Token-Zeilen                                                                                         | **Befund**, siehe unten                                   |
+| A21 | Alle Runner-Aufträge `completed`, Pages- und Runner-Sequenz gleich                                                           | bestanden (21/21)                                         |
+| A22 | `runnerJobs` der Laufansicht: kein offener Eintrag, letzter Eintrag entspricht dem letzten Runner-Auftrag                    | bestanden; bestätigte Vorgänger werden planmäßig entfernt |
+| A23 | Gespeichertes Lese-Modell der Laufansicht (`readPlanRun`) gleicht dem Engine-Zustand in Lauf-, Schritt- und Iterationsstatus | bestanden                                                 |
+| A24 | Runner-Zeile der Einstellungen (`overview`): verbunden, Version 1.22.0, Pause mitten im Zug verfügbar                        | bestanden                                                 |
+| A25 | Heartbeat beantwortet, Zustand unverändert                                                                                   | bestanden                                                 |
+| A26 | Ereignis mit Sequenzlücke abgewiesen                                                                                         | bestanden (`Runner event out of sequence`)                |
+| A27 | Nach End keine offene Schleifensitzung und kein aktiver Runner-Auftrag                                                       | bestanden (`cleanup=not_needed`)                          |
 
 ### Szenario B: Stop während eines pausierten Agent-Zugs
 
-| Nr. | Prüfpunkt                                                                       | Ergebnis                 |
-| --- | ------------------------------------------------------------------------------- | ------------------------ |
-| B1  | Pause vor Stop                                                                  | bestanden                |
-| B2  | `cancel` an den Runner, `stop-result` mit `closeout: confirmed`                 | bestanden                |
-| B3  | Lauf endet `cancelled`, `stopRequested` gesetzt                                 | bestanden                |
-| B4  | Auftrag `interrupted`, kein weiterer Dispatch                                   | bestanden                |
-| B5  | Nachfolgende Schritte nicht gestartet                                           | bestanden (`cancelled`)  |
-| B6  | Bereinigung bestätigt: `runnerJobs` `interrupted/confirmed`, kein aktiver Auftrag | bestanden              |
+| Nr. | Prüfpunkt                                                                         | Ergebnis                |
+| --- | --------------------------------------------------------------------------------- | ----------------------- |
+| B1  | Pause vor Stop                                                                    | bestanden               |
+| B2  | `cancel` an den Runner, `stop-result` mit `closeout: confirmed`                   | bestanden               |
+| B3  | Lauf endet `cancelled`, `stopRequested` gesetzt                                   | bestanden               |
+| B4  | Auftrag `interrupted`, kein weiterer Dispatch                                     | bestanden               |
+| B5  | Nachfolgende Schritte nicht gestartet                                             | bestanden (`cancelled`) |
+| B6  | Bereinigung bestätigt: `runnerJobs` `interrupted/confirmed`, kein aktiver Auftrag | bestanden               |
 
 ### Szenario C: Abrupter Runner-Verlust
 
 Transport und Worker verschwinden gleichzeitig; danach meldet sich der Runner
 mit seinem Journal, aber ohne den Worker.
 
-| Nr. | Prüfpunkt                                                                                    | Ergebnis                  |
-| --- | -------------------------------------------------------------------------------------------- | ------------------------- |
-| C1  | Nach mehr als 45 s ohne Kontakt (Uhr verschoben) gilt der Runner als nicht verbunden         | bestanden                 |
-| C2  | Vor dem Wiederabgleich bleibt der Auftrag unverändert `running`; Pages rät nichts            | bestanden                 |
-| C3  | Wiederabgleich ohne Worker markiert den Auftrag `lost`                                       | bestanden                 |
-| C4  | Lauf endet `failed`, der verlorene Auftrag wird nicht automatisch neu gestartet              | bestanden (2 Dispatches)  |
-| C5  | Laufansicht zeigt den Auftrag als `lost`                                                     | bestanden                 |
-| C6  | Iteration 1 `failed` mit Ursache                                                             | bestanden                 |
-| C7  | Bereinigung bleibt ohne Nachweis offen (`closeout: pending`), keine geratene Freigabe        | bestanden                 |
-| C8  | Erneute Wiederverbindung belebt den Auftrag nicht, kein neuer Dispatch                       | bestanden                 |
-| C9  | Ursache ist `plan_runner_lost`, Blockerklasse `harm`                                         | bestanden nach Korrektur  |
+| Nr. | Prüfpunkt                                                                             | Ergebnis                 |
+| --- | ------------------------------------------------------------------------------------- | ------------------------ |
+| C1  | Nach mehr als 45 s ohne Kontakt (Uhr verschoben) gilt der Runner als nicht verbunden  | bestanden                |
+| C2  | Vor dem Wiederabgleich bleibt der Auftrag unverändert `running`; Pages rät nichts     | bestanden                |
+| C3  | Wiederabgleich ohne Worker markiert den Auftrag `lost`                                | bestanden                |
+| C4  | Lauf endet `failed`, der verlorene Auftrag wird nicht automatisch neu gestartet       | bestanden (2 Dispatches) |
+| C5  | Laufansicht zeigt den Auftrag als `lost`                                              | bestanden                |
+| C6  | Iteration 1 `failed` mit Ursache                                                      | bestanden                |
+| C7  | Bereinigung bleibt ohne Nachweis offen (`closeout: pending`), keine geratene Freigabe | bestanden                |
+| C8  | Erneute Wiederverbindung belebt den Auftrag nicht, kein neuer Dispatch                | bestanden                |
+| C9  | Ursache ist `plan_runner_lost`, Blockerklasse `harm`                                  | bestanden nach Korrektur |
 
 ## Befunde
 
@@ -202,14 +202,14 @@ Mock-Dateien `mocks.ts`, `runner.ts` und `check.ts` sowie die Laufprotokolle
 `run1.log` bis `run3.log`. Er wurde mit `rm -rf` entfernt. Nachkontrolle am
 17.11.2026:
 
-| Kontrolle                                                                          | Ergebnis                                                            |
-| ---------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
-| `test -e ~/.pages/tmp/remote-runner-mock-check`                                    | Prüfordner entfernt                                                 |
-| `ls -la ~/.pages/tmp/`                                                             | leer; der schon vorhandene Ordner `tmp` blieb bestehen              |
-| Dateien außerhalb des Prüfordners, die nach Prüfbeginn entstanden sind (`find -newer`) | keine                                                           |
-| Laufende `node --import tsx`-Prüfprozesse (`ps`)                                   | keine                                                               |
-| Mock-Bezeichner im Arbeitsbereich (`grep -rlnI`)                                   | nur dieses Protokoll                                                |
-| `git status --short`                                                               | nur die Korrektur in `RunnerManagedJobs.ts`, dieses Protokoll und sein Verweis in `docs/README.md` |
+| Kontrolle                                                                              | Ergebnis                                                                                           |
+| -------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| `test -e ~/.pages/tmp/remote-runner-mock-check`                                        | Prüfordner entfernt                                                                                |
+| `ls -la ~/.pages/tmp/`                                                                 | leer; der schon vorhandene Ordner `tmp` blieb bestehen                                             |
+| Dateien außerhalb des Prüfordners, die nach Prüfbeginn entstanden sind (`find -newer`) | keine                                                                                              |
+| Laufende `node --import tsx`-Prüfprozesse (`ps`)                                       | keine                                                                                              |
+| Mock-Bezeichner im Arbeitsbereich (`grep -rlnI`)                                       | nur dieses Protokoll                                                                               |
+| `git status --short`                                                                   | nur die Korrektur in `RunnerManagedJobs.ts`, dieses Protokoll und sein Verweis in `docs/README.md` |
 
 Ein Schreibwerkzeug hatte die Mock-Dateien anfangs in einem zusätzlichen,
 dabei neu angelegten Ordner `.pages/tmp` des Host-Kontos abgelegt (Entstehung

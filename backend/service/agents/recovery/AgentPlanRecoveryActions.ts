@@ -1,5 +1,7 @@
 import { randomUUID } from "node:crypto";
 
+import { AgentPlanRecoveryReplayed } from "@/backend/error/AgentPlanRecoveryReplayed";
+import { AgentPlanActiveRunError } from "@/backend/error/AgentPlanActiveRunError";
 import { readScopeSince } from "@/backend/agents/cli/CliProcessScan";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { AgentPlanRecoveryError } from "@/backend/error/AgentPlanRecoveryError";
@@ -116,16 +118,6 @@ export interface RecoveryRequest<
   readonly journal?: AgentPlanRunJournal;
 }
 
-/** A stored result returned instead of a second start in the same transaction. */
-class RecoveryReplayed extends Error {
-  public readonly result: AgentPlanRecoveryResult;
-
-  public constructor(result: AgentPlanRecoveryResult) {
-    super("Recovery request already answered");
-    this.result = result;
-  }
-}
-
 function requireOption(option: AgentPlanRecoveryOption): void {
   if (option.available) return;
   throw new AgentPlanRecoveryError(
@@ -182,7 +174,6 @@ export class AgentPlanRecoveryActions {
   public async facts(
     userId: string,
     runId: string,
-    expectedRevision?: number,
     shouldCheckHistory = true,
   ): Promise<{
     readonly facts: RecoveryFacts;
@@ -194,8 +185,6 @@ export class AgentPlanRecoveryActions {
     const source = await this.dependencies.executions.source(runId);
     if (source.run.userId !== userId)
       throw new AgentPlanRecoveryError("access_denied");
-    if (expectedRevision !== undefined && source.revision !== expectedRevision)
-      throw new AgentPlanRecoveryError("revision_conflict");
     const snapshot = readPlanSnapshot(source.snapshot);
     const plan = await this.dependencies.access.require(
       userId,
@@ -236,7 +225,7 @@ export class AgentPlanRecoveryActions {
     userId: string,
     runId: string,
   ): Promise<AgentPlanRecoveryOption> {
-    const { facts } = await this.facts(userId, runId, undefined, false);
+    const { facts } = await this.facts(userId, runId, false);
     return resumeOption(facts, planResume(facts));
   }
 
@@ -255,7 +244,7 @@ export class AgentPlanRecoveryActions {
     runId: string,
     journal?: AgentPlanRunJournal,
   ): Promise<void> {
-    const { facts } = await this.facts(userId, runId, undefined, false);
+    const { facts } = await this.facts(userId, runId, false);
     const { run } = facts;
     if (run.status === "succeeded") return;
     if (isActivePlanRun(run.status) && facts.isEngineActive !== false) {
@@ -283,10 +272,13 @@ export class AgentPlanRecoveryActions {
   ): Promise<AgentPlanRecoveryResult> {
     const replayed = await this.replayed(request);
     if (replayed) return replayed;
+    const continued = await this.dependencies.executions.continued(
+      request.runId,
+    );
+    if (continued) return continued;
     const { facts, snapshot: source } = await this.facts(
       request.userId,
       request.runId,
-      request.command.expectedRevision,
       false,
     );
     requireOption(restartOption(facts));
@@ -296,8 +288,6 @@ export class AgentPlanRecoveryActions {
       )
     )
       throw new AgentPlanRecoveryError("review_required");
-    if (facts.plan.revision !== request.command.revision)
-      throw new AgentError("plan_conflict");
     await cleanupRestartSource(this.dependencies, facts.run);
     let snapshot: AgentPlanSnapshot;
     try {
@@ -348,14 +338,15 @@ export class AgentPlanRecoveryActions {
   ): Promise<AgentPlanRecoveryResult> {
     const replayed = await this.replayed(request);
     if (replayed) return replayed;
+    const continued = await this.dependencies.executions.continued(
+      request.runId,
+    );
+    if (continued) return continued;
     const { command, userId } = request;
     const { facts, snapshot: previous } = await this.facts(
       userId,
       request.runId,
-      command.expectedRevision,
     );
-    if (facts.plan.revision !== command.revision)
-      throw new AgentError("plan_conflict");
     const planned = planResume(facts);
     requireOption(resumeOption(facts, planned));
     const proposed = await this.dependencies.preparation.prepare(
@@ -424,31 +415,29 @@ export class AgentPlanRecoveryActions {
   ): Promise<AgentPlanRecoveryResult> {
     const replayed = await this.replayed(request);
     if (replayed) return replayed;
-    const { facts } = await this.facts(
-      request.userId,
-      request.runId,
-      request.command.expectedRevision,
-      false,
-    );
+    const { facts } = await this.facts(request.userId, request.runId, false);
     requireOption(releaseOption(facts));
     // Release refuses living writers; it never turns a release decision into Stop.
     const result: AgentPlanRecoveryResult = {
       commandId: randomUUID(),
-      revision: request.command.expectedRevision + 1,
+      revision: 0,
       outcome: "released",
     };
+    let recorded: AgentPlanRecoveryResult | undefined;
     await this.dependencies.workspaceLocks.release(
       facts.run,
       "user_requested",
-      (transaction) =>
-        this.dependencies.executions.record(transaction, {
+      async (transaction) => {
+        recorded = await this.dependencies.executions.record(transaction, {
           command: request.command,
           requestDigest: request.requestDigest,
           result,
           execution: this.execution(request, result, null),
-        }),
+        });
+      },
     );
-    return result;
+    if (!recorded) throw new AgentPlanRecoveryError("checkpoint_invalid");
+    return recorded;
   }
 
   private async resetWithoutDispatch(
@@ -458,7 +447,7 @@ export class AgentPlanRecoveryActions {
   ): Promise<AgentPlanRecoveryResult> {
     const result: AgentPlanRecoveryResult = {
       commandId: randomUUID(),
-      revision: request.command.expectedRevision + 1,
+      revision: 0,
       outcome: "reset",
       issue,
     };
@@ -477,7 +466,9 @@ export class AgentPlanRecoveryActions {
       ),
     );
     await this.dependencies.remoteExecution?.stop(facts.run);
-    return result;
+    const recorded = await this.replayed(request);
+    if (!recorded) throw new AgentPlanRecoveryError("checkpoint_invalid");
+    return recorded;
   }
 
   private async replayed(
@@ -523,20 +514,11 @@ export class AgentPlanRecoveryActions {
     return run;
   }
 
-  /** Resume explicitly relinquishes the failed run's reservations even without closeout proof. */
+  /** Transfers reservations only after the predecessor's writers are proven ended. */
   private async releaseForResume(facts: RecoveryFacts): Promise<void> {
-    try {
-      await this.settleCleanup(facts, false);
-    } catch (error: unknown) {
-      if (
-        !(error instanceof AgentPlanRecoveryError) ||
-        error.code !== "cleanup_unconfirmed"
-      )
-        throw error;
-      logCaughtError("AgentPlanRecoveryActions", error);
-    }
+    const settled = await this.settleCleanup(facts, false);
     await this.dependencies.resources?.releaseForResume?.(facts.run.id);
-    await this.dependencies.executions.releaseChecked(facts.run);
+    await this.dependencies.executions.releaseChecked(settled);
   }
 
   private async start(
@@ -548,8 +530,9 @@ export class AgentPlanRecoveryActions {
     },
   ): Promise<AgentPlanRecoveryResult> {
     const { executions, checkpoints } = this.dependencies;
+    let recorded: AgentPlanRecoveryResult | undefined;
     try {
-      const created = await this.dependencies.engine.startRecovered(
+      await this.dependencies.engine.startRecovered(
         request.userId,
         start.snapshot,
         start.recovered,
@@ -560,9 +543,9 @@ export class AgentPlanRecoveryActions {
             request.requestDigest,
             transaction,
           );
-          if (repeated) throw new RecoveryReplayed(repeated);
+          if (repeated) throw new AgentPlanRecoveryReplayed(repeated);
           const result = startedResult(request, run);
-          await executions.record(transaction, {
+          recorded = await executions.record(transaction, {
             command: request.command,
             requestDigest: request.requestDigest,
             result,
@@ -578,9 +561,16 @@ export class AgentPlanRecoveryActions {
             );
         },
       );
-      return startedResult(request, created);
+      if (!recorded) throw new AgentPlanRecoveryError("checkpoint_invalid");
+      return recorded;
     } catch (error: unknown) {
-      if (error instanceof RecoveryReplayed) return error.result;
+      if (error instanceof AgentPlanRecoveryReplayed) return error.result;
+      const replayed = await this.replayed(request);
+      if (replayed) return replayed;
+      if (error instanceof AgentPlanActiveRunError) {
+        const continued = await executions.continued(request.runId);
+        if (continued) return continued;
+      }
       throw error;
     }
   }
@@ -633,7 +623,7 @@ function startedResult(
 ): AgentPlanRecoveryResult {
   return {
     commandId: `${run.id}:${request.command.action}`,
-    revision: request.command.expectedRevision + 1,
+    revision: 0,
     outcome: "started",
     runId: run.id,
   };

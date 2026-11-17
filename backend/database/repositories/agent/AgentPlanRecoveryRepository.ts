@@ -100,8 +100,7 @@ export class AgentPlanRecoveryRepository {
    * @remarks
    * All of it are SELECTs on one snapshot, so this polled read needs no place
    * in the writer queue. The snapshot is the last committed state: a
-   * decision taken on it is fenced by `expectedRevision` in {@link control},
-   * which runs on the writer.
+   * decision rechecks current state in {@link control} under the row lock.
    */
   public async inspect(runId: string): Promise<AgentPlanRecoveryRecord> {
     return this.readSnapshot(async (transaction) => {
@@ -152,7 +151,7 @@ export class AgentPlanRecoveryRepository {
         ? planContentDigest(command)
         : readPlanContentDigest(originalDigest);
     return this.database.transaction(async (transaction) => {
-      const progress = await this.progress(transaction, runId);
+      const progress = await this.progress(transaction, runId, true);
       if (progress.run.userId !== userId)
         throw new AgentPlanRecoveryError("access_denied");
       const repeated = await this.replay(
@@ -162,8 +161,6 @@ export class AgentPlanRecoveryRepository {
         requestDigest,
       );
       if (repeated) return repeated;
-      if (progress.revision !== command.expectedRevision)
-        throw new AgentPlanRecoveryError("revision_conflict");
       requireRecoverable(progress.run);
       // Without the execution boundary of the service, a resume has no engine to run in.
       if (command.action === "resume")
@@ -207,6 +204,7 @@ export class AgentPlanRecoveryRepository {
   private async progress(
     transaction: DatabaseTransaction,
     runId: string,
+    forUpdate = false,
   ): Promise<RecoveryProgress> {
     const [row] = await transaction.query(
       `
@@ -215,7 +213,7 @@ export class AgentPlanRecoveryRepository {
             recovery_revision,
             ${CURRENT_PLAN_SNAPSHOT} AS snapshot_json
         FROM agent_plan_runs
-        WHERE id = $id;
+        WHERE id = $id ${forUpdate ? "FOR UPDATE" : ""};
       `,
       { id: runId },
     );
@@ -300,7 +298,7 @@ export class AgentPlanRecoveryRepository {
         action: attempt.action,
         idempotency_key: planContentDigest(command.idempotencyKey),
         request_digest: recording.requestDigest,
-        expected_revision: command.expectedRevision,
+        expected_revision: result.revision - 1,
         result_revision: result.revision,
         attempt_json: JSON.stringify(attempt),
         result_json: JSON.stringify(result),

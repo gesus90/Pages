@@ -9,10 +9,7 @@ import { isPlanInvocationFinal } from "@/definition/AgentPlanJump";
 import { PLAN_NODE_TEXT } from "../plan-node-text";
 import { planJumpRemaining } from "./plan-jump-text";
 
-import type {
-  AgentPlanRun,
-  AgentPlanStepStatus,
-} from "@/definition/AgentPlan";
+import type { AgentPlanRun, AgentPlanStepStatus } from "@/definition/AgentPlan";
 import type {
   AgentPlanJumpRun,
   AgentPlanRunInvocation,
@@ -104,9 +101,7 @@ function usePhaseText(input: PlanJumpPhaseInput): {
 }
 
 /** The status of the run the call started, in words: queued, no run yet, or the status of the run. */
-function TargetStatus(props: {
-  readonly status: string;
-}): React.ReactElement {
+function TargetStatus(props: { readonly status: string }): React.ReactElement {
   const { t } = useTranslation();
   return (
     <p

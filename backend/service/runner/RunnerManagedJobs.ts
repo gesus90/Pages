@@ -171,8 +171,7 @@ export class RunnerManagedJobs {
         throw new AgentError("plan_runner_incomplete");
       const run = await this.runs.find(input.binding.runId);
       if (!run) throw new AgentError("plan_run_unavailable");
-      const shouldPause =
-        !input.signal.aborted && ["paused", "pausing"].includes(run.status);
+      const shouldPause = shouldPauseRun(input.signal, run.status);
       if (shouldPause !== isPaused) {
         await this.runners.pauseExecution(
           input.connectionId,
@@ -184,6 +183,10 @@ export class RunnerManagedJobs {
       await wait(50);
     }
   }
+}
+
+function shouldPauseRun(signal: AbortSignal, status: string): boolean {
+  return !signal.aborted && ["paused", "pausing"].includes(status);
 }
 
 function managedOutcome(

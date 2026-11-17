@@ -99,6 +99,8 @@ export class AgentPlanService extends AgentPlanTeamReads {
       engine: dependencies.engine,
       findRun: (runId) => dependencies.runs.find(runId),
       readRun: (userId, runId) => this.run(userId, runId),
+      acknowledge: (run, journal) =>
+        dependencies.runs.acknowledge(run, journal),
       control: (userId, planId) => this.control(userId, planId),
       sleep: dependencies.sleep,
     });
@@ -551,7 +553,7 @@ export class AgentPlanService extends AgentPlanTeamReads {
   public async play(
     userId: string,
     id: string,
-    revision: number,
+    revision?: number,
     journal?: AgentPlanRunJournal,
   ): Promise<AgentPlanRun> {
     const plan = await this.dependencies.access.require(userId, id);
@@ -574,7 +576,7 @@ export class AgentPlanService extends AgentPlanTeamReads {
   public async playReplacing(
     userId: string,
     id: string,
-    revision: number,
+    revision?: number,
     journal?: AgentPlanRunJournal,
   ): Promise<AgentPlanRun> {
     return this.play(userId, id, revision, journal);
@@ -584,9 +586,8 @@ export class AgentPlanService extends AgentPlanTeamReads {
   public async startOwners(
     userId: string,
     id: string,
-    revision: number,
   ): Promise<readonly AgentPlanStartOwner[]> {
-    return this.starts.owners(userId, id, revision);
+    return this.starts.owners(userId, id);
   }
 
   /**
@@ -690,8 +691,7 @@ export class AgentPlanService extends AgentPlanTeamReads {
       plan,
     );
     if (!canRunPlan(plan)) throw new AgentError("plan_access_denied");
-    if (revision === undefined || plan.revision !== revision)
-      throw new AgentError("plan_conflict");
+    revision = plan.revision;
     await this.teams.recordAdminAction(userId, plan, "admin_run_controlled", {
       runId: id,
       command: "resume",
@@ -701,7 +701,7 @@ export class AgentPlanService extends AgentPlanTeamReads {
       !run.stopRequested &&
       run.continuation?.planRevision === revision
     )
-      return run;
+      return this.dependencies.runs.acknowledge(run, journal);
     if (isEndedResumable(run))
       return this.ended.resume(userId, run, plan, journal);
     if (run.status !== "paused" || run.stopRequested)

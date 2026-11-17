@@ -8,6 +8,7 @@ export type AgentPlanActionResult =
   | {
       readonly ok: true;
       readonly intent: string;
+      readonly requestKey?: string;
       readonly adjustments?: readonly AgentPlanCloneAdjustment[];
       readonly planId?: string;
       readonly revision?: number;
@@ -17,6 +18,7 @@ export type AgentPlanActionResult =
   | {
       readonly ok: false;
       readonly intent: string;
+      readonly requestKey?: string;
       readonly error: string;
       readonly runId?: string;
       readonly currentRevision?: number;

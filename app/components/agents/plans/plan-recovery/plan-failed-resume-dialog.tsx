@@ -27,7 +27,6 @@ export function PlanFailedResumeDialog({
     if (!view) return;
     const answer = await recovery.submit({
       action: "resume",
-      revision: view.currentPlanRevision,
       confirmContinue: true,
     });
     if (answer?.runId) onClose();

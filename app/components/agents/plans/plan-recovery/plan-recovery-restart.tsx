@@ -23,7 +23,6 @@ export function PlanRecoveryRestart({
   function handleRestart(): void {
     onSubmit({
       action: "restart",
-      revision: view.currentPlanRevision,
       confirmRepeat: true,
       reviewedStepIds: view.restart.reviewStepIds ?? [],
     });

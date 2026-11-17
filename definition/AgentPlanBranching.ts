@@ -48,11 +48,7 @@ export type AgentPlanEdgeKind = "flow" | "branch" | "condition" | "event";
  * the branch and the port of the edge it activates are the same text.
  */
 export type AgentPlanBranch =
-  | "true"
-  | "false"
-  | "error"
-  | "timeout"
-  | `case:${string}`;
+  "true" | "false" | "error" | "timeout" | `case:${string}`;
 
 /**
  * How often one node may start again inside one run.

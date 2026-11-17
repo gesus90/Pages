@@ -1,5 +1,8 @@
 import { planStartIssues } from "@/definition/AgentPlanStart";
-import { planCallableEntries, planEntryContract } from "@/definition/AgentPlanJump";
+import {
+  planCallableEntries,
+  planEntryContract,
+} from "@/definition/AgentPlanJump";
 import { canRunPlan } from "@/definition/AgentPlanTeam";
 
 import type {

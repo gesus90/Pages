@@ -1,3 +1,5 @@
+import { isDeepStrictEqual } from "node:util";
+
 import { readStoredAgentPayload } from "@/backend/storage/AgentPayloadFileStore";
 import { requireAgentFiles } from "@/backend/storage/AgentPayloadFileStore";
 import { storedPlanBranchState } from "@/backend/service/agents/branching/AgentPlanBranchPersistence";
@@ -452,6 +454,11 @@ export class AgentPlanProgressRepository {
     checkpoint?: AgentPlanCheckpointInput,
   ): Promise<void> {
     if (previous.run.resourceReleases?.length) return;
+    if (
+      !checkpoint &&
+      isDeepStrictEqual(readPlanRun(previous.run), readPlanRun(run))
+    )
+      return;
     requireSettledWork(previous, run, checkpoint);
     const revision = previous.revision + 1;
     if (checkpoint) {

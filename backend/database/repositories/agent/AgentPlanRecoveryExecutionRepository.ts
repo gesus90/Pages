@@ -1,3 +1,4 @@
+import { AgentPlanRecoveryReplayed } from "@/backend/error/AgentPlanRecoveryReplayed";
 import { isDeepStrictEqual } from "node:util";
 
 import { readStoredAgentPayload } from "@/backend/storage/AgentPayloadFileStore";
@@ -48,9 +49,9 @@ export interface RecoveryExecutionWrite {
  * Journals restarts, resumes and releases of a disturbed run.
  * @remarks
  * A decision is written in the transaction that creates its new run, after a
- * revision check of the earlier run and before its revision advances; a
- * second request with the same key returns the first result, and a request
- * against an older revision is refused. Nothing here starts a process.
+ * row lock of the earlier run and before its audit counter advances. A
+ * repeated key returns the first result; another command from the same source
+ * reuses its existing continuation. Nothing here starts a process.
  */
 export class AgentPlanRecoveryExecutionRepository {
   private readonly database: Pick<
@@ -114,6 +115,23 @@ export class AgentPlanRecoveryExecutionRepository {
     );
   }
 
+  /** Reuses the first successful continuation of this exact source run across tabs. */
+  public async continued(
+    runId: string,
+  ): Promise<AgentPlanRecoveryResult | null> {
+    const [row] = await this.database.query(
+      `SELECT result_json FROM agent_plan_recovery_executions
+       WHERE run_id = $run_id AND target_run_id IS NOT NULL
+       ORDER BY result_revision LIMIT 1;`,
+      { run_id: runId },
+    );
+    return row
+      ? readPlanRecoveryResult(
+          JSON.parse(readTextColumn(row, 0, "result_json")),
+        )
+      : null;
+  }
+
   /**
    * Returns the result of an earlier request with the same key.
    *
@@ -150,20 +168,44 @@ export class AgentPlanRecoveryExecutionRepository {
   /**
    * Journals a decision and advances the earlier run's recovery revision.
    *
-   * @throws {AgentPlanRecoveryError} `revision_conflict` when the run changed
-   * since the executor read it.
+   * The counter is allocated under the row lock and is audit ordering only.
    */
   public async record(
     transaction: DatabaseTransaction,
     write: RecoveryExecutionWrite,
-  ): Promise<void> {
-    const { command, execution, result } = write;
+  ): Promise<AgentPlanRecoveryResult> {
+    const { command } = write;
     const [row] = await transaction.query(
-      "SELECT recovery_revision FROM agent_plan_runs WHERE id = $id;",
-      { id: execution.runId },
+      "SELECT recovery_revision FROM agent_plan_runs WHERE id = $id FOR UPDATE;",
+      { id: write.execution.runId },
     );
-    if (!row || Number(row[0]) !== command.expectedRevision)
-      throw new AgentPlanRecoveryError("revision_conflict");
+    if (!row) throw new AgentPlanRecoveryError("access_denied");
+    const repeated = await this.replay(
+      write.execution.runId,
+      command,
+      write.requestDigest,
+      transaction,
+    );
+    if (repeated) throw new AgentPlanRecoveryReplayed(repeated);
+    if (write.execution.targetRunId !== null) {
+      const [linked] = await transaction.query(
+        `SELECT result_json FROM agent_plan_recovery_executions
+         WHERE run_id = $run_id AND target_run_id IS NOT NULL
+         ORDER BY result_revision LIMIT 1;`,
+        { run_id: write.execution.runId },
+      );
+      if (linked)
+        throw new AgentPlanRecoveryReplayed(
+          readPlanRecoveryResult(
+            JSON.parse(readTextColumn(linked, 0, "result_json")),
+          ),
+        );
+    }
+    const previous = Number(row[0]);
+    if (!Number.isSafeInteger(previous) || previous < 0)
+      throw new AgentPlanRecoveryError("checkpoint_invalid");
+    const result = { ...write.result, revision: previous + 1 };
+    const execution = { ...write.execution, revision: result.revision };
     await transaction.execute(
       `
         INSERT INTO agent_plan_recovery_executions (
@@ -188,7 +230,7 @@ export class AgentPlanRecoveryExecutionRepository {
         action: execution.action,
         idempotency_key: planContentDigest(command.idempotencyKey),
         request_digest: write.requestDigest,
-        expected_revision: command.expectedRevision,
+        expected_revision: previous,
         result_revision: result.revision,
         target_run_id: execution.targetRunId,
         execution_json: JSON.stringify(execution),
@@ -205,9 +247,10 @@ export class AgentPlanRecoveryExecutionRepository {
       {
         id: execution.runId,
         revision: result.revision,
-        previous_revision: command.expectedRevision,
+        previous_revision: previous,
       },
     );
+    return result;
   }
 
   /** Releases an ended run only if the facts checked during closeout are still current. */
@@ -389,7 +432,7 @@ export class AgentPlanRecoveryExecutionRepository {
   ): Promise<void> {
     await this.database.transaction(async (transaction) => {
       if (releasedRun) await requireUnchangedRun(transaction, releasedRun);
-      await this.record(transaction, write);
+      const result = await this.record(transaction, write);
       if (!releasedRun) return;
       const run =
         releasedRun.stopRequested &&
@@ -423,7 +466,7 @@ export class AgentPlanRecoveryExecutionRepository {
             run_id: run.id,
             status: run.status,
             view_json: JSON.stringify(run),
-            revision: write.result.revision,
+            revision: result.revision,
           },
         );
       await releaseCheckedWorkspaceLocks(transaction, run, "user_requested");
@@ -445,12 +488,12 @@ async function requireUnchangedRun(
     "SELECT view_json FROM agent_plan_runs WHERE id = $id;",
     { id: expected.id },
   );
-  if (!row) throw new AgentPlanRecoveryError("revision_conflict");
+  if (!row) throw new AgentPlanRecoveryError("action_unavailable");
   const current = readPlanRun(JSON.parse(readTextColumn(row, 0, "view_json")));
   if (current.runnerJobs?.some((job) => job.closeout !== "confirmed"))
     throw new AgentPlanRecoveryError("action_unavailable");
   if (!isDeepStrictEqual(current, expected))
-    throw new AgentPlanRecoveryError("revision_conflict");
+    throw new AgentPlanRecoveryError("action_unavailable");
 }
 
 const UNFINISHED_STEPS: ReadonlySet<string> = new Set([

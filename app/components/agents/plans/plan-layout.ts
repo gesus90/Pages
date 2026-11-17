@@ -121,13 +121,7 @@ export function planNodeLabel(
 ): string {
   if (node.type === "start") return firstFilledText(node.name) || node.type;
   if (node.type === "end") return node.type;
-  if (node.type === "jump")
-    return (
-      firstFilledText(
-        node.name,
-        node.direction === "out" ? node.target?.planName : undefined,
-      ) || node.type
-    );
+  if (node.type === "jump") return jumpLabel(node);
   if (node.type === "signal")
     return firstFilledText(node.name) || node.signalName;
   if (node.type === "decision" || node.type === "swarm")
@@ -137,10 +131,23 @@ export function planNodeLabel(
     return task ? `${task.key}: ${task.title}` : node.taskId;
   }
   if (node.type !== "agent") return node.name;
+  return agentLabel(node, sources);
+}
+
+function agentLabel(node: AgentPlanStep, sources: AgentPlanSources): string {
   return (
     node.configuration?.name ??
     sources.agents.find((entry) => entry.id === node.agentId)?.name ??
     node.agentId
+  );
+}
+
+function jumpLabel(node: Extract<AgentPlanNode, { type: "jump" }>): string {
+  return (
+    firstFilledText(
+      node.name,
+      node.direction === "out" ? node.target?.planName : undefined,
+    ) || node.type
   );
 }
 

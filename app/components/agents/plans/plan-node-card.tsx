@@ -18,6 +18,17 @@ import { planPortLayout, usePlanFlowPorts } from "./use-plan-flow-ports";
 
 import type { NodeProps } from "@xyflow/react";
 import type { PlanFlowNode } from "./plan-flow-model";
+import type { AgentPlanRun, AgentPlanStepResult } from "@/definition/AgentPlan";
+
+function nodeResult(
+  run: AgentPlanRun | null,
+  nodeId: string,
+): AgentPlanStepResult | undefined {
+  return (
+    run?.steps.find((step) => step.id === nodeId) ??
+    planLoopMemberResult(run, nodeId)
+  );
+}
 
 /**
  * Custom React Flow cards retain the Pages instance, ports and recorded run states.
@@ -32,9 +43,7 @@ export function PlanNodeCard({
 }: NodeProps<PlanFlowNode>): React.ReactElement {
   const context = usePlanFlowContext();
   const { sources, graph, canEdit, run } = context;
-  const result =
-    run?.steps.find((step) => step.id === node.id) ??
-    planLoopMemberResult(run, node.id);
+  const result = nodeResult(run, node.id);
   usePlanFlowPorts(node, sources, planPortLayout(context.draft, node, result));
   if (node.type === "start" || node.type === "end")
     return (

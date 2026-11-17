@@ -29,15 +29,20 @@ export function projectManagedRunnerJob(
 ): AgentPlanRun {
   const { job, result } = input;
   const binding = job.plan;
-  if (!binding?.managed) return run;
+  if (
+    !binding?.managed ||
+    binding.runId !== run.id ||
+    binding.planId !== run.planId
+  )
+    return run;
   const isDetached =
     input.isDetached || run.stopRequested || !isActivePlanRun(run.status);
-  const reference = runnerJobReference(
-    job,
-    binding,
-    result,
-    input.connectionId,
+  const incoming = runnerJobReference(job, binding, result, input.connectionId);
+  const previous = run.runnerJobs?.find(
+    (entry) => entry.jobId === incoming.jobId,
   );
+  if (previous && !hasSameJobIdentity(previous, incoming)) return run;
+  const reference = previous?.closeout === "confirmed" ? previous : incoming;
   const runnerJobs = mergeRunnerJobs(run, reference);
   const update = (step: AgentPlanStepResult): AgentPlanStepResult => {
     // The attached engine owns acceptance, session retention and its journal.
@@ -99,7 +104,8 @@ function closeDetachedSession(
     turnEndedAt: endedAt,
     sessionId: result.terminal?.sessionId ?? record.sessionId,
     exit: { code: result.exitCode ?? null, signal: result.signal ?? null },
-    ...(reference.closeout === "confirmed"
+    ...(reference.closeout === "confirmed" &&
+    job.launch?.isolation === "pid_namespace"
       ? { containment: "pid_namespace" }
       : {}),
   };
@@ -148,14 +154,24 @@ function runnerJobReference(
   };
 }
 
+function hasSameJobIdentity(
+  previous: PlanRunnerJob,
+  incoming: PlanRunnerJob,
+): boolean {
+  return (
+    previous.connectionId === incoming.connectionId &&
+    previous.attemptId === incoming.attemptId &&
+    previous.recordingAttemptId === incoming.recordingAttemptId &&
+    previous.stepId === incoming.stepId &&
+    previous.ownerStepId === incoming.ownerStepId
+  );
+}
+
 function mergeRunnerJobs(
   run: AgentPlanRun,
   reference: PlanRunnerJob,
 ): readonly PlanRunnerJob[] {
-  const previous = (run.runnerJobs ?? []).filter(
-    (entry) =>
-      entry.closeout !== "confirmed" || entry.jobId === reference.jobId,
-  );
+  const previous = run.runnerJobs ?? [];
   return previous.some((entry) => entry.jobId === reference.jobId)
     ? previous.map((entry) =>
         entry.jobId === reference.jobId ? reference : entry,

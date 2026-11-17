@@ -108,10 +108,7 @@ function edgeAttributes(
   if (!source || target.type === "group") return null;
   const isLoop = target.type === "loop";
   // A value port is read by name; a loop takes only its count and its while input.
-  if (binding.kind === "port")
-    return !isLoop && (isPlanEntryNode(source) || isPlanJumpOut(source))
-      ? [wordEntry("port", binding.port)]
-      : null;
+  if (binding.kind === "port") return portAttributes(binding, source, isLoop);
   if (binding.kind === "source")
     return ["parameter", "task", "variable"].includes(source.type) ? [] : null;
   if (binding.kind === "stack") {
@@ -122,6 +119,16 @@ function edgeAttributes(
   if (isLoop || !isPlanResultNode(source)) return null;
   if (binding.kind === "result") return [];
   return binding.kind === "previous" ? [wordEntry("previous", "true")] : null;
+}
+
+function portAttributes(
+  binding: Extract<AgentPlanBinding, { kind: "port" }>,
+  source: AgentPlanNode,
+  isLoop: boolean,
+): readonly PlanNotationEntry[] | null {
+  return !isLoop && (isPlanEntryNode(source) || isPlanJumpOut(source))
+    ? [wordEntry("port", binding.port)]
+    : null;
 }
 
 /** The node a binding other than a fixed value reads. */

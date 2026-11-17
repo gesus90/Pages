@@ -71,7 +71,6 @@ function resumeMode(
 /**
  * Decides on the current facts whether the run continues, and how.
  * @param facts - The rights-checked facts of the interrupted run.
- * @param revision - The recovery revision of the run.
  * @param attempt - Which automatic continuation this is.
  * @returns The resume command, or the reason nothing starts.
  * @remarks
@@ -81,7 +80,6 @@ function resumeMode(
  */
 export function automaticResumeDecision(
   facts: RecoveryFacts,
-  revision: number,
   attempt: number,
 ): AgentPlanAutomaticResumeDecision {
   if (!facts.run.steps.every(canResumeAfterRestart)) return "failure_class";
@@ -96,7 +94,6 @@ export function automaticResumeDecision(
     mode,
     revision: facts.plan.revision,
     reviewedStepIds: plan.retriedStepIds,
-    expectedRevision: revision,
     idempotencyKey: `automatic-resume:${facts.run.id}:${attempt}`,
   };
 }
@@ -148,8 +145,7 @@ export class AgentPlanAutoResume {
       const result = await this.dependencies.recovery.automaticResume(
         async (actions: AgentPlanRecoveryActions) => {
           const { facts } = await actions.facts(run.userId, run.id);
-          const { revision } = await actions.sourceRevision(run.id);
-          return automaticResumeDecision(facts, revision, attempt);
+          return automaticResumeDecision(facts, attempt);
         },
         { userId: run.userId, runId: run.id, automaticAttempt: attempt },
       );

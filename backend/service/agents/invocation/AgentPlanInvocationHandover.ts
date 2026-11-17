@@ -24,8 +24,7 @@ function otherWork(active: ActivePlanRun, nodeId: string): readonly string[] {
  * Brings the calling run to rest before its workspace is handed to the called run.
  * @param active - The calling run.
  * @param nodeId - The waiting Jump node.
- * @param signal - Aborts the wait, as a stop of the run does.
- * @param deadline - The end of the Jump's wait as a time, or `null` for none.
+ * @param options - The stop signal and the end of the Jump's wait, or `null` for no deadline.
  * @throws {AgentError} `plan_jump_handover_unavailable` when the run keeps a
  * session open, when another call of the run waits at the same time, or when
  * the other work does not settle before the deadline.

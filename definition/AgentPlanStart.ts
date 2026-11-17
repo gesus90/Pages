@@ -6,7 +6,11 @@ import { planBindingNodes } from "./AgentPlanStackGraph";
 import { expandPlanLoops } from "./AgentPlanLoop";
 import { isPlanEntryCallable, isPlanEntryNode } from "./AgentPlanJump";
 
-import type { AgentPlanInput, AgentPlanNode } from "./AgentPlan";
+import type {
+  AgentPlanBinding,
+  AgentPlanInput,
+  AgentPlanNode,
+} from "./AgentPlan";
 import type { AgentPlanIssue } from "./AgentPlanGraph";
 
 /**
@@ -107,9 +111,7 @@ export function planStartIssues(
       : [{ nodeId: entryNodeId, port: null, reason: "startEndDisconnected" }];
   }
   const active = executionIds(plan, undefined);
-  if (
-    plan.nodes.some((node) => node.type === "start" && active.has(node.id))
-  )
+  if (plan.nodes.some((node) => node.type === "start" && active.has(node.id)))
     return [];
   const receivesCalls = plan.nodes.some(
     (node) => node.type === "jump" && node.direction === "in",
@@ -170,10 +172,7 @@ export function executablePlan<Plan extends AgentPlanInput>(
     }
   }
   for (const node of flow)
-    if (node.type === "end")
-      for (const binding of Object.values(node.bindings ?? {})) {
-        if (binding.kind === "source") sources.add(binding.nodeId);
-      }
+    if (node.type === "end") addEndSources(sources, node.bindings);
   const decisions = expandPlanLoops(
     expandPlanGroups({ ...plan, nodes: flow }),
   ).nodes;
@@ -206,4 +205,12 @@ export function executablePlan<Plan extends AgentPlanInput>(
       (edge) => retained.has(edge.from) && retained.has(edge.to),
     ),
   };
+}
+
+function addEndSources(
+  sources: Set<string>,
+  bindings: Readonly<Record<string, AgentPlanBinding>> | undefined,
+): void {
+  for (const binding of Object.values(bindings ?? {}))
+    if (binding.kind === "source") sources.add(binding.nodeId);
 }

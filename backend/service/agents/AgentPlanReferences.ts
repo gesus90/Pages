@@ -56,7 +56,9 @@ function referenceValues(node: AgentPlanNode): readonly PlanReference[] {
         values.push({ value: binding.value, parameter: name });
   // A default of an input another plan may leave unset is a stored reference like any other.
   if (node.type === "start" || node.type === "jump")
-    for (const input of node.type === "start" ? (node.inputs ?? []) : node.inputs)
+    for (const input of node.type === "start"
+      ? (node.inputs ?? [])
+      : node.inputs)
       if (input.defaultValue)
         values.push({ value: input.defaultValue, parameter: input.name });
   return values;

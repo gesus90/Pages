@@ -71,8 +71,10 @@ function endedVerdict(
     outcome: null,
   });
   if (record.wait === "signal") return failed("plan_jump_no_signal");
-  if (hasUnconfirmedRunCloseout(target)) return failed("plan_jump_cleanup_open");
-  if (target.status === "cancelled") return failed("plan_jump_target_cancelled");
+  if (hasUnconfirmedRunCloseout(target))
+    return failed("plan_jump_cleanup_open");
+  if (target.status === "cancelled")
+    return failed("plan_jump_target_cancelled");
   if (target.status !== "succeeded") return failed("plan_jump_target_failed");
   return "wait";
 }
@@ -252,21 +254,20 @@ export class AgentPlanInvocationWait {
     signal: AbortSignal,
   ): Promise<void> {
     return new Promise<void>((resolve) => {
-      let timer: ReturnType<typeof setTimeout> | undefined;
       const wake = (): void => {
-        if (timer) clearTimeout(timer);
+        clearTimeout(timer);
         unsubscribe();
         signal.removeEventListener("abort", wake);
         resolve();
       };
       const unsubscribe = this.dependencies.wakeups.subscribe(record.id, wake);
+      const timer = setTimeout(wake, this.delay(record));
+      timer.unref();
       signal.addEventListener("abort", wake, { once: true });
       if (signal.aborted) {
         wake();
         return;
       }
-      timer = setTimeout(wake, this.delay(record));
-      timer.unref();
     });
   }
 
@@ -276,7 +277,8 @@ export class AgentPlanInvocationWait {
       record.deadlineAt === null
         ? SAFETY_RECHECK_MS
         : Date.parse(record.deadlineAt) - Date.now();
-    const ended = record.targetStatus !== null && record.targetStatus !== "running";
+    const ended =
+      record.targetStatus !== null && record.targetStatus !== "running";
     const limit = ended ? CLEANUP_RECHECK_MS : SAFETY_RECHECK_MS;
     return Math.max(50, Math.min(untilDeadline, limit, MAXIMUM_TIMER_MS));
   }

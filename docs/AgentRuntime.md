@@ -537,6 +537,15 @@ bubblewrap works; OpenCode, Antigravity and Pica conversations refuse
 minute after a failed probe, so installing either needs no restart. See
 [Access modes](AgentPlanRunner.md#access-modes-lesend-and-yolo).
 
+Git credential helpers are prepared through the same credential service for
+local ACP and managed runner sessions. Before launch their files become
+read-only (0400), and their directory becomes read-only and searchable (0500).
+The server briefly restores directory write access for its ownership marker
+and for cleanup after process closeout. Native YOLO adds no mount wrapper.
+These file modes prevent accidental overwrites; a process of the same Linux
+account can deliberately change them. Repository and reference grants are
+therefore checked by the Git bridge on the server for every transfer.
+
 Shared run notes have been removed. Plan runs do not create notes
 directories, step files or pause markers and do not add notes instructions or
 filesystem access. Existing `{{@run.notes}}` occurrences in agent templates or

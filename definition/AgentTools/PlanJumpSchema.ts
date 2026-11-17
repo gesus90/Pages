@@ -19,9 +19,9 @@ export interface PlanJumpSchemaParts {
 }
 
 /** The types of the values an entry accepts and returns. */
-const VALUE_TYPE: PropertySchema = {
+const VALUE_TYPE = {
   enum: ["text", "number", "ticket", "workspace", "wiki", "asset"],
-};
+} as const satisfies PropertySchema;
 
 const TARGET: PropertySchema = {
   oneOf: [
@@ -48,7 +48,11 @@ const TIMEOUT: PropertySchema = {
       type: "object",
       properties: {
         kind: { const: "minutes" },
-        minutes: { type: "integer", minimum: 1, maximum: PLAN_JUMP_MAX_MINUTES },
+        minutes: {
+          type: "integer",
+          minimum: 1,
+          maximum: PLAN_JUMP_MAX_MINUTES,
+        },
       },
       required: ["kind", "minutes"],
       additionalProperties: false,

@@ -33,19 +33,12 @@ import {
 import { PLAN_ASSET_NAME_LENGTH, planAssets } from "./AgentPlanAsset";
 import { isPlanStackTriggered } from "./AgentPlanStack";
 import { planAvailabilityIssues } from "./AgentPlanProfile";
-import {
-  fitsPlanPortType,
-  isPlanEntryNode,
-  isPlanJumpOut,
-  planJumpIssues,
-  planPortType,
-} from "./AgentPlanJump";
+import { isPlanEntryNode, planJumpIssues } from "./AgentPlanJump";
 
 import type { AgentDefinitionChoice } from "./AgentAvailability";
 import type { AgentParameter } from "./AgentParameters";
 import type { AgentPlanGitCloseout } from "./AgentPlanGitCloseout";
 import type { AgentPlanScript } from "./AgentPlanScript";
-import type { AgentPlanTargetProblem } from "./AgentPlanTarget";
 import type {
   AgentPlanEdge,
   AgentPlanInput,
@@ -54,108 +47,8 @@ import type {
   AgentPlanBinding,
 } from "./AgentPlan";
 
-/** A stable port reference lets the editor and server explain the same invalid connection. */
-export interface AgentPlanIssue {
-  readonly asset?: {
-    readonly id: string;
-    readonly name: string;
-    readonly cause: string;
-  };
-  readonly nodeId: string | null;
-  readonly port: string | null;
-  readonly reason:
-    | "startEndDisconnected"
-    | "remoteTicketUnavailable"
-    | "remoteWikiUnavailable"
-    | "remoteWorkspaceParameter"
-    | "remoteAssetRunner"
-    | "remoteAssetUnavailable"
-    | "remoteAssetType"
-    | "remoteAssetsTooLarge"
-    | "remotePromptTooLarge"
-    | "remoteParameter"
-    | AgentPlanTargetProblem
-    | "groupSize"
-    | "groupProvider"
-    | "groupConfiguration"
-    | "groupOrder"
-    | "groupBoundary"
-    | "groupBinding"
-    | "loopSize"
-    | "loopBoundary"
-    | "loopRuns"
-    | "loopCondition"
-    | "loopPrevious"
-    | "loopProvider"
-    | "decisionCondition"
-    | "decisionBranch"
-    | "decisionInput"
-    | "decisionSequence"
-    | "decisionModel"
-    | "decisionQuestion"
-    | "decisionCases"
-    | "eventOrder"
-    | "eventFanout"
-    | "eventNesting"
-    | "branchBoundary"
-    | "branchProvider"
-    | "branchRemote"
-    | "branchGate"
-    | "stackScope"
-    | "stackOrder"
-    | "stackEntries"
-    | "stackRemote"
-    | "assetFile"
-    | "assetUnreadable"
-    | "loopWhile"
-    | "loopNested"
-    | "unsupportedRunNotes"
-    | "duplicateNode"
-    | "port"
-    | "duplicate"
-    | "cycle"
-    | "type"
-    | "ticketHandoff"
-    | "resultSource"
-    | "resultOrder"
-    | "resultMissing"
-    | "resultAmbiguous"
-    | "source"
-    | "required"
-    | "start"
-    | "end"
-    | "flowIn"
-    | "flowOut"
-    | "unreachable"
-    | "agent"
-    | "profileMissing"
-    | "profileInactive"
-    | "name"
-    | "json"
-    | "number"
-    | "boolean"
-    | "scriptConfiguration"
-    | "scriptReportTarget"
-    | "scriptReportGate"
-    | "loopScriptUnsupported"
-    | "scriptUnavailable"
-    | "gitCloseoutUnsupported"
-    | "swarmRemoteUnsupported"
-    | "swarmIncomplete"
-    | "swarmInvalid"
-    | "jumpTarget"
-    | "jumpEntry"
-    | "jumpInterface"
-    | "jumpWait"
-    | "jumpTimeout"
-    | "jumpWorkspace"
-    | "jumpInput"
-    | "jumpBoundary"
-    | "jumpCycle"
-    | "returnContract"
-    | "signalName"
-    | "manualStart";
-}
+import type { AgentPlanIssue } from "./AgentPlanIssue";
+export type { AgentPlanIssue } from "./AgentPlanIssue";
 
 export { hasPlanPath } from "./AgentPlanPath";
 export { removePlanNode } from "./AgentPlanRemoval";
@@ -333,29 +226,6 @@ function resultIssue(
   if (!isPlanResultNode(plan.nodes.find((node) => node.id === sourceId)))
     return "resultSource";
   return hasPlanPath(plan.edges, sourceId, step.id) ? null : "resultOrder";
-}
-
-/**
- * Why a port binding cannot deliver to an input of the given type, or `null` when it can.
- * @remarks
- * An input of a receiving entry keeps its type. A value a call handed back reaches an agent or script
- * only as text, because it is filled in when the node starts: text stays text and a number is written out.
- */
-function portBindingIssue(
-  step: AgentPlanStep | AgentPlanScript | AgentPlanGitCloseout,
-  binding: Extract<AgentPlanBinding, { kind: "port" }>,
-  plan: AgentPlanInput,
-  parameterType: AgentParameter["type"],
-): "type" | "resultOrder" | null {
-  const delivered = planPortType(plan, binding.nodeId, binding.port);
-  if (delivered === null) return "type";
-  const source = plan.nodes.find((node) => node.id === binding.nodeId);
-  if (!isPlanJumpOut(source))
-    return fitsPlanPortType(delivered, parameterType) ? null : "type";
-  if (parameterType !== "text" || !["text", "number"].includes(delivered))
-    return "type";
-  // A returned value exists only after the call, so the input runs behind its Jump.
-  return hasPlanPath(plan.edges, source.id, step.id) ? null : "resultOrder";
 }
 
 function fitsBinding(
@@ -602,10 +472,7 @@ function flowNodeIssues(
   const ends = plan.nodes.filter((entry) => entry.type === "end");
   // An event enters an agent that already ran; it never replaces the connection that starts it.
   const ordering = planOrderEdges(plan.edges);
-  if (
-    !isPlanEntryNode(node) &&
-    !ordering.some((edge) => edge.to === node.id)
-  )
+  if (!isPlanEntryNode(node) && !ordering.some((edge) => edge.to === node.id))
     issues.push({
       nodeId: node.id,
       port: "flow-in",

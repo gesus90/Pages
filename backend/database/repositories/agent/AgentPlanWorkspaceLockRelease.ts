@@ -28,7 +28,7 @@ export async function releaseCheckedWorkspaceLocks(
   );
   // Display projections such as manualInputAt do not change stored execution ownership.
   if (!isDeepStrictEqual(stored, readPlanRun(run)))
-    throw new AgentPlanRecoveryError("revision_conflict");
+    throw new AgentPlanRecoveryError("action_unavailable");
   const [pending] = await transaction.query(
     `
     SELECT 1

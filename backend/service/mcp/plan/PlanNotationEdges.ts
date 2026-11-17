@@ -278,11 +278,7 @@ function connectOrder(
   spec: PlanNotationEdgeSpec,
 ): PlanNotationEdgeResult {
   const { source, target } = link;
-  if (
-    spec.output !== undefined ||
-    spec.port !== undefined ||
-    spec.isPrevious
-  )
+  if (spec.output !== undefined || spec.port !== undefined || spec.isPrevious)
     return refused("invalid_value", source.id);
   if (spec.branch !== undefined) {
     if (!hasBranchOutput(source, spec.branch))

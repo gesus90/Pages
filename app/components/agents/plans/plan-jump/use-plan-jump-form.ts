@@ -35,10 +35,7 @@ type PlanJumpEntryChange = Partial<
 
 /** What of a calling Jump the dialog changes. */
 type PlanJumpCallChange = Partial<
-  Pick<
-    AgentPlanJumpOut,
-    "signalName" | "timeout" | "workspace" | "payloadType"
-  >
+  Pick<AgentPlanJumpOut, "signalName" | "timeout" | "workspace" | "payloadType">
 >;
 
 /** The findings of the settings, as the dialog names them. */

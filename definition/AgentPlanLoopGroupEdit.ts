@@ -74,7 +74,7 @@ function withoutReaders<Node extends AgentPlanNode>(
   node: Node,
   members: ReadonlySet<string>,
 ): { readonly node: Node; readonly dropped: number } {
-  if (!("bindings" in node)) return { node, dropped: 0 };
+  if (!("bindings" in node) || !node.bindings) return { node, dropped: 0 };
   const entries = Object.entries(node.bindings);
   const kept = entries.filter(
     ([, binding]) =>

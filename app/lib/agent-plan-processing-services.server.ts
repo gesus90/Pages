@@ -7,6 +7,7 @@ import { AgentPlanStartResourceRepository } from "@/backend/database/repositorie
 import { AgentPlanStartResources } from "@/backend/service/agents/AgentPlanStartResources";
 import { AgentPlanInvocationRepository } from "@/backend/database/repositories/agent/AgentPlanInvocationRepository";
 import { AgentPlanInvocations } from "@/backend/service/agents/invocation/AgentPlanInvocations";
+import { canProcessRuns } from "@/backend/runtime/RunsMode";
 import { AgentPlanRunEngine } from "@/backend/service/agents/AgentPlanRunEngine";
 import { AgentPlanWorkGate } from "@/backend/service/agents/AgentPlanWorkGate";
 import { AgentSessionRepository } from "@/backend/database/repositories/agent/AgentSessionRepository";
@@ -114,14 +115,7 @@ export async function createProcessingCore(
     parameters: parts.parameters,
     tasks: parts.tasks,
   });
-  const invocations = canProcessRuns()
-    ? new AgentPlanInvocations({
-        invocations: new AgentPlanInvocationRepository(input.database),
-        access: parts.access,
-        runs: parts.runs,
-        preparation,
-      })
-    : undefined;
+  const invocations = createInvocations(input.database, parts, preparation);
   const engine = await createAttachedPlanEngine(input, {
     execution: parts.execution,
     runnerScripts: parts.runnerScripts,
@@ -169,6 +163,20 @@ export async function createProcessingCore(
     diagnosis,
     workspaceLocks,
   };
+}
+
+function createInvocations(
+  database: Database,
+  parts: Pick<PlanDependencies, "access" | "runs">,
+  preparation: ReturnType<typeof createPlanPreparation>,
+): AgentPlanInvocations | undefined {
+  if (!canProcessRuns()) return undefined;
+  return new AgentPlanInvocations({
+    invocations: new AgentPlanInvocationRepository(database),
+    access: parts.access,
+    runs: parts.runs,
+    preparation,
+  });
 }
 
 /** The stores and gates of the plan service that need only the instance's own services. */

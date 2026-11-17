@@ -40,7 +40,8 @@ export function planEdgeState(
   if (source.stack?.entryId === null) return "dead";
   const branch = planEdgeBranch(edge);
   // An outgoing Jump that took its error or timeout output leaves its normal exit unused.
-  if (branch === null) return source.branch === undefined ? "satisfied" : "dead";
+  if (branch === null)
+    return source.branch === undefined ? "satisfied" : "dead";
   return source.branch === branch ? "satisfied" : "dead";
 }
 

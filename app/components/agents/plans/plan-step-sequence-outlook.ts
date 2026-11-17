@@ -71,6 +71,17 @@ function isDeadJumpEdge(
   return source?.status !== "failed" && branch !== null;
 }
 
+function isDeadDecisionEdge(
+  edge: AgentPlanEdge,
+  source: AgentPlanStepResult | undefined,
+): boolean {
+  const branch = planEdgeBranch(edge);
+  if (branch === null) return false;
+  return source?.status === "succeeded"
+    ? source.branch !== branch
+    : branch === "false";
+}
+
 /**
  * Whether an edge cannot release its target in this round.
  * @remarks
@@ -89,13 +100,7 @@ function isDeadEdge(
   if (state?.isDead || source?.status === "skipped") return true;
   if (node?.type === "jump" && node.direction === "out")
     return isDeadJumpEdge(edge, source);
-  if (node?.type === "decision") {
-    const branch = planEdgeBranch(edge);
-    if (branch === null) return false;
-    return source?.status === "succeeded"
-      ? source.branch !== branch
-      : branch === "false";
-  }
+  if (node?.type === "decision") return isDeadDecisionEdge(edge, source);
   return source?.status === "succeeded" && source.stack?.entryId === null;
 }
 

@@ -16,6 +16,7 @@ import type { AgentParameterType } from "@/definition/AgentParameters";
 import type {
   AgentPlanBinding,
   AgentPlanEnd,
+  AgentPlanNode,
   AgentPlanPosition,
   AgentPlanStart,
 } from "@/definition/AgentPlan";
@@ -39,6 +40,19 @@ export interface PlanJumpReaders {
 }
 
 type NodeBase = AgentPlanPosition & { readonly id: string };
+
+/** Reads a call entry, exit or signal; other node families keep their own parser. */
+export function readPlanEntryNode(
+  node: Record<string, unknown>,
+  base: NodeBase,
+  readers: PlanJumpReaders,
+): AgentPlanNode | null {
+  if (node.type === "start") return readPlanStartNode(node, base, readers);
+  if (node.type === "end") return readPlanEndNode(node, base, readers);
+  if (node.type === "jump") return readPlanJumpNode(node, base, readers);
+  if (node.type === "signal") return readPlanSignalNode(node, base, readers);
+  return null;
+}
 
 const TYPES: readonly AgentParameterType[] = [
   "text",
@@ -81,7 +95,8 @@ export function readEntryInputs(
       defaultValue,
     };
   });
-  if (!arePlanEntryInputsValid(inputs)) throw new AgentError("plan_jump_invalid");
+  if (!arePlanEntryInputsValid(inputs))
+    throw new AgentError("plan_jump_invalid");
   return inputs;
 }
 

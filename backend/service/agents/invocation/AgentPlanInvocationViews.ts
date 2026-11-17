@@ -4,7 +4,10 @@ import type { AgentPlanRun, AgentPlanStepResult } from "@/definition/AgentPlan";
 import type { AgentPlanJumpRun } from "@/definition/AgentPlanJump";
 import type { PlanDependencies } from "../AgentPlanDependencies";
 
-type ViewDependencies = Pick<PlanDependencies, "invocations" | "runs" | "access">;
+type ViewDependencies = Pick<
+  PlanDependencies,
+  "invocations" | "runs" | "access"
+>;
 
 /**
  * Whether the person may read the run now.
@@ -55,7 +58,8 @@ async function liveJump(
     state: record.state,
     targetRunId: mayFollow ? record.targetRunId : null,
     targetStatus:
-      target?.status ?? record.targetStatus ??
+      target?.status ??
+      record.targetStatus ??
       (record.start === "pending" ? "queued" : jump.targetStatus),
     deadlineAt: record.deadlineAt,
     handover: record.handover,
@@ -80,7 +84,10 @@ export async function withInvocationViews(
     run.steps.map(async (step) => {
       const visible = publicStep(step);
       return visible.jump
-        ? { ...visible, jump: await liveJump(dependencies, userId, visible.jump) }
+        ? {
+            ...visible,
+            jump: await liveJump(dependencies, userId, visible.jump),
+          }
         : visible;
     }),
   );

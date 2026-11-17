@@ -82,9 +82,7 @@ export class AgentPlanEngineStarts {
       (await this.context.dependencies.startResources?.blockers(snapshot)) ??
       [];
     if (blockers.length > 0)
-      throw new AgentPlanCallBlockedError(
-        blockers.map((owner) => owner.runId),
-      );
+      throw new AgentPlanCallBlockedError(blockers.map((owner) => owner.runId));
   }
 
   private async release(

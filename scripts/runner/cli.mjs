@@ -401,7 +401,7 @@ async function spawnOpenCode(command, jobId, signal, folder) {
     throw new Error("CLI selection unavailable");
   signal.throwIfAborted();
   const servers = await cliMcpServers(command, folder, jobId);
-  return spawnManagedCli(command, process.execPath, openCodeCommand(), {
+  return spawn(process.execPath, openCodeCommand(), {
     cwd: command.workspace,
     detached: true,
     stdio: ["pipe", "pipe", "pipe"],
@@ -445,7 +445,7 @@ async function spawnAntigravity(command, jobId, signal, folder) {
     );
   signal.throwIfAborted();
   const servers = await cliMcpServers(command, folder, jobId);
-  return spawnManagedCli(command, process.execPath, antigravityCommand(), {
+  return spawn(process.execPath, antigravityCommand(), {
     cwd: command.workspace,
     detached: true,
     stdio: ["pipe", "pipe", "pipe"],
@@ -514,8 +514,7 @@ export async function spawnCli(command, jobId, signal, folder) {
     throw new Error("CLI selection unavailable");
   signal.throwIfAborted();
   const mcpArguments = await pagesArguments(command, folder, jobId);
-  return spawnManagedCli(
-    command,
+  return spawn(
     tool,
     tool === "codex"
       ? codexArguments(command, mcpArguments)
@@ -534,33 +533,6 @@ export async function spawnCli(command, jobId, signal, folder) {
         PAGES_REMOTE_JOB: jobId,
       },
     },
-  );
-}
-
-/** Keeps repository helpers immutable for every native tool and its descendants. */
-function spawnManagedCli(command, executable, arguments_, options) {
-  const directory = command.runtimeContext?.readOnlyDirectory;
-  if (!directory) return spawn(executable, arguments_, options);
-  if (
-    typeof directory !== "string" ||
-    !directory.startsWith("/") ||
-    directory.includes("\0")
-  )
-    throw new Error("Invalid managed helper directory");
-  return spawn(
-    "/usr/bin/bwrap",
-    [
-      "--bind",
-      "/",
-      "/",
-      "--ro-bind",
-      directory,
-      directory,
-      "--",
-      executable,
-      ...arguments_,
-    ],
-    options,
   );
 }
 

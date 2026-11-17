@@ -156,13 +156,20 @@ export function planBindingPreview(
   binding: AgentPlanBinding,
   context: PlanValueContext,
 ): string {
-  const { draft, sources, translate } = context;
   if (binding.kind === "literal")
     return planValuePreview(binding.value, context);
   if (binding.kind === "result" || binding.kind === "previous")
     return resultBindingPreview(binding, context);
   if (binding.kind === "stack") return stackBindingPreview(binding, context);
   if (binding.kind === "port") return portBindingPreview(binding, context);
+  return sourceBindingPreview(binding, context);
+}
+
+function sourceBindingPreview(
+  binding: Extract<AgentPlanBinding, { kind: "source" }>,
+  context: PlanValueContext,
+): string {
+  const { draft, sources, translate } = context;
   const source = draft.nodes.find((node) => node.id === binding.nodeId);
   if (source?.type === "parameter")
     return planValuePreview(source.value, context);

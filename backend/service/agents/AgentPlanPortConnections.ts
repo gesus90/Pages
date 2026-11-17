@@ -182,10 +182,7 @@ type CallHolder = AgentPlanJumpOut | AgentPlanSignal | AgentPlanEnd;
 
 /** A node whose named inputs a value port can fill. */
 type ValueHolder =
-  | AgentPlanStep
-  | AgentPlanScript
-  | AgentPlanGitCloseout
-  | CallHolder;
+  AgentPlanStep | AgentPlanScript | AgentPlanGitCloseout | CallHolder;
 
 /** A value port connected to a named input: the node and input it fills, and the binding it makes. */
 interface ValueConnection {

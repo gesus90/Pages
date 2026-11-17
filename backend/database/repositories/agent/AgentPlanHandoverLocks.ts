@@ -143,21 +143,7 @@ export async function returnHandedOverPlanLocks(
       const keys: unknown = JSON.parse(
         readTextColumn(call, 2, "handover_keys_json"),
       );
-      for (const key of Array.isArray(keys) ? keys : [])
-        if (typeof key === "string")
-          await transaction.execute(
-            `
-            UPDATE agent_plan_workspace_locks
-            SET run_id = $source_run_id
-            WHERE workspace_id = $workspace_id
-                AND run_id = $target_run_id;
-          `,
-            {
-              source_run_id: sourceRunId,
-              target_run_id: targetRunId,
-              workspace_id: key,
-            },
-          );
+      await returnWorkspaceKeys(transaction, sourceRunId, targetRunId, keys);
     }
     await transaction.execute(
       `
@@ -166,6 +152,30 @@ export async function returnHandedOverPlanLocks(
       WHERE id = $id;
     `,
       { id: readTextColumn(call, 0, "id") },
+    );
+  }
+}
+
+async function returnWorkspaceKeys(
+  transaction: DatabaseTransaction,
+  sourceRunId: string,
+  targetRunId: string,
+  keys: unknown,
+): Promise<void> {
+  for (const key of Array.isArray(keys) ? keys : []) {
+    if (typeof key !== "string") continue;
+    await transaction.execute(
+      `
+      UPDATE agent_plan_workspace_locks
+      SET run_id = $source_run_id
+      WHERE workspace_id = $workspace_id
+          AND run_id = $target_run_id;
+    `,
+      {
+        source_run_id: sourceRunId,
+        target_run_id: targetRunId,
+        workspace_id: key,
+      },
     );
   }
 }

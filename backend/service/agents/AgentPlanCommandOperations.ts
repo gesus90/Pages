@@ -216,7 +216,10 @@ export class AgentPlanCommandOperations {
     const plan = await this.plans.view(userId, request.planId);
     if (!mayCommand(plan, request.operation))
       throw new AgentOperationError("FORBIDDEN");
-    if (plan.revision !== request.expectedRevision)
+    if (
+      !RUN_COMMANDS.has(request.operation) &&
+      plan.revision !== request.expectedRevision
+    )
       throw new AgentOperationError("CONFLICT", {
         currentRevision: plan.revision,
       });
@@ -325,14 +328,9 @@ export class AgentPlanCommandOperations {
     recorder: OperationRecorder<AgentPlanCommandResult>,
   ): AgentPlanRunJournal {
     return async (transaction, run) => {
-      await requirePlanRevision(
-        transaction,
-        request.planId,
-        request.expectedRevision,
-      );
       await recorder.store(transaction, {
         planId: request.planId,
-        revision: request.expectedRevision,
+        revision: run.continuation?.planRevision ?? run.planRevision,
         runId: run.id,
         ...(run.command ? { command: run.command } : {}),
       });
@@ -350,7 +348,7 @@ export class AgentPlanCommandOperations {
         : await this.plans.run(userId, runId);
     if (
       run.planId !== request.planId ||
-      run.userId !== userId ||
+      (run.userId !== userId && request.operation !== "plans.stop") ||
       run.id !== runId
     )
       throw new AgentOperationError("NOT_FOUND");

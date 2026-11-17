@@ -2,6 +2,8 @@ import { randomUUID } from "node:crypto";
 
 import { data as routeData, redirect } from "react-router";
 
+import { readPlanControlRun } from "@/backend/service/agents/AgentPlanControlAccess";
+import { AgentOperationError } from "@/backend/error/AgentOperationError";
 import { readTeams } from "@/app/lib/agent-plan-access-actions.server";
 import { readPlanOwnerParameter } from "@/backend/service/agents/AgentPlanTeamInput";
 import { readAgentObject } from "@/backend/agents/AgentPayload";
@@ -277,27 +279,33 @@ async function savePlan(
 /** Starts the saved revision, or saves the sent changes first and starts the revision that results. */
 async function playPlan(
   userId: string,
-  service: AgentPlanService,
+  services: ApplicationServices,
   formData: FormData,
 ): Promise<Response> {
+  const service = services.agentPlanService;
+  const requestKey = readPlanText(formData.get("requestKey"));
   const planId = readPlanText(formData.get("planId"));
   let run: AgentPlanRun;
   if (formData.has("plan"))
     run = await service.saveAndPlay(userId, planId, readPlanContent(formData));
   else {
-    const revision = Number(formData.get("revision"));
-    if (!Number.isSafeInteger(revision) || revision < 1)
-      throw new AgentError("plan_invalid");
-    // The person confirmed in a dialog that the open run ends and a new one begins.
-    run =
-      formData.get("replaceOpenRun") === "true"
-        ? await service.playReplacing(userId, planId, revision)
-        : await service.play(userId, planId, revision);
+    const result = await services.agentPlanCommands.write(
+      userId,
+      "plans.play",
+      {
+        planId,
+        operationId: requestKey,
+      },
+    );
+    if (!("runId" in result) || !result.runId)
+      throw new AgentError("plan_run_unavailable");
+    run = (await readPlanControlRun(service, userId, planId, result.runId)).run;
   }
   return Response.json(
     {
       ok: true,
       intent: "play-plan",
+      requestKey,
       planId,
       revision: run.planRevision,
       run: displayPlanRun(run),
@@ -369,7 +377,7 @@ export async function loader({
 /** Stops, pauses or resumes a run of the person and answers with the run as it is now. */
 async function runControlAction(
   userId: string,
-  plans: AgentPlanService,
+  services: ApplicationServices,
   request: {
     readonly intent: "stop-plan" | "pause-plan" | "resume-plan";
     readonly formData: FormData;
@@ -377,17 +385,32 @@ async function runControlAction(
 ): Promise<Response> {
   const { intent, formData } = request;
   const operations = {
-    "stop-plan": plans.stop.bind(plans),
-    "pause-plan": plans.pause.bind(plans),
-    "resume-plan": plans.resume.bind(plans),
-  };
-  const runId = readPlanText(formData.get("runId"));
-  const run =
-    intent === "resume-plan"
-      ? await plans.resume(userId, runId, Number(formData.get("revision")))
-      : await operations[intent](userId, runId);
+    "stop-plan": "plans.stop",
+    "pause-plan": "plans.pause",
+    "resume-plan": "plans.resume",
+  } as const;
+  const requestKey = readPlanText(formData.get("requestKey"));
+  const result = await services.agentPlanCommands.write(
+    userId,
+    operations[intent],
+    {
+      operationId: requestKey,
+      planId: readPlanText(formData.get("planId")),
+      runId: readPlanText(formData.get("runId")),
+    },
+  );
+  if (!("runId" in result) || !result.runId)
+    throw new AgentError("plan_run_unavailable");
+  const run = (
+    await readPlanControlRun(
+      services.agentPlanService,
+      userId,
+      result.planId,
+      result.runId,
+    )
+  ).run;
   return Response.json(
-    { ok: true, intent, run: displayPlanRun(run) },
+    { ok: true, intent, requestKey, run: displayPlanRun(run) },
     { headers: AGENT_NO_STORE },
   );
 }
@@ -419,17 +442,53 @@ function managementAction(intent: string): ManagementAction | null {
   }
 }
 
+/** Preserves a command key only on a definitive refusal, never on an unknown server outcome. */
+async function actionFailure(
+  error: unknown,
+  intent: string,
+  requestKey?: string,
+): Promise<Response> {
+  if (error instanceof AgentOperationError)
+    return Response.json(
+      {
+        ok: false,
+        intent,
+        requestKey,
+        error:
+          error.details && "reason" in error.details
+            ? error.details.reason
+            : "plan_run_unavailable",
+      },
+      { status: error.status, headers: AGENT_NO_STORE },
+    );
+  if (error instanceof AgentPlanRecoveryError)
+    return planRecoveryFailure(error);
+  const response = agentFailureResponse(
+    error instanceof SyntaxError ? new AgentError("plan_invalid") : error,
+    intent,
+  );
+  if (!requestKey || response.status >= 500) return response;
+  const payload: unknown = await response.json();
+  return Response.json(
+    { ...readAgentObject(payload), requestKey },
+    { status: response.status, headers: response.headers },
+  );
+}
+
 /**
  * Save, Create, Clone, Delete, Play, Pause, Resume and Stop use the authenticated executor and live server permissions.
  *
  * @remarks
- * Play only starts the revision the request names. The route still accepts
+ * Play starts the current saved plan. The route still accepts
  * the save-and-play form of earlier clients; the plan page never sends it.
  */
 export async function action(args: Route.ActionArgs): Promise<Response> {
   let intent = "";
+  let requestKey: string | undefined;
   try {
     const { user, services, formData } = await readSettingsRequest(args);
+    const submittedKey = formData.get("requestKey");
+    if (typeof submittedKey === "string") requestKey = submittedKey;
     intent = String(formData.get("intent") ?? "");
     if (intent === "save-plan")
       return await savePlan(user.id, services.agentPlanService, formData);
@@ -441,12 +500,11 @@ export async function action(args: Route.ActionArgs): Promise<Response> {
         formData,
       });
     if (intent === "play-plan")
-      return await playPlan(user.id, services.agentPlanService, formData);
+      return await playPlan(user.id, services, formData);
     if (intent === "inspect-plan-start") {
       const owners = await services.agentPlanService.startOwners(
         user.id,
         readPlanText(formData.get("planId")),
-        Number(formData.get("revision")),
       );
       return Response.json({ owners }, { headers: AGENT_NO_STORE });
     }
@@ -459,7 +517,7 @@ export async function action(args: Route.ActionArgs): Promise<Response> {
       intent === "pause-plan" ||
       intent === "resume-plan"
     )
-      return await runControlAction(user.id, services.agentPlanService, {
+      return await runControlAction(user.id, services, {
         intent,
         formData,
       });
@@ -467,11 +525,6 @@ export async function action(args: Route.ActionArgs): Promise<Response> {
   } catch (error: unknown) {
     logCaughtError("agent_plans", error);
 
-    if (error instanceof AgentPlanRecoveryError)
-      return planRecoveryFailure(error);
-    return agentFailureResponse(
-      error instanceof SyntaxError ? new AgentError("plan_invalid") : error,
-      intent,
-    );
+    return actionFailure(error, intent, requestKey);
   }
 }

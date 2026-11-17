@@ -25,7 +25,6 @@ interface ManagedGitHubDependencies {
 export interface ManagedGitHubContext {
   readonly environment?: Readonly<Record<string, string>>;
   readonly secrets?: readonly string[];
-  readonly readOnlyDirectory?: string;
   readonly pathPrefix?: string;
 }
 
@@ -62,7 +61,6 @@ export class RunnerManagedGitHub {
     return {
       environment,
       secrets: prepared.secrets ?? [],
-      readOnlyDirectory: prepared.directory,
       pathPrefix: searchPath?.split(":")[0],
     };
   }

@@ -6,7 +6,10 @@ import {
   requireInvocationValuesWithinLimit,
 } from "./AgentPlanInvocationValues";
 
-import type { AgentParameter, AgentParameterValue } from "@/definition/AgentParameters";
+import type {
+  AgentParameter,
+  AgentParameterValue,
+} from "@/definition/AgentParameters";
 import type { AgentPlanBinding } from "@/definition/AgentPlan";
 import type { AgentPlanEntryValue } from "@/definition/AgentPlanJump";
 import type { ActivePlanRun } from "../AgentPlanRunState";

@@ -205,8 +205,9 @@ export function isPlanEntryCallable(node: AgentPlanEntryNode): boolean {
 
 /** The display name of an entry. */
 export function planEntryName(node: AgentPlanEntryNode): string {
-  if (node.type === "start") return node.name?.trim() || "Start";
-  return node.name;
+  if (node.type !== "start") return node.name;
+  const name = node.name?.trim() ?? "";
+  return name.length === 0 ? "Start" : name;
 }
 
 /** The accepted inputs of an entry; a start without a declaration accepts none. */
@@ -342,7 +343,9 @@ export function hasPlanJumpTimeout(node: AgentPlanJumpOut): boolean {
 }
 
 /** The flow outputs of a calling Jump that lead somewhere else than the normal exit. */
-export function planJumpFailurePorts(node: AgentPlanJumpOut): readonly string[] {
+export function planJumpFailurePorts(
+  node: AgentPlanJumpOut,
+): readonly string[] {
   return hasPlanJumpTimeout(node)
     ? [PLAN_JUMP_PORT.errorOut, PLAN_JUMP_PORT.timeoutOut]
     : [PLAN_JUMP_PORT.errorOut];
@@ -559,9 +562,7 @@ function signalIssues(
   const declared: readonly AgentPlanEntryValue[] = node.payloadType
     ? [{ name: PLAN_SIGNAL_PAYLOAD_BINDING, type: node.payloadType }]
     : [];
-  issues.push(
-    ...valueBindingIssues(plan, node.id, declared, node.bindings),
-  );
+  issues.push(...valueBindingIssues(plan, node.id, declared, node.bindings));
   return issues;
 }
 
@@ -589,9 +590,7 @@ function startIssues(node: AgentPlanStart): AgentPlanIssue[] {
 }
 
 /** A receiving entry exists on the outer plane only; one inside a group or loop is refused. */
-function boundaryIssues(
-  plan: Pick<AgentPlanInput, "nodes">,
-): AgentPlanIssue[] {
+function boundaryIssues(plan: Pick<AgentPlanInput, "nodes">): AgentPlanIssue[] {
   const outer = new Set(plan.nodes.map((node) => node.id));
   return planContainedNodes(plan)
     .filter((node) => isPlanJumpIn(node) && !outer.has(node.id))
@@ -710,7 +709,9 @@ export const PLAN_INVOCATION_STATES = [
 export type AgentPlanInvocationState = (typeof PLAN_INVOCATION_STATES)[number];
 
 /** Whether a call reached its final state. */
-export function isPlanInvocationFinal(state: AgentPlanInvocationState): boolean {
+export function isPlanInvocationFinal(
+  state: AgentPlanInvocationState,
+): boolean {
   return (
     state === "succeeded" ||
     state === "failed" ||

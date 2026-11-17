@@ -230,7 +230,12 @@ export class AgentPlanInvocations {
       // An end that cannot deliver every declared value fails the run instead of returning less.
       if (declared.some((entry) => values[entry.name] === undefined))
         throw new AgentError("plan_jump_input_invalid");
-      return { status: "succeeded", output: null, error: null, returned: values };
+      return {
+        status: "succeeded",
+        output: null,
+        error: null,
+        returned: values,
+      };
     } catch (error: unknown) {
       return this.nodeFailure(error);
     }

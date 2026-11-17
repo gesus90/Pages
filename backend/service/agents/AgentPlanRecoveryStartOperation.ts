@@ -24,16 +24,6 @@ interface RecoveryStartRequest {
   readonly command: StartCommand;
 }
 
-function revision(value: unknown, minimum: number): number {
-  if (
-    typeof value !== "number" ||
-    !Number.isSafeInteger(value) ||
-    value < minimum
-  )
-    throw new AgentOperationError("INVALID_REQUEST");
-  return value;
-}
-
 function reviewedSteps(value: unknown): readonly string[] {
   if (!Array.isArray(value) || value.length > 100)
     throw new AgentOperationError("INVALID_REQUEST");
@@ -49,20 +39,23 @@ function readStart(
   input: unknown,
 ): RecoveryStartRequest {
   const parameters = readParameterRecord(input);
-  const common = ["operationId", "planId", "runId", "expectedRecoveryRevision"];
+  const common = ["operationId", "planId", "runId"];
   requireParameterKeys(
     parameters,
     [
       ...common,
       ...(action === "restart"
-        ? ["expectedPlanRevision", "confirmRepeat"]
-        : ["expectedPlanRevision", "mode", "reviewedStepIds"]),
+        ? ["confirmRepeat"]
+        : ["mode", "reviewedStepIds"]),
     ],
-    action === "restart" ? ["reviewedStepIds"] : [],
+    [
+      "expectedRecoveryRevision",
+      "expectedPlanRevision",
+      ...(action === "restart" ? ["reviewedStepIds"] : []),
+    ],
   );
   const operationId = readIdentifier(parameters.operationId);
   const identity = {
-    expectedRevision: revision(parameters.expectedRecoveryRevision, 0),
     idempotencyKey: planContentDigest([
       "agent-api-recovery-start",
       operationId,
@@ -79,7 +72,6 @@ function readStart(
       command: {
         ...identity,
         action,
-        revision: revision(parameters.expectedPlanRevision, 1),
         confirmRepeat: true,
         reviewedStepIds:
           parameters.reviewedStepIds === undefined
@@ -96,7 +88,6 @@ function readStart(
     command: {
       ...identity,
       action,
-      revision: revision(parameters.expectedPlanRevision, 1),
       mode: parameters.mode,
       reviewedStepIds: reviewedSteps(parameters.reviewedStepIds),
     },
