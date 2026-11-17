@@ -162,9 +162,11 @@ export class RunnerManagedJobs {
       if (current) input.progressed?.(current);
       const result = current ? managedOutcome(input, current) : null;
       if (result) return result;
+      // A worker that vanished without an exit record is lost, never an incomplete turn to retry.
+      if (current?.status === "lost") throw new AgentError("plan_runner_lost");
       if (
         current &&
-        ["lost", "failed", "interrupted", "completed"].includes(current.status)
+        ["failed", "interrupted", "completed"].includes(current.status)
       )
         throw new AgentError("plan_runner_incomplete");
       const run = await this.runs.find(input.binding.runId);
