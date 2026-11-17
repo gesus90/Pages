@@ -28,6 +28,10 @@ export function mcpPlanRunRoutes(
     ),
     resource(`${run}/checkpoint`, "routes/api-mcp-v1-plan-run-checkpoint.ts"),
     resource(`${run}/recovery`, "routes/api-mcp-v1-plan-run-recovery.ts"),
+    resource(
+      `${planRuns}/:runId/release-workspace-locks`,
+      "routes/api-mcp-v1-plan-workspace-lock-release.ts",
+    ),
     resource(`${run}/timeline`, "routes/api-mcp-v1-plan-run-timeline.ts"),
     resource(`${run}/logs`, "routes/api-mcp-v1-plan-run-logs.ts"),
   ];

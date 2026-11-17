@@ -623,6 +623,7 @@ export interface AgentPlanControlEntry
 
 /** Explicit commands, separate from graph edits and parameter aliases. */
 export const AGENT_PLAN_COMMAND_OPERATIONS = [
+  "plans.workspace_locks.release",
   "plans.clone",
   "plans.delete",
   "plans.keep",
@@ -691,6 +692,8 @@ export type AgentPlanRecoveryCommandResult = AgentPlanRecoveryCommandIdentity &
 
 /** Journaled command acknowledgement; run contents always require a fresh private read. */
 export interface AgentPlanCommandResult {
+  /** The ended run whose workspace reservations were released, without its historical content. */
+  readonly releasedRunId?: string;
   readonly adjustments?: readonly AgentPlanCloneAdjustment[];
   /** Committed request, separate from the asynchronously observed run status. */
   readonly command?: PlanRunCommandReceipt;

@@ -23,6 +23,7 @@ export type McpPlanOperation =
   | "plans.parameter.update"
   | "plans.parameter.remove"
   | "plans.control.read"
+  | "plans.workspace_locks.release"
   | "plans.templates.list"
   | "plans.templates.read"
   | "plans.templates.save"

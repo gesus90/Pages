@@ -20,6 +20,7 @@ import { readPlanCommand } from "./AgentPlanCommandInput";
 import { readPlanControlEntry } from "./AgentPlanControlViews";
 import { translatePlanError } from "./AgentPlanOperationErrors";
 import { AgentPlanTemplateCommands } from "./AgentPlanTemplateCommands";
+import { AgentPlanWorkspaceLockCommands } from "./AgentPlanWorkspaceLockCommands";
 
 import type { AgentPlanRunJournal } from "./AgentPlanJournal";
 import type {
@@ -68,6 +69,7 @@ export class AgentPlanCommandOperations {
   private readonly plans: AgentPlanService;
   private readonly templates: AgentPlanTemplateService;
   private readonly templateCommands: AgentPlanTemplateCommands;
+  private readonly workspaceLockCommands: AgentPlanWorkspaceLockCommands;
   private readonly queue = new SerialQueue();
 
   public constructor(dependencies: {
@@ -79,6 +81,9 @@ export class AgentPlanCommandOperations {
     this.plans = dependencies.plans;
     this.templates = dependencies.templates;
     this.templateCommands = new AgentPlanTemplateCommands(dependencies);
+    this.workspaceLockCommands = new AgentPlanWorkspaceLockCommands(
+      dependencies,
+    );
   }
 
   /** Applies one command or returns its committed acknowledgement after fresh access checks. */
@@ -87,6 +92,8 @@ export class AgentPlanCommandOperations {
     operation: AgentPlanCommandOperation,
     input: unknown,
   ): Promise<AgentPlanCommandResult | AgentPlanTemplateCommandResult> {
+    if (operation === "plans.workspace_locks.release")
+      return this.workspaceLockCommands.write(userId, input);
     if (isTemplateCommand(operation))
       return this.queue.run(() =>
         this.templateCommands.write(userId, operation, input),

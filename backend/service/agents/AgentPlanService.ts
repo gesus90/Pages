@@ -38,6 +38,7 @@ import { AgentPlanTeamReads } from "./diagnosis/AgentPlanTeamReads";
 import { AgentPlanTeamService } from "./AgentPlanTeamService";
 
 import type { AgentPlanSettingsInput } from "./AgentPlanSettings";
+import type { PlanWorkspaceLockReleaseOptions } from "./AgentPlanLockRelease";
 import type { ActorChannel } from "@/backend/auth/McpActorContext";
 import type { PlanDependencies } from "./AgentPlanDependencies";
 import type { CloneJournal } from "./AgentPlanCloning";
@@ -146,8 +147,9 @@ export class AgentPlanService extends AgentPlanTeamReads {
   public async releaseWorkspaceLocks(
     userId: string,
     runId: string,
+    options: PlanWorkspaceLockReleaseOptions = {},
   ): Promise<void> {
-    await releasePlanWorkspaceLocks(this.dependencies, userId, runId);
+    await releasePlanWorkspaceLocks(this.dependencies, userId, runId, options);
   }
 
   /**

@@ -13,6 +13,14 @@ export interface AgentPlanWorkspaceLock {
   readonly canRelease: boolean;
 }
 
+/** A personal-client decision bound to one ended run and one stable operation identifier. */
+export interface AgentPlanWorkspaceLockReleaseRequest {
+  readonly operation: "plans.workspace_locks.release";
+  readonly operationId: string;
+  readonly planId: string;
+  readonly runId: string;
+}
+
 /** Retained continuations warn after one day; expiry never silently discards their work. */
 export const PLAN_LOCK_WARNING_AGE_MS = 24 * 60 * 60_000;
 

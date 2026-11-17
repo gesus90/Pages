@@ -10,6 +10,8 @@ import {
   AGENT_PLAN_RESUME_KINDS,
 } from "@/definition/AgentPlanControl";
 
+import { readPlanWorkspaceLocks } from "./agent-plan-workspace-lock-input";
+
 import type { AgentWorkspaceCleanup } from "@/definition/AgentWorkspaceCleanup";
 import type { AgentPlanActionResult } from "./agent-plan-response";
 import type {
@@ -178,6 +180,7 @@ function readControlOptions(
   | "workspaceWait"
   | "waitReason"
   | "cleanup"
+  | "workspaceLocks"
 > {
   if (
     input.resumeAction !== undefined &&
@@ -210,6 +213,9 @@ function readControlOptions(
     ...(input.cleanup === undefined
       ? {}
       : { cleanup: input.cleanup.map(readCleanup) }),
+    ...(input.workspaceLocks === undefined
+      ? {}
+      : { workspaceLocks: readPlanWorkspaceLocks(input.workspaceLocks) }),
   };
 }
 

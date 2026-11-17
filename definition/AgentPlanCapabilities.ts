@@ -8,11 +8,10 @@ import type {
 /**
  * Additive contract revision, independently observable from a client's MCP bundle version.
  * @remarks
- * Revision 19 adds plans that call each other: the `jump` and `signal` nodes,
- * callable starts, the declared returns of an end, `port` bindings and the
- * failure outputs `error-out` and `timeout-out`.
+ * Revision 20 adds the explicit, checked release of workspace reservations by
+ * the holder plan's current owner, independently of the original executor.
  */
-export const AGENT_PLAN_CONTRACT_VERSION = 19;
+export const AGENT_PLAN_CONTRACT_VERSION = 20;
 
 /** Implementation discovery never substitutes for current per-plan access and availability. */
 export interface AgentPlanCapabilities {

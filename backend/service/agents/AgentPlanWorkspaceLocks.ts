@@ -25,7 +25,10 @@ import type { AcpResourceScheduler } from "./AcpResourceScheduler";
 import type { PlanRunEnginePort } from "./runs/PlanRunEnginePort";
 
 interface LockDependencies {
-  readonly repository: AgentPlanWorkspaceLockRepository;
+  readonly repository: Pick<
+    AgentPlanWorkspaceLockRepository,
+    "list" | "release" | "owners" | "leases" | "releaseLease" | "releaseOwner"
+  >;
   readonly resources: Pick<AcpResourceScheduler, "checkEndedLeases">;
   readonly engine: Pick<PlanRunEnginePort, "isActive">;
 }

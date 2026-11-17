@@ -11,6 +11,12 @@ import type { AgentPlanService } from "./AgentPlanService";
 import type { AgentPlanControl } from "@/definition/AgentPlanControl";
 import type { AgentPlanRun, AgentPlanView } from "@/definition/AgentPlan";
 
+/** The current plan and run reads used by the control projection. */
+export type PlanControlReadService = Pick<
+  AgentPlanService,
+  "view" | "control" | "controlRun" | "run" | "startRejections"
+>;
+
 function playBlocker(
   plan: AgentPlanView,
   control: AgentPlanControl,
@@ -36,7 +42,7 @@ function runBlocker(
 
 /** Projects current action availability without exposing another executor's run identity or failure. */
 export async function readPlanControlEntry(
-  plans: AgentPlanService,
+  plans: PlanControlReadService,
   userId: string,
   planId: string,
 ): Promise<AgentPlanControlEntry> {
@@ -138,7 +144,7 @@ function controlBlockers(input: {
 }
 
 async function controlAccess(
-  plans: AgentPlanService,
+  plans: PlanControlReadService,
   userId: string,
   plan: AgentPlanView,
 ): Promise<{

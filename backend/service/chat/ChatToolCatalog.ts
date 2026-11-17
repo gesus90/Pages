@@ -190,6 +190,8 @@ const CHAT_OPERATIONS: Readonly<Record<ChatOperation, string>> = {
   "plans.templates.read":
     "{workspaceId, templateId} eine sichtbare Node-Vorlage lesen",
   "plans.control.read": "{planId} aktuell erlaubte Laufaktionen lesen",
+  "plans.workspace_locks.release":
+    "{planId, runId} auf ausdrücklichen Auftrag Reservierungen eines beendeten Laufs als aktueller Planbesitzer freigeben; vorher workspaceLocks in read_plan_control lesen. Prozessende und Ressourcen werden geprüft, aktive oder unbekannte Writer blockieren. Kein Start, Stop oder Löschen von Dateien. Anders als release_plan_run auch für einen Lauf eines früheren Besitzers; keine Rechteausweitung.",
   "plans.templates.save":
     "{planId, expectedRevision, nodeId, name} eine Node-Vorlage speichern, ohne Ausführung",
   "plans.templates.update":
