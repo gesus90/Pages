@@ -41,15 +41,13 @@ export async function prepareScript(command, runtime) {
 // as soon as parallel agents run; scripts get this headroom above current use.
 const SCRIPT_TASK_HEADROOM = 256;
 
-// The address space is inherited by every child of a script. Node reserves
-// roughly 620 MiB of it for its V8 tables even without JIT and with a small
-// heap, so a Bash or Python script that starts `node` needs the same ceiling as
-// a Node script. A lower value aborts the nested interpreter at startup.
-const SCRIPT_ADDRESS_SPACE_BYTES = 1073741824;
+// Leave virtual address space for V8 reservations, native libraries and child
+// interpreters beyond the four-GiB Node heap used by project checks.
+const SCRIPT_ADDRESS_SPACE_BYTES = 6 * 1024 * 1024 * 1024;
 
 // Every Node process of a script runs under the policy of the Node interpreter
 // profile, also when a Bash or Python script starts it, and it fits the limit above.
-const SCRIPT_NODE_FLAGS = ["--jitless", "--max-old-space-size=128"];
+const SCRIPT_NODE_FLAGS = ["--jitless", "--max-old-space-size=4096"];
 
 const SCRIPT_SYSTEM_PATH = ["/usr/local/bin", "/usr/bin", "/bin"];
 

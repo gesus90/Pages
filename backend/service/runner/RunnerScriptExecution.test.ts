@@ -144,9 +144,9 @@ describe("script environment", () => {
     expect(environment.PATH).not.toContain("private-tools");
   });
 
-  it("starts every nested Node process without JIT and with the small heap", () => {
+  it("starts every nested Node process without JIT and with a four-GiB heap", () => {
     expect(scriptEnvironment("/run/job/runtime", "job-1").NODE_OPTIONS).toBe(
-      "--jitless --max-old-space-size=128",
+      "--jitless --max-old-space-size=4096",
     );
   });
 });
@@ -154,7 +154,7 @@ describe("script environment", () => {
 describe("script limits", () => {
   it("gives every interpreter an address space a nested Node can start in", () => {
     const limits = scriptLimits(30, 100);
-    expect(limits).toContain("--as=1073741824");
+    expect(limits).toContain("--as=6442450944");
     expect(limits).toContain("--cpu=31");
     expect(limits).toContain("--nproc=356");
     expect(limits).toContain("--nofile=128");
@@ -191,7 +191,7 @@ describe.skipIf(!IS_LINUX)("nested Node in a script", () => {
     const source = [
       "set -eu",
       "command -v node",
-      `node -p 'typeof WebAssembly + " " + (require("v8").getHeapStatistics().heap_size_limit < 400 * 1024 * 1024)'`,
+      `node -p 'typeof WebAssembly + " " + (require("v8").getHeapStatistics().heap_size_limit >= 4096 * 1024 * 1024)'`,
     ].join("\n");
     const outcome = await runScript(folder, "bash", source);
     expect(outcome.exitCode).toBe(0);
@@ -211,6 +211,16 @@ describe.skipIf(!IS_LINUX)("nested Node in a script", () => {
     expect(outcome.exitCode).toBe(0);
     expect(outcome.stdout).toContain(`"${process.version}"`);
     expect(outcome.stdout).toContain("git version");
+  });
+
+  it("lets nested Node keep an array larger than the previous heap ceiling", async () => {
+    const source = [
+      "set -eu",
+      `node -e 'const entries = new Array(24 * 1024 * 1024).fill(1.5); process.stdout.write(String(entries.length) + ":" + String(entries[0] + entries.at(-1)))'`,
+    ].join("\n");
+    const outcome = await runScript(folder, "bash", source);
+    expect(outcome.exitCode).toBe(0);
+    expect(outcome.stdout).toBe("25165824:3");
   });
 
   it("still runs a Node script under the guard", async () => {
