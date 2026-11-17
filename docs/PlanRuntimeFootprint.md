@@ -69,6 +69,9 @@ Prüfungen der aktuellen Runner-Umstellung und keine zusätzlichen
 Abschlussvoraussetzungen. Deren gezielte Nachweise und Grenzen sind in
 [LocalRunner.md](LocalRunner.md) dokumentiert.
 
+Die damals verwendeten Testdateien wurden entfernt; diese Läufe sind nicht
+auf dem aktuellen Stand wiederholbar.
+
 Ergebnis der gezielten Läufe ohne Coverage: 16 Dateien / 180 Tests grün;
 ein zusätzlicher Test zur Installation der Planbeobachter vor Recovery grün;
 ach der ACP-Trennung nochmals 5 Dateien / 70 Tests grün (mit Überschneidungen

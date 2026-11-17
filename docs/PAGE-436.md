@@ -1,5 +1,9 @@
 # PAGE-436: Planrevisionen und Zugriffsansichten
 
+> Historical validation: the former test files and frontend runner referenced
+> below have been removed. Results and commands describe that earlier revision
+> and are not runnable guidance or evidence for this checkout.
+
 ## Behobene Ursachen
 
 `usePlanDraft` initialisierte Entwurf und Vergleichsstand nur beim Mount und

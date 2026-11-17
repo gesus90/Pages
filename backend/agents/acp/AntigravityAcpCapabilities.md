@@ -213,6 +213,10 @@ claim that the original universal reliability requirements have been met.
 
 ### Targeted evidence in this change
 
+The following evidence describes an earlier revision. The named test files and
+frontend configuration were removed; the commands are historical, not current
+instructions or evidence for this checkout.
+
 The ACP test adapter now identifies its Antigravity flavor as
 `antigravity-acp 1.4.4` by default instead of incorrectly presenting the Codex
 identity (`tests/backend/backend/agents/acp/fake-acp-adapter.ts`). The existing

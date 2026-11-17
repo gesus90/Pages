@@ -311,17 +311,16 @@ or implemented:
   visible link text is descriptive, but each destination path carries its
   historical key. Renaming those targets would break the evidence references
   described above and was left open.
-- `docs/PAGE-290.md` and `docs/PAGE-332.md` contain four links to the removed
-  `tests/README.md`. The test population was removed by an earlier task. These
-  are pre-existing broken historical references, not a result of this cleanup,
-  and were not rewritten.
+- At this audit revision, four links in historical documents still targeted
+  the removed test guide. They were subsequently removed; see the
+  [test documentation audit](TestCiDocumentationAudit.md).
 - `docs/repository-reference-audit.md` retains the word "Arbeitspaket" in its
   earlier wiki-cleanup record because it quotes the former status label and
   search term. It is a historical record, not a current planning reference.
 
-The link checker reported four remaining problems after the change, all four
-pre-existing `tests/README.md` links. No changed guide has a broken heading
-anchor. `git diff --check` reported no whitespace errors. No production code,
+At that audit revision the link checker reported four pre-existing links to
+the removed test guide; those links have since been removed. At that time no
+changed guide had a broken heading anchor. `git diff --check` reported no whitespace errors. No production code,
 migration, live service, live data or credential was changed. The repository
 changes are on the session branch and were committed there; nothing was pushed
 to `main`. Lint, typecheck, formatting, build, tests and coverage were not run

@@ -421,7 +421,10 @@ Protocol references used for source inspection (no model execution):
 [official codex-acp package 2.2.2](https://www.npmjs.com/package/@agentclientprotocol/codex-acp/v/2.2.2),
 [OpenRouter models API](https://openrouter.ai/docs/api/api-reference/models/list-all-models-and-their-properties).
 
-Final focused validation of this iteration (exit 0 for each command):
+The following validation records an earlier revision. The named test files and
+frontend configuration were removed and the commands cannot be rerun here.
+
+Final focused validation of that iteration (exit 0 for each command):
 
 ```sh
 pnpm exec vitest run --config vitest.backend.config.ts --coverage.enabled=false tests/backend/backend/service/agents/page362-codex-usage.unit.test.ts tests/backend/backend/service/agents/page362-codex-persistence.unit.test.ts tests/backend/backend/service/agents/page362-codex-thread.unit.test.ts tests/backend/backend/service/agents/page85-session-usage.unit.test.ts tests/backend/backend/service/agents/page85-session-service.unit.test.ts tests/backend/backend/agents/agent-configuration-input.unit.test.ts

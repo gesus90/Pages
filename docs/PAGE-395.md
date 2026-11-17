@@ -1,5 +1,9 @@
 # PAGE-395: bounded workspace cleanup and safe restart cleanup
 
+> Historical validation: the former test files and frontend runner referenced
+> below have been removed. Results and commands describe that earlier revision
+> and are not runnable guidance or evidence for this checkout.
+
 ## Behavior
 
 Cleanup selects only due pending rows through the partial `agent_workspace_cleanup_due`

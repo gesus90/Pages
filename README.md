@@ -115,13 +115,16 @@ are in German.
 Read [GUIDELINES.md](GUIDELINES.md) before changing source; coding agents must
 also follow [AGENTS.md](AGENTS.md). Keep changes focused. The
 [development guide](docs/Development.md) covers repository layout and commands.
-The previous tests and CI have been removed for a separate rebuild; see the
+The previous tests and CI were removed for a separate rebuild; see the
 [restart inventory](docs/TestCiRemoval.md). The new
 [backend unit-test foundation](docs/BackendTesting.md) provides `test:backend`
 and the measurement scope; behavior tests are added separately. Every push to
 `main` runs the backend tests and coverage in CI; the coverage tables and
 reports are kept with the checked-out revision. Follow the validation scope of
 your assignment and report only checks actually executed.
+
+Every push to `main` also runs the `Pages check` job with `pnpm run check` and
+`pnpm run lint`. This workflow runs no tests; backend tests run separately.
 
 ## Security notes
 

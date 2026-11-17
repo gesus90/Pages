@@ -39,6 +39,8 @@ a Pages instance or its private wiki. Some specialized guides are in German.
   and [coding-agent instructions](../AGENTS.md).
 - [Test and CI restart inventory](TestCiRemoval.md): removed suites, retained
   operating functions, validation evidence and external dependencies.
+- [Documentation audit](TestCiDocumentationAudit.md): search scope, retained
+  historical evidence, current state and transition dependencies.
 - [Backend unit-test foundation](BackendTesting.md): Vitest setup, complete
   measurement scope, section thresholds, CI run and validation limits.
 - [GitHub, security and setup inventory](BackendGitHubSecuritySetup.md): second

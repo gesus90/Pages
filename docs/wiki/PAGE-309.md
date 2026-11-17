@@ -175,9 +175,12 @@ Normale Pläne verhalten sich unverändert.
 Oberfläche: `plan-one-shot-field.tsx`, `plan-one-shot-notice.tsx`, Plan-Menü,
 -Kopf, -Auswahl, Klon-Dialog.
 
-### Prüfung
+### Historische Prüfung
 
-- `postgres:check`: neuer Ablauf „one-time plans“ gegen eine echte PostgreSQL-Instanz
+Die damaligen Datenbank- und Browserprüfungen wurden mit der früheren
+Testinfrastruktur entfernt und sind keine ausführbare Anleitung für diesen Stand.
+
+- Der damalige Datenbanklauf „one-time plans“ gegen eine echte PostgreSQL-Instanz
   (Frist setzen/lesen, fällig, Kandidat, Löschen mit Lauf-Bereinigung und genau einem
   Protokolleintrag, Behalten, Abbruch durch Speichern ohne Markierung).
 - Dienst mit nachgestellter Uhr: Erfolg setzt +5 min; `failed`, `cancelled`,

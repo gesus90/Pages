@@ -512,13 +512,11 @@ and closes active or idle retained sessions. Credentialed provider continuation
 must be verified separately for each installed runner version; a local dummy ACP
 peer proves only Pages' protocol, queue and error handling.
 
-The practical example can be reproduced with
-`pnpm exec tsx scripts/agent-group-proof.ts --data <isolated credential data>
---connection <connection UUID> --workspace <empty workspace> --model <model ID>
---effort <effort> --output <artifact folder>`.
-The script uses transient definitions and in-memory plan storage with the real
-scheduler, parameter binding, acceptance and Codex adapter. It connects no Pages
-plan bridge, changes no tickets, and records neither credentials nor account files.
+An earlier practical example used a standalone proof script with transient
+definitions, in-memory plan storage and the Codex adapter. That script was
+removed with the former test infrastructure; the example cannot be rerun from
+this checkout. Credentialed provider continuation still requires separate
+authorized verification.
 
 A parameter node contains one name and one value: string, finite number or a
 single valid JSON value, including an object or array. Invalid JSON is rejected

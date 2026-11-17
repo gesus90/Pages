@@ -1,5 +1,9 @@
 # PAGE-368: Antigravity-Verbrauch und OpenRouter-Vergleich
 
+> Historical validation: the former test files and frontend runner referenced
+> below have been removed. Results and commands describe that earlier revision
+> and are not runnable guidance or evidence for this checkout.
+
 Implementierungs- und Nachweishandoff vom 15.11.2026, gemäß dem reduzierten
 Ticketumfang von Igor. Dies ist keine Live-Abnahme des Providers.
 

@@ -362,6 +362,9 @@ checklist (`A`), in their original order. A partial item is not a completed item
 
 ## Focused validation
 
+The following validation is historical. The named files were removed with the
+former test infrastructure; its commands cannot validate the current checkout.
+
 Exactly the following new unit files were executed, each with
 `pnpm exec vitest run --config vitest.backend.config.ts --maxWorkers=1 <file>`.
 All final invocations exited **0**: **63 cases**, seven files. The full Backend
