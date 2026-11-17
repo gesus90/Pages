@@ -5,6 +5,8 @@ import { promisify } from "node:util";
 const execute = promisify(execFile);
 const CGROUP_ROOT = "/sys/fs/cgroup";
 
+class ScopeGoneError extends Error {}
+
 async function systemctl(args) {
   const result = await execute("/usr/bin/systemctl", ["--user", ...args], {
     timeout: 5000,
@@ -13,6 +15,7 @@ async function systemctl(args) {
       PATH: "/usr/bin:/bin",
       XDG_RUNTIME_DIR: `/run/user/${process.getuid()}`,
       DBUS_SESSION_BUS_ADDRESS: `unix:path=/run/user/${process.getuid()}/bus`,
+      LC_ALL: "C",
     },
   });
   return result.stdout.trim();
@@ -70,6 +73,12 @@ async function scopePath(unit) {
     "--property=ControlGroup",
     "--value",
   ]);
+  if (
+    !path &&
+    (await systemctl(["show", unit, "--property=LoadState", "--value"])) ===
+      "not-found"
+  )
+    throw new ScopeGoneError("Runner scope was collected");
   if (
     !path.startsWith("/") ||
     path.includes("..") ||
@@ -130,10 +139,41 @@ export async function freezeScope(scope, jobId, isPaused) {
   throw new Error("Runner cgroup suspension could not be confirmed");
 }
 
+async function killScope(scope) {
+  try {
+    await systemctl(["kill", "--kill-who=all", "--signal=SIGKILL", scope.unit]);
+  } catch (error) {
+    // Only the manager's specific missing-unit reply permits a second lookup.
+    // Permission, transport and ownership failures must remain failures.
+    const missing = `Failed to kill unit ${scope.unit}: Unit ${scope.unit} not loaded.`;
+    if (error.code !== 1 || error.stderr?.trim() !== missing) throw error;
+    await scopePath(scope.unit);
+    throw error;
+  }
+}
+
+async function confirmGoneScope(scope, error) {
+  if (!(error instanceof ScopeGoneError)) return "failed";
+  try {
+    return (await events(scope)).includes("populated 0")
+      ? "confirmed"
+      : "failed";
+  } catch {
+    return "failed";
+  }
+}
+
 /** Kills every member, including frozen or reparented descendants, and proves emptiness. */
 export async function stopScope(scope, jobId) {
   try {
-    if (scope.unit !== scopeUnit(jobId)) return "failed";
+    if (
+      scope.unit !== scopeUnit(jobId) ||
+      typeof scope.path !== "string" ||
+      !scope.path.startsWith(`${CGROUP_ROOT}/`) ||
+      scope.path.includes("..") ||
+      !scope.path.endsWith(`/${scope.unit}`)
+    )
+      return "failed";
     if ((await events(scope)).includes("populated 0")) return "confirmed";
     await requireScope(scope, jobId);
     const deadline = Date.now() + 5000;
@@ -144,19 +184,15 @@ export async function stopScope(scope, jobId) {
         if (!["ENOENT", "EACCES", "EPERM", "EOPNOTSUPP"].includes(error.code))
           throw error;
         if ((await events(scope)).includes("populated 0")) return "confirmed";
-        await systemctl([
-          "kill",
-          "--kill-who=all",
-          "--signal=SIGKILL",
-          scope.unit,
-        ]);
+        await killScope(scope);
       }
       if ((await events(scope)).includes("populated 0")) return "confirmed";
       await new Promise((resolve) => setTimeout(resolve, 50));
     } while (Date.now() < deadline);
     return "failed";
-  } catch {
-    return "failed";
+  } catch (error) {
+    // A collected unit is success only after rechecking its saved kernel boundary.
+    return confirmGoneScope(scope, error);
   }
 }
 
