@@ -149,14 +149,56 @@ export function agentWrittenState(
   };
 }
 
-/** Two histories as one, oldest first; the messages of the first stay before equal times. */
+/** A time of the database text format: `2026-11-17 15:13:08`, optionally with fractions. */
+const DATABASE_TIME_PATTERN =
+  /^(\d{4}-\d{2}-\d{2}) (\d{2}:\d{2}:\d{2}(?:\.\d+)?)$/;
+
+/** An ISO 8601 time without a zone designator: `2026-11-17T15:13:08`. */
+const ZONELESS_ISO_TIME_PATTERN =
+  /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?$/;
+
+/**
+ * The moment of a stored message time in milliseconds since the epoch.
+ * @remarks
+ * The database stores its times as UTC text with a space and no zone, while
+ * other stored messages carry ISO 8601 with `Z`. A time without a zone is UTC
+ * in both spellings. A missing or unreadable time yields `Number.NEGATIVE_INFINITY`,
+ * so such a message stays before every message with a time.
+ */
+export function messageInstant(createdAt: string | undefined): number {
+  if (createdAt === undefined) return Number.NEGATIVE_INFINITY;
+  const text = createdAt.trim();
+  let isoText = text;
+  const databaseTime = DATABASE_TIME_PATTERN.exec(text);
+  if (databaseTime) isoText = `${databaseTime[1]}T${databaseTime[2]}Z`;
+  else if (ZONELESS_ISO_TIME_PATTERN.test(text)) isoText = `${text}Z`;
+  const instant = Date.parse(isoText);
+  return Number.isNaN(instant) ? Number.NEGATIVE_INFINITY : instant;
+}
+
+/**
+ * Two histories as one, oldest first.
+ * @remarks
+ * Times are compared as moments, not as text, because the two histories write
+ * different time formats. Messages with equal moments keep their order, the
+ * messages of the first before those of the second. Messages without a readable
+ * time come first, in their given order.
+ */
 export function mergeByTime(
   first: readonly VirtualChatMessage[],
   second: readonly VirtualChatMessage[],
 ): VirtualChatMessage[] {
-  return [...first, ...second].sort((left, right) =>
-    (left.createdAt ?? "").localeCompare(right.createdAt ?? ""),
-  );
+  const timed = [...first, ...second].map((message) => ({
+    message,
+    instant: messageInstant(message.createdAt),
+  }));
+  // Array.prototype.sort is stable, so equal moments keep their input order.
+  return timed
+    .sort((left, right) => {
+      if (left.instant === right.instant) return 0;
+      return left.instant < right.instant ? -1 : 1;
+    })
+    .map((entry) => entry.message);
 }
 
 /** The person's list with everybody who has a direct conversation with them. */

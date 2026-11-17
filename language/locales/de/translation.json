@@ -7627,7 +7627,7 @@
       },
       "dialog": {
         "title": "Stack",
-        "hint": "Der erste Trigger übergibt den ersten Eintrag, der nächste Trigger den nächsten. Ein aufgebrauchter Stack übergibt nichts mehr; nur ein neuer Lauf beginnt von vorn.",
+        "hint": "Der erste Trigger übergibt den ersten Eintrag, der nächste Trigger den nächsten. Ein aufgebrauchter Stack übergibt nichts mehr; nur ein neuer Lauf beginnt von vorn. Endet ein Lauf erfolgreich, entfernt Pages die Tickets, die er bearbeitet hat, aus dem Stack; Werte und Dateien bleiben.",
         "name": "Name",
         "entries": "Reihenfolge der Einträge",
         "up": "{{name}} nach oben",

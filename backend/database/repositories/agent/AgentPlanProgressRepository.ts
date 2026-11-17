@@ -25,6 +25,7 @@ import { sharedAgentPlanRunObservers } from "@/backend/service/agents/AgentPlanR
 import { CURRENT_PLAN_SNAPSHOT } from "./AgentPlanContinuationRepository";
 import { AgentPlanCheckpointRepository } from "./AgentPlanCheckpointRepository";
 import { AgentPlanLoopIterationRepository } from "./AgentPlanLoopIterationRepository";
+import { clearProcessedTicketEntries } from "./AgentPlanProcessedTickets";
 
 import type { AgentPlanRunJournal } from "@/backend/service/agents/AgentPlanJournal";
 import type {
@@ -484,6 +485,12 @@ export class AgentPlanProgressRepository {
         previous_revision: previous.revision,
       },
     );
+    // The end as `succeeded` happens once: a succeeded run is final, so a repeated write never clears again.
+    if (run.status === "succeeded" && previous.run.status !== "succeeded")
+      await clearProcessedTicketEntries(transaction, {
+        run,
+        snapshot: previous.snapshot,
+      });
     // Closeout flags alone cannot prove that leases or native owners ended.
     // The terminal observer and periodic reconciliation use the shared safe
     // release path; failed and closeout-open runs keep their continuation locks.

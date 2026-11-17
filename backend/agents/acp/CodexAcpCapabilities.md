@@ -7,7 +7,7 @@ not against its documentation. Checked on 16 October 2026.
 | ---------------------------------------- | ------- | ---------------------------------------------------------------- |
 | `@agentclientprotocol/codex-acp`         | 2.2.2   | global npm package of the server account (`codex-acp --version`) |
 | `@openai/codex` bundled with the adapter | 0.160.1 | `node_modules/@openai/codex` of the adapter                      |
-| Host `codex` (used through `CODEX_PATH`) | 0.160.0 | `codex --version`                                                |
+| Host `codex` (used through `CODEX_PATH`) | 0.160.0 | `codex --version`; the registry reviews 0.169.0 as next release  |
 | `@agentclientprotocol/sdk` in Pages      | 1.7.0   | `node_modules/@agentclientprotocol/sdk`                          |
 
 Pages accepts codex-acp 2.1.1 up to 3.0.0 (`CodexAcpAdapter.ts`). The matrix

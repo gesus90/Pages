@@ -36,6 +36,16 @@ export interface AgentToolDefinition {
   readonly release: AgentToolReleaseSource | null;
   /** The adapter a CLI needs; CLI and adapter are updated as one checked combination. */
   readonly adapter?: AgentToolId;
+  /**
+   * Whether `version` was checked together with the reviewed release of the adapter
+   * although the adapter's declared CLI range does not include it.
+   * @remarks
+   * The adapter drives the CLI through the app-server protocol, so its declared
+   * range only names the CLI it bundles. When that range holds a search below
+   * `version`, the update search offers the reviewed CLI and adapter releases
+   * as one pair; the combination checks of an activation still apply.
+   */
+  readonly reviewedBeyondAdapterRange?: boolean;
   /** Whether the CLI serves ACP itself, so it needs no separate adapter. */
   readonly hasIntegratedAdapter?: boolean;
   readonly dependencies: readonly AgentToolId[];
@@ -87,10 +97,14 @@ export const AGENT_TOOL_REGISTRY: readonly AgentToolDefinition[] = [
     kind: "agent",
     binary: "codex",
     packageName: "@openai/codex",
-    version: "0.160.0",
+    // GPT-6.2 Sol and Astra need a Codex CLI newer than 0.160.0 to be listed.
+    // 0.169.0 was checked with codex-acp 2.2.2: its app-server protocol only
+    // adds methods, and no method codex-acp 2.2.2 sends lost a field.
+    version: "0.169.0",
     minimumVersion: "0.160.0",
     release: { kind: "npm", packageName: "@openai/codex" },
     adapter: "codex_acp",
+    reviewedBeyondAdapterRange: true,
     dependencies: ["node"],
     probe: "version",
   },

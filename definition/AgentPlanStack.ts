@@ -62,7 +62,9 @@ export type AgentPlanStackEntry =
  * like a decision. Each trigger at `flow-in` hands the next entry to
  * `flow-out`; once every entry was handed over, a further trigger hands over
  * nothing and starts nothing behind `flow-out`. A new run of the plan starts
- * again with the first entry; a resumed run keeps what it handed over.
+ * again with the first entry; a resumed run keeps what it handed over. When a
+ * run ends as `succeeded`, the ticket entries it handed over and processed
+ * leave the stored stack, so the next run starts with what is left.
  */
 export interface AgentPlanStack extends AgentPlanPosition {
   readonly id: string;

@@ -305,6 +305,7 @@ export interface AgentPlanLoopNodeEntry
  * Its data outputs are read through `stack` bindings: `content`, the entry
  * handed over last, and `count`, the number of entries. A used-up stack hands
  * over nothing and starts nothing behind it; a new run starts at the first entry.
+ * A run that ends as `succeeded` removes the ticket entries it processed.
  */
 export interface AgentPlanStackNodeEntry extends AgentPlanNodeBase {
   readonly type: "stack";

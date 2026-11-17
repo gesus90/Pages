@@ -19,7 +19,8 @@ administrator in admin mode. Every loader and action rechecks persisted rights;
 mutations also require the same origin. Status reads poll cached metadata and
 never install or execute tools. Opening a page is not a model test.
 
-The fixed registry manages Codex CLI **0.160.0**, Claude Code **2.1.322**
+The fixed registry manages Codex CLI **0.169.0** (the oldest accepted release
+stays **0.160.0**), Claude Code **2.1.322**
 (rollback also accepts **2.1.293**; Fable 5.2 needs 2.1.321 or later),
 OpenCode **1.18.34**, Codex ACP **2.2.2** (adoption also accepts **2.1.1**), and
 Playwright MCP **0.0.83**. Playwright MCP itself pins
@@ -27,6 +28,25 @@ Playwright MCP **0.0.83**. Playwright MCP itself pins
 and optional Firefox. The selected versions were checked against the actual
 npm registry. The existing protocol-driver ranges remain available to standalone
 consumers. There are no new Pages library dependencies.
+
+Codex CLI 0.169.0 is the reviewed release because the Codex model catalog lists
+GPT-6.2 Sol and GPT-6.2 Astra only for a newer CLI than 0.160.0. A Codex CLI
+update is searched together with its adapter, and the adapter's declared range
+(`@openai/codex`, which names the CLI the adapter bundles) normally holds the
+CLI back. codex-acp 2.2.2 declares `^0.160.1` and its newest release `^0.166.0`,
+so neither range includes 0.169.0. The registry therefore marks 0.169.0 as
+reviewed together with codex-acp 2.2.2: when the range holds the search below
+it, "Updates suchen" offers exactly that pair, and activation still installs
+both as candidates, runs the adapter's ACP `initialize` against the candidate
+CLI and publishes only when both checks pass. The review compared the
+app-server protocol of 0.160.1 with 0.169.0: no client request, server
+request or notification was removed, and none of the 36 client methods that
+codex-acp 2.2.2 sends lost a field or gained a required one. A listed model is
+not a model call; none was made. The native Pica build of Codex stays pinned to
+0.160.0 (see [Pica native build](../scripts/pica-native-build/README.md)): its
+Pages tool-policy patch does not apply to 0.169.0 without a manual rework
+of 17 source files that needs the offline build to verify, and a changed pin
+would make the installed 0.160.0 build unusable before a replacement exists.
 
 Tools, npm cache, probe home, enablement and release pointers live in
 `<directory containing config.toml>/tools/`. Saved connection credentials remain

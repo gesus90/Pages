@@ -153,7 +153,8 @@ export class AgentToolUpdateSearch {
     return AGENT_TOOL_REGISTRY.some((entry) => entry.adapter === tool.id);
   }
 
-  // The adapter's declared CLI range decides which CLI release the pair moves to.
+  // The adapter's declared CLI range decides which CLI release the pair moves to,
+  // unless the registry reviewed a newer CLI together with this adapter.
   private async searchPair(
     cli: AgentToolDefinition,
     adapter: AgentToolDefinition | null,
@@ -161,36 +162,112 @@ export class AgentToolUpdateSearch {
   ): Promise<void> {
     const cliOutcome = await this.releases.latest(cli, signal);
     const checkedAt = new Date().toISOString();
-    let cliRecord = outcomeRecord(cliOutcome, checkedAt);
+    const cliRecord = outcomeRecord(cliOutcome, checkedAt);
     if (!adapter) {
       this.records.set(cli.id, cliRecord);
       return;
     }
     const adapterOutcome = await this.releases.latest(adapter, signal);
+    const pair = await this.limitedPair(
+      {
+        cli,
+        adapter,
+        cliOutcome,
+        adapterOutcome,
+        records: {
+          cli: cliRecord,
+          adapter: outcomeRecord(adapterOutcome, checkedAt),
+        },
+      },
+      signal,
+    );
+    this.records.set(cli.id, pair.cli);
+    this.records.set(adapter.id, {
+      ...pair.adapter,
+      target:
+        pair.adapter.target && pair.cli.target
+          ? { ...pair.adapter.target, cliVersion: pair.cli.target.version }
+          : pair.adapter.target,
+    });
+  }
+
+  // Moves the CLI target below the adapter's declared range, or to the reviewed pair.
+  private async limitedPair(
+    search: {
+      readonly cli: AgentToolDefinition;
+      readonly adapter: AgentToolDefinition;
+      readonly cliOutcome: AgentToolReleaseOutcome;
+      readonly adapterOutcome: AgentToolReleaseOutcome;
+      readonly records: {
+        readonly cli: ReleaseRecord;
+        readonly adapter: ReleaseRecord;
+      };
+    },
+    signal: AbortSignal,
+  ): Promise<{
+    readonly cli: ReleaseRecord;
+    readonly adapter: ReleaseRecord;
+  }> {
+    const { cli, adapter, cliOutcome, adapterOutcome, records } = search;
     const range =
       adapterOutcome.ok && cli.packageName
         ? adapterOutcome.release.dependencies[cli.packageName]
         : undefined;
     if (
-      cliOutcome.ok &&
-      range !== undefined &&
-      satisfiesVersionRange(cliOutcome.release.version, range) === false
-    ) {
-      const limited = await this.releases.newestInRange(cli, range, signal);
-      cliRecord = {
-        ...cliRecord,
+      !cliOutcome.ok ||
+      range === undefined ||
+      satisfiesVersionRange(cliOutcome.release.version, range) !== false
+    )
+      return records;
+    const limited = await this.releases.newestInRange(cli, range, signal);
+    const reviewed = await this.reviewedPair(
+      { cli, adapter, newest: cliOutcome.release.version, limited },
+      signal,
+    );
+    if (reviewed)
+      return {
+        cli: { ...records.cli, target: reviewed.cli },
+        adapter: { ...records.adapter, target: reviewed.adapter },
+      };
+    return {
+      cli: {
+        ...records.cli,
         target: limited.ok ? limited.release : null,
         failure: limited.ok ? null : limited.failure,
-      };
-    }
-    this.records.set(cli.id, cliRecord);
-    const adapterRecord = outcomeRecord(adapterOutcome, checkedAt);
-    this.records.set(adapter.id, {
-      ...adapterRecord,
-      target:
-        adapterRecord.target && cliRecord.target
-          ? { ...adapterRecord.target, cliVersion: cliRecord.target.version }
-          : adapterRecord.target,
-    });
+      },
+      adapter: records.adapter,
+    };
+  }
+
+  // The reviewed CLI and adapter releases, when the range holds the CLI below the reviewed one.
+  private async reviewedPair(
+    search: {
+      readonly cli: AgentToolDefinition;
+      readonly adapter: AgentToolDefinition;
+      readonly newest: string;
+      readonly limited: AgentToolReleaseOutcome;
+    },
+    signal: AbortSignal,
+  ): Promise<{
+    readonly cli: AgentToolRelease;
+    readonly adapter: AgentToolRelease;
+  } | null> {
+    const { cli, adapter, newest, limited } = search;
+    const reviewed = cli.version ? readStableVersion(cli.version) : null;
+    const ceiling = readStableVersion(newest);
+    if (!cli.reviewedBeyondAdapterRange || !adapter.version) return null;
+    if (!reviewed || !ceiling || compareStableVersions(reviewed, ceiling) > 0)
+      return null;
+    const held = limited.ok ? readStableVersion(limited.release.version) : null;
+    if (held && compareStableVersions(held, reviewed) >= 0) return null;
+    const cliRelease = await this.releases.resolve(cli, cli.version, signal);
+    const adapterRelease = await this.releases.resolve(
+      adapter,
+      adapter.version,
+      signal,
+    );
+    return cliRelease.ok && adapterRelease.ok
+      ? { cli: cliRelease.release, adapter: adapterRelease.release }
+      : null;
   }
 }

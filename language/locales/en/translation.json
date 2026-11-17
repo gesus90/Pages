@@ -7627,7 +7627,7 @@
       },
       "dialog": {
         "title": "Stack",
-        "hint": "The first trigger hands over the first entry, the next trigger the next one. A used-up stack hands over nothing; only a new run starts over.",
+        "hint": "The first trigger hands over the first entry, the next trigger the next one. A used-up stack hands over nothing; only a new run starts over. When a run ends successfully, Pages removes the tickets it processed from the stack; values and files stay.",
         "name": "Name",
         "entries": "Order of the entries",
         "up": "Move {{name}} up",

@@ -130,19 +130,22 @@ export function PreviewSentBadge(): React.ReactElement {
 }
 
 /**
+ * The corners of an own bubble. A delivery frame takes the same corners,
+ * so its ring or outline runs evenly around the bubble.
+ */
+const OWN_BUBBLE_RADIUS = "rounded-[14px] rounded-br-[4px]";
+
+/**
  * The frame of an own message sent during an answer, around its bubble
  * only: orange when it went in, dashed while it waits.
  */
 const DELIVERY_FRAMES: Readonly<Record<MessageDelivery["kind"], string>> = {
-  injected:
-    "rounded-[16px] ring-2 ring-primary ring-offset-2 ring-offset-background",
-  waiting:
-    "rounded-[16px] outline-dashed outline-2 outline-offset-2 outline-border",
+  injected: `${OWN_BUBBLE_RADIUS} ring-2 ring-primary ring-offset-2 ring-offset-background`,
+  waiting: `${OWN_BUBBLE_RADIUS} outline-dashed outline-2 outline-offset-2 outline-border`,
   failed: "",
 };
 
-const OWN_BUBBLE =
-  "max-w-[62%] min-w-0 rounded-[14px] rounded-br-[4px] bg-primary px-4 py-2.5 text-primary-foreground";
+const OWN_BUBBLE = `max-w-[62%] min-w-0 ${OWN_BUBBLE_RADIUS} bg-primary px-4 py-2.5 text-primary-foreground`;
 
 /**
  * Puts the frame of a delivery around one bubble: the frame takes the

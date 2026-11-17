@@ -10,6 +10,7 @@ import type {
 } from "./AgentPlan";
 import type { AgentPlanGroup } from "./AgentPlanGroup";
 import type { AgentPlanLoopRun } from "./AgentPlanLoopRun";
+import type { AgentPlanStackDelivery } from "./AgentPlanStack";
 
 /**
  * How the processing of what a stack handed over stands in a run.
@@ -127,6 +128,20 @@ function outerStates(
     .map((id) => outerParticipantState(run, id));
 }
 
+/** The states of the participants in the one iteration a delivery names. */
+function iterationStates(
+  record: AgentPlanLoopRun | undefined,
+  delivery: Pick<AgentPlanStackDelivery, "iteration">,
+  participants: readonly string[],
+): readonly ParticipantState[] {
+  const iteration = record?.iterations.find(
+    (candidate) => candidate.number === delivery.iteration,
+  );
+  return participants.map((id) =>
+    participantState(iteration?.nodes.find((node) => node.id === id)),
+  );
+}
+
 /**
  * The states of the participants in each iteration that received an entry, and of the loop itself.
  * @remarks
@@ -143,14 +158,9 @@ function loopStates(
     run.stacks
       ?.find((entry) => entry.id === stackId)
       ?.deliveries.filter((delivery) => delivery.loopId === record?.id) ?? [];
-  const states = deliveries.flatMap((delivery) => {
-    const iteration = record?.iterations.find(
-      (candidate) => candidate.number === delivery.iteration,
-    );
-    return participants.map((id) =>
-      participantState(iteration?.nodes.find((node) => node.id === id)),
-    );
-  });
+  const states = deliveries.flatMap((delivery) =>
+    iterationStates(record, delivery, participants),
+  );
   if (isPlanLoopLeftRegularly(record)) return states;
   const isLoopOpen =
     !record ||
@@ -214,4 +224,65 @@ export function planStackOutcome(
       )
     : outerStates(run, participants, loopMembers);
   return combinedOutcome(states, TERMINAL_RUN_STATUSES.has(run.status));
+}
+
+/** The nodes of a loop's iteration that process what the stack hands over. */
+function loopParticipants(
+  plan: Pick<AgentPlanInput, "nodes" | "edges">,
+  stackId: string,
+  loopId: string,
+): readonly string[] {
+  const loop = plan.nodes
+    .filter((node) => node.type === "loop")
+    .find((candidate) => candidate.id === loopId);
+  const own = new Set(
+    loop ? planLoopMembers(loop).map((member) => member.id) : [],
+  );
+  return planStackParticipants(plan, stackId).filter((id) => own.has(id));
+}
+
+/**
+ * The entries of a stack that a run handed over and whose processing succeeded.
+ * @param plan - The plan the run executed, as frozen for the run.
+ * @param run - The run whose results decide; its status must already be the final one.
+ * @param stackId - The stack.
+ * @returns The ids of the entries to count as processed. A handover alone is
+ * no proof: an entry counts only when every participant that received it
+ * finished without a failure or an open report and at least one of them
+ * processed it. An entry nobody processed, for example on a branch a
+ * decision did not activate, never counts.
+ * @remarks
+ * In the outer graph all handovers share the results of the participants, so
+ * the entries count together, as they do in {@link planStackOutcome}. In a
+ * loop every handover names its iteration, so each entry counts by the
+ * results of its own iteration, once the whole loop was left regularly.
+ */
+export function processedPlanStackEntryIds(
+  plan: Pick<AgentPlanInput, "nodes" | "edges">,
+  run: RunView,
+  stackId: string,
+): ReadonlySet<string> {
+  const deliveries =
+    run.stacks?.find((entry) => entry.id === stackId)?.deliveries ?? [];
+  const scope = planStackScope(plan, stackId);
+  if (deliveries.length === 0 || scope.kind === "mixed") return new Set();
+  if (scope.kind === "outer")
+    return planStackOutcome(plan, run, stackId) === "succeeded"
+      ? new Set(deliveries.map((delivery) => delivery.entryId))
+      : new Set();
+  const record = run.loops?.find((entry) => entry.id === scope.loopId);
+  if (!isPlanLoopLeftRegularly(record)) return new Set();
+  const participants = loopParticipants(plan, stackId, scope.loopId);
+  return new Set(
+    deliveries
+      .filter(
+        (delivery) =>
+          delivery.loopId === scope.loopId &&
+          combinedOutcome(
+            iterationStates(record, delivery, participants),
+            true,
+          ) === "succeeded",
+      )
+      .map((delivery) => delivery.entryId),
+  );
 }
