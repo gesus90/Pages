@@ -126,7 +126,15 @@ export class RunnerRepository {
     );
   }
 
-  /** Commits state before its event acknowledgement is sent. */
+  /**
+   * Commits state before its event acknowledgement is sent.
+   * @remarks
+   * Only jobs of a run that still exists are archived. Starting a plan again
+   * deletes its earlier runs, while the runner keeps their finished jobs in
+   * its state; archiving such a job violated the run reference, failed the
+   * whole checkpoint and closed the channel at every reconciliation. The share
+   * lock keeps a run that is deleted meanwhile from failing the insert.
+   */
   public async checkpoint(
     connectionId: string,
     state: RunnerState,
@@ -152,10 +160,12 @@ export class RunnerRepository {
             job,
             utc_now()
         FROM jsonb_array_elements($state_json::jsonb -> 'jobs') AS job
+        JOIN agent_plan_runs AS runs ON runs.id = job -> 'plan' ->> 'runId'
         WHERE job -> 'plan' ->> 'managed' = 'true'
             AND job ->> 'status' IN ('completed', 'failed', 'interrupted', 'lost')
             AND (job -> 'outcome' ->> 'closeout' = 'confirmed'
                 OR job -> 'cancellation' ->> 'closeout' = 'confirmed')
+        FOR KEY SHARE OF runs
         ON CONFLICT (job_id) DO UPDATE SET
             job_json = EXCLUDED.job_json;
       `,

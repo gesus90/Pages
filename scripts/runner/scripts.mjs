@@ -1,6 +1,6 @@
 import { spawn } from "node:child_process";
 import { open } from "node:fs/promises";
-import { join } from "node:path";
+import { delimiter, dirname, isAbsolute, join } from "node:path";
 
 import { interpreters } from "./interpreters.mjs";
 
@@ -41,6 +41,18 @@ export async function prepareScript(command, runtime) {
 // as soon as parallel agents run; scripts get this headroom above current use.
 const SCRIPT_TASK_HEADROOM = 256;
 
+// The address space is inherited by every child of a script. Node reserves
+// roughly 620 MiB of it for its V8 tables even without JIT and with a small
+// heap, so a Bash or Python script that starts `node` needs the same ceiling as
+// a Node script. A lower value aborts the nested interpreter at startup.
+const SCRIPT_ADDRESS_SPACE_BYTES = 1073741824;
+
+// Every Node process of a script runs under the policy of the Node interpreter
+// profile, also when a Bash or Python script starts it, and it fits the limit above.
+const SCRIPT_NODE_FLAGS = ["--jitless", "--max-old-space-size=128"];
+
+const SCRIPT_SYSTEM_PATH = ["/usr/local/bin", "/usr/bin", "/bin"];
+
 function hostTaskCount() {
   const count = Number(process.env.PAGES_RUNNER_HOST_TASKS);
   if (!Number.isSafeInteger(count) || count < 0)
@@ -48,48 +60,74 @@ function hostTaskCount() {
   return count;
 }
 
+/**
+ * The tool search path of a script: the directory of the Node interpreter the
+ * catalog advertises, then the system directories.
+ *
+ * Node is usually installed by a version manager outside the system
+ * directories, so the catalog lists it by absolute path but a bare `node` in a
+ * Bash or Python script would not resolve. Only the directory of the runner's
+ * own executable is added; the runner's login PATH is never inherited.
+ */
+export function scriptSearchPath(nodeExecutable = process.execPath) {
+  const directory = dirname(nodeExecutable);
+  const isUsable =
+    isAbsolute(nodeExecutable) &&
+    !directory.includes(delimiter) &&
+    !SCRIPT_SYSTEM_PATH.includes(directory);
+  return [...(isUsable ? [directory] : []), ...SCRIPT_SYSTEM_PATH].join(
+    delimiter,
+  );
+}
+
+/** The complete environment of a script; nothing is inherited from the runner service. */
+export function scriptEnvironment(runtime, jobId, nodeExecutable) {
+  return {
+    PATH: scriptSearchPath(nodeExecutable),
+    HOME: runtime,
+    TMPDIR: "/tmp",
+    TEMP: "/tmp",
+    TMP: "/tmp",
+    NODE_COMPILE_CACHE: "/tmp/node-compile-cache",
+    NODE_OPTIONS: SCRIPT_NODE_FLAGS.join(" "),
+    LANG: "C.UTF-8",
+    LC_ALL: "C.UTF-8",
+    PAGES_REMOTE_JOB: jobId,
+  };
+}
+
+/** The per-process limits of a script; they are shared by Bash, Python and Node. */
+export function scriptLimits(timeoutSeconds, accountTaskCount) {
+  return [
+    `--cpu=${timeoutSeconds + 1}`,
+    `--nproc=${accountTaskCount + SCRIPT_TASK_HEADROOM}`,
+    "--nofile=128",
+    "--fsize=10485760",
+    "--core=0",
+    `--as=${SCRIPT_ADDRESS_SPACE_BYTES}`,
+  ];
+}
+
 /** Runs the checked script under the existing per-process resource limits. */
 export function spawnScript(command, folder, jobId) {
   const accountTaskCount = hostTaskCount();
   const runtime = join(folder, "runtime");
   const interpreter = command.program.interpreter;
-  const nodeArguments =
-    interpreter.id === "node" ? ["--jitless", "--max-old-space-size=128"] : [];
-  const limits = [
-    `--cpu=${command.timeoutSeconds + 1}`,
-    `--nproc=${accountTaskCount + SCRIPT_TASK_HEADROOM}`,
-    "--nofile=128",
-    "--fsize=10485760",
-    "--core=0",
-  ];
-  limits.push(interpreter.id === "node" ? "--as=1073741824" : "--as=536870912");
+  const isNode = interpreter.id === "node";
   return spawn(
     "/usr/bin/prlimit",
     [
-      ...limits,
+      ...scriptLimits(command.timeoutSeconds, accountTaskCount),
       "--",
       interpreter.path,
-      ...nodeArguments,
-      join(
-        runtime,
-        interpreter.id === "node" ? "node-guard.cjs" : "source.cjs",
-      ),
+      ...(isNode ? SCRIPT_NODE_FLAGS : []),
+      join(runtime, isNode ? "node-guard.cjs" : "source.cjs"),
     ],
     {
       cwd: command.workspace,
       detached: true,
       stdio: ["pipe", "pipe", "pipe"],
-      env: {
-        PATH: "/usr/local/bin:/usr/bin:/bin",
-        HOME: runtime,
-        TMPDIR: "/tmp",
-        TEMP: "/tmp",
-        TMP: "/tmp",
-        NODE_COMPILE_CACHE: "/tmp/node-compile-cache",
-        LANG: "C.UTF-8",
-        LC_ALL: "C.UTF-8",
-        PAGES_REMOTE_JOB: jobId,
-      },
+      env: scriptEnvironment(runtime, jobId),
     },
   );
 }

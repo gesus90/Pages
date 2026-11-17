@@ -124,10 +124,17 @@ uploaded even when the test or report step fails, so a failed run keeps its
 diagnostics. The summary and upload steps do not mask failures: a failed
 install, test or coverage report leaves the job red.
 
-The current checkout has no backend test file. With `passWithNoTests: false`,
-`pnpm run test:backend` therefore fails on this revision; the workflow reports
-that state instead of weakening the check. The first behavior package has to
-add tests under the configured patterns.
+The current checkout has two regression tests, both for the runner:
+`backend/service/runner/RunnerScriptExecution.test.ts` starts real Bash, Python
+and Node scripts through `spawnScript`, and
+`backend/database/repositories/runner/RunnerRepositoryArchive.test.ts` runs the
+job archive checkpoint against a scratch PostgreSQL 18 server of its own (it is
+skipped where `/usr/lib/postgresql/18` is missing). Run them alone with
+`pnpm exec vitest run --config vitest.backend.config.ts <file>`. The adopted
+sections still have no tests, so `pnpm run test:backend` fails on their
+per-file thresholds; the workflow reports that state instead of weakening the
+check. The behavior packages for those sections have to add tests under the
+configured patterns.
 
 ## Growing the mandatory sections
 
