@@ -121,7 +121,10 @@ export function ChatComposer({
   });
   const { editor } = input;
   const canAttach =
-    view.session !== null && !chat.isCompacting && !chat.commands.isDeleting;
+    view.session !== null &&
+    !chat.isLoading &&
+    !chat.isCompacting &&
+    !chat.commands.isDeleting;
   const isBusy = sending !== null || !canAttach;
   // A file still uploading would miss the message, a failed one would be left out without a word;
   // a chat command such as /sessions sends no files, so it runs while files upload.

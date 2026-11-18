@@ -10,10 +10,10 @@ import type { AgentChatModelLabel } from "@/definition/AgentChatControl";
 /**
  * The model and reasoning of an agent in a chat.
  * @remarks
- * Claude Code and Codex models get the shared model badge of their vendor
- * and the reasoning badge. Every other provider keeps the grey pill of model
- * and level until it is moved to badges of its own; its text is joined from
- * the structured values here and never read back.
+ * Claude Code, Codex and Antigravity models get the shared model badge of
+ * their vendor or tool and the reasoning badge. Every other provider keeps
+ * the grey pill of model and level until it is moved to badges of its own;
+ * its text is joined from the structured values here and never read back.
  */
 export function AgentModelBadges({
   model,

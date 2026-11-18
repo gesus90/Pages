@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import {
   chatApi,
@@ -6,7 +6,10 @@ import {
   readChatOverview,
   readChatSessionView,
 } from "@/app/lib/chat-client";
-import { readChatCommand } from "@/definition/Chat";
+import {
+  CHAT_ATTACHMENT_LIMIT_BYTES,
+  readChatCommand,
+} from "@/definition/Chat";
 
 import { toChatView, useChatCommands } from "./use-chat-commands";
 import { useChatContext } from "./use-chat-context";
@@ -52,41 +55,52 @@ export interface ChatController {
 
 const EMPTY_VIEW: ChatView = { session: null, messages: [], pending: [] };
 
-/** Loads the panel when it opens first, so the session field shows its ID. */
+/** Opens or creates one session at a time, including after a failed first load. */
 function useChatLoad(
   isOpen: boolean,
+  hasSession: boolean,
   setView: (view: ChatView) => void,
-  setError: (code: string) => void,
-): { readonly isLoading: boolean; readonly limits: ChatLimits | null } {
+  setError: (code: string | null) => void,
+): {
+  readonly isLoading: boolean;
+  readonly limits: ChatLimits | null;
+  readonly start: (intent: "open" | "new") => Promise<boolean>;
+} {
   const [limits, setLimits] = useState<ChatLimits | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const isStarting = useRef(false);
+  const start = useCallback(
+    async (intent: "open" | "new"): Promise<boolean> => {
+      if (isStarting.current) return false;
+      isStarting.current = true;
+      setIsLoading(true);
+      setError(null);
+      try {
+        const result = await chatApi({ intent });
+        const overview =
+          intent === "open" ? readChatOverview(result.overview) : null;
+        setView(toChatView(overview ?? readChatSessionView(result.view)));
+        setLimits({
+          limitBytes:
+            overview?.attachmentLimitBytes ?? CHAT_ATTACHMENT_LIMIT_BYTES,
+        });
+        return true;
+      } catch (failure: unknown) {
+        setError(chatErrorCode(failure));
+        return false;
+      } finally {
+        isStarting.current = false;
+        setIsLoading(false);
+      }
+    },
+    [setView, setError],
+  );
 
   useEffect(() => {
-    if (!isOpen || limits !== null) return undefined;
-    let isCurrent = true;
-    async function load(): Promise<void> {
-      setIsLoading(true);
-      try {
-        const result = await chatApi({ intent: "open" });
-        const overview = readChatOverview(result.overview);
-        if (!isCurrent) return;
-        setView(toChatView(overview));
-        setLimits({
-          limitBytes: overview.attachmentLimitBytes,
-        });
-      } catch (failure: unknown) {
-        if (isCurrent) setError(chatErrorCode(failure));
-      } finally {
-        if (isCurrent) setIsLoading(false);
-      }
-    }
-    void load();
-    return () => {
-      isCurrent = false;
-    };
-  }, [isOpen, limits, setView, setError]);
+    if (isOpen && !hasSession && limits === null) void start("open");
+  }, [isOpen, hasSession, limits, start]);
 
-  return { isLoading, limits };
+  return { isLoading, limits, start };
 }
 
 /**
@@ -96,7 +110,12 @@ function useChatLoad(
 export function useChat(isOpen: boolean): ChatController {
   const [view, setView] = useState<ChatView>(EMPTY_VIEW);
   const [error, setError] = useState<string | null>(null);
-  const { isLoading, limits } = useChatLoad(isOpen, setView, setError);
+  const { isLoading, limits, start } = useChatLoad(
+    isOpen,
+    view.session !== null,
+    setView,
+    setError,
+  );
   // Stable, so following a job does not restart its reads on every render.
   const refresh = useCallback(async (sessionId: string): Promise<void> => {
     try {
@@ -123,7 +142,7 @@ export function useChat(isOpen: boolean): ChatController {
     reload: refresh,
     setView,
   });
-  const commands = useChatCommands({ setView, setError });
+  const commands = useChatCommands({ setView, setError, start });
   const context = useChatContext({
     isOpen,
     view,
@@ -143,7 +162,8 @@ export function useChat(isOpen: boolean): ChatController {
   });
 
   async function submit(text: string): Promise<ChatSubmitOutcome> {
-    if (context.isCompacting || commands.isDeleting) return "restore";
+    if (isLoading || context.isCompacting || commands.isDeleting)
+      return "restore";
     setError(null);
     commands.setNotice(null);
     if (isQuotaDemoCommand(text)) {

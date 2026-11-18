@@ -28,7 +28,10 @@ export function ChatPanel({
   const dropzone = useChatDropzone({
     isOpen,
     canDrop:
-      view.session !== null && !chat.isCompacting && !chat.commands.isDeleting,
+      view.session !== null &&
+      !chat.isLoading &&
+      !chat.isCompacting &&
+      !chat.commands.isDeleting,
     onFiles: (files, folders) => void chat.uploads.attach(files, folders),
   });
 

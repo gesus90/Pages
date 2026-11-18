@@ -177,13 +177,15 @@
     transparent
   );
 
-  /* Agent badges: Claude's brand orange and ChatGPT's tile green outline
-     the model badge of their vendor, the same in both palettes; every
+  /* Agent badges: Claude's brand orange, ChatGPT's tile green and
+     Antigravity's blue outline the model badge of their tool, the same in
+     both palettes; every
      reasoning level has its own hue, from grey (none) to violet (ultra), its
      background mixed from the same hue (light 12 %, dark 18 %). High is
      yellow so that it stays apart from the orange "working" state. */
   --color-claude: #d97757;
   --color-chatgpt: #74aa9c;
+  --color-antigravity: #4285f4;
   --color-reasoning-none: #4b5563;
   --color-reasoning-minimal: #1d4ed8;
   --color-reasoning-low: #4d7c0f;
@@ -684,6 +686,7 @@
 
     --color-claude: #d97757;
     --color-chatgpt: #74aa9c;
+    --color-antigravity: #4285f4;
     --color-reasoning-none: #c3c9d2;
     --color-reasoning-minimal: #93c5fd;
     --color-reasoning-low: #bef264;

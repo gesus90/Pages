@@ -31,6 +31,18 @@ const GATEWAY_TIMEOUT_STATUSES: readonly number[] = [408, 504];
 /** The pages the workspace frame redirects a visitor without a valid session to. */
 const SIGN_IN_PATHS: readonly string[] = ["/login", "/change-password"];
 
+/** Panel requests that read or admit work without waiting for a model. */
+const PANEL_INTENTS: ReadonlySet<unknown> = new Set([
+  "open",
+  "new",
+  "send",
+  "job",
+  "session",
+  "sessionState",
+]);
+
+const PANEL_REQUEST_TIMEOUT_MS = 30_000;
+
 /** A failed chat request with the stable code the server sent. */
 export class ChatClientError extends Error {
   public readonly code: string;
@@ -179,13 +191,27 @@ export async function chatApi(
   input: Readonly<Record<string, unknown>>,
   signal?: AbortSignal,
 ): Promise<Record<string, unknown>> {
-  const response = await request("/chat-api", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(input),
-    signal,
-  });
-  return readResult(response);
+  const deadline = PANEL_INTENTS.has(input.intent)
+    ? AbortSignal.timeout(PANEL_REQUEST_TIMEOUT_MS)
+    : undefined;
+  const requestSignal =
+    deadline && signal
+      ? AbortSignal.any([deadline, signal])
+      : (deadline ?? signal);
+  try {
+    const response = await request("/chat-api", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(input),
+      signal: requestSignal,
+    });
+    return await readResult(response);
+  } catch (error: unknown) {
+    if (deadline?.aborted && requestSignal?.reason === deadline.reason)
+      throw new ChatClientError("requestTimeout");
+    if (signal?.aborted) throw new ChatClientError("cancelled");
+    throw error;
+  }
 }
 
 /** Uploads a file for the next message of a session; the signal cancels it. */
@@ -260,13 +286,15 @@ async function readResult(
     throw new ChatClientError(
       GATEWAY_TIMEOUT_STATUSES.includes(response.status)
         ? "timeout"
-        : "general",
+        : "invalidResponse",
     );
   }
+  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed))
+    throw new ChatClientError("invalidResponse");
   const result = readAgentObject(parsed);
   if (!response.ok || result.ok !== true)
     throw new ChatClientError(
-      typeof result.error === "string" ? result.error : "general",
+      typeof result.error === "string" ? result.error : "invalidResponse",
     );
   return result;
 }

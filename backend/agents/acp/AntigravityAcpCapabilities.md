@@ -88,7 +88,16 @@ than provider tokens in DuckDB.
 
 The catalog reads ACP model **selectors** and each model's `thinking_level`
 choices. Model family IDs may differ from both CLI names and concrete variant
-IDs. Pages requires membership and exact confirmation of `model`, the requested
+IDs. Every model the connection's ACP picker offers is listed, whatever its
+family (Gemini, Claude, GPT-OSS or an orchestrator); Pages keeps no list of
+model names or IDs. A model whose selector Pages cannot accept or whose
+selection the adapter refuses is left out with its selector and reason in the
+server log (`antigravity.catalog.model_skipped`); the other models are stored.
+A listing may take up to 90 seconds, because it selects every offered model
+once. The models a terminal `agy models` lists belong to the terminal's own
+sign-in and CLI version and prove nothing about a connection: its catalog is
+what `agy acp` offers in the connection's context with the managed CLI
+generation. Pages requires membership and exact confirmation of `model`, the requested
 `thinking_level`, and `mode` before sending a prompt. It does not guess a Flash
 alias, choose another model or accept a silently remapped effort.
 

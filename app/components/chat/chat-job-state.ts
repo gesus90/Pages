@@ -17,8 +17,10 @@ export interface ChatLiveJob {
   /** The sequence of the last journal entry applied. */
   readonly cursor: number;
   readonly hasMore: boolean;
-  /** At least one read of the journal succeeded. */
+  /** At least one request for the journal has settled. */
   readonly hasRead: boolean;
+  /** Failure of the latest status request, cleared by the next successful read. */
+  readonly readError: string | null;
   readonly phase: ChatJobPhase | null;
   /** Answer text of the turn shown last, until its answer is stored. */
   readonly text: string;
@@ -60,6 +62,7 @@ export function startChatLiveJob(job: ChatJob): ChatLiveJob {
     cursor: 0,
     hasMore: true,
     hasRead: false,
+    readError: null,
     phase: null,
     text: "",
     textTurn: 0,
@@ -71,6 +74,18 @@ export function startChatLiveJob(job: ChatJob): ChatLiveJob {
     canSteer: null,
     ended: null,
   };
+}
+
+/** Applies a terminal conversation snapshot even if its journal cannot be read. */
+export function mergeFinishedChatJob(
+  live: ChatLiveJob | null,
+  latest: ChatJob | null,
+): ChatLiveJob | null {
+  if (live === null || latest === null || live.job.id !== latest.id)
+    return live;
+  return live.job.state === "running" && latest.state !== "running"
+    ? { ...live, job: latest }
+    : live;
 }
 
 function beginTurn(live: ChatLiveJob, event: ChatJobTurnEvent): ChatLiveJob {
@@ -158,8 +173,9 @@ export function applyChatJobUpdate(
     cursor: update.cursor,
     hasMore: update.hasMore,
     hasRead: true,
+    readError: null,
   };
-  let needsReload = false;
+  let needsReload = live.job.state !== update.job.state;
   for (const { event } of update.events) {
     next = applyEvent(next, event);
     if (event.kind === "answer" || event.kind === "end") needsReload = true;

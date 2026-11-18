@@ -235,6 +235,7 @@ export interface ChatJobEndEvent {
   readonly kind: "end";
   readonly state: Exclude<ChatJobState, "running">;
   readonly errorCode: string | null;
+  readonly errorDetail?: ChatJobFailureDetail;
 }
 
 /** One entry of the journal of a job. */

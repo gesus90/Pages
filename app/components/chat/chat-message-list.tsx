@@ -123,12 +123,13 @@ export function ChatMessageList({
   const { sending, live, jobState, facts, quotaHold, showLiveStatus, count } =
     listContent(chat);
   const heldAt = quotaHold?.heldAt;
+  const readError = live?.readError;
 
   useEffect(() => {
     // A hidden panel cannot scroll, so reopening it shows what arrived meanwhile.
     // A terminal status expands the row; hidden intermediate text never moves the list.
     if (isOpen) end.current?.scrollIntoView({ block: "end" });
-  }, [count, chat.error, isOpen, heldAt, jobState]);
+  }, [count, chat.error, isOpen, heldAt, jobState, readError]);
 
   return (
     <ScrollViewport

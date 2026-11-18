@@ -15,6 +15,22 @@ import type { ChatSendResult } from "@/definition/Chat";
 import type { User } from "@/definition/User";
 import type { Route } from "./+types/chat-api";
 
+const CHAT_INTENTS: ReadonlySet<unknown> = new Set([
+  "open",
+  "new",
+  "sessions",
+  "session",
+  "sessionState",
+  "send",
+  "job",
+  "stop",
+  "delete",
+  "compact",
+  "context",
+  "discard",
+  "cancel",
+]);
+
 /** Answers a sent message with the key the browser reads: `reply`, `job` or `steer`. */
 function sendResult(sent: ChatSendResult): Readonly<Record<string, unknown>> {
   switch (sent.kind) {
@@ -34,11 +50,15 @@ async function handleJobIntent(
   input: Readonly<Record<string, unknown>>,
 ): Promise<Readonly<Record<string, unknown>>> {
   const jobs = services.picaAcpService;
+  if (jobs === null) throw new ChatError("acpProviderUnsupported");
   if (input.intent === "stop") {
-    await jobs?.stop(actor, input.sessionId);
+    await jobs.stop(actor, input.sessionId);
     return {};
   }
-  return { update: jobs ? await jobs.update(actor, input) : null };
+  const update = await jobs.update(actor, input);
+  if (update === null && input.jobId !== undefined)
+    throw new ChatError("jobMissing");
+  return { update };
 }
 
 /** Runs one chat intent for the signed-in person; every intent acts on own sessions only. */
@@ -111,12 +131,15 @@ export async function action({
   request,
   context,
 }: Route.ActionArgs): Promise<Response> {
+  let intent = "unknown";
   try {
     requireChatRequest(request, "POST", context.get(requestEntryContext));
     const actor = context.get(authenticatedUserContext);
     if (!actor) throw new ChatError("accessDenied");
-    const services = await getApplicationServices();
     const input = await readChatJson(request);
+    if (typeof input.intent === "string" && CHAT_INTENTS.has(input.intent))
+      intent = input.intent;
+    const services = await getApplicationServices();
     if (input.intent === "send")
       services.picaAdminService.protectOrigin(new URL(request.url).origin);
     const result = await handleIntent(services, actor, input);
@@ -124,6 +147,6 @@ export async function action({
   } catch (error: unknown) {
     logCaughtError("chat_api", error);
 
-    return chatFailure(error);
+    return chatFailure(error, intent);
   }
 }

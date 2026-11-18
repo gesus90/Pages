@@ -26,6 +26,7 @@ import { PicaAcpThreadWatch } from "./PicaAcpThreadWatch";
 import {
   logPicaJobEnd,
   logPicaJobStart,
+  logPicaRunnerResult,
   picaAcpOutcome,
   requireCompleted,
   turnBeganEvent,
@@ -248,7 +249,7 @@ export class PicaAcpJob {
     signal: AbortSignal,
     metrics: DatabaseLogMetrics,
   ): Promise<void> {
-    logPicaJobStart();
+    logPicaJobStart(this.specification.agent);
     let outcome: PicaAcpOutcome;
     try {
       await this.prepare(signal);
@@ -363,7 +364,6 @@ export class PicaAcpJob {
       turn: () => this.followUpInput(message),
     });
     this.session = session;
-    this.stage = "turn";
     await this.journal.record({ kind: "phase", phase: "running" });
     return this.awaitTurn(session.turn);
   }
@@ -453,7 +453,9 @@ export class PicaAcpJob {
   ): Promise<PlanSessionTurn> {
     this.isTurnRunning = true;
     try {
-      return await pending;
+      const result = await pending;
+      logPicaRunnerResult(this.specification.agent.connection.provider, result);
+      return result;
     } finally {
       this.isTurnRunning = false;
       await this.steering.settle();
@@ -592,6 +594,7 @@ export class PicaAcpJob {
   private observer(): PlanSessionObserver {
     const identified = (sessionId: string): void => {
       this.acpSessionId = sessionId;
+      if (this.stage === "start") this.stage = "turn";
     };
     return { started: () => undefined, identified };
   }
@@ -635,6 +638,7 @@ export class PicaAcpJob {
         kind: "end",
         state: outcome.state,
         errorCode: outcome.errorCode,
+        ...(outcome.detail ? { errorDetail: outcome.detail } : {}),
       });
       await this.journal.drain();
     });

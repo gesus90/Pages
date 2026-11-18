@@ -44,9 +44,10 @@ function badgeProvider(
 /**
  * The model and reasoning of a session as structured identity for the badges.
  * @remarks
- * Only Claude Code and Codex sessions get it, the providers with model
- * badges; other providers keep their text values. Codex confirms its model
- * and level through its configuration options, which name catalog IDs.
+ * Only Claude Code, Codex and Antigravity sessions get it, the providers
+ * with model badges; other providers keep their text values. Codex and
+ * Antigravity confirm their model and level through their configuration
+ * options, which name catalog IDs.
  * The concrete model the adapter reported with its usage, or the Claude CLI
  * of a runner in its events, is kept apart from the configuration it
  * confirmed, so an alias such as `haiku` becomes `Haiku 5.5` only together

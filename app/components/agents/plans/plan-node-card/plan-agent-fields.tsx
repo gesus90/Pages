@@ -40,13 +40,70 @@ function ReasoningValue(props: {
   );
 }
 
+/** The levels a model offers to choose, from the options of its field. */
+function offeredLevels(options: ReasoningSelectOptions): readonly string[] {
+  return options
+    .filter((option) => option.value !== "" && option.disabled !== true)
+    .map((option) => option.value);
+}
+
+/**
+ * What a level field without a choice shows: the saved level, the one level
+ * the model offers, or a dash.
+ */
+function FixedReasoningValue(props: {
+  readonly value: string;
+  readonly options: ReasoningSelectOptions;
+  readonly levels: readonly string[];
+}): React.ReactElement {
+  const [onlyLevel] = props.levels;
+  if (props.value === "" && onlyLevel !== undefined)
+    return <ReasoningBadge level={onlyLevel} />;
+  return (
+    <ReasoningValue
+      value={props.value}
+      options={props.options}
+      hasLevels={false}
+    />
+  );
+}
+
+/**
+ * The level field without an arrow, for a model with one level or none.
+ * @remarks
+ * It keeps the measures of the field. One level stands as its badge; without
+ * a level the field is greyed out with a dash.
+ */
+function FixedReasoningField(props: {
+  readonly value: string;
+  readonly options: ReasoningSelectOptions;
+  readonly levels: readonly string[];
+}): React.ReactElement {
+  const { t } = useTranslation();
+  return (
+    <p
+      className={cn(
+        MODEL_BADGE_FIELD_CLASS,
+        "hover:bg-surface",
+        props.levels.length === 0 && "opacity-60",
+      )}
+    >
+      <span className="sr-only">{t("pageAgents.reasoning")}: </span>
+      <FixedReasoningValue {...props} />
+    </p>
+  );
+}
+
 /**
  * The reasoning level of an agent node's footer as a fixed field with the
  * level's badge.
  * @remarks
  * The field has the measures of the model field beside it; choosing another
- * level changes only the badge, never the field or the arrow. Without a
- * level to choose the field stays, greyed out with a dash.
+ * level changes only the badge, never the field or the arrow. The levels
+ * come from the model's catalog entry. A model with a single level shows it
+ * without an arrow, a model without levels a greyed dash without an arrow;
+ * a saved level the single level replaces keeps the choice, so it can be
+ * corrected.
  */
 export function PlanReasoningField(props: {
   readonly value: string;
@@ -56,9 +113,18 @@ export function PlanReasoningField(props: {
   const { t } = useTranslation();
   const id = `${useId()}-reasoning`;
   const label = t("pageAgents.reasoning");
-  const hasLevels = props.options.some(
-    (option) => option.value !== "" && option.disabled !== true,
-  );
+  const levels = offeredLevels(props.options);
+  const isFixed =
+    levels.length === 0 ||
+    (levels.length === 1 && (props.value === "" || props.value === levels[0]));
+  if (isFixed)
+    return (
+      <FixedReasoningField
+        value={props.value}
+        options={props.options}
+        levels={levels}
+      />
+    );
   return (
     <div className="min-w-0">
       <label htmlFor={id} className="sr-only">
@@ -69,7 +135,6 @@ export function PlanReasoningField(props: {
         ariaLabel={label}
         value={props.value}
         options={props.options}
-        disabled={!hasLevels}
         className={cn(
           MODEL_BADGE_FIELD_CLASS,
           "[&>span]:flex [&>span]:min-w-0 [&>svg]:ml-auto [&>svg]:size-4",
@@ -78,7 +143,7 @@ export function PlanReasoningField(props: {
           <ReasoningValue
             value={props.value}
             options={props.options}
-            hasLevels={hasLevels}
+            hasLevels
           />
         }
         onValueChange={props.onChange}
@@ -122,19 +187,27 @@ export function PlanModelValue(props: {
   );
 }
 
-/** The reasoning level of an agent node's footer, read only, in the same fixed field. */
+/**
+ * The reasoning level of an agent node's footer, read only, in the same fixed field.
+ * @remarks
+ * Without a saved level, a model with a single level shows that level.
+ */
 export function PlanReasoningValue(props: {
   readonly reasoning: string | null;
-  readonly hasLevels: boolean;
+  /** The levels the model's catalog entry offers. */
+  readonly levels: readonly string[];
 }): React.ReactElement {
   const { t } = useTranslation();
+  const [onlyLevel] = props.levels;
+  const value =
+    props.reasoning ?? (props.levels.length === 1 ? (onlyLevel ?? "") : "");
   return (
     <p className={cn(MODEL_BADGE_FIELD_CLASS, "hover:bg-surface")}>
       <span className="sr-only">{t("pageAgents.reasoning")}: </span>
       <ReasoningValue
-        value={props.reasoning ?? ""}
+        value={value}
         options={[]}
-        hasLevels={props.hasLevels}
+        hasLevels={props.levels.length > 0}
       />
     </p>
   );

@@ -19,6 +19,7 @@ import type { AcpDriver } from "@/backend/agents/acp/AcpDriver";
 import type { AcpLineChannel } from "@/backend/agents/acp/AcpLineChannel";
 import type { AcpResourceScheduler } from "@/backend/service/agents/AcpResourceScheduler";
 import type { AcpStartLifecycle } from "@/backend/service/agents/resources/AcpStartLifecycle";
+import type { AgentToolManagerService } from "@/backend/service/agents/tools/AgentToolManagerService";
 import type { AcpNamespaceOwner } from "@/definition/AcpResource";
 import type { AcpPermissionMode } from "@/definition/AgentConfiguration";
 import type { AgentCredentialStore } from "./AgentCredentialStore";
@@ -101,7 +102,10 @@ export function openCliAcpSession(
   } = context;
   return new AcpSession(child, channel.stream, {
     instanceId: input.instanceId,
-    driver: pinnedAgentToolDriver(driver, start.adapterVersion),
+    driver: pinnedAgentToolDriver(
+      driver,
+      picaBundle?.version ?? start.adapterVersion,
+    ),
     profile,
     request: acpSessionRequest(input, {
       ...launch,
@@ -243,20 +247,29 @@ export async function preparePicaSession(options: {
   readonly input: AgentPlanSessionInput;
   readonly launch: ReturnType<typeof planAcpLaunch>;
   readonly profile: ReturnType<AcpDriver["profile"]>;
-  readonly toolsDirectory?: string;
+  readonly tools?: Pick<AgentToolManagerService, "directory" | "retained">;
   readonly adapter: string;
+  readonly adapterVersion?: string | null;
 }): Promise<
   Pick<OpenCliAcpSessionContext, "picaNative" | "picaBundle" | "picaSupport">
 > {
   if (!options.input.chat) return { picaNative: null, picaBundle: null };
   const pica = await import("./CliPicaSessionSetup");
-  const picaNative = pica.selectPicaNativeArtifact(options);
+  const picaNative = pica.selectPicaNativeArtifact({
+    ...options,
+    toolsDirectory: options.tools?.directory,
+  });
   return {
     picaNative,
-    picaBundle: pica.picaCodexBundle(
+    picaBundle: await pica.picaCodexBundle(
       picaNative,
       options.input.directory,
-      options.adapter,
+      {
+        file: options.adapter,
+        version: options.adapterVersion,
+        retained: () =>
+          options.tools?.retained("codex_acp") ?? Promise.resolve(null),
+      },
     ),
     picaSupport: pica.acpPicaSupport,
   };

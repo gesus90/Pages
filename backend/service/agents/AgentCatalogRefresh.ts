@@ -18,6 +18,19 @@ import type {
 } from "@/definition/AgentModelCatalog";
 import type { AgentOperationRegistry } from "./AgentOperationRegistry";
 
+/** How long one API listing may take: a single HTTP request per page. */
+const API_CATALOG_TIMEOUT_MS = 25_000;
+
+/**
+ * How long one CLI listing may take.
+ * @remarks
+ * A CLI starts its adapter, opens a session and, for Antigravity, selects
+ * every offered model once to read its own thinking levels. That grows with
+ * the number of models, so a listing of all of them must not run into the
+ * budget of a single HTTP request and keep an older, shorter catalog.
+ */
+const CLI_CATALOG_TIMEOUT_MS = 90_000;
+
 /** Timing is anchored to the last completed attempt, including errors, so failures do not hot-loop. */
 export function nextCatalogRefresh(
   interval: CatalogInterval,
@@ -113,7 +126,11 @@ export class AgentCatalogRefresh {
     let errorCode: AgentModelCatalog["errorCode"] = null;
     try {
       const signal = AbortSignal.any([
-        AbortSignal.timeout(25_000),
+        AbortSignal.timeout(
+          isApiProvider(connection.provider)
+            ? API_CATALOG_TIMEOUT_MS
+            : CLI_CATALOG_TIMEOUT_MS,
+        ),
         this.shutdownController.signal,
       ]);
       models = isApiProvider(connection.provider)

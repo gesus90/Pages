@@ -196,7 +196,8 @@ function readOutcomeEvent(event: Fields): ChatJobEvent {
     case "capabilities":
       if (typeof event.canSteer !== "boolean") throw invalid();
       return { kind: "capabilities", canSteer: event.canSteer };
-    case "end":
+    case "end": {
+      const errorDetail = readChatJobFailureDetail(event.errorDetail);
       return {
         kind: "end",
         state: oneOf(event.state, [
@@ -206,7 +207,9 @@ function readOutcomeEvent(event: Fields): ChatJobEvent {
           "interrupted",
         ]),
         errorCode: nullableText(event.errorCode),
+        ...(errorDetail === null ? {} : { errorDetail }),
       };
+    }
     default:
       throw invalid();
   }

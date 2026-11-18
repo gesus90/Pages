@@ -113,6 +113,11 @@ answers through `codex-acp` with the same native tools. There is no model choice
 in the chat and no fallback to an API model; the assignment is resolved anew
 for every new answer, so a change applies from the next message on.
 
+The native Pica Codex runner uses the verified `codex-acp` 2.2.2 package.
+Pages can load that package from the retained managed release when another
+adapter version is active. The chat reports a startup error if neither release
+provides the required package and bundle digest.
+
 - **Server-side jobs.** Sending stores the message and starts a job on the
   server. Closing the browser, switching tabs or a lost connection does not end
   it; only _Stop_ does. The panel reads the job's journal after its last cursor,
@@ -177,6 +182,9 @@ above. This section names what differs.
   before the message is stored. The agent's timeout limits the adapter process
   on top of the chat's own deadline. A missing assignment, model, effort,
   adapter or sign-in fails with its own message.
+  Read-only chat sessions pass the saved model ID and effort when creating
+  the Claude query and confirm the effort with the ACP selector before sending
+  the first prompt.
 - **Claude Max.** The session uses the claude.ai subscription sign-in of the
   connection (`claude auth login --claudeai`) in its own credential folder;
   every start checks `claude auth status` for it. No API key, token or

@@ -290,6 +290,11 @@ export class AgentToolManagerService {
     );
   }
 
+  /** Reads the retained managed release without activating it. */
+  public async retained(id: AgentToolId): Promise<AgentToolLocation | null> {
+    return this.dependencies.files.previous(agentToolDefinition(id));
+  }
+
   /**
    * Used by the shared execution path before a native node can start.
    * @remarks

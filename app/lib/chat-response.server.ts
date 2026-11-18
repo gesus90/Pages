@@ -1,7 +1,11 @@
 import { readAgentObject } from "@/backend/agents/AgentPayload";
 import { ChatError } from "@/backend/error/ChatErrors";
 import { AgentExecutionError } from "@/backend/error/AgentExecutionErrors";
-import { logCaughtError, logDiagnostic } from "@/backend/logging/Logger";
+import {
+  logCaughtError,
+  logDiagnostic,
+  logEvent,
+} from "@/backend/logging/Logger";
 
 import { assessRequestOrigin, logOriginRefusal } from "./request-origin.server";
 
@@ -23,6 +27,7 @@ const STATUSES: Readonly<
   accessDenied: 403,
   originRejected: 403,
   sessionMissing: 404,
+  jobMissing: 404,
   attachmentMissing: 404,
   fileTooLarge: 413,
   requestBusy: 409,
@@ -100,7 +105,19 @@ export async function readChatJson(
   }
 }
 
-function failureResponse(code: string, status: number): Response {
+function failureResponse(
+  code: string,
+  status: number,
+  intent?: string,
+): Response {
+  if (intent !== undefined)
+    logEvent({
+      level: "warn",
+      event: "pica.request.failed",
+      component: "chat_api",
+      message: "Pica request failed",
+      metadata: { operation: intent, statusCode: status, code },
+    });
   return Response.json(
     { ok: false, error: code },
     { status, headers: CHAT_NO_STORE },
@@ -111,16 +128,16 @@ function failureResponse(code: string, status: number): Response {
  * Maps a failure to a stable code; messages, prompts and provider output never
  * reach the answer or the log.
  */
-export function chatFailure(error: unknown): Response {
+export function chatFailure(error: unknown, intent?: string): Response {
   if (error instanceof OriginRefusedError)
     logOriginRefusal(error.refusal, error.route);
   if (error instanceof ChatError || error instanceof AgentExecutionError)
-    return failureResponse(error.code, STATUSES[error.code] ?? 400);
+    return failureResponse(error.code, STATUSES[error.code] ?? 400, intent);
   logDiagnostic(
     "chat_response",
     "error",
     "[pages] A chat request failed.",
     error,
   );
-  return failureResponse("general", 500);
+  return failureResponse("general", 500, intent);
 }

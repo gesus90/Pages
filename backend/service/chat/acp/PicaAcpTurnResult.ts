@@ -10,6 +10,8 @@ import { CHAT_LIMITS } from "@/definition/Chat";
 
 import type { PlanSessionTurn } from "@/backend/agents/AgentPlanExecution";
 import type { DatabaseLogSummary } from "@/backend/logging/DatabaseLogMetrics";
+import type { ResolvedAgentAssignment } from "@/backend/service/agents/AgentAssignmentResolution";
+import type { AgentProviderId } from "@/definition/AgentConnection";
 import type {
   ChatJobFailureDetail,
   ChatJobFailureStage,
@@ -133,12 +135,41 @@ function failureDetail(
 }
 
 /** Logs the start of a job. */
-export function logPicaJobStart(): void {
+export function logPicaJobStart(agent: ResolvedAgentAssignment): void {
   logEvent({
     level: "info",
     event: "pica.job.started",
     component: "PicaAcpJob",
     message: "Pica job started",
+    metadata: {
+      provider: agent.connection.provider,
+      model: agent.model,
+      reasoningEffort: agent.reasoningEffort,
+    },
+  });
+}
+
+/** Logs the adapter's configuration and outcome under the job's correlation ID. */
+export function logPicaRunnerResult(
+  provider: AgentProviderId,
+  result: PlanSessionTurn,
+): void {
+  const { adapter, model, modelOption, reasoningEffort } = result.effective;
+  logEvent({
+    level: result.failure === null ? "info" : "warn",
+    event: "pica.runner.finished",
+    component: "PicaAcpJob",
+    message: "Pica runner returned a turn result",
+    metadata: {
+      provider,
+      adapter: adapter ?? null,
+      model: model ?? null,
+      modelOption: modelOption ?? null,
+      reasoningEffort: reasoningEffort ?? null,
+      hasSession: result.sessionId !== null,
+      failure: result.failure,
+      code: result.errorCode,
+    },
   });
 }
 

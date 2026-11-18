@@ -413,8 +413,9 @@ export class CliSessionExecution implements PlanSessionRunner {
         input,
         launch,
         profile,
-        toolsDirectory: this.dependencies.tools?.directory,
+        tools: this.dependencies.tools,
         adapter,
+        adapterVersion: start.adapterVersion,
       });
       const { picaNative } = pica;
       picaBundle = pica.picaBundle;

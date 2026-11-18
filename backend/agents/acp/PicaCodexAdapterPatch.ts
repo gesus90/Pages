@@ -13,7 +13,8 @@ export interface PicaCodexGlueSource {
 }
 
 const PACKAGE_NAME = "@agentclientprotocol/codex-acp";
-const PACKAGE_VERSION = "2.2.2";
+/** Exact adapter generation paired with the native Pica Codex build. */
+export const PICA_CODEX_ADAPTER_VERSION = "2.2.2";
 const BUNDLE_SHA256 =
   "6b1bb4e7e9caaf4aeca1042ae4aec2dc2433b0b0e4b1614b38a4d41699902aaa";
 
@@ -156,7 +157,7 @@ function requireVersion(packageJson: string): void {
     typeof metadata !== "object" ||
     metadata === null ||
     Reflect.get(metadata, "name") !== PACKAGE_NAME ||
-    Reflect.get(metadata, "version") !== PACKAGE_VERSION ||
+    Reflect.get(metadata, "version") !== PICA_CODEX_ADAPTER_VERSION ||
     Reflect.get(metadata, "license") !== "Apache-2.0"
   )
     throw new Error("Unsupported Codex adapter package");

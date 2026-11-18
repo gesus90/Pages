@@ -6,6 +6,7 @@ export type ChatErrorCode =
   /** The request's origin is not the address Pages believes it has; a proxy or setup problem, no missing right. */
   | "originRejected"
   | "sessionMissing"
+  | "jobMissing"
   | "attachmentMissing"
   | "confirmationRequired"
   | "credentialsInText"

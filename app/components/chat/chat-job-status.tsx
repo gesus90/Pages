@@ -3,12 +3,14 @@ import { useTranslation } from "react-i18next";
 import { WikiMarkdown } from "@/app/components/wiki/wiki-markdown";
 import { parseInstant } from "@/app/lib/region-format";
 
+import { ChatErrorNotice } from "./chat-error-notice";
 import { chatErrorText } from "./chat-error";
 import { isChatJobRunning } from "./chat-job-state";
 import { ChatLiveStatus } from "./chat-live-status";
 import { ChatPrivilegedActions } from "./chat-privileged-actions";
 import { PicaMascot } from "./pica-mascot";
 
+import type { ChatJobFailureDetail } from "@/definition/ChatJob";
 import type { ChatLiveJob } from "./chat-job-state";
 
 interface ChatJobStatusProps {
@@ -32,6 +34,35 @@ function requestStart(live: ChatLiveJob): number {
   );
 }
 
+function ChatJobFailure({
+  code,
+  detail,
+}: {
+  readonly code: string;
+  readonly detail: ChatJobFailureDetail | null;
+}): React.ReactElement {
+  const { t } = useTranslation();
+  const description = [
+    detail?.step,
+    detail?.cause,
+    detail?.tool,
+    detail?.diagnostic,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+  return (
+    <span className="mt-0.5 block text-xs font-normal">
+      {chatErrorText(t, detail?.cause ?? code)}
+      {detail ? (
+        <span className="mt-0.5 block">
+          {t(`chat.job.failureStage.${detail.stage}`)}
+          {description ? ` (${description})` : null}
+        </span>
+      ) : null}
+    </span>
+  );
+}
+
 /** Activity while running; afterwards the actual failure or stop and any unsaved answer. */
 export function ChatJobStatus({
   live,
@@ -40,6 +71,8 @@ export function ChatJobStatus({
 }: ChatJobStatusProps): React.ReactElement | null {
   const { t } = useTranslation();
   if (isChatJobRunning(live)) {
+    if (live.readError !== null)
+      return <ChatErrorNotice code={live.readError} />;
     if (!showLiveStatus) return <ChatPrivilegedActions tools={live.tools} />;
     return (
       <div className="space-y-1">
@@ -59,9 +92,10 @@ export function ChatJobStatus({
           <p className="text-sm font-medium text-destructive" role="alert">
             {t(`chat.job.ended.${state}`)}
             {state === "failed" && errorCode ? (
-              <span className="mt-0.5 block text-xs font-normal">
-                {chatErrorText(t, errorCode)}
-              </span>
+              <ChatJobFailure
+                code={errorCode}
+                detail={live.ended?.errorDetail ?? live.job.errorDetail ?? null}
+              />
             ) : null}
           </p>
           {live.text ? (

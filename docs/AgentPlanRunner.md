@@ -857,10 +857,14 @@ tooltip, and the reasoning level's badge. Claude models are outlined in
 Claude's orange, OpenAI models in the green of the ChatGPT tile; an OpenAI
 name drops its leading "GPT-" there (`6.2 Astra`), so the end that tells the
 models apart stays visible, while the tooltip and screen readers keep the full
-name. Choosing another model or level
-changes only the badge, never the field or its arrow; a model without levels
-keeps a greyed level field with a dash, and a missing model reads "Modell
-fehlt" in the warning color. Its panel starts with a search field and lists the target's models under
+name. Antigravity models are outlined in Antigravity's blue; a name that does
+not fit drops its family word (`Gemini`, `Claude` or `GPT-`, such as `4 Argon`
+or `Sonnet 5.5`), and a name that still does not fit is cut. Choosing another
+model or level changes only the badge, never the field or its arrow. The
+levels come from the model's catalog entry: a model with a single level shows
+it without an arrow, a model without levels keeps a greyed level field with a
+dash and no arrow, and a missing model reads "Modell fehlt" in the warning
+color. Its panel starts with a search field and lists the target's models under
 collapsible tools in a fixed order (Claude Code, Codex, Antigravity, OpenCode,
 OpenRouter, Z.AI, then other API connections), each header naming the access
 and model count. OpenRouter and z.AI are independent agent providers with the

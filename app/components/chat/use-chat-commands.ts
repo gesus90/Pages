@@ -51,6 +51,7 @@ export interface ChatCommands {
 interface ChatCommandOptions {
   readonly setView: Dispatch<SetStateAction<ChatView>>;
   readonly setError: (code: string) => void;
+  readonly start: (intent: "new") => Promise<boolean>;
 }
 
 /** Keeps the session fields of an overview; the limits stay as loaded. */
@@ -69,6 +70,7 @@ export function toChatView(view: ChatView): ChatView {
 export function useChatCommands({
   setView,
   setError,
+  start,
 }: ChatCommandOptions): ChatCommands {
   const [picker, setPicker] = useState<ChatPicker | null>(null);
   const [notice, setNotice] = useState<ChatNotice | null>(null);
@@ -77,7 +79,7 @@ export function useChatCommands({
   async function run(command: Exclude<ChatCommand, "/compact">): Promise<void> {
     try {
       if (command === "/new") {
-        setView(readChatSessionView((await chatApi({ intent: "new" })).view));
+        if (!(await start("new"))) return;
         setPicker(null);
         setNotice("newSession");
         return;

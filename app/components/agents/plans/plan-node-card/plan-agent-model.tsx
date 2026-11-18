@@ -69,7 +69,7 @@ export function PlanAgentModel(props: {
     return (
       <footer className={FOOTER_CLASS}>
         <PlanModelValue choice={null} savedModel="" />
-        <PlanReasoningValue reasoning={null} hasLevels={false} />
+        <PlanReasoningValue reasoning={null} levels={[]} />
       </footer>
     );
   const models = planTargetModels(
@@ -125,7 +125,7 @@ function ModelValues(props: {
       />
       <PlanReasoningValue
         reasoning={props.reasoning}
-        hasLevels={(model?.reasoningEfforts ?? []).length > 0}
+        levels={model?.reasoningEfforts ?? []}
       />
     </footer>
   );

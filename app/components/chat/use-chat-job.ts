@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
 
-import { chatApi, chatErrorCode } from "@/app/lib/chat-client";
+import { ChatClientError, chatApi, chatErrorCode } from "@/app/lib/chat-client";
 import { readChatJobResult } from "@/app/lib/chat-job-client";
 
 import {
   applyChatJobUpdate,
   isChatJobRunning,
+  mergeFinishedChatJob,
   startChatLiveJob,
 } from "./chat-job-state";
 
@@ -15,6 +16,7 @@ import type { ChatView } from "./use-chat-uploads";
 
 /** How long the panel waits between two reads of a running job's journal. */
 const POLL_INTERVAL_MS = 800;
+const POLL_RETRY_INTERVAL_MS = 3_000;
 
 /** The Pica job of the open conversation, as the panel follows it. */
 export interface ChatJobs {
@@ -48,11 +50,9 @@ function isPolling(live: ChatLiveJob | null): live is ChatLiveJob {
 }
 
 /** Reads the journal of a job after the cursor the panel applied last. */
-async function readJournal(
-  following: ChatLiveJob,
-): Promise<ChatJobUpdate | null> {
+async function readJournal(following: ChatLiveJob): Promise<ChatJobUpdate> {
   const { job, cursor } = following;
-  return readChatJobResult(
+  const update = readChatJobResult(
     await chatApi({
       intent: "job",
       sessionId: job.sessionId,
@@ -60,6 +60,8 @@ async function readJournal(
       after: cursor,
     }),
   );
+  if (update === null) throw new ChatClientError("jobMissing");
+  return update;
 }
 
 /** The job the panel shows: not one of another conversation, not a completed one. */
@@ -87,19 +89,23 @@ function useJournalReads(
     async function read(): Promise<void> {
       try {
         const update = await readJournal(current);
-        if (!isCurrent || update === null) return;
+        if (!isCurrent) return;
         const applied = applyChatJobUpdate(current, update);
         setLive(applied.live);
         if (applied.needsReload) await reload(current.job.sessionId);
-      } catch {
-        // A lost read is repeated from the same cursor while the job runs; it runs on regardless.
-        if (isCurrent) setLive({ ...current, hasMore: false, hasRead: true });
+      } catch (failure: unknown) {
+        if (isCurrent)
+          setLive({
+            ...current,
+            hasMore: false,
+            hasRead: true,
+            readError: chatErrorCode(failure),
+          });
       }
     }
-    const timer = setTimeout(
-      () => void read(),
-      current.hasMore ? 0 : POLL_INTERVAL_MS,
-    );
+    const interval =
+      current.readError === null ? POLL_INTERVAL_MS : POLL_RETRY_INTERVAL_MS;
+    const timer = setTimeout(() => void read(), current.hasMore ? 0 : interval);
     return () => {
       isCurrent = false;
       clearTimeout(timer);
@@ -132,6 +138,8 @@ export function useChatJob({
     if (live?.job.id !== latest.id)
       setLive(latest.state === "completed" ? null : startChatLiveJob(latest));
   }
+  const synchronized = mergeFinishedChatJob(live, latest);
+  if (synchronized !== live) setLive(synchronized);
 
   const visible = live?.job.sessionId === sessionId ? live : null;
   useJournalReads(

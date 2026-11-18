@@ -203,6 +203,7 @@ export function claudeModelMatches(stored: string, reported: string): boolean {
 function claudeSteps(
   sessionMode: ClaudeAcpSessionMode,
   request: AcpModelRequest,
+  purpose: "plan" | "chat" = "plan",
 ): readonly AcpConfigStep[] {
   const steps: AcpConfigStep[] = [
     {
@@ -222,6 +223,7 @@ function claudeSteps(
       id: "effort",
       value: request.reasoningEffort,
       refusal: "plan_reasoning_unsupported",
+      isExplicit: purpose === "chat",
     });
   return steps;
 }
@@ -316,7 +318,7 @@ const CHAT_PROFILE: ClaudeAcpProfile = {
   matchesReportedModel: claudeModelMatches,
   hasMcpStatusCommand: false,
   isContinuable: true,
-  steps: (request) => claudeSteps("default", request),
+  steps: (request) => claudeSteps("default", request, "chat"),
   decide: refusePermission,
 };
 

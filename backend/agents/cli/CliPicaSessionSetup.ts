@@ -1,4 +1,7 @@
+import { PICA_CODEX_ADAPTER_VERSION } from "@/backend/agents/acp/PicaCodexAdapterPatch";
 import { AgentError } from "@/backend/error/AgentErrors";
+import { logCaughtError } from "@/backend/logging/Logger";
+
 import { picaNativeRunner } from "./CliAcpLaunch";
 import {
   preparePicaCodexBundle,
@@ -9,20 +12,36 @@ import { requirePicaNativeArtifact } from "./PicaNativeArtifact";
 import type { AgentPlanSessionInput } from "@/backend/agents/AgentPlanExecution";
 import type { AcpDriver } from "@/backend/agents/acp/AcpDriver";
 import type { AcpLaunch } from "@/backend/agents/acp/AcpLaunch";
+import type { AgentToolLocation } from "@/backend/service/agents/tools/AgentToolContracts";
 import type { PicaCodexBundle } from "./PicaCodexBundle";
 import type { PicaNativeArtifact } from "./PicaNativeArtifact";
 
 export { acpPicaSupport } from "@/backend/agents/acp/AcpPicaSupport";
 
 /** Prepares the Codex bundle a Pica chat over Codex runs; `null` for every other session. */
-export function picaCodexBundle(
+export async function picaCodexBundle(
   picaNative: PicaNativeArtifact | null,
   directory: string,
-  adapter: string,
-): PicaCodexBundle | null {
-  return picaNative?.runner === "codex"
-    ? preparePicaCodexBundle(directory, adapter, picaNative.directory)
-    : null;
+  adapter: {
+    readonly file: string;
+    readonly version?: string | null;
+    readonly retained?: () => Promise<AgentToolLocation | null>;
+  },
+): Promise<PicaCodexBundle | null> {
+  if (picaNative?.runner !== "codex") return null;
+  try {
+    let file = adapter.file;
+    if (adapter.version && adapter.version !== PICA_CODEX_ADAPTER_VERSION) {
+      const retained = await adapter.retained?.();
+      if (retained?.version !== PICA_CODEX_ADAPTER_VERSION)
+        throw new AgentError("pica_codex_adapter_unavailable");
+      file = retained.file;
+    }
+    return preparePicaCodexBundle(directory, file, picaNative.directory);
+  } catch (error: unknown) {
+    logCaughtError("CliPicaSessionSetup", error);
+    throw new AgentError("pica_codex_adapter_unavailable");
+  }
 }
 
 /**

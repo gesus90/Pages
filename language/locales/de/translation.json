@@ -3759,6 +3759,7 @@
       "authenticationRequired": "Deine Anmeldung ist abgelaufen. Melde dich neu an; was du geschrieben hast, bleibt hier erhalten.",
       "originRejected": "Die Anfrage wurde aus Sicherheitsgründen abgelehnt, weil die Webadresse nicht zur Einrichtung des Servers passt (Proxy). Das ist kein fehlendes Recht. Bitte einen Admin informieren; im Protokoll steht der Eintrag request.origin.rejected.",
       "sessionMissing": "Diese Session gibt es nicht mehr. Mit /new startest du eine neue.",
+      "jobMissing": "Pages findet den Auftrag zu dieser Antwort nicht mehr. Du kannst deine Nachricht erneut senden.",
       "attachmentMissing": "Der Anhang ist nicht mehr vorhanden.",
       "confirmationRequired": "Diese Aktion braucht eine ausdrückliche Bestätigung.",
       "credentialsInText": "Zugangsdaten dürfen nicht an Pica gesendet werden. Bitte entferne sie aus der Nachricht.",
@@ -3782,8 +3783,10 @@
       "requestBusy": "Pica verarbeitet bereits eine Nachricht oder Kontextkomprimierung von dir. Bitte warte auf den Abschluss.",
       "cancelled": "Die Antwort wurde abgebrochen.",
       "timeout": "Die Antwort hat zu lange gedauert. Bitte versuch es noch einmal.",
+      "requestTimeout": "Die Chat-Anfrage hat zu lange gedauert. Bitte versuch es noch einmal.",
       "providerFailed": "Der Anbieter hat nicht geantwortet. Bitte versuch es noch einmal.",
       "network": "Pages ist gerade nicht erreichbar. Bitte prüf die Verbindung und versuch es noch einmal.",
+      "invalidResponse": "Pages hat keine gültige Antwort auf die Chat-Anfrage geliefert. Bitte versuch es noch einmal.",
       "invalidOutput": "Die Antwort war unvollständig und wurde nicht gespeichert.",
       "general": "Das hat nicht geklappt. Bitte versuch es noch einmal.",
       "contextChanged": "Der Kontext wurde inzwischen geändert. Es wurde nichts überschrieben; bitte /compact erneut aufrufen.",
@@ -3795,6 +3798,8 @@
       "instructionsUnavailable": "Pica kann gerade nicht antworten: Die geschützten Vorgaben von Pica fehlen auf dem Server oder sind nicht lesbar. Deine Nachricht wurde nicht gesendet. Bitte wende dich an einen Admin.",
       "acpProviderUnsupported": "Pica unterstützt Codex CLI, Claude Code, OpenCode und Antigravity über ACP. Ein Admin muss unter Einstellungen › Agents einen solchen Agenten für den Chat zuweisen.",
       "acpPermissionModeUnsupported": "Pica antwortet mit Claude Code, OpenCode und Antigravity nur im Modus „Lesend“. Es stehen ausschließlich die autorisierten Pages-Werkzeuge zur Verfügung, keine Shell, Dateien oder Webwerkzeuge. Ein Admin muss den Modus des Chat-Agenten anpassen. Deine Nachricht wurde nicht gesendet.",
+      "pica_codex_adapter_unavailable": "Pica benötigt das geprüfte Codex-ACP-Paket 2.2.2. Bitte die Administration, dieses Paket für den nativen Pica-Runner bereitzustellen.",
+      "pica_native_artifact_unavailable": "Der geprüfte native Runner für Pica fehlt oder seine Dateien stimmen nicht mit dem Manifest überein. Bitte wende dich an die Administration.",
       "accessModeRequired": "Dieser Agent hat noch die frühere Zugriffsstufe „Arbeitsplatz“. Ein Admin muss „Lesend“ oder „YOLO“ wählen. Deine Nachricht wurde nicht gesendet.",
       "bridgeUnavailable": "Der Chat-Agent konnte die Pages-Werkzeuge von Pica nicht verbinden. Es wurde nichts geändert. Bitte versuch es noch einmal oder wende dich an einen Admin.",
       "interrupted": "Der Server wurde während der Antwort beendet. Die Antwort wird nicht automatisch wiederholt.",
@@ -3826,6 +3831,12 @@
       "adapterExplanation": "Kontextbelegung der Sitzung des Chat-Agenten, wie vom Agenten zuletzt gemeldet. Ohne gültige Meldung steht hier „nicht verfügbar“; Pages schätzt hier nicht."
     },
     "job": {
+      "failureStage": {
+        "prepare": "Fehler bei der Vorbereitung des Auftrags.",
+        "start": "Fehler beim Start des Runners.",
+        "turn": "Fehler im ersten Antwortlauf.",
+        "followUp": "Fehler in einem weiteren Antwortlauf."
+      },
       "ended": {
         "completed": "Antwort abgeschlossen.",
         "stopped": "Antwort gestoppt.",

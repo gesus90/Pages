@@ -42,8 +42,8 @@ function workspaceFolder(view: AgentSessionView): string | null {
 }
 
 /**
- * Model, reasoning, access and branch of a Claude Code or Codex session as
- * the shared badges.
+ * Model, reasoning, access and branch of a Claude Code, Codex or Antigravity
+ * session as the shared badges.
  * @remarks
  * The model and the reasoning are the structured values of the session view:
  * confirmed ones as confirmed, requested ones as requested. A reasoning level
@@ -57,7 +57,7 @@ export function BadgeSessionFacts({
 }: {
   readonly step: AgentPlanStepResult;
   readonly view: AgentSessionView;
-  /** The vendor the model badge names, such as `openai` for Codex. */
+  /** The vendor the model badge names, such as `openai` for Codex or `antigravity`. */
   readonly vendor: ModelBadgeVendor;
 }): React.ReactElement {
   const { t } = useTranslation();

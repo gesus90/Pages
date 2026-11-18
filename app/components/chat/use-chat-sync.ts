@@ -28,10 +28,14 @@ interface ChatSyncOptions {
 /** Opens the most recently used conversation, as opening the panel does. */
 async function reopenLatest(
   setView: Dispatch<SetStateAction<ChatView>>,
+  previousId: string,
 ): Promise<void> {
   try {
     const result = await chatApi({ intent: "open" });
-    setView(toChatView(readChatOverview(result.overview)));
+    const latest = toChatView(readChatOverview(result.overview));
+    setView((current) =>
+      current.session?.id === previousId ? latest : current,
+    );
   } catch {
     // The next check asks again.
   }
@@ -57,6 +61,7 @@ export function useChatSync({
   const sessionId = view.session?.id ?? null;
   const lastMessageAt = view.session?.lastMessageAt ?? null;
   const jobId = view.activity?.job?.id ?? null;
+  const jobState = view.activity?.job?.state ?? null;
 
   useEffect(() => {
     if (!isOpen || isSending || sessionId === null) return undefined;
@@ -72,12 +77,14 @@ export function useChatSync({
         );
         if (
           isCurrent &&
-          (state.lastMessageAt !== lastMessageAt || state.jobId !== jobId)
+          (state.lastMessageAt !== lastMessageAt ||
+            state.jobId !== jobId ||
+            state.jobState !== jobState)
         )
           await reload(openId);
       } catch (failure: unknown) {
         if (isCurrent && chatErrorCode(failure) === "sessionMissing")
-          await reopenLatest(setView);
+          await reopenLatest(setView, openId);
       } finally {
         isChecking = false;
       }
@@ -87,5 +94,14 @@ export function useChatSync({
       isCurrent = false;
       window.clearInterval(timer);
     };
-  }, [isOpen, isSending, sessionId, lastMessageAt, jobId, reload, setView]);
+  }, [
+    isOpen,
+    isSending,
+    sessionId,
+    lastMessageAt,
+    jobId,
+    jobState,
+    reload,
+    setView,
+  ]);
 }

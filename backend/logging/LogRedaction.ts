@@ -8,6 +8,8 @@ const CONTENT_KEY =
   /^(?:body|prompt|content|text|input|output|response|headers|parameters|attachment|environment|env)$/iu;
 const SAFE_METADATA_KEY =
   /^(?:lock|blockedRunId|repository|refUpdates|updatedRefs|fieldPath|expectedType|contractVersion|connectionId|stepId|runnerSessionId|requestId|correlationId|runId|jobId|attemptId|sessionId|userId|projectId|ticketId|pageId|conversationId|agentId|toolId|operation|method|route|status|statusCode|durationMs|count|deleted|failed|retentionDays|timeZone|port|code|reason|kind|sequence|bytes|signal|exitCode|isConfirmed|leftovers|parameterCount|statementId|rows|pending|lost|truncated|source|eventType|provider|databaseQueries|databaseTotalMs|databaseSlowestMs|databaseSlowestStatementId|databaseSlowestOperation|databaseTransactionsCommitted|databaseTransactionsRolledBack|databaseQueueMs|databaseIpcMs|lane|workClass|queueMs|queued|role|workerWaitMs|ipcMs|walBytesBefore|walBytesAfter|checkpointed|generation|pid|walReplayed|restarts|state|routeLoaders|routeActions|routeHandlersCompleted|routeHandlersFailed|routeHandlerTotalMs|routeHandlerSlowestMs|routeHandlerSlowest|step|failure|notStarted|origin|expectedOrigin|receivedOrigin|forwardedProtocol|isTrustedProxy|fetchSite|statements|checkpoints|cleanupFailures|databaseClose|messageId|remainingStatus|runs|interrupted|completedRuns|remoteSettled|reservationsReleased|reservationsKept|uncertainDeliveries|writerQueued|writerRunning|writerCompleted|writerRefusedOverloaded|writerRefusedQueueTimeout|writerRefusedAborted|writerLongestQueueWaitMs|readerQueued|readerRunning|readerCompleted|readerRefusedOverloaded|readerRefusedQueueTimeout|readerRefusedAborted|readerLongestQueueWaitMs|reroutedReads|pendingStatements|tool|toolStatus|diagnostic|attempt|willRetry|stage|cause)$/u;
+const SAFE_RUNNER_METADATA_KEY =
+  /^(?:adapter|model|modelOption|reasoningEffort|hasSession)$/u;
 const registeredSecrets = new Set<string>();
 
 /** Remembers an instance secret without ever including it in an event. */
@@ -53,34 +55,48 @@ export function redactLogText(text: string): string {
     : safe;
 }
 
+type SafeMetadataValue = string | number | boolean | null;
+
+function isLoggableMetadataKey(key: string): boolean {
+  if (SECRET_KEY.test(key) || CONTENT_KEY.test(key)) return false;
+  return SAFE_METADATA_KEY.test(key) || SAFE_RUNNER_METADATA_KEY.test(key);
+}
+
+/** Returns the primitive value to log, or `undefined` when the value must not be logged. */
+function toSafeMetadataValue(
+  candidate: unknown,
+): SafeMetadataValue | undefined {
+  if (typeof candidate === "string")
+    return redactLogText(candidate).slice(0, 256);
+  if (typeof candidate === "boolean" || candidate === null) return candidate;
+  if (typeof candidate === "number" && Number.isFinite(candidate))
+    return candidate;
+  return undefined;
+}
+
 /** Allowlists primitive operational metadata; arbitrary objects and user content never pass. */
 export function safeLogMetadata(
   input: Readonly<Record<string, unknown>> = {},
-): Record<string, string | number | boolean | null> {
-  const safe: Record<string, string | number | boolean | null> = {};
+): Record<string, SafeMetadataValue> {
+  const safe: Record<string, SafeMetadataValue> = {};
   let count = 0;
   for (const key of Object.keys(input)) {
     if (++count > 32) {
       safe.truncated = true;
       break;
     }
-    if (SECRET_KEY.test(key) || CONTENT_KEY.test(key)) {
-      safe.truncated = true;
-      continue;
-    }
-    if (!SAFE_METADATA_KEY.test(key)) {
+    if (!isLoggableMetadataKey(key)) {
       safe.truncated = true;
       continue;
     }
     const descriptor = Object.getOwnPropertyDescriptor(input, key);
     const candidate: unknown = descriptor?.value;
-    if (typeof candidate === "string")
-      safe[key] = redactLogText(candidate).slice(0, 256);
-    else if (typeof candidate === "boolean" || candidate === null)
-      safe[key] = candidate;
-    else if (typeof candidate === "number" && Number.isFinite(candidate))
-      safe[key] = candidate;
-    else safe.truncated = true;
+    const value = toSafeMetadataValue(candidate);
+    if (value === undefined) {
+      safe.truncated = true;
+      continue;
+    }
+    safe[key] = value;
     if (typeof candidate === "string" && candidate.length > 256)
       safe.truncated = true;
   }

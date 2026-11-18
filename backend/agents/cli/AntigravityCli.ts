@@ -1,7 +1,7 @@
 import { lstat } from "node:fs/promises";
 import path from "node:path";
 
-import { methods } from "@agentclientprotocol/sdk";
+import { methods, RequestError } from "@agentclientprotocol/sdk";
 
 import { requireManagedAntigravityConfiguration } from "@/backend/agents/acp/AntigravityConfiguration";
 import {
@@ -16,6 +16,7 @@ import {
 } from "@/backend/agents/catalog/CatalogParsing";
 import { findAcpSelectOption } from "@/backend/agents/acp/AcpConfigOptions";
 import { AgentError } from "@/backend/error/AgentErrors";
+import { logEvent } from "@/backend/logging/Logger";
 import { MODEL_TEST_PROMPT } from "@/definition/AgentConnection";
 
 import { AntigravityProtocol, antigravityFailure } from "./AntigravityProtocol";
@@ -33,7 +34,103 @@ import type {
 import type { CliToolExecution } from "./CliToolExecution";
 import type { ProviderCheckOutcome } from "@/backend/agents/providers/ProviderContracts";
 import type { AgentCatalogModel } from "@/definition/AgentModelCatalog";
+import type { SessionConfigOption } from "@agentclientprotocol/sdk";
 import type { AgentErrorCode } from "@/backend/error/AgentErrors";
+
+/** The largest number of models one ACP picker may offer. */
+const PICKER_LIMIT = 1000;
+
+/** One model of the ACP picker: its selector and its display name. */
+interface PickerEntry {
+  readonly value: string;
+  readonly name: string;
+}
+
+/** Every entry of the session's `model` select, also those inside groups. */
+function pickerEntries(
+  options: readonly SessionConfigOption[],
+): readonly PickerEntry[] {
+  const picker = options.find(
+    (option) => option.id === "model" && option.type === "select",
+  );
+  if (!picker || picker.type !== "select")
+    throw new AgentError("cli_unexpected_output");
+  const entries = picker.options.flatMap((entry) =>
+    "group" in entry ? entry.options : [entry],
+  );
+  if (entries.length === 0 || entries.length > PICKER_LIMIT)
+    throw new AgentError("cli_unexpected_output");
+  return entries;
+}
+
+/** Logs why one offered model is not part of the catalog. */
+function logSkippedModel(entry: PickerEntry, reason: string): void {
+  logEvent({
+    level: "warn",
+    event: "antigravity.catalog.model_skipped",
+    component: "AntigravityCli",
+    message: `Antigravity model "${entry.value}" (${entry.name}) left out of the catalog`,
+    metadata: { provider: "antigravity", reason },
+  });
+}
+
+/** Whether a failure belongs to one model's selection rather than to the whole session. */
+function isModelRefusal(error: unknown, signal: AbortSignal): boolean {
+  return (
+    !signal.aborted &&
+    (error instanceof AgentError || error instanceof RequestError)
+  );
+}
+
+/**
+ * Selects one offered model and reads its own thinking levels.
+ * @returns The catalog entry, or `null` when Pages cannot accept the
+ * selector or the adapter refuses to select it; the reason is logged.
+ * @throws The failure of the session itself, such as a closed connection or
+ * an aborted listing.
+ */
+async function readCatalogModel(
+  protocol: AntigravityProtocol,
+  input: {
+    readonly sessionId: string;
+    readonly options: readonly SessionConfigOption[];
+    readonly entry: PickerEntry;
+    readonly signal: AbortSignal;
+  },
+): Promise<AgentCatalogModel | null> {
+  const { entry } = input;
+  if (!isCatalogModelId(entry.value)) {
+    logSkippedModel(entry, "selector_invalid");
+    return null;
+  }
+  let options: readonly SessionConfigOption[];
+  try {
+    options = await protocol.select(input.sessionId, input.options, {
+      id: "model",
+      value: entry.value,
+      error: "plan_model_unavailable",
+    });
+  } catch (error: unknown) {
+    if (!isModelRefusal(error, input.signal)) throw error;
+    logSkippedModel(
+      entry,
+      error instanceof AgentError ? error.code : "selection_refused",
+    );
+    return null;
+  }
+  const thinking = findAcpSelectOption(options, "thinking_level");
+  return {
+    id: entry.value,
+    name: entry.name,
+    contextWindow: null,
+    promptPrice: null,
+    completionPrice: null,
+    isFree: false,
+    ...(thinking
+      ? reasoningLevels(thinking.values, thinking.currentValue)
+      : reasoningWithoutLevels("unknown")),
+  };
+}
 
 /** Uses oauth-personal through `agy acp` in the connection's isolated context. */
 export class AntigravityCli implements CliLoginAdapter {
@@ -119,7 +216,15 @@ export class AntigravityCli implements CliLoginAdapter {
     return result.errorCode ?? "login_failed";
   }
 
-  /** Reads model family selectors and their own thinking levels, without generating output. */
+  /**
+   * Reads model family selectors and their own thinking levels, without generating output.
+   * @remarks
+   * Every model the ACP picker offers is listed, whatever its family: Gemini,
+   * Claude, GPT-OSS or an orchestrator. One model whose selector Pages cannot
+   * accept or whose selection the adapter refuses is left out with its reason
+   * in the server log, so it never discards the other models of the listing.
+   * A listing without a single usable model fails as before.
+   */
   public async listModels(
     home: CliHome,
     signal: AbortSignal,
@@ -128,38 +233,18 @@ export class AntigravityCli implements CliLoginAdapter {
     return this.withProtocol(home, signal, async (protocol) => {
       await protocol.initialize();
       const session = await protocol.newSession(home);
-      const picker = session.configOptions?.find(
-        (option) => option.id === "model" && option.type === "select",
-      );
-      if (!picker || picker.type !== "select")
-        throw new AgentError("cli_unexpected_output");
-      const entries = picker.options.flatMap((entry) =>
-        "group" in entry ? entry.options : [entry],
-      );
-      if (entries.length === 0 || entries.length > 1000)
-        throw new AgentError("cli_unexpected_output");
+      const entries = pickerEntries(session.configOptions ?? []);
       const models: AgentCatalogModel[] = [];
       for (const entry of entries) {
-        if (!isCatalogModelId(entry.value))
-          throw new AgentError("cli_unexpected_output");
-        const options = await protocol.select(
-          session.sessionId,
-          session.configOptions ?? [],
-          { id: "model", value: entry.value, error: "plan_model_unavailable" },
-        );
-        const thinking = findAcpSelectOption(options, "thinking_level");
-        models.push({
-          id: entry.value,
-          name: entry.name,
-          contextWindow: null,
-          promptPrice: null,
-          completionPrice: null,
-          isFree: false,
-          ...(thinking
-            ? reasoningLevels(thinking.values, thinking.currentValue)
-            : reasoningWithoutLevels("unknown")),
+        const model = await readCatalogModel(protocol, {
+          sessionId: session.sessionId,
+          options: session.configOptions ?? [],
+          entry,
+          signal,
         });
+        if (model) models.push(model);
       }
+      if (models.length === 0) throw new AgentError("cli_unexpected_output");
       return models;
     });
   }

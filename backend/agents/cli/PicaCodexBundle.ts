@@ -15,7 +15,10 @@ import {
 import path from "node:path";
 
 import glueSource from "@/backend/agents/acp/PicaCodexGlueRuntime.mjs?raw";
-import { patchPicaCodexAdapter } from "@/backend/agents/acp/PicaCodexAdapterPatch";
+import {
+  patchPicaCodexAdapter,
+  PICA_CODEX_ADAPTER_VERSION,
+} from "@/backend/agents/acp/PicaCodexAdapterPatch";
 
 const DIRECTORY_FLAGS =
   constants.O_RDONLY | constants.O_DIRECTORY | constants.O_NOFOLLOW;
@@ -67,6 +70,8 @@ export function requirePicaCodexProfile(profile: unknown): void {
 /** A private generated adapter, retained until its owning process has ended. */
 export interface PicaCodexBundle {
   readonly entry: string;
+  /** The adapter version the ACP handshake must confirm. */
+  readonly version: string;
   readonly directory: string;
   readonly packageRoot: string;
   readonly runnerRoot: string;
@@ -230,7 +235,7 @@ export function preparePicaCodexBundle(
       "provenance.json",
       JSON.stringify({
         adapter: "@agentclientprotocol/codex-acp",
-        version: "2.2.2",
+        version: PICA_CODEX_ADAPTER_VERSION,
         original: digest(original.bundle),
         glue: glueHash,
         patched: digest(patched),
@@ -271,6 +276,7 @@ function ownedBundle(options: {
   return {
     directory: directoryPath,
     entry: path.join(directoryPath, "adapter.mjs"),
+    version: PICA_CODEX_ADAPTER_VERSION,
     packageRoot: options.packageRoot,
     runnerRoot: options.runnerRoot,
     cleanup: () => {

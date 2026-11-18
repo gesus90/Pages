@@ -3759,6 +3759,7 @@
       "authenticationRequired": "Your sign-in has expired. Sign in again; what you wrote stays here.",
       "originRejected": "The request was refused for security reasons because the web address does not match the setup of the server (proxy). This is not a missing permission. Please tell an admin; the log holds the entry request.origin.rejected.",
       "sessionMissing": "This session no longer exists. Start a new one with /new.",
+      "jobMissing": "Pages can no longer find the job for this answer. You can send your message again.",
       "attachmentMissing": "The attachment no longer exists.",
       "confirmationRequired": "This action needs explicit confirmation.",
       "credentialsInText": "Credentials must not be sent to Pica. Please remove them from the message.",
@@ -3782,8 +3783,10 @@
       "requestBusy": "Pica is already processing a message or context compaction for you. Please wait until it finishes.",
       "cancelled": "The answer was cancelled.",
       "timeout": "The answer took too long. Please try again.",
+      "requestTimeout": "The chat request took too long. Please try again.",
       "providerFailed": "The provider did not answer. Please try again.",
       "network": "Pages cannot be reached right now. Please check the connection and try again.",
+      "invalidResponse": "Pages returned an invalid response to the chat request. Please try again.",
       "invalidOutput": "The answer was incomplete and was not stored.",
       "general": "That did not work. Please try again.",
       "contextChanged": "The context changed meanwhile. Nothing was overwritten; please try /compact again.",
@@ -3795,6 +3798,8 @@
       "instructionsUnavailable": "Pica cannot answer right now: the protected instructions of Pica are missing on the server or cannot be read. Your message was not sent. Please contact an administrator.",
       "acpProviderUnsupported": "Pica supports Codex CLI, Claude Code, OpenCode and Antigravity over ACP. An administrator must assign one of these agents to chat under Settings › Agents.",
       "acpPermissionModeUnsupported": "Pica requires the “Lesend” (read only) mode for Claude Code, OpenCode and Antigravity. Only the authorized Pages tools are available, with no shell, files or web tools. An administrator must update the chat agent’s mode. Your message was not sent.",
+      "pica_codex_adapter_unavailable": "Pica needs the verified codex-acp 2.2.2 package. Ask an administrator to make it available for Pica's native runner.",
+      "pica_native_artifact_unavailable": "Pica's verified native runner is missing or its files differ from the manifest. Please contact an administrator.",
       "accessModeRequired": "This agent still has the earlier access level “Workspace”. An administrator must choose “Lesend” (read only) or “YOLO”. Your message was not sent.",
       "bridgeUnavailable": "The chat agent could not connect Pica's Pages tools. Nothing was changed. Please try again or contact an admin.",
       "interrupted": "The server stopped during the answer. The answer is not repeated automatically.",
@@ -3826,6 +3831,12 @@
       "adapterExplanation": "Context occupancy of the chat agent’s session as last reported by the agent. Without a valid report, this reads “unavailable”; Pages does not estimate it."
     },
     "job": {
+      "failureStage": {
+        "prepare": "The job failed during preparation.",
+        "start": "The runner failed to start.",
+        "turn": "The first answer turn failed.",
+        "followUp": "A follow-up answer turn failed."
+      },
       "ended": {
         "completed": "Answer completed.",
         "stopped": "Answer stopped.",

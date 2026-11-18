@@ -17,8 +17,13 @@ export const REASONING_BADGE_LEVELS = [
 /** A reasoning level the shared badge colors. */
 export type ReasoningBadgeLevel = (typeof REASONING_BADGE_LEVELS)[number];
 
-/** The vendor a shared model badge names beside its tile. */
-export type ModelBadgeVendor = "anthropic" | "openai";
+/**
+ * The vendor or tool a shared model badge names beside its tile.
+ * @remarks
+ * Antigravity is named as the tool, because it offers models of several
+ * vendors: Sonnet over Antigravity must not read like Sonnet over Claude Code.
+ */
+export type ModelBadgeVendor = "anthropic" | "openai" | "antigravity";
 
 /**
  * The providers whose models carry the shared model badge, with their vendor.
@@ -28,7 +33,17 @@ export type ModelBadgeVendor = "anthropic" | "openai";
 const MODEL_BADGE_VENDORS: Readonly<Record<string, ModelBadgeVendor>> = {
   claude_code: "anthropic",
   codex_cli: "openai",
+  antigravity: "antigravity",
 };
+
+/**
+ * The providers that confirm a model only as the exact selector value of
+ * their configuration option, never as an alias: Codex and Antigravity.
+ */
+const SELECTOR_CONFIRMING_PROVIDERS: ReadonlySet<string> = new Set([
+  "codex_cli",
+  "antigravity",
+]);
 
 /**
  * The vendor of a provider's shared model badge.
@@ -143,10 +158,10 @@ function uncatalogedName(id: string): string {
  * Only the concrete model the adapter reported confirms a version: an alias
  * such as `haiku` the adapter confirmed as its configuration says which
  * family runs, not which version, so it stays `requested` until the reported
- * model arrives. Codex confirms a concrete model ID through its
- * configuration option, so that value is confirmed, with its catalog name or
- * as the raw ID. The reported model wins over every requested value, so a
- * changed or resumed session never keeps an older name.
+ * model arrives. Codex and Antigravity confirm the exact selector through
+ * their configuration option, so that value is confirmed, with its catalog
+ * name or as the raw ID. The reported model wins over every requested
+ * value, so a changed or resumed session never keeps an older name.
  * @returns `null` when nothing names a model.
  */
 export function resolveModelIdentity(
@@ -178,10 +193,11 @@ function confirmedModelIdentity(
       status: "confirmed",
     };
   // A concrete Claude ID the adapter confirmed names its version itself;
-  // Codex confirms only concrete model IDs, never an alias.
+  // Codex and Antigravity confirm only exact selector values, never an alias.
   if (
     configured !== null &&
-    (provider === "codex_cli" || parseClaudeModelId(configured))
+    (SELECTOR_CONFIRMING_PROVIDERS.has(provider) ||
+      parseClaudeModelId(configured))
   )
     return {
       provider,

@@ -63,7 +63,9 @@ export function planClaudeAcpLaunch(
     readonly profile: ClaudeAcpProfile;
   },
 ): AcpLaunch {
-  const { instanceId, mcp, profile } = specification;
+  const { instanceId, mcp, profile, purpose, model } = specification;
+  const selection =
+    purpose === "chat" && profile.mode === "read_only" ? model : undefined;
   return {
     environment: {
       [RUN_INSTANCE_VARIABLE]: instanceId,
@@ -72,15 +74,23 @@ export function planClaudeAcpLaunch(
       CLAUDE_CODE_DISABLE_LEGACY_MODEL_REMAP: "1",
       CLAUDE_CODE_DISABLE_AUTO_MEMORY: "1",
       // A helper result holds up to one read chunk of JSON; the default cut would hide its end.
-      ...(specification.purpose === "chat"
+      ...(purpose === "chat"
         ? { BASH_MAX_OUTPUT_LENGTH: String(HELPER_OUTPUT_LIMIT) }
         : {}),
     },
     mcpServers: pagesMcpServers(mcp),
     sessionMeta: {
       claudeCode: {
-        options: profile.options,
-        ...((specification.purpose ?? "plan") === "plan"
+        options: selection
+          ? {
+              ...profile.options,
+              model: selection.model,
+              ...(selection.reasoningEffort === null
+                ? {}
+                : { effort: selection.reasoningEffort }),
+            }
+          : profile.options,
+        ...((purpose ?? "plan") === "plan"
           ? { emitRawSDKMessages: [{ type: "assistant" }, { type: "result" }] }
           : {}),
       },

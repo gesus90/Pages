@@ -423,6 +423,9 @@ with the equivalent USD amount, unknown price, or not reported). Like a Claude
 Code session, a Codex session's console shows no costs, token sums or cache;
 its usage is the context occupancy last reported, which stays after the step
 ended, and model, reasoning and access stand as the shared badges. An
+Antigravity session shows model, reasoning and access as the same badges, its
+model under the tool name "Antigravity", and keeps its usage and reference
+values. An
 incomplete run total is marked explicitly. The run projection reads every persisted
 attempt, including replaced retries, and every loop iteration; its step sums
 and run sum use the same rows. The mounted panel polls the authorized session

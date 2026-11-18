@@ -18,6 +18,16 @@ import type {
   AgentSessionView,
 } from "@/definition/AgentSessionJournal";
 
+/**
+ * The providers whose console usage is only the context occupancy: Claude
+ * Code and Codex. Antigravity keeps its token, cost and reference facts
+ * beside its model badges.
+ */
+const CONTEXT_ONLY_USAGE_PROVIDERS: ReadonlySet<string> = new Set([
+  "claude_code",
+  "codex_cli",
+]);
+
 interface ConsoleSidebarProps {
   readonly step: AgentPlanStepResult;
   readonly view: AgentSessionView;
@@ -308,7 +318,7 @@ function ContextSection({
 
 function UsageSection(props: UsageSectionProps): React.ReactElement {
   const { t } = useTranslation();
-  if (modelBadgeVendor(props.view.provider))
+  if (CONTEXT_ONLY_USAGE_PROVIDERS.has(props.view.provider))
     return <ContextSection view={props.view} />;
   if (props.view.openCode)
     return <OpenCodeUsageSection {...props.view.openCode} />;

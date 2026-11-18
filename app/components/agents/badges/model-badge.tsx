@@ -12,7 +12,7 @@ import type {
 interface VendorStyle {
   /** The key of the vendor's unchanged tile. */
   readonly mark: string;
-  /** The vendor's brand name, never translated. */
+  /** The vendor's or tool's brand name, never translated. */
   readonly name: string;
   /** The outline in the color of the tile; static, so Tailwind finds the class. */
   readonly borderClass: string;
@@ -25,11 +25,16 @@ const VENDOR_STYLES: Readonly<Record<ModelBadgeVendor, VendorStyle>> = {
     borderClass: "border-claude",
   },
   openai: { mark: "openai", name: "OpenAI", borderClass: "border-chatgpt" },
+  antigravity: {
+    mark: "antigravity",
+    name: "Antigravity",
+    borderClass: "border-antigravity",
+  },
 };
 
 interface ModelBadgeProps {
   readonly vendor: ModelBadgeVendor;
-  /** The catalog name, such as `Haiku 5.5` or `GPT-6.2 Sol`. */
+  /** The catalog name, such as `Haiku 5.5`, `GPT-6.2 Sol` or `Gemini 4 Argon`. */
   readonly name: string;
   readonly status?: AgentValueStatus;
   readonly className?: string;
@@ -42,7 +47,10 @@ interface ModelBadgeProps {
  * 24 px high with a 1 px border and a 7 px radius; the 18 px tile with a 5 px
  * radius sits 2 px from the top, bottom and left edge, so the corners run
  * parallel. Anthropic is outlined in Claude's orange, OpenAI in the green of
- * the ChatGPT tile. Vendor and model name stay apart until here. A long name
+ * the ChatGPT tile, Antigravity in its blue. Antigravity names the tool,
+ * not the model's vendor, because it offers models of several vendors: its
+ * Sonnet keeps the Antigravity tile and outline and never reads like Sonnet
+ * over Claude Code. Vendor and model name stay apart until here. A long name
  * is cut with an ellipsis while the tile and the vendor stay whole. The border
  * is always solid; whether the adapter confirmed the model stands in the
  * tooltip and the accessible name.
