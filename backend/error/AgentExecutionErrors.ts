@@ -9,6 +9,7 @@ export type AgentExecutionErrorCode =
   | "picaModelSelectionRequired"
   | "picaZenUnsupported"
   | "picaModelUnsupported"
+  | "picaCodexConfigurationUnmanaged"
   | "reasoningUnsupported"
   | "requestBusy"
   | "cancelled"

@@ -153,6 +153,20 @@ provides the required package and bundle digest.
   bubblewrap (required) and gets no other MCP server. Models whose Codex
   catalog demands code mode, such as `gpt-6-luna`, call the same tools from
   Codex's `exec` tool; their names then carry the prefix `mcp__pages__`.
+- **Managed connection.** Pica reads only, so a Codex session refuses to start
+  while the connection's Codex folder holds a `config.toml` that Pages did not
+  write, or the working folder holds `.codex/config.toml`: such a file could add
+  MCP servers, hooks or providers. Pages names this reason early, before a
+  message is stored: sending, the Pica settings card and saving the choice under
+  _Settings › Agents_ report `picaCodexConfigurationUnmanaged`. The check only
+  tests that the file exists; it never opens, changes or removes it, so the
+  existing profile configuration stays as the operator left it. A session that
+  already runs is not ended when such a file appears. The smallest way back to
+  a working Pica is a clean, separate Codex connection (its own sign-in and
+  folder, without a `config.toml`) that the administration assigns to Pica
+  under _Settings › Agents_; connections that other agents use are not
+  touched. Claude Code, OpenCode and Antigravity connections are not affected
+  by this check.
 - **Sessions.** Each conversation keeps one Codex session, continued with
   `session/resume` while connection, model, effort and profile stay the same
   and no message arrived on another path. The process holds one lease of the

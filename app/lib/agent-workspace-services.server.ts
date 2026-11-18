@@ -1,6 +1,7 @@
 import { AgentProfileService } from "@/backend/service/agents/AgentProfileService";
 import { PageAgentService } from "@/backend/service/agents/PageAgentService";
 import { PicaSettingsRepository } from "@/backend/database/repositories/chat/PicaSettingsRepository";
+import { picaManagedConnectionCheck } from "@/backend/service/chat/PicaManagedConnection";
 import { PicaSettingsService } from "@/backend/service/chat/PicaSettingsService";
 
 import {
@@ -21,6 +22,7 @@ import type { AgentTicketAssetDependencies } from "@/backend/service/agents/Agen
 import type { Database } from "@/backend/database/Database";
 import type { AgentConnectionRepository } from "@/backend/database/repositories/AgentConnectionRepository";
 import type { AgentOperationRegistry } from "@/backend/service/agents/AgentOperationRegistry";
+import type { AgentCredentialStore } from "@/backend/agents/cli/AgentCredentialStore";
 
 export { resolveWorkspaceRoots } from "./plan-agent-configuration.server";
 
@@ -48,6 +50,8 @@ export function createAgentConfigurationServices(input: {
   /** Folder of the `AGENT.md` and run records of every agent; separate from the data folder. */
   readonly agentsDirectory: string;
   readonly connections: AgentConnectionRepository;
+  /** The folders of the connections, so Pica refuses a Codex connection with a foreign configuration; absent where no chat runs. */
+  readonly credentials?: Pick<AgentCredentialStore, "paths">;
   readonly operations: AgentOperationRegistry;
   readonly ticketAssets: AgentTicketAssetDependencies;
 }): AgentConfigurationApplicationServices {
@@ -57,6 +61,13 @@ export function createAgentConfigurationServices(input: {
   const picaSettingsService = new PicaSettingsService({
     ...dependencies,
     settings: new PicaSettingsRepository(database),
+    ...(input.credentials
+      ? {
+          requireManagedConnection: picaManagedConnectionCheck(
+            input.credentials,
+          ),
+        }
+      : {}),
   });
   const agentProfileService = new AgentProfileService({
     ...dependencies,

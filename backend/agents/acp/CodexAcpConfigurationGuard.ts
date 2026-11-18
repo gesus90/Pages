@@ -37,6 +37,19 @@ async function projectFolders(workspace: string): Promise<readonly string[]> {
 }
 
 /**
+ * Finds the configuration file a connection's Codex folder holds, which Pages did not write.
+ * @param codexHome - The Codex folder of the connection's credential folder.
+ * @returns The file, or `null` when the folder has none. The file is never
+ * opened, changed or removed.
+ */
+export async function findUnmanagedCodexHomeConfiguration(
+  codexHome: string,
+): Promise<string | null> {
+  const file = path.join(codexHome, CONFIGURATION_FILE);
+  return (await exists(file)) ? file : null;
+}
+
+/**
  * Finds a Codex configuration file that Pages did not write.
  * @param codexHome - The Codex folder of the connection's credential folder.
  * @param workspace - The working directory of the session.
@@ -52,12 +65,11 @@ export async function findUnmanagedCodexConfiguration(
   codexHome: string,
   workspace: string,
 ): Promise<string | null> {
-  const candidates = [
-    path.join(codexHome, CONFIGURATION_FILE),
-    ...(await projectFolders(workspace)).map((folder) =>
-      path.join(folder, ".codex", CONFIGURATION_FILE),
-    ),
-  ];
-  for (const file of candidates) if (await exists(file)) return file;
+  const home = await findUnmanagedCodexHomeConfiguration(codexHome);
+  if (home !== null) return home;
+  for (const folder of await projectFolders(workspace)) {
+    const file = path.join(folder, ".codex", CONFIGURATION_FILE);
+    if (await exists(file)) return file;
+  }
   return null;
 }

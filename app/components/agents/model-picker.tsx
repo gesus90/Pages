@@ -6,11 +6,15 @@ import { modelConsumerRefusal } from "@/definition/AgentModelConsumers";
 
 import { cn } from "@/app/lib/cn";
 
-import { ModelChoiceBadge } from "./badges/model-choice-badge";
+import {
+  ModelChoiceBadge,
+  modelChoiceFieldClass,
+} from "./badges/model-choice-badge";
 import { findModelChoice, modelGroups } from "./model-picker/model-catalog";
 import {
   MODEL_BADGE_FIELD_ARROW_CLASS,
   MODEL_BADGE_FIELD_CLASS,
+  MODEL_BADGE_FIELD_TEXT_CLASS,
   MODEL_FIELD_CLASS,
   MODEL_FIELD_LABEL_CLASS,
 } from "./model-picker/model-field";
@@ -112,8 +116,8 @@ function TriggerValue(props: {
   );
 }
 
-// In the footer of an agent node only the badge of the chosen model stands
-// in the field; a model that is gone is a short warning of the same height.
+// In the footer of an agent node the field is the badge of the chosen model:
+// its tile and name; a model that is gone is a short warning in the field.
 function BadgeTriggerValue(props: {
   readonly groups: readonly ModelGroup[];
   readonly value: string;
@@ -123,7 +127,9 @@ function BadgeTriggerValue(props: {
   const { t } = useTranslation();
   if (props.value === "" && props.placeholder !== undefined)
     return (
-      <span className="min-w-0 truncate text-muted-foreground">
+      <span
+        className={cn(MODEL_BADGE_FIELD_TEXT_CLASS, "text-muted-foreground")}
+      >
         {props.placeholder}
       </span>
     );
@@ -132,7 +138,7 @@ function BadgeTriggerValue(props: {
     const reason = t("pageAgents.missingModel");
     return (
       <span
-        className="min-w-0 truncate text-warning"
+        className={cn(MODEL_BADGE_FIELD_TEXT_CLASS, "text-warning")}
         title={props.savedModel ? `${props.savedModel} · ${reason}` : reason}
       >
         {t("pageAgents.modelMissingShort")}
@@ -140,7 +146,11 @@ function BadgeTriggerValue(props: {
     );
   }
   return (
-    <ModelChoiceBadge mark={selected.group.mark} name={selected.choice.label} />
+    <ModelChoiceBadge
+      mark={selected.group.mark}
+      name={selected.choice.label}
+      tool={selected.group.label}
+    />
   );
 }
 
@@ -149,6 +159,8 @@ function PickerTrigger(props: {
   readonly labelId: string;
   readonly disabled: boolean;
   readonly valueStyle: ModelPickerValueStyle;
+  /** The mark of the chosen model's tool; it colors the border of a badge field. */
+  readonly mark: string | null;
   readonly children: React.ReactNode;
 }): React.ReactElement {
   const { state } = props;
@@ -165,7 +177,7 @@ function PickerTrigger(props: {
       disabled={props.disabled}
       className={
         isBadge
-          ? MODEL_BADGE_FIELD_CLASS
+          ? cn(MODEL_BADGE_FIELD_CLASS, modelChoiceFieldClass(props.mark))
           : cn(
               MODEL_FIELD_CLASS,
               "flex items-center gap-2.5 text-left hover:bg-surface-hover",
@@ -177,8 +189,8 @@ function PickerTrigger(props: {
       <span
         id={`${props.labelId}-value`}
         className={cn(
-          "flex min-w-0 items-center",
-          isBadge ? "shrink" : "flex-1 gap-2.5",
+          "flex min-w-0 flex-1 items-center",
+          !isBadge && "gap-2.5",
         )}
       >
         {props.children}
@@ -186,7 +198,7 @@ function PickerTrigger(props: {
       <ChevronDown
         className={cn(
           isBadge
-            ? MODEL_BADGE_FIELD_ARROW_CLASS
+            ? cn(MODEL_BADGE_FIELD_ARROW_CLASS, "text-muted-foreground")
             : "size-4 shrink-0 text-muted-foreground",
           "transition-transform",
           state.isOpen && "rotate-180",
@@ -257,6 +269,7 @@ export function ModelPicker(props: ModelPickerProps): React.ReactElement {
           labelId={labelId}
           disabled={props.disabled}
           valueStyle={valueStyle}
+          mark={findModelChoice(groups, props.value)?.group.mark ?? null}
         >
           {valueStyle === "badge" ? (
             <BadgeTriggerValue {...triggerValue} />

@@ -374,6 +374,7 @@ const EXECUTION_ERROR_CLASSES: Readonly<
   picaModelSelectionRequired: "open",
   picaZenUnsupported: "open",
   picaModelUnsupported: "open",
+  picaCodexConfigurationUnmanaged: "harm",
   reasoningUnsupported: "open",
   requestBusy: "infrastructure",
   cancelled: "open",

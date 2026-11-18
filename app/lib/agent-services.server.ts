@@ -220,6 +220,7 @@ export function createAgentServices(
     dataDirectory,
     agentsDirectory,
     connections: repository,
+    credentials: cliRuntime.store,
     operations,
     ticketAssets,
   });

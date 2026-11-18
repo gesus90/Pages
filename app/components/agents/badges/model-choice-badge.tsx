@@ -2,90 +2,76 @@ import { cn } from "@/app/lib/cn";
 
 import { ToolMark } from "../model-picker/tool-mark";
 
-import { useCompactName } from "./use-compact-name";
+/** The outline and the vendor of a tool that has a brand of its own. */
+interface MarkStyle {
+  /** The outline in the color of the tile; static, so Tailwind finds the class. */
+  readonly borderClass: string;
+  /** The vendor's or tool's brand name, never translated. */
+  readonly vendor: string;
+}
 
-/** The outline of each vendor tile; static, so Tailwind finds the classes. */
-const MARK_BORDERS: Readonly<Record<string, string>> = {
-  claude: "border-claude",
-  openai: "border-chatgpt",
-  antigravity: "border-antigravity",
+const MARK_STYLES: Readonly<Record<string, MarkStyle>> = {
+  claude: { borderClass: "border-claude", vendor: "Anthropic" },
+  openai: { borderClass: "border-chatgpt", vendor: "OpenAI" },
+  antigravity: { borderClass: "border-antigravity", vendor: "Antigravity" },
 };
 
-/**
- * The "GPT-" every OpenAI catalog name starts with. The compact badge drops
- * it, because the end that tells the models apart would be cut otherwise.
- */
-const OPENAI_NAME_PREFIX = /^GPT-(?=\S)/u;
+function markStyle(mark: string): MarkStyle | null {
+  return Object.hasOwn(MARK_STYLES, mark) ? (MARK_STYLES[mark] ?? null) : null;
+}
 
 /**
- * The family word an Antigravity catalog name may start with: `Gemini`,
- * `Claude` or `GPT-`. Antigravity offers models of several families, so
- * only a name that does not fit drops it; any other name is kept whole.
+ * The border and background of a model field whose whole surface is the
+ * model's badge.
+ * @param mark - The mark key of the model's tool; `null` while no model is shown.
+ * @returns Claude's orange, the green of the ChatGPT tile or Antigravity's
+ * blue on the surface; every other tool and a missing model keep the
+ * neutral field border.
  */
-const ANTIGRAVITY_FAMILY_PREFIX = /^(?:(?:Gemini|Claude)\s+|GPT-)(?=\S)/u;
+export function modelChoiceFieldClass(mark: string | null): string {
+  const style = mark === null ? null : markStyle(mark);
+  return cn("bg-surface", style?.borderClass ?? "border-field-border");
+}
 
 interface ModelChoiceBadgeProps {
   /** The mark key of the model's tool, such as `claude` or `openai`. */
   readonly mark: string;
   /** The model's short catalog name, such as `Sonnet 5.5`. */
   readonly name: string;
+  /** The tool the model is listed under; it names a tool without a brand of its own. */
+  readonly tool: string;
   readonly className?: string;
 }
 
-/** The name the compact badge starts with: an OpenAI name without its leading "GPT-". */
-function fullName(mark: string, name: string): string {
-  if (mark !== "openai") return name;
-  return name.replace(OPENAI_NAME_PREFIX, "");
-}
-
-/** The name the compact badge falls back to when the full one does not fit. */
-function shortName(mark: string, name: string): string {
-  if (mark !== "antigravity") return fullName(mark, name);
-  return name.replace(ANTIGRAVITY_FAMILY_PREFIX, "");
-}
-
 /**
- * The chosen model inside a model field: the tool's tile and the short
- * catalog name.
+ * The chosen model inside a model field: the tool's unchanged 28 px tile
+ * and the catalog name.
  * @remarks
- * It has the measures of the model badge (24 px high, 1 px solid border,
- * 7 px radius, an 18 px tile with a 5 px radius 2 px from the edge) with the
- * compact 8 px on the right and without the vendor, because a field names
- * only the choice. Claude is outlined in Claude's orange, OpenAI in the green
- * of the ChatGPT tile, Antigravity in its blue, every other tool in the
- * neutral border. An OpenAI name drops its leading "GPT-", such as
- * `6.2 Astra`. An Antigravity name that does not fit drops its family word,
- * such as `4 Argon` for `Gemini 4 Argon` or `Sonnet 5.5` for
- * `Claude Sonnet 5.5`. A name still too long is cut with an ellipsis. The
- * full name stays in the tooltip and for screen readers.
+ * The field around it is the badge, outlined by
+ * {@link modelChoiceFieldClass}, so the content has no border of its own.
+ * The tile has a 6 px radius and stands 6 px before the name in the
+ * foreground color. The vendor, such as `Anthropic`, is no part of the
+ * visible text; it stands in the tooltip and the accessible name beside the
+ * full name. A name that does not fit, roughly beyond 11 characters, is cut
+ * with an ellipsis.
  */
 export function ModelChoiceBadge({
   mark,
   name,
+  tool,
   className,
 }: ModelChoiceBadgeProps): React.ReactElement {
-  const { ref, shown } = useCompactName(
-    fullName(mark, name),
-    shortName(mark, name),
-  );
+  const vendor = markStyle(mark)?.vendor ?? tool;
   return (
     <span
-      title={name}
+      title={`${name} · ${vendor}`}
       data-model-badge={mark}
-      className={cn(
-        "inline-flex h-6 max-w-full min-w-0 items-center gap-[7px] rounded-[7px] border bg-surface py-[2px] pr-2 pl-[2px] text-[11px] leading-none",
-        MARK_BORDERS[mark] ?? "border-border",
-        className,
-      )}
+      className={cn("flex min-w-0 flex-1 items-center gap-1.5", className)}
     >
-      <ToolMark mark={mark} className="size-[18px] rounded-[5px]" />
-      <span className="sr-only">{name}</span>
-      <span
-        ref={ref}
-        aria-hidden="true"
-        className="min-w-0 truncate font-semibold text-foreground"
-      >
-        {shown}
+      <ToolMark mark={mark} className="size-7 rounded-[6px]" />
+      <span className="sr-only">{`${name}, ${vendor}`}</span>
+      <span aria-hidden="true" className="min-w-0 truncate text-foreground">
+        {name}
       </span>
     </span>
   );

@@ -19,6 +19,8 @@ interface SelectOption<Value extends string = string> {
    * Rendered `aria-hidden` so the accessible option name stays the label.
    */
   readonly description?: string;
+  /** Optional classes of the option row, such as the colors of the chosen row. */
+  readonly className?: string;
 }
 
 interface SelectProps<Value extends string = string> {
@@ -32,10 +34,12 @@ interface SelectProps<Value extends string = string> {
   readonly className?: string;
   readonly id?: string;
   /**
-   * What the closed trigger shows instead of the chosen option's label, such
-   * as a badge; the options keep their labels.
+   * What the closed trigger shows instead of the chosen option's icon and
+   * label, such as a badge; the options keep their labels.
    */
   readonly valueContent?: ReactNode;
+  /** Optional classes of the open list, such as its width. */
+  readonly contentClassName?: string;
 }
 
 // Radix Select items require non-empty values, so empty-string options
@@ -76,15 +80,19 @@ export function Select<Value extends string = string>({
   className,
   id,
   valueContent,
+  contentClassName,
 }: SelectProps<Value>): React.ReactElement {
   function handleValueChange(nextValue: string): void {
     // Radix only reports values of the rendered options, which are `Value`s.
     onValueChange(fromRadixValue(nextValue) as Value);
   }
 
-  const selectedIcon = options.find(
-    (option) => toRadixValue(option.value) === toRadixValue(value),
-  )?.icon;
+  const selectedIcon =
+    valueContent === undefined
+      ? options.find(
+          (option) => toRadixValue(option.value) === toRadixValue(value),
+        )?.icon
+      : undefined;
 
   return (
     <SelectPrimitive.Root
@@ -126,7 +134,10 @@ export function Select<Value extends string = string>({
       </SelectPrimitive.Trigger>
       <SelectPrimitive.Portal>
         <SelectPrimitive.Content
-          className="z-50 max-h-72 max-w-(--radix-select-content-available-width) min-w-40 overflow-hidden rounded-xl bg-surface p-1 shadow-panel outline-none"
+          className={cn(
+            "z-50 max-h-72 max-w-(--radix-select-content-available-width) min-w-40 overflow-hidden rounded-xl bg-surface p-1 shadow-panel outline-none",
+            contentClassName,
+          )}
           position="popper"
           sideOffset={6}
         >
@@ -154,11 +165,15 @@ function SelectItems<Value extends string>({
           className={cn(
             "flex min-h-8 cursor-pointer items-center justify-between gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium text-foreground outline-none data-disabled:pointer-events-none data-disabled:opacity-50 data-highlighted:bg-muted",
             option.description && "items-start py-2",
+            option.className,
           )}
         >
           {option.icon ? (
             <span
-              className="flex shrink-0 items-center pt-0.5"
+              className={cn(
+                "flex shrink-0 items-center",
+                option.description && "pt-0.5",
+              )}
               aria-hidden="true"
             >
               {option.icon}

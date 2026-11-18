@@ -43,12 +43,12 @@ const FOOTER_CLASS =
 
 /**
  * Model and reasoning of an agent node at the bottom of its card, each as a
- * badge in a fixed field.
+ * fixed field whose whole surface is the badge of its value.
  * @remarks
- * Both fields are 40 px high and equally wide; the badge stands left and is
- * cut with an ellipsis when its name is too long, the arrow stays at the
- * right edge. Choosing another model or level changes only the badge, never
- * a field, an arrow or the footer.
+ * Both fields are 40 px high and equally wide; tile and name stand left and
+ * the name is cut with an ellipsis when it is too long, the arrow stays at
+ * the right edge. Choosing another model or level changes only tile, colors
+ * and name, never a field, an arrow or the footer.
  * The list offers known models of connections currently shared with the person.
  * Choosing one pins its connection, model and provider on this node only;
  * instructions, bindings, reasoning and run options stay as they are. A member of an ACP
@@ -118,7 +118,11 @@ function ModelValues(props: {
       <PlanModelValue
         choice={
           selected
-            ? { mark: selected.group.mark, name: selected.choice.label }
+            ? {
+                mark: selected.group.mark,
+                name: selected.choice.label,
+                tool: selected.group.label,
+              }
             : null
         }
         savedModel={props.savedModel}

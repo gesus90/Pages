@@ -20,6 +20,7 @@ import type { AgentProfile } from "@/definition/AgentProfile";
 
 import type { PicaSettingsRepository } from "@/backend/database/repositories/chat/PicaSettingsRepository";
 import type { ProfileDependencies } from "../agents/AgentProfileService";
+import type { PicaConnectionCheck } from "./PicaManagedConnection";
 import type { ResolvedAgentAssignment } from "../agents/AgentAssignmentResolution";
 import type {
   PicaAdministration,
@@ -53,6 +54,8 @@ interface PicaDependencies extends Pick<
   "connections" | "profiles" | "authorization" | "groups"
 > {
   readonly settings: PicaSettingsRepository;
+  /** Refuses a connection Pica cannot start with; absent where no runner folders exist. */
+  readonly requireManagedConnection?: PicaConnectionCheck;
 }
 
 /** One fixed Pica identity; selection uses the shared catalog, scopes and runner contracts. */
@@ -97,29 +100,29 @@ export class PicaSettingsService {
     });
   }
 
-  /** Rechecks the acting person's connection scope on every turn; there is no fallback. */
+  /**
+   * Rechecks the acting person's connection scope on every turn; there is no fallback.
+   * @throws {AgentExecutionError} `picaCodexConfigurationUnmanaged` when the
+   * Codex connection holds a configuration file Pages does not manage; this
+   * happens before a message is stored.
+   */
   public async resolve(userId: string): Promise<ResolvedAgentAssignment> {
-    await this.requireEnabled();
-    const settings = await this.read();
-    if (!settings.isEnabled || this.changing) throw new ChatError("disabled");
-    if (!settings.selection) throw new AgentExecutionError("roleMissing");
-    const assignment = await this.resolveSelection(
-      await this.viewer(userId),
-      settings.selection,
-    );
-    const resolved = settings.run
-      ? { ...assignment, run: settings.run }
-      : assignment;
-    await this.requireRunner(resolved);
+    const resolved = await this.resolveAssigned(userId);
+    await this.dependencies.requireManagedConnection?.(resolved);
     return resolved;
   }
 
-  /** Reauthorizes a pinned turn at the provider boundary after configuration changes. */
+  /**
+   * Reauthorizes a pinned turn at the provider boundary after configuration changes.
+   * @remarks
+   * A running session read its configuration when it started, so a file that
+   * appears later does not end it; only a new start checks the folder.
+   */
   public async requireCurrent(
     userId: string,
     expected: ResolvedAgentAssignment,
   ): Promise<void> {
-    const current = await this.resolve(userId);
+    const current = await this.resolveAssigned(userId);
     if (
       current.connection.id !== expected.connection.id ||
       current.model !== expected.model ||
@@ -164,9 +167,11 @@ export class PicaSettingsService {
         viewer,
         settings.selection,
       );
-      await this.requireRunner(
-        settings.run ? { ...assignment, run: settings.run } : assignment,
-      );
+      const selected = settings.run
+        ? { ...assignment, run: settings.run }
+        : assignment;
+      await this.requireRunner(selected);
+      await this.dependencies.requireManagedConnection?.(selected);
     } catch (caughtError: unknown) {
       if (!(caughtError instanceof AgentExecutionError)) throw caughtError;
       error = caughtError.code;
@@ -205,7 +210,9 @@ export class PicaSettingsService {
           previous.selection?.connectionId !== selection.connectionId
         )
           run = defaultAgentRunOptions(assignment.connection.provider);
-        await this.requireRunner(run ? { ...assignment, run } : assignment);
+        const selected = run ? { ...assignment, run } : assignment;
+        await this.requireRunner(selected);
+        await this.dependencies.requireManagedConnection?.(selected);
       }
       this.changing = true;
       try {
@@ -220,6 +227,24 @@ export class PicaSettingsService {
         this.changing = false;
       }
     });
+  }
+
+  private async resolveAssigned(
+    userId: string,
+  ): Promise<ResolvedAgentAssignment> {
+    await this.requireEnabled();
+    const settings = await this.read();
+    if (!settings.isEnabled || this.changing) throw new ChatError("disabled");
+    if (!settings.selection) throw new AgentExecutionError("roleMissing");
+    const assignment = await this.resolveSelection(
+      await this.viewer(userId),
+      settings.selection,
+    );
+    const resolved = settings.run
+      ? { ...assignment, run: settings.run }
+      : assignment;
+    await this.requireRunner(resolved);
+    return resolved;
   }
 
   private async resolveSelection(
