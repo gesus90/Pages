@@ -41,6 +41,30 @@ function newestReported(
   );
 }
 
+/** The model an attempt ran with: the one the provider confirmed, else the one the plan requested. */
+function attemptModel(
+  attempt: AgentSessionAttemptRecord | null,
+): string | null {
+  return attempt?.confirmedModel.value ?? attempt?.requestedModel ?? null;
+}
+
+/**
+ * Whether an earlier attempt's occupancy holds for the current one.
+ * @remarks
+ * A window is a property of the model, and another model counts its context
+ * on its own, so a value measured under another model never stands against
+ * the current one. An attempt that does not know its model yet keeps the
+ * earlier value.
+ */
+function isSameModel(
+  earlier: AgentSessionAttemptRecord,
+  current: AgentSessionAttemptRecord | null,
+): boolean {
+  const model = attemptModel(current);
+  const earlierModel = attemptModel(earlier);
+  return model === null || earlierModel === null || model === earlierModel;
+}
+
 /**
  * The context occupancy the sidebar shows for an attempt.
  * @param store - Where the attempts are kept.
@@ -49,11 +73,12 @@ function newestReported(
  * @returns The occupancy of the attempt itself once it reported one; until
  * then, for a restart that resumes the native session of an earlier attempt,
  * the last occupancy that attempt reported, with the window of the new one
- * where it has it. Unknown only while no attempt of the session reported one.
+ * where it has it. Unknown only while no attempt of the session reported one,
+ * or when the earlier attempt ran another model.
  * @remarks
- * A resumed Claude Code session still holds everything it held before the
- * restart, so the occupancy does not start over until the new attempt
- * reports its own.
+ * A resumed Claude Code or Codex session still holds everything it held
+ * before the restart, so the occupancy does not start over until the new
+ * attempt reports its own.
  */
 export async function attemptContext(
   store: Pick<AgentSessionStore, "findAttempt">,
@@ -67,7 +92,7 @@ export async function attemptContext(
   const earlier = newestReported(
     await Promise.all(resumed.map((attemptId) => store.findAttempt(attemptId))),
   );
-  if (earlier === null) return own;
+  if (earlier === null || !isSameModel(earlier, stored)) return own;
   // The cost belongs to the attempt that incurred it and is never carried over.
   return {
     ...keepReportedContext(earlier.context, own),

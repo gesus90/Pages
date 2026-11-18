@@ -269,6 +269,17 @@ export async function cliInventory(context = {}) {
 }
 
 /**
+ * The `CODEX_HOME` a Codex job runs with, the one {@link spawnCli} passes.
+ * @remarks
+ * Codex writes the rollout of the job's thread below it, which the live
+ * history reads for the context occupancy.
+ */
+export function codexHome(command) {
+  return { ...cliEnvironment(), ...command.runtimeContext?.environment }
+    .CODEX_HOME;
+}
+
+/**
  * The `codex exec` command line of one job.
  * @remarks
  * A continuation job keeps its rollout on this host, so the session is not

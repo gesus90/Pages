@@ -96,7 +96,7 @@ export function planJumpFields(parts: PlanJumpSchemaParts): ToolProperties {
     direction: {
       enum: ["in", "out"],
       description:
-        "jump: in is a receiving entry that other plans call and that starts a new run of this plan; out calls another plan. Set when the node is created. A receiving entry needs name, a calling jump needs wait, a timeout and a target before the plan can run.",
+        "jump: in is a receiving entry that other plans call and that starts a new run of this plan; out calls another plan. Set when the node is created. A receiving entry needs name, a calling jump needs wait, a timeout and a target before the plan can run. Findings of jump, signal, start and end nodes use the problems jumpTarget, jumpEntry, jumpInterface, jumpWait, jumpTimeout, jumpWorkspace, jumpInput, jumpBoundary, jumpCycle, returnContract, signalName and manualStart.",
     },
     isEnabled: {
       type: "boolean",

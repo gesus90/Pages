@@ -279,28 +279,67 @@ export interface ToolParts {
 }
 
 const MCP_TOOL = /^mcp__(.+?)__(.+)$/u;
+/** codex-acp titles an MCP call `mcp.server.tool` and reports it with the kind `execute`. */
+const CODEX_MCP_TITLE = /^mcp\.([^\s.]+)\.(\S+)$/u;
+
+/** A login shell around a command, such as `/bin/bash -lc '…'`, the form codex-acp reports a command in. */
+const SHELL_WRAPPER = /^(?:\/\S*\/)?(?:bash|zsh|sh)\s+-[a-z]*c[a-z]*\s+(.+)$/su;
+
+/**
+ * The command a shell wrapper runs, without the wrapper and its quotes.
+ * @remarks
+ * The stored input keeps only the first line of a command, so the closing
+ * quote of a longer script may be missing; the opening quote goes all the same.
+ */
+function unwrappedCommand(command: string): string {
+  const body = SHELL_WRAPPER.exec(command.trim())?.[1];
+  if (body === undefined) return command;
+  const quote = body[0];
+  if (quote !== "'" && quote !== '"') return body;
+  const inner = body.slice(1);
+  return inner.endsWith(quote) ? inner.slice(0, -1) : inner;
+}
+
+/**
+ * The name a call is known by: the tool name of the adapter, else the
+ * server and tool of a codex-acp MCP title, else the known kind, else the title.
+ */
+function reportedName(tool: ToolLine, label: string): string {
+  if (tool.toolName) return tool.toolName;
+  // History recorded before Pages read the name from the input keeps only the title.
+  const codexMcp = CODEX_MCP_TITLE.exec(tool.title);
+  if (codexMcp) return `mcp__${codexMcp[1] ?? ""}__${codexMcp[2] ?? ""}`;
+  return label || tool.title || "Tool";
+}
 
 /**
  * Name and description of a call.
  * @remarks
- * The tool name of the adapter names the call, else its known kind, else its
- * title. A name `mcp__server__tool` splits into the server and the tool. The
- * description is the short description of the call, else the first line of
- * its command, never a piece from the middle; JSON arguments say less than
- * the title, so they never stand in.
+ * The tool name of the adapter names the call, else the server and tool of
+ * a codex-acp MCP title, else its known kind, else its title. A name
+ * `mcp__server__tool` splits into the server and the tool, so an MCP call
+ * reads „Server · Werkzeug“ for every provider. The description is the
+ * short description of the call, else the first line of its command without
+ * a shell wrapper such as `/bin/bash -lc`, never a piece from the middle;
+ * JSON arguments and the title of an MCP call say nothing the name does
+ * not, so they never stand in.
  */
 export function toolParts(
   tool: ToolLine,
   texts: Pick<ToolLineTexts, "toolKind">,
 ): ToolParts {
   const label = texts.toolKind(tool.toolKind) ?? "";
-  const named = tool.toolName || label || tool.title || "Tool";
+  const named = reportedName(tool, label);
   const mcp = MCP_TOOL.exec(named);
   const name = mcp?.[2] ?? named;
-  const command = /^[[{]/u.test(tool.input) ? "" : firstLine(tool.input);
+  const command = /^[[{]/u.test(tool.input)
+    ? ""
+    : firstLine(unwrappedCommand(tool.input));
   // Claude Code titles a command with the command itself in backticks.
   const title = tool.title.replace(/^`(.*)`$/su, "$1").trim();
-  const fallback = title !== named && title !== name ? firstLine(title) : "";
+  const isNameOnly =
+    title === named || title === name || CODEX_MCP_TITLE.test(title);
+  const fallback = isNameOnly ? "" : firstLine(title);
   return {
     server: mcp?.[1] ?? null,
     name,

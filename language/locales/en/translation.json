@@ -5904,6 +5904,12 @@
       "remoteHistory": "Remote live history",
       "remoteDiagnostic": "CLI progress is diagnostic. The final step result remains authoritative.",
       "contextUsedOnly": "{{used}} tokens in context, window size unknown",
+      "providerBadge": {
+        "codex_cli": {
+          "name": "Codex",
+          "account": "ChatGPT subscription"
+        }
+      },
       "manualInput": "Manually intervened",
       "stopTitle": "Stop run?",
       "stopDescription": "This ends the whole run with all running nodes, not just this agent. Results reported so far are kept.",

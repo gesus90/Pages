@@ -510,6 +510,11 @@ cat > "$claude_session_temporary" <<'CLAUDESESSION'
 __PAGES_RUNNER_CLAUDE_SESSION__
 CLAUDESESSION
 mv -f -- "$claude_session_temporary" "$runner_directory/claude-session.mjs"
+codex_session_temporary=$(mktemp "$runner_directory/.codex-session.XXXXXX")
+cat > "$codex_session_temporary" <<'CODEXSESSION'
+__PAGES_RUNNER_CODEX_SESSION__
+CODEXSESSION
+mv -f -- "$codex_session_temporary" "$runner_directory/codex-session.mjs"
 launch_temporary=$(mktemp "$runner_directory/.launch.XXXXXX")
 cat > "$launch_temporary" <<'LAUNCH'
 __PAGES_RUNNER_LAUNCH__

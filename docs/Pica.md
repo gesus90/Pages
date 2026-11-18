@@ -153,20 +153,32 @@ provides the required package and bundle digest.
   bubblewrap (required) and gets no other MCP server. Models whose Codex
   catalog demands code mode, such as `gpt-6-luna`, call the same tools from
   Codex's `exec` tool; their names then carry the prefix `mcp__pages__`.
+  The adapter refuses the whole tool catalog, and with it the session start,
+  when a single tool description exceeds 10,000 characters; the descriptions
+  of `create_plan` and `update_plan` stay below that limit including the
+  sentence Pica appends to every plan tool. The refusal is logged as an error
+  of `PicaCodexRequests` with the position of the entry that broke the limit.
 - **Managed connection.** Pica reads only, so a Codex session refuses to start
   while the connection's Codex folder holds a `config.toml` that Pages did not
   write, or the working folder holds `.codex/config.toml`: such a file could add
   MCP servers, hooks or providers. Pages names this reason early, before a
   message is stored: sending, the Pica settings card and saving the choice under
-  _Settings › Agents_ report `picaCodexConfigurationUnmanaged`. The check only
-  tests that the file exists; it never opens, changes or removes it, so the
-  existing profile configuration stays as the operator left it. A session that
-  already runs is not ended when such a file appears. The smallest way back to
-  a working Pica is a clean, separate Codex connection (its own sign-in and
-  folder, without a `config.toml`) that the administration assigns to Pica
-  under _Settings › Agents_; connections that other agents use are not
-  touched. Claude Code, OpenCode and Antigravity connections are not affected
-  by this check.
+  _Settings › Agents_ report `picaCodexConfigurationUnmanaged`. The file of the
+  Codex folder is the exception when it holds nothing but the folder trust
+  Codex records itself: `[projects."<folder>"]` tables with a `trust_level` of
+  `trusted` or `untrusted`. Codex writes them whenever a run, such as a YOLO
+  plan node, works in a folder it has not seen, so every connection that
+  served such a run holds them; they name no MCP server, hook, provider or
+  setting. Any other content, an unreadable or invalid file and a file above
+  256 KiB still refuse the start, and so does every `.codex/config.toml` of the
+  working folder. The check only reads the file; it never changes or removes
+  it, so the existing profile configuration stays as the operator left it. A
+  session that already runs is not ended when such a file appears. The
+  smallest way back to a working Pica is a clean, separate Codex connection
+  (its own sign-in and folder, without a `config.toml`) that the administration
+  assigns to Pica under _Settings › Agents_; connections that other agents use
+  are not touched. Claude Code, OpenCode and Antigravity connections are not
+  affected by this check.
 - **Sessions.** Each conversation keeps one Codex session, continued with
   `session/resume` while connection, model, effort and profile stay the same
   and no message arrived on another path. The process holds one lease of the

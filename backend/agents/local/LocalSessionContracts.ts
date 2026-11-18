@@ -128,7 +128,12 @@ const attempt = z.object({
     contextLimit: count.nullable(),
     percent: z.number().nullable(),
     source: z
-      .enum(["acp_usage_update", "cli_assistant_usage", "cli_compact_boundary"])
+      .enum([
+        "acp_usage_update",
+        "cli_assistant_usage",
+        "cli_compact_boundary",
+        "codex_token_count",
+      ])
       .nullable(),
     reportedAt: z.string().nullable(),
     cost: z

@@ -81,6 +81,7 @@ const CONTEXT_SOURCES = [
   "acp_usage_update",
   "cli_assistant_usage",
   "cli_compact_boundary",
+  "codex_token_count",
 ] as const;
 
 /** The columns of an attempt, in the order {@link readAttemptRow} reads them. */

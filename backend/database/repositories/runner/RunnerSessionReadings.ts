@@ -15,7 +15,20 @@ interface SessionReadingInput {
   readonly reportedAt: string;
 }
 
+/** The providers whose runner job sends session readings, with the sources of their own measurements. */
+const READING_SOURCES = {
+  claude_code: ["cli_assistant_usage", "cli_compact_boundary"],
+  codex_cli: ["codex_token_count"],
+} as const;
+
+type ReadingProvider = keyof typeof READING_SOURCES;
+
+function isReadingProvider(provider: string): provider is ReadingProvider {
+  return provider === "claude_code" || provider === "codex_cli";
+}
+
 interface StoredSession {
+  readonly provider: ReadingProvider;
   readonly model: string | null;
   readonly modelAt: string | null;
   readonly used: number | null;
@@ -50,8 +63,11 @@ async function readStored(
   `,
     { attempt_id: attemptId },
   );
-  if (!row || readTextColumn(row, 0, "provider") !== "claude_code") return null;
+  if (!row) return null;
+  const provider = readTextColumn(row, 0, "provider");
+  if (!isReadingProvider(provider)) return null;
   return {
+    provider,
     model: readNullableTextColumn(row, 1, "confirmed_model"),
     modelAt: readNullableTextColumn(row, 2, "confirmed_model_at"),
     used: readNullableCountColumn(row, 3, "context_used"),
@@ -62,17 +78,19 @@ async function readStored(
 }
 
 /**
- * The window the CLI last reported for a model in any Claude Code attempt.
+ * The window the CLI last reported for a model in any attempt of the provider.
  * @remarks
- * The CLI names a window only in the result at the end of a turn, and a plan
- * step is one turn. A window is a property of the model, so the one an
- * earlier attempt of the same model stored lets a running step show its
- * occupancy against the window before its own result arrives. Only a window
- * a CLI job reported counts: an ACP adapter guesses one from the model name
- * until its first result.
+ * The Claude Code CLI names a window only in the result at the end of a
+ * turn, and a plan step is one turn. A window is a property of the model, so
+ * the one an earlier attempt of the same model stored lets a running step
+ * show its occupancy against the window before its own result arrives. Only
+ * a window a CLI job reported counts: an ACP adapter guesses one from the
+ * model name until its first result. Codex names the window with every turn,
+ * so for Codex this only covers a reading before that.
  */
 async function knownModelWindow(
   transaction: DatabaseTransaction,
+  provider: ReadingProvider,
   model: string,
 ): Promise<number | null> {
   const [row] = await transaction.query(
@@ -82,11 +100,11 @@ async function knownModelWindow(
     WHERE provider = $provider
         AND confirmed_model = $model
         AND context_limit IS NOT NULL
-        AND context_source IN ('cli_assistant_usage', 'cli_compact_boundary')
+        AND context_source = ANY(string_to_array($sources, ','))
     ORDER BY context_at DESC NULLS LAST
     LIMIT 1;
   `,
-    { provider: "claude_code", model },
+    { provider, model, sources: READING_SOURCES[provider].join(",") },
   );
   return row ? readNullableCountColumn(row, 0, "context_limit") : null;
 }
@@ -119,7 +137,7 @@ async function nextContext(
   const limit =
     reading.context?.limit ??
     kept.limit ??
-    (await knownModelWindow(transaction, reading.model));
+    (await knownModelWindow(transaction, stored.provider, reading.model));
   if (reading.context?.used === null || reading.context?.used === undefined)
     return { ...kept, limit };
   return {
@@ -137,11 +155,11 @@ function isLate(stored: StoredSession, reportedAt: string): boolean {
 }
 
 /**
- * Stores the model and context a Claude Code CLI job reported on its attempt.
+ * Stores the model and context a Claude Code or Codex CLI job reported on its attempt.
  * @remarks
  * Runs in the receipt transaction after the runner binding of plan, run,
- * step, attempt and instance was checked. Only Claude Code attempts take a
- * reading. A reading older than the stored values never replaces them, so a
+ * step, attempt and instance was checked. Only Claude Code and Codex
+ * attempts take a reading. A reading older than the stored values never replaces them, so a
  * repeated or late batch changes nothing. The model counts as reported by
  * the CLI; a reasoning level is never confirmed here, because the CLI echoes
  * none.

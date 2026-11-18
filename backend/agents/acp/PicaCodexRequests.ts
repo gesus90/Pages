@@ -1,6 +1,7 @@
 import { randomBytes, randomUUID } from "node:crypto";
 import { isDeepStrictEqual } from "node:util";
 
+import { logCaughtError } from "@/backend/logging/Logger";
 import { isValidPicaToolImage } from "@/backend/service/chat/PicaToolImageValidation";
 
 import type {
@@ -119,7 +120,10 @@ export class PicaCodexRequests {
         ? randomBytes(32).toString("hex")
         : null;
       return tools;
-    } catch {
+    } catch (caughtError: unknown) {
+      // The adapter reports only "refused"; the log keeps the cause, such as a catalog entry above its size limit.
+      logCaughtError("PicaCodexRequests", caughtError, "error");
+
       throw new Error("Pica catalog refused");
     }
   }

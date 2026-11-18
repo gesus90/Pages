@@ -33,6 +33,7 @@ import runnerAccounts from "@/scripts/runner/accounts.mjs?raw";
 import runnerBrowser from "@/scripts/runner/browser.mjs?raw";
 import runnerUsage from "@/scripts/runner/usage.mjs?raw";
 import runnerClaudeSession from "@/scripts/runner/claude-session.mjs?raw";
+import runnerCodexSession from "@/scripts/runner/codex-session.mjs?raw";
 import runnerLaunch from "@/scripts/runner/launch.mjs?raw";
 import runnerSsh from "@/scripts/runner/ssh.mjs?raw";
 import runnerWorkerControl from "@/scripts/runner/worker-control.mjs?raw";
@@ -84,6 +85,7 @@ export const setupScript = setupTemplate
   .replace("__PAGES_RUNNER_BROWSER__", () => runnerBrowser)
   .replace("__PAGES_RUNNER_USAGE__", () => runnerUsage)
   .replace("__PAGES_RUNNER_CLAUDE_SESSION__", () => runnerClaudeSession)
+  .replace("__PAGES_RUNNER_CODEX_SESSION__", () => runnerCodexSession)
   .replace("__PAGES_RUNNER_LAUNCH__", () => runnerLaunch)
   .replace("__PAGES_RUNNER_SSH__", () => runnerSsh)
   .replace("__PAGES_RUNNER_WORKER_CONTROL__", () => runnerWorkerControl)
@@ -124,6 +126,7 @@ const files = {
   "browser.mjs": runnerBrowser,
   "usage.mjs": runnerUsage,
   "claude-session.mjs": runnerClaudeSession,
+  "codex-session.mjs": runnerCodexSession,
   "launch.mjs": runnerLaunch,
   "ssh.mjs": runnerSsh,
   "worker-control.mjs": runnerWorkerControl,

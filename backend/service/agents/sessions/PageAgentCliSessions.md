@@ -60,11 +60,15 @@ call and status, so a repeated update is stored once.
 The text of a tool event is the title, then marker lines and the command and
 output: `@kind <kind>`, `@call <identity>`, `@tool <name>` (the tool name of
 the adapter, such as `Bash` or `mcp__pages__read_ticket`, reported by Claude
-Code in `_meta.claudeCode.toolName`), `@about <description>` (the short
-description of the call: the `description` an agent gave its command, else the
-ticket, path or query a JSON input names), `@exit <code>` only when the
-adapter reported a numeric exit code (a completed call alone is no exit code
-0), `@limited` when the output was cut to its stored limit of 3,000
+Code in `_meta.claudeCode.toolName`; codex-acp names an MCP call only in its
+title `mcp.server.tool` and wraps its input as `{ server, tool, arguments }`,
+so the recorder names it `mcp__server__tool` and describes it by its
+arguments), `@about <description>` (the short description of the call: the
+`description` an agent gave its command, else the ticket, path or query a JSON
+input names), `@exit <code>` only when the adapter reported a numeric exit
+code, in `rawOutput` or, for a codex-acp terminal command, in
+`_meta.terminal_exit` (a completed call alone is no exit code 0; the terminal
+shows the code only for a failure or a code other than 0), `@limited` when the output was cut to its stored limit of 3,000
 characters, then `$ <first line of the command or path>` and the output; every
 line after the title is optional. The identity is the one the provider gave the call (the ACP
 `toolCallId`, the `tool_use_id` of Claude, the item ID of Codex) as one line
@@ -201,6 +205,11 @@ Context occupancy and token counts are separate values:
   attempt of the session reported a value. The sidebar reads the session view
   again after activity, at most once per 1.5 seconds, also for a node on a
   runner, so the value grows during the run and stays on reopening.
+- A Codex CLI job of a runner sends the same session readings with the
+  source `codex_token_count`: the occupancy and window of the latest
+  `token_count` in the rollout of its thread, the model of its
+  `turn_context` (see "Measured source of the context of a Codex CLI job").
+  The summed tokens of `turn.completed` stay token counters.
 - Except for the Codex plan path described below, token counts come from `PromptResponse.usage`, per turn. A missing
   count is `null`, never 0; nothing is derived from text length or from
   `used/size`.
@@ -262,6 +271,230 @@ The path to the sidebar: the runner emits a `usage` event whose text is
 (`agent_session_attempts.context_*`) in the transaction that receives the
 event; `AgentSessionService.view` returns it as `AgentSessionView.context`
 (`contextUsed` / `contextLimit`), and the sidebar shows "used / window".
+
+### Measured source of the context of a Codex CLI job
+
+A Codex node of a plan runs on a runner as `codex exec --json` (originator
+`codex_exec`); codex-acp serves only Pica chats. Compared on 18 November 2026
+for two real plan jobs on the local runner (runner 1.23.0, Codex CLI 0.166.0,
+`gpt-6.2-sol`, effort high, ChatGPT subscription): the first iteration of the
+step "Ticket umsetzen" of plan run `8569c5bf-0fda-42bf-be48-e7f659cd18ae`
+(attempt `0bf3fc12-7246-412a-9c71-449af4c272a0`, runner job
+`03d08176-8d73-43ff-9609-f72117a891c6`, thread
+`01a1ef5c-8430-7912-956c-fca16ba8b9a9`, 15:53:00 to 15:56:13 UTC) and its
+second iteration (job `669208f0-c27e-46d1-b31d-9398efea83e9`, thread
+`01a1ef5f-92d4-7703-90a1-94179083e94f`, 15:56:20 to 15:59:08 UTC). The
+provider events are the job's raw history (`history/raw`), the runner
+messages its event history (`history/events`) and `result.json`, the session
+journal the rollout `$CODEX_HOME/sessions/2026/11/18/rollout-…-<thread>.jsonl`.
+
+| Value          | Where                                                                          | Unit, time                                                                                     | First job                        |
+| -------------- | ------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------- | -------------------------------- |
+| Window         | rollout `event_msg` `task_started.model_context_window`                        | tokens, at the start of every turn, before the first model call                                | 475,000 at 15:53:00.518          |
+| Model          | rollout `turn_context.model`                                                   | at the start of every turn and after a compaction                                              | `gpt-6.2-sol` at 15:53:01.691    |
+| Occupancy      | rollout `event_msg` `token_count.info.last_token_usage.total_tokens`           | tokens of the latest model request (input with cache, plus output), after every model response | 21,871 at 15:53:06.505 … 81,996  |
+| Window again   | the same `token_count`, `info.model_context_window`                            | tokens, with every reading                                                                     | 475,000                          |
+| Cumulative use | rollout `token_count.info.total_token_usage`; `turn.completed.usage` on stdout | tokens of every model request of the thread added up, never context                            | 1,320,487 = runner `totalTokens` |
+
+The second job grew from 22,872 to 78,155 of 475,000; its cumulative use was
+976,820, the runner's `totalTokens` of the job. The cumulative count outgrows
+the window within one turn, so it never stands for the occupancy. codex-acp
+2.7.0 reports the same pair as `usage_update` (`used` =
+`tokenUsage.last.totalTokens`, `size` = `modelContextWindow`).
+
+The stdout of `codex exec --json` names no occupancy, no window and no model:
+`thread.started`, `turn.started`, `item.*` and `turn.completed` with summed
+`usage`. Up to runner 1.23.0 the runner therefore sent only those token
+counters, a single `usage` event at the end of the turn, and no session
+reading; the attempt kept `context_used` and `context_limit` empty, and the
+sidebar showed "Kontext noch nicht gemeldet" for the whole step.
+
+The runner now follows the rollout of the thread `thread.started` names
+(`scripts/runner/codex-session.mjs`), reading only new bytes with every Codex
+event and once more after the process ended. It sends a session reading
+`{"session":{"model","context":{"used","limit","source":"codex_token_count"}}}`
+when the model, the occupancy or the window changed. Replayed with the
+recorded events and rollouts of both jobs, the runner sent the window alone
+at the start of the turn and then exactly the 21 (first job) and 16 (second
+job) distinct pairs of the rollout, in order. `persistRunnerSessionReading`
+stores them on Codex attempts as on Claude Code attempts.
+
+Missing and partial values:
+
+- An ephemeral job (`--ephemeral`, a job without continuation) writes no
+  rollout, so its context stays "not reported"; the cumulative tokens are
+  never used instead.
+- A `token_count` without `info` (Codex sends rate limits alone) names no
+  usage and keeps the last value. A `task_started` names the window before the
+  first model response, so the sidebar knows the window before the occupancy;
+  it shows "not reported" until the first response.
+- A compaction (`compacted`, followed by `turn_context`) keeps the window; the
+  next `token_count` names what the compaction kept.
+- A rollout that cannot be read stops the reader of that job; the job goes on
+  and its context stays as last reported.
+
+Reopening, resuming and switching the model:
+
+- The reading is stored on the attempt, so reopening the console shows the
+  last value, also after the step ended.
+- `codex exec resume` appends to the rollout of the recorded thread (Pica's
+  codex-acp sessions show the same: one rollout with up to 53 turns across
+  resumes and compactions). The runner reads the existing history of a
+  resumed thread silently and reports its state with the first record of the
+  new turn; until then the view shows the last occupancy of the resumed
+  attempt.
+- A window belongs to its model (`gpt-6.1-terra`, `gpt-6.1-sol` and
+  `gpt-6.2-sol` 475,000, `gpt-6-sol` and `gpt-6-luna` 258,400 in all rollouts
+  of the connection). A `turn_context` with another model drops occupancy and
+  window, and the window of its own `task_started` follows. The view carries
+  the occupancy of a resumed attempt over only when both attempts ran the same
+  model, so a window always matches the current model.
+
+The checks replayed the recorded jobs through `createLiveHistory` and fed
+constructed rollouts for resume, model switch, missing `info`, a line written
+in two parts, a line beyond 8 MiB and a job without rollout; the readings then
+went through `readRunnerSessionReading`, `persistRunnerSessionReading` and
+`attemptContext` with a stand-in database. The values take effect with the
+next runner release (1.24.0) and the next Pages deploy.
+
+### Codex terminal events for the design reference
+
+Representative events of the same jobs, shortened and cleaned: paths, IDs and
+ticket contents are placeholders. Each pair shows the provider event on stdout
+and what the runner sends to Pages.
+
+Tool start and result (`command_execution`, 582 of 621 with exit code 0):
+
+```json
+{"type":"item.started","item":{"id":"item_1","type":"command_execution","command":"/usr/bin/zsh -lc 'cat AGENTS.md'","aggregated_output":"","exit_code":null,"status":"in_progress"}}
+{"type":"item.completed","item":{"id":"item_1","type":"command_execution","command":"/usr/bin/zsh -lc 'cat AGENTS.md'","aggregated_output":"# AGENTS.md\n…","exit_code":0,"status":"completed"}}
+```
+
+Runner: `tool_started` and `tool_completed` with the text
+`/usr/bin/zsh -lc 'cat AGENTS.md'`, `@call item_1` and the output.
+
+Error of a command (39 of 621, status `failed`, the exit code stays in
+`exit_code`):
+
+```json
+{
+  "type": "item.completed",
+  "item": {
+    "id": "item_37",
+    "type": "command_execution",
+    "command": "/usr/bin/zsh -lc 'git status --short && git config --get core.hooksPath'",
+    "aggregated_output": "## work/session-branch\n M app/example.tsx\n",
+    "exit_code": 1,
+    "status": "failed"
+  }
+}
+```
+
+Runner: `tool_failed` with command and output.
+
+MCP call and its result (`mcp_tool_call`; the text of the result is the
+tool's answer):
+
+```json
+{"type":"item.started","item":{"id":"item_3","type":"mcp_tool_call","server":"pages","tool":"read_ticket","arguments":{"ticketId":"<ticket id>"},"result":null,"error":null,"status":"in_progress"}}
+{"type":"item.completed","item":{"id":"item_3","type":"mcp_tool_call","server":"pages","tool":"read_ticket","arguments":{"ticketId":"<ticket id>"},"result":{"content":[{"type":"text","text":"{\"apiVersion\":\"1\",\"result\":{\"key\":\"<ticket key>\",…}}"}],"structured_content":null},"error":null,"status":"completed"}}
+```
+
+Runner: `tool_started` and `tool_completed` with the text `pages / read_ticket`;
+arguments and result are not passed on.
+
+Error of an MCP call (8 of 140): Codex sets `status` to `failed`, while
+`error` stays `null` and the cause is the text of the result:
+
+```json
+{
+  "type": "item.completed",
+  "item": {
+    "id": "item_11",
+    "type": "mcp_tool_call",
+    "server": "pages",
+    "tool": "update_step_progress",
+    "arguments": { "todos": [], "activity": "<activity>" },
+    "result": {
+      "content": [
+        {
+          "type": "text",
+          "text": "{\"isError\":true,\"code\":\"INVALID_REQUEST\",\"details\":{\"problems\":[\"todos: Too small: expected array to have >=1 items\"]}}"
+        }
+      ],
+      "structured_content": null
+    },
+    "error": null,
+    "status": "failed"
+  }
+}
+```
+
+Runner: `tool_failed` with the text `pages / update_step_progress`.
+
+To-dos: none of the 30 Codex jobs on this runner sent a Codex `todo_list`
+item; a plan step reports its to-dos through the Pages tool
+`update_step_progress`:
+
+```json
+{
+  "type": "item.completed",
+  "item": {
+    "id": "item_7",
+    "type": "mcp_tool_call",
+    "server": "pages",
+    "tool": "update_step_progress",
+    "arguments": {
+      "todos": [{ "id": "T1", "status": "active" }],
+      "activity": "<activity>"
+    },
+    "result": {
+      "content": [
+        {
+          "type": "text",
+          "text": "{\"apiVersion\":\"1\",\"result\":{\"todos\":[{\"id\":\"T1\",\"status\":\"active\"},{\"id\":\"T2\",\"status\":\"open\"}]}}"
+        }
+      ],
+      "structured_content": null
+    },
+    "error": null,
+    "status": "completed"
+  }
+}
+```
+
+A `todo_list` item (`{"type":"todo_list","items":[{"text","completed"}]}`)
+would reach Pages as a `plan` event with `pending` and `completed` entries.
+
+File change (34) and web search (1):
+
+```json
+{"type":"item.completed","item":{"id":"item_31","type":"file_change","changes":[{"path":"/workspace/app/example.tsx","kind":"update"}],"status":"completed"}}
+{"type":"item.completed","item":{"id":"<search id>","type":"web_search","query":"<query>","action":{"type":"search","query":"<query>"},"results":[…]}}
+```
+
+Runner: `tool_completed` with `update: /workspace/app/example.tsx`, or the
+query.
+
+Turn end (one per job; the counts are summed over every model request):
+
+```json
+{
+  "type": "turn.completed",
+  "usage": {
+    "input_tokens": 1314089,
+    "cached_input_tokens": 1243776,
+    "cache_write_input_tokens": 0,
+    "output_tokens": 6398,
+    "reasoning_output_tokens": 1949
+  }
+}
+```
+
+Runner: `usage` with `inputTokens`, `outputTokens`, `cacheReadTokens` and
+`totalTokens`; `status` "Agent started" for `turn.started`. A `turn.failed`
+or `error` event becomes an `error` event with its message; none occurred in
+these jobs.
 
 ## Claude plan accounting
 

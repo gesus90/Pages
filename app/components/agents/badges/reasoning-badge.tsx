@@ -57,7 +57,7 @@ export function ReasoningBadge({
       data-reasoning-badge={isKnown ? level : "unknown"}
       data-value-status={status}
       className={cn(
-        "inline-flex h-6 max-w-full min-w-0 shrink-0 items-center gap-1.5 rounded-[7px] border py-[2px] pr-2 pl-[2px] text-[11px] leading-none font-semibold whitespace-nowrap",
+        "inline-flex h-6 max-w-full min-w-0 shrink-0 items-center gap-1.5 rounded-[7px] border py-[2px] pr-2 pl-[2px] text-[11px] leading-4 font-semibold whitespace-nowrap",
         REASONING_LEVEL_CLASSES[signLevel].badge,
         className,
       )}

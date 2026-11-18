@@ -5904,6 +5904,12 @@
       "remoteHistory": "Remote-Live-Verlauf",
       "remoteDiagnostic": "Zwischenstände der CLI sind diagnostisch. Maßgeblich bleibt das Endergebnis des Schritts.",
       "contextUsedOnly": "{{used}} Tokens im Kontext, Fenstergröße unbekannt",
+      "providerBadge": {
+        "codex_cli": {
+          "name": "Codex",
+          "account": "ChatGPT-Abo"
+        }
+      },
       "manualInput": "Manuell eingegriffen",
       "stopTitle": "Lauf stoppen?",
       "stopDescription": "Das beendet den ganzen Lauf mit allen laufenden Knoten, nicht nur diesen Agenten. Bereits gemeldete Ergebnisse bleiben erhalten.",

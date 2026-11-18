@@ -3,6 +3,12 @@ import {
   createClaudeSessionReader,
   receiveClaudeSession,
 } from "./claude-session.mjs";
+import {
+  createCodexSessionReader,
+  finishCodexSession,
+  receiveCodexSession,
+} from "./codex-session.mjs";
+import { codexHome } from "./cli.mjs";
 import { createHash } from "node:crypto";
 
 const MAXIMUM_TEXT_BYTES = 4000;
@@ -295,6 +301,21 @@ async function readOpenCode(event, state) {
     await planNote(state, update.entries ?? []);
 }
 
+/** The rollout reader of a Codex job; a script, another tool or an invalid home reads nothing. */
+function codexSessionReader(command) {
+  if (command.program?.route?.tool !== "codex" || command.progressVersion !== 1)
+    return createCodexSessionReader(null, false);
+  try {
+    return createCodexSessionReader(
+      codexHome(command),
+      Boolean(command.continuation?.resumeSessionId),
+    );
+  } catch {
+    // An invalid CLI home also stops the launch; the reader then has nothing to follow.
+    return createCodexSessionReader(null, false);
+  }
+}
+
 /** Projects complete public fields with bounded deduplication and an awaited journal sink. */
 export function createLiveHistory(command, redact, emit) {
   const state = {
@@ -307,6 +328,7 @@ export function createLiveHistory(command, redact, emit) {
     progressVersion: command.progressVersion,
     usageMessages: new Map(),
     claudeSession: createClaudeSessionReader(),
+    codexSession: codexSessionReader(command),
   };
   return {
     async receive(event) {
@@ -314,12 +336,15 @@ export function createLiveHistory(command, redact, emit) {
       if (state.progressVersion === 1) await receiveUsage(event, tool, state);
       if (state.progressVersion === 1 && tool === "claude")
         await receiveClaudeSession(event, state.claudeSession, state.emit);
-      if (tool === "codex") await readCodex(event, state);
-      else if (tool === "claude") await readClaude(event, state);
+      if (tool === "codex") {
+        await readCodex(event, state);
+        await receiveCodexSession(event, state.codexSession, state.emit);
+      } else if (tool === "claude") await readClaude(event, state);
       else if (tool === "opencode" || tool === "antigravity")
         await readOpenCode(event, state);
     },
     async finish() {
+      await finishCodexSession(state.codexSession, state.emit);
       if (state.hasPartialText)
         await note(state, "status", "Agent text update incomplete");
     },

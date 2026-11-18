@@ -4,7 +4,7 @@ import {
   describeInput,
   describeOutput,
   progressText,
-  reportedToolName,
+  reportedCall,
   toolText,
 } from "./AgentSessionRecorderEvents";
 
@@ -30,15 +30,15 @@ export class AgentToolCallEvents {
     update: SessionUpdate,
   ): Omit<AgentSessionEventInput, "turn"> | null {
     if (update.sessionUpdate === "tool_call") {
-      const toolName = reportedToolName(update._meta);
+      const call = reportedCall(update.rawInput, update._meta);
       const state: ToolCallState = {
         callId: update.toolCallId,
         title: update.title,
         kind: update.kind ?? "other",
-        input: describeInput(update.rawInput),
-        toolName,
-        about: describeCall(update.rawInput, toolName),
-        ...(PROGRESS_TOOL.test(update.title) ? { raw: update.rawInput } : {}),
+        input: describeInput(call.input),
+        toolName: call.toolName,
+        about: describeCall(call.input, call.toolName),
+        ...(PROGRESS_TOOL.test(update.title) ? { raw: call.input } : {}),
       };
       this.tools.set(update.toolCallId, state);
       return this.announcement(update.toolCallId, state);
@@ -76,14 +76,15 @@ export class AgentToolCallEvents {
     if (update.title) state.title = update.title;
     if (update.kind) state.kind = update.kind;
     // claude-agent-acp repeats `rawInput: null` in later updates; it keeps the command already known.
-    state.toolName = reportedToolName(update._meta) || state.toolName;
+    const call = reportedCall(update.rawInput, update._meta);
+    state.toolName = call.toolName || state.toolName;
     if (update.rawInput !== undefined && update.rawInput !== null) {
-      state.input = describeInput(update.rawInput);
+      state.input = describeInput(call.input);
       state.about =
-        describeCall(update.rawInput, state.toolName ?? "") || state.about;
+        describeCall(call.input, state.toolName ?? "") || state.about;
     }
     if (PROGRESS_TOOL.test(state.title) && update.rawInput !== undefined)
-      state.raw = update.rawInput;
+      state.raw = call.input;
     this.tools.set(update.toolCallId, state);
     return state;
   }

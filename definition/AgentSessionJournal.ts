@@ -43,10 +43,15 @@ export interface AgentSessionContextUsage {
   /**
    * `acp_usage_update` from the ACP adapter; from the Claude CLI of a runner
    * `cli_assistant_usage`, the latest top-level answer, or
-   * `cli_compact_boundary`, the count a compaction kept.
+   * `cli_compact_boundary`, the count a compaction kept; from the Codex CLI
+   * of a runner `codex_token_count`, the latest `token_count` of its rollout.
    */
   readonly source:
-    "acp_usage_update" | "cli_assistant_usage" | "cli_compact_boundary" | null;
+    | "acp_usage_update"
+    | "cli_assistant_usage"
+    | "cli_compact_boundary"
+    | "codex_token_count"
+    | null;
   readonly reportedAt: string | null;
   /** The cumulative cost of the session where the adapter reports one; absent or `null` when unknown. */
   readonly cost?: AgentSessionCost | null;

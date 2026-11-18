@@ -17,11 +17,12 @@ export type PicaConnectionCheck = (
  * or a choice is saved.
  * @remarks
  * Pica reads only, so the session start already refuses a Codex folder that
- * holds a `config.toml` Pages did not write. This check names that reason
+ * holds a `config.toml` Pages did not write, except one that holds nothing but
+ * the folder trust Codex records itself. This check names that reason
  * early, as the cause of the choice, instead of as a failed start. It only
- * tests the file's existence and never opens, changes or removes it, so the
- * configuration of the profile stays as the operator left it. A clean,
- * separate Codex connection is the way to use Pica with Codex.
+ * reads the file and never changes or removes it, so the configuration of the
+ * profile stays as the operator left it. A clean, separate Codex connection is
+ * the way to use Pica with Codex when the file holds more.
  */
 export function picaManagedConnectionCheck(
   credentials: Pick<AgentCredentialStore, "paths">,

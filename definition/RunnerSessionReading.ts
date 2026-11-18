@@ -4,19 +4,28 @@ import { z } from "zod";
 const MODEL_NAME = /^[A-Za-z0-9._:@/[\]-]{1,200}$/u;
 const tokenCount = z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER);
 
-/** Where the occupancy of a Claude CLI session's context comes from. */
+/**
+ * Where the occupancy of a CLI session's context comes from: the latest
+ * top-level answer or a compaction of Claude Code, or the `token_count` record
+ * of a Codex rollout.
+ */
 export const RUNNER_CONTEXT_SOURCES = [
   "cli_assistant_usage",
   "cli_compact_boundary",
+  "codex_token_count",
 ] as const;
 
 /**
- * A session reading a runner sends for a Claude Code CLI job.
+ * A session reading a runner sends for a Claude Code or Codex CLI job.
  * @remarks
  * It travels as a `usage` event beside the token counters, but as an object
  * of its own: `model` is the model the CLI reported, `context.used` the
  * occupancy of the latest top-level answer or the count a compaction kept,
  * `context.limit` the window the CLI's result named for exactly that model.
+ * For Codex, `used` is `last_token_usage.total_tokens` and `limit` is
+ * `model_context_window` of the rollout, the model is the one of its
+ * `turn_context`; a reading with a window but no occupancy names a window
+ * before the first model response of a turn.
  * A value the CLI did not report is `null`; none is derived from summed
  * tokens. The attempt, workspace and time come from the authenticated
  * binding and the event, never from this text.
@@ -39,7 +48,7 @@ export const runnerSessionReadingSchema = z
   })
   .strict();
 
-/** A validated session reading of a Claude Code CLI job. */
+/** A validated session reading of a Claude Code or Codex CLI job. */
 export type RunnerSessionReading = z.infer<
   typeof runnerSessionReadingSchema
 >["session"];

@@ -116,9 +116,13 @@ function resultText(
   const parts = toolParts(tool, texts);
   const isFailed =
     tool.state === "failed" || (tool.state === "running" && options.hasEnded);
-  // The exit code comes first, as the reader looks for it first.
+  // The exit code comes first, as the reader looks for it first; a success
+  // with exit code 0 says nothing the ✓ does not.
+  const isPlainSuccess = tool.exitCode === 0 && !isFailed;
   const body = [
-    tool.exitCode === null ? "" : texts.exitCode(tool.exitCode),
+    tool.exitCode === null || isPlainSuccess
+      ? ""
+      : texts.exitCode(tool.exitCode),
     outputSummary(view, isLong(tool, view)),
     ...resultFacts(tool, view, texts),
   ].filter(Boolean);
@@ -169,9 +173,10 @@ function headLine(
  * @remarks
  * The result stands on its own line in the text column: ✓ in the success
  * style or ✕ in the error style, then the exit code where the adapter
- * reported one, the lines and the duration. A call with a longer or JSON
- * output never draws it: the line ends with a link to open it, and the
- * opened output belongs to this call alone, joined by its `toolCallId`.
+ * reported one other than a successful 0, the lines and the duration. A
+ * call with a longer or JSON output never draws it: the line ends with a
+ * link to open it, and the opened output belongs to this call alone, joined
+ * by its `toolCallId`.
  */
 export function toolLines(
   tool: ToolLine,

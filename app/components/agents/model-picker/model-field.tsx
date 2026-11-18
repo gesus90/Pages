@@ -35,7 +35,7 @@ export const MODEL_FIELD_CLASS =
  * a value never grows the field.
  */
 export const MODEL_BADGE_FIELD_CLASS =
-  "flex h-10 w-full min-w-0 items-center justify-start gap-1.5 rounded-lg border bg-surface py-0 pr-[7px] pl-[5px] text-left text-xs leading-none font-semibold text-foreground outline-none transition enabled:hover:brightness-105 focus-visible:ring-2 focus-visible:ring-primary disabled:cursor-not-allowed disabled:opacity-60";
+  "flex h-10 w-full min-w-0 items-center justify-start gap-1.5 rounded-lg border bg-surface py-0 pr-[7px] pl-[5px] text-left text-xs leading-4 font-semibold text-foreground outline-none transition enabled:hover:brightness-105 focus-visible:ring-2 focus-visible:ring-primary disabled:cursor-not-allowed disabled:opacity-60";
 
 /**
  * A value of a {@link MODEL_BADGE_FIELD_CLASS} field without a tile, such as

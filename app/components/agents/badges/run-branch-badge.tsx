@@ -7,14 +7,14 @@ import type { AgentSessionRunBranch } from "@/definition/AgentPlanRunBranch";
 import type { AgentSessionGitState } from "@/definition/AgentSessionJournal";
 
 const PILL_CLASS =
-  "inline-flex h-6 max-w-full min-w-0 items-center gap-1.5 rounded-[7px] border px-2 text-[11px] leading-none font-semibold";
+  "inline-flex h-6 max-w-full min-w-0 items-center gap-1.5 rounded-[7px] border px-2 text-[11px] leading-4 font-semibold";
 
 function WarningBadge({ text }: { readonly text: string }): React.ReactElement {
   return (
     <span
       data-run-branch-warning
       title={text}
-      className="inline-flex h-6 max-w-full min-w-0 items-center gap-1.5 rounded-[7px] border border-warning bg-warning-subtle px-2 text-[11px] leading-none font-semibold text-warning"
+      className="inline-flex h-6 max-w-full min-w-0 items-center gap-1.5 rounded-[7px] border border-warning bg-warning-subtle px-2 text-[11px] leading-4 font-semibold text-warning"
     >
       <TriangleAlert aria-hidden="true" className="size-3 shrink-0" />
       <span className="min-w-0 truncate">{text}</span>

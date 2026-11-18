@@ -104,7 +104,7 @@ export function ModelBadge({
       data-model-badge={style.mark}
       data-value-status={status}
       className={cn(
-        "inline-flex h-6 max-w-full min-w-0 shrink items-center gap-[7px] rounded-[7px] border bg-surface py-[2px] pr-2 pl-[2px] text-[11px] leading-none",
+        "inline-flex h-6 max-w-full min-w-0 shrink items-center gap-[7px] rounded-[7px] border bg-surface py-[2px] pr-2 pl-[2px] text-[11px] leading-4",
         style.borderClass,
         className,
       )}

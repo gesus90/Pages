@@ -43,6 +43,10 @@ const SUBJECT_FIELDS = [
   "title",
 ] as const;
 
+/** An MCP server or tool name as codex-acp reports it: one word without blanks or dots in the server. */
+const CODEX_MCP_SERVER = /^[^\s.]+$/u;
+const CODEX_MCP_TOOL = /^\S+$/u;
+
 /** What a tool call reported so far: its identity, title, kind and input. */
 export interface ToolCallState {
   /** The `toolCallId` of the provider, which pairs every update and result with its call. */
@@ -115,6 +119,46 @@ export function reportedToolName(meta: unknown): string {
   return typeof name === "string" ? name.trim().slice(0, TOOL_NAME_LENGTH) : "";
 }
 
+/** The tool and the input of a call, as the reader should see them. */
+export interface ReportedCall {
+  /** The tool name, such as `Bash` or `mcp__pages__read_ticket`; empty when the adapter named none. */
+  readonly toolName: string;
+  /** The input of the tool itself, without a wrapper of the adapter. */
+  readonly input: unknown;
+}
+
+/**
+ * The tool name and the input of a call.
+ * @param rawInput - The raw input of an ACP tool call or tool call update.
+ * @param meta - The `_meta` of the same update.
+ * @returns The name Claude Code reports in `_meta`; for a call codex-acp
+ * wraps as `{ server, tool, arguments }`, the name `mcp__server__tool` and
+ * the arguments as the input; any other input unchanged.
+ * @remarks
+ * codex-acp names an MCP call only in its title `mcp.server.tool` and gives
+ * it the kind `execute`, so without this the terminal would call it a shell
+ * command and describe it by the JSON of the wrapper.
+ */
+export function reportedCall(rawInput: unknown, meta: unknown): ReportedCall {
+  const named = reportedToolName(meta);
+  const input = readRecord(rawInput);
+  const server = input?.server;
+  const tool = input?.tool;
+  if (
+    !input ||
+    !Object.hasOwn(input, "arguments") ||
+    typeof server !== "string" ||
+    typeof tool !== "string" ||
+    !CODEX_MCP_SERVER.test(server) ||
+    !CODEX_MCP_TOOL.test(tool)
+  )
+    return { toolName: named, input: rawInput };
+  return {
+    toolName: named || `mcp__${server}__${tool}`.slice(0, TOOL_NAME_LENGTH),
+    input: input.arguments,
+  };
+}
+
 /** What a call of an MCP tool works on: the ticket, path or query its JSON input names, else its first plain arguments. */
 function describeSubject(input: Record<string, unknown>): string {
   for (const field of SUBJECT_FIELDS) {
@@ -174,12 +218,48 @@ function reportedExitCode(raw: unknown): number | null {
   return null;
 }
 
+/** The exit code codex-acp reports for a terminal command in `_meta.terminal_exit`; `null` without one. */
+function terminalExitCode(meta: unknown): number | null {
+  const exit = readRecord(readRecord(meta)?.terminal_exit);
+  const code = exit?.exit_code;
+  return typeof code === "number" && Number.isInteger(code) ? code : null;
+}
+
+/** The message of an MCP error: the error text itself or its `message`; `null` without one. */
+function errorMessage(error: unknown): string | null {
+  const message =
+    typeof error === "string" ? error : readRecord(error)?.message;
+  return typeof message === "string" && message.trim() !== "" ? message : null;
+}
+
+/**
+ * The text of an MCP result codex-acp reports as `{ result, error }`: the
+ * message of the error, else the text content of the result.
+ * @returns `null` for any other output, which keeps its own fields.
+ */
+function mcpResultText(output: Record<string, unknown>): string | null {
+  if (!Object.hasOwn(output, "result") || !Object.hasOwn(output, "error"))
+    return null;
+  const message = errorMessage(output.error);
+  if (message !== null) return message;
+  const content = readRecord(output.result)?.content;
+  if (!Array.isArray(content)) return null;
+  const texts = content.flatMap((entry: unknown) => {
+    const part = readRecord(entry);
+    return part?.type === "text" && typeof part.text === "string"
+      ? [part.text]
+      : [];
+  });
+  return texts.length > 0 ? texts.join("\n") : null;
+}
+
 /** claude-agent-acp wraps a command's output in a fenced block; the terminal shows the output itself. */
 function unfenced(text: string): string {
   return FENCED_OUTPUT.exec(text.trim())?.groups?.body ?? text;
 }
 
-function outputParts(
+/** The text and diffs a tool call reports in its content. */
+function contentParts(
   update: Extract<SessionUpdate, { sessionUpdate: "tool_call_update" }>,
 ): string[] {
   const parts: string[] = [];
@@ -189,23 +269,34 @@ function outputParts(
     else if (entry.type === "diff")
       parts.push(`diff ${entry.path}\n${entry.newText}`);
   }
-  const raw = update.rawOutput;
-  const output = readRecord(raw);
-  if (parts.length === 0 && typeof raw === "string") parts.push(raw);
-  else if (parts.length === 0 && output) {
-    for (const field of [
-      "formatted_output",
-      "output",
-      "stdout",
-      "stderr",
-      "result",
-    ]) {
-      const value = output[field];
-      if (typeof value === "string" && value.trim()) parts.push(value);
-    }
-    if (parts.length === 0) parts.push(JSON.stringify(raw));
-  }
   return parts;
+}
+
+/** The raw output of a tool call whose content holds no text and no diff. */
+function rawOutputParts(raw: unknown): string[] {
+  if (typeof raw === "string") return [raw];
+  const output = readRecord(raw);
+  if (!output) return [];
+  const mcpText = mcpResultText(output);
+  if (mcpText !== null) return [mcpText];
+  const fields = [
+    "formatted_output",
+    "output",
+    "stdout",
+    "stderr",
+    "result",
+  ].flatMap((field) => {
+    const value = output[field];
+    return typeof value === "string" && value.trim() ? [value] : [];
+  });
+  return fields.length > 0 ? fields : [JSON.stringify(raw)];
+}
+
+function outputParts(
+  update: Extract<SessionUpdate, { sessionUpdate: "tool_call_update" }>,
+): string[] {
+  const parts = contentParts(update);
+  return parts.length > 0 ? parts : rawOutputParts(update.rawOutput);
 }
 
 /** What a tool call returned: its text content, diffs and raw output. */
@@ -216,7 +307,8 @@ export function describeOutput(
   return {
     text: shortened(text),
     isLimited: text.length > TOOL_TEXT,
-    exitCode: reportedExitCode(update.rawOutput),
+    exitCode:
+      reportedExitCode(update.rawOutput) ?? terminalExitCode(update._meta),
   };
 }
 

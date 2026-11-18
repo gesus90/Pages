@@ -40,6 +40,9 @@ export interface CliCommand {
 /** The environment a CLI keeps; no Pages environment or provider key is inherited. */
 export function cliEnvironment(accountHome?: string): Record<string, string>;
 
+/** The `CODEX_HOME` a Codex job runs with, the one `spawnCli` passes. */
+export function codexHome(command: CliCommand): string | undefined;
+
 /** Queries status and the CLI picker only; no user prompt or paid model turn is sent. */
 export function cliInventory(context?: {
   home?: string;

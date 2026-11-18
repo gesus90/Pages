@@ -38,7 +38,7 @@ export function FreeBadge({
     <span
       data-free-badge={size}
       className={cn(
-        "inline-flex shrink-0 items-center border border-success-dot bg-success-subtle px-2 text-[11px] leading-none font-semibold whitespace-nowrap text-success",
+        "inline-flex shrink-0 items-center border border-success-dot bg-success-subtle px-2 text-[11px] leading-4 font-semibold whitespace-nowrap text-success",
         SIZE_CLASSES[size],
         className,
       )}

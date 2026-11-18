@@ -15,7 +15,7 @@ export interface HeaderState {
 
 /** 24 px high with a 1 px border and a 7 px radius, like every agent badge. */
 const BADGE_CLASS =
-  "inline-flex h-6 max-w-full shrink-0 items-center gap-1.5 rounded-[7px] border text-[11px] leading-none font-semibold";
+  "inline-flex h-6 max-w-full shrink-0 items-center gap-1.5 rounded-[7px] border text-[11px] leading-4 font-semibold";
 
 const TONES: Readonly<
   Record<StateTone, { readonly badge: string; readonly dot: string }>
@@ -38,30 +38,72 @@ const TONES: Readonly<
   },
 };
 
+/** What the provider badge of a runner shows: its tile, its outline and the keys of its two words. */
+interface ProviderBadgeLook {
+  /** The key of the tool mark, such as `claude` or `openai`. */
+  readonly mark: string;
+  /** The 1 px outline in the provider token, the same in the light and the dark palette. */
+  readonly borderClass: string;
+  readonly nameKey: string;
+  readonly accountKey: string;
+}
+
+/** The runners with a provider badge of their own; any other runner keeps a plain label. */
+const PROVIDER_BADGES: Readonly<Record<string, ProviderBadgeLook>> = {
+  claude_code: {
+    mark: "claude",
+    borderClass: "border-claude",
+    nameKey: "plans.session.runner.claude_code",
+    accountKey: "plans.modelPicker.access.claude_code",
+  },
+  codex_cli: {
+    mark: "openai",
+    borderClass: "border-chatgpt",
+    nameKey: "plans.console.providerBadge.codex_cli.name",
+    accountKey: "plans.console.providerBadge.codex_cli.account",
+  },
+};
+
 /**
- * The provider of a Claude Code node: the unchanged tile, the tool and the account, outlined in Claude's color.
- * @remarks
- * The 18 px tile with a 5 px radius sits 2 px from the top, bottom and left
- * edge of the 24 px badge, so the corners run parallel; a vertical rule
- * separates „Claude Code“ from „Claude-Abo“.
+ * Whether a runner has a provider badge of its own.
+ * @param provider - The runner of the node, such as `claude_code` or `codex_cli`.
+ * @returns `false` for a runner that keeps the plain label.
  */
-export function ClaudeProviderBadge(): React.ReactElement {
+export function hasProviderBadge(provider: string): boolean {
+  return Object.hasOwn(PROVIDER_BADGES, provider);
+}
+
+/**
+ * The provider of a node: the unchanged tile, the tool and the account, outlined in the provider's color.
+ * @remarks
+ * Claude Code reads „Claude Code │ Claude-Abo“ in `claude`, Codex reads
+ * „Codex │ ChatGPT-Abo“ in `chatgpt` with the ChatGPT tile. The 18 px tile
+ * with a 5 px radius sits 2 px from the top, bottom and left edge of the
+ * 24 px badge, so the corners run parallel; a vertical rule separates the
+ * tool from the account. A runner without a badge of its own draws nothing.
+ */
+export function ProviderBadge({
+  provider,
+}: {
+  readonly provider: string;
+}): React.ReactElement | null {
   const { t } = useTranslation();
+  const look: ProviderBadgeLook | undefined = PROVIDER_BADGES[provider];
+  if (!look) return null;
   return (
     <span
-      data-provider-badge="claude_code"
+      data-provider-badge={provider}
       className={cn(
         BADGE_CLASS,
-        "border-claude bg-surface py-[2px] pr-2 pl-[2px]",
+        "bg-surface py-[2px] pr-2 pl-[2px]",
+        look.borderClass,
       )}
     >
-      <ToolMark mark="claude" className="size-[18px] rounded-[5px]" />
-      <span className="shrink-0 text-foreground">
-        {t("plans.session.runner.claude_code")}
-      </span>
+      <ToolMark mark={look.mark} className="size-[18px] rounded-[5px]" />
+      <span className="shrink-0 text-foreground">{t(look.nameKey)}</span>
       <span aria-hidden="true" className="h-3 w-px shrink-0 bg-border" />
       <span className="min-w-0 truncate text-foreground">
-        {t("plans.modelPicker.access.claude_code")}
+        {t(look.accountKey)}
       </span>
     </span>
   );
@@ -70,8 +112,9 @@ export function ClaudeProviderBadge(): React.ReactElement {
 /**
  * The state of the node as a badge with a 6 px dot, such as „Turn läuft“.
  * @remarks
- * Running work stands in the primary color, the same 24 px high badge with
- * a 7 px radius and a 1 px border as the provider.
+ * Running work stands in the primary color. The badge shares the provider's
+ * 24 px minimum height, 7 px radius and 1 px border, and grows when the label
+ * needs more than one line.
  */
 export function StateBadge({
   state,
@@ -82,13 +125,13 @@ export function StateBadge({
   return (
     <span
       data-state-badge={state.tone}
-      className={cn(BADGE_CLASS, "px-2", tone.badge)}
+      className={cn(BADGE_CLASS, "h-auto min-h-6 px-2 py-0.75", tone.badge)}
     >
       <span
         aria-hidden="true"
         className={cn("size-1.5 shrink-0 rounded-full", tone.dot)}
       />
-      <span className="min-w-0 truncate">{state.label}</span>
+      <span className="min-w-0 wrap-anywhere">{state.label}</span>
     </span>
   );
 }

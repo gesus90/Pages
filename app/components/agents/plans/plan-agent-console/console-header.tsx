@@ -4,9 +4,10 @@ import { useTranslation } from "react-i18next";
 import { Button } from "@/app/components/ui/button";
 
 import {
-  ClaudeProviderBadge,
   NoteBadge,
+  ProviderBadge,
   StateBadge,
+  hasProviderBadge,
 } from "./console-header-badges";
 import { ConsoleRunPicker } from "./console-run-picker";
 import { ConsoleStopRun } from "./console-stop-run";
@@ -34,29 +35,29 @@ interface ConsoleHeaderProps {
 /** Every control of the header: 40 px high with a 12 px radius. */
 const CONTROL_CLASS = "min-h-10 xl:min-h-10";
 
-/** The provider of the node: the badge of Claude Code, a plain label for any other runner. */
+/** The provider of the node: the badge of Claude Code or Codex, a plain label for any other runner. */
 function ProviderLabel({
   provider,
 }: {
   readonly provider: string;
 }): React.ReactElement {
   const { t } = useTranslation();
-  if (provider === "claude_code") return <ClaudeProviderBadge />;
+  if (hasProviderBadge(provider)) return <ProviderBadge provider={provider} />;
   return <NoteBadge>{t(`settings.agents.provider.${provider}`)}</NoteBadge>;
 }
 
 /**
  * Title, provider and state of the node, run choice, the stop of the run and close.
  * @remarks
- * The header is 76 px high. The title is the node; below it the provider
- * and the state stand as two badges of 24 px. At the right the run choice,
- * the stop and close are 40 px high with a 12 px radius and 8 px apart. The
- * stop is there only while the run can still be stopped.
+ * The header is 76 px high on wide terminals when the content fits on one
+ * row. The provider and state badges below the title flow onto further rows
+ * when space is tight. The run choice, stop and close stay grouped on the
+ * right. The stop is there only while the run can still be stopped.
  */
 export function ConsoleHeader(props: ConsoleHeaderProps): React.ReactElement {
   const { t } = useTranslation();
   return (
-    <header className="flex flex-wrap items-center gap-2 border-b border-agent-console-border bg-agent-console-surface px-5 py-3 sm:h-[76px] sm:flex-nowrap">
+    <header className="flex shrink-0 flex-wrap items-center gap-2 border-b border-agent-console-border bg-agent-console-surface px-5 py-3 sm:min-h-[76px] sm:py-2.5">
       {props.onBack ? (
         <Button
           size="icon-sm"
@@ -68,7 +69,7 @@ export function ConsoleHeader(props: ConsoleHeaderProps): React.ReactElement {
           <ArrowLeft className="size-4" aria-hidden="true" />
         </Button>
       ) : null}
-      <div className="min-w-0 flex-1">
+      <div className="min-w-0 grow basis-40">
         <p className="sr-only">
           {t("plans.console.kicker", { type: props.nodeType })}
         </p>
@@ -79,7 +80,7 @@ export function ConsoleHeader(props: ConsoleHeaderProps): React.ReactElement {
         >
           {props.title}
         </h2>
-        <div role="status" className="mt-1 flex items-center gap-1.5">
+        <div role="status" className="mt-1 flex flex-wrap items-center gap-1.5">
           {props.provider ? <ProviderLabel provider={props.provider} /> : null}
           {props.state ? <StateBadge state={props.state} /> : null}
           {props.run?.manualInputAt ? (
@@ -90,7 +91,7 @@ export function ConsoleHeader(props: ConsoleHeaderProps): React.ReactElement {
           ) : null}
         </div>
       </div>
-      <div className="flex min-w-0 items-center gap-2 max-sm:w-full max-sm:justify-end">
+      <div className="ml-auto flex min-w-0 max-w-full items-center gap-2 max-sm:w-full max-sm:justify-end">
         {props.runs.length > 1 ? (
           <ConsoleRunPicker
             ariaLabel={t("plans.console.run")}
