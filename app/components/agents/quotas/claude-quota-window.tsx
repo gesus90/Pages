@@ -7,19 +7,22 @@ import {
   usedWholePercentage,
 } from "@/definition/ClaudeQuota";
 
-import { formatQuotaCountdown, formatQuotaMoment } from "./quota-time";
+import {
+  QUOTA_BAR_CLASSES,
+  QUOTA_FIGURES_RUN_MILLISECONDS,
+  QUOTA_WINDOW_SLOT_CLASS,
+} from "./quota-card-layout";
+import {
+  formatQuotaCountdown,
+  formatQuotaMoment,
+  formatQuotaStand,
+} from "./quota-time";
+import { useAnimatedNumber } from "./use-animated-number";
 
 import type {
   ClaudeQuotaTone,
   ClaudeQuotaWindow as QuotaWindow,
 } from "@/definition/ClaudeQuota";
-
-/** The fill of the bar for each tone; static, so Tailwind finds the classes. */
-const BAR_CLASSES: Readonly<Record<ClaudeQuotaTone, string>> = {
-  success: "bg-success",
-  warning: "bg-warning",
-  destructive: "bg-destructive",
-};
 
 /** The colour of "x % übrig": greyed after a failed query, red below 10 %. */
 function remainingClass(tone: ClaudeQuotaTone, isStale: boolean): string {
@@ -31,11 +34,14 @@ function remainingClass(tone: ClaudeQuotaTone, isStale: boolean): string {
  * One reported window of a Claude card: what is left, the bar, the reset
  * and what is used.
  * @remarks
- * The window fills a 62 px slot of the card. The bar fills with the
- * remaining share on a muted track, so a used-up window shows an empty bar
- * and "0 % übrig". Only a remaining share below 10 % colours the figure.
- * After a failed query the figures stay, greyed, and `staleSince` names the
- * time of the last answer beside the used share.
+ * The window fills a slot of the card, 62 px on a wide card and 76 px on a
+ * phone. The bar fills with the remaining share on a muted track, so a
+ * used-up window shows an empty bar and "0 % übrig". Only a remaining share
+ * below 10 % colours the figure. New figures run in within 300 ms, the bar
+ * by its width and the numbers by counting, and stand still at once where
+ * the reader asks for less motion. After a failed query the figures stay,
+ * greyed, and `staleSince` names the time of the last answer beside the
+ * used share.
  */
 export function ClaudeQuotaWindow({
   quotaWindow,
@@ -51,6 +57,7 @@ export function ClaudeQuotaWindow({
   const { t, i18n } = useTranslation();
   const used = usedWholePercentage(quotaWindow.usedPercentage);
   const remaining = remainingWholePercentage(quotaWindow.usedPercentage);
+  const shownUsed = useAnimatedNumber(used, QUOTA_FIGURES_RUN_MILLISECONDS);
   const tone = claudeQuotaTone(remaining);
   const label = t(`agentsPage.window.${quotaWindow.kind}`);
   const resetsAt = new Date(quotaWindow.resetsAt);
@@ -61,11 +68,11 @@ export function ClaudeQuotaWindow({
     }),
     countdown: formatQuotaCountdown(resetsAt.getTime() - now.getTime(), t),
   });
-  const usedText = t("agentsPage.quota.used", { percent: used });
+  const usedText = t("agentsPage.quota.used", { percent: shownUsed });
   const sideText =
     isStale && staleSince !== null
       ? t("agentsPage.quota.staleUsed", {
-          time: formatQuotaMoment(new Date(staleSince), now, {
+          time: formatQuotaStand(new Date(staleSince), now, {
             t,
             language: i18n.language,
           }),
@@ -75,7 +82,7 @@ export function ClaudeQuotaWindow({
 
   return (
     <section
-      className="flex h-[62px] shrink-0 flex-col justify-between"
+      className={QUOTA_WINDOW_SLOT_CLASS}
       data-quota-window={quotaWindow.kind}
       data-quota-stale={isStale ? "true" : "false"}
       aria-label={label}
@@ -85,11 +92,11 @@ export function ClaudeQuotaWindow({
         <span
           data-quota-tone={tone}
           className={cn(
-            "text-[15px] font-bold whitespace-nowrap",
+            "text-[15px] font-bold whitespace-nowrap transition-colors duration-300 motion-reduce:transition-none",
             remainingClass(tone, isStale),
           )}
         >
-          {t("agentsPage.quota.remaining", { percent: remaining })}
+          {t("agentsPage.quota.remaining", { percent: 100 - shownUsed })}
         </span>
       </div>
       <div
@@ -103,8 +110,10 @@ export function ClaudeQuotaWindow({
         <div
           data-quota-bar={isStale ? "stale" : tone}
           className={cn(
-            "h-full rounded-[5px]",
-            isStale ? "bg-muted-foreground opacity-55" : BAR_CLASSES[tone],
+            "h-full rounded-[5px] transition-[width,background-color,opacity] duration-300 ease-out motion-reduce:transition-none",
+            isStale
+              ? "bg-muted-foreground opacity-55"
+              : QUOTA_BAR_CLASSES[tone],
           )}
           style={{ width: `${remaining}%` }}
         />

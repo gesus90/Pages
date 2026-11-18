@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { cn } from "@/app/lib/cn";
 
 import type { LucideIcon } from "lucide-react";
+import type { QuotaAccount } from "@/definition/AgentQuota";
 import type { QuotaNoticeKind } from "./quota-card-state";
 
 interface NoticeStyle {
@@ -14,7 +15,7 @@ interface NoticeStyle {
 }
 
 /**
- * Neutral notices for what Claude said or what Pages left out on purpose,
+ * Neutral notices for what the provider said or what Pages left out on purpose,
  * warning notices where Pages has nothing it could show.
  */
 const NOTICE_STYLES: Readonly<Record<QuotaNoticeKind, NoticeStyle>> = {
@@ -45,24 +46,29 @@ const NOTICE_STYLES: Readonly<Record<QuotaNoticeKind, NoticeStyle>> = {
  * @remarks
  * It stands centred in the window area and never grows beyond it: longer
  * text is cut with an ellipsis and stands in full in the tooltip. After a
- * failed first query the notice adds that the plan stays unknown, but only
- * while the card shows no plan.
+ * failed first query the notice of a Claude card adds that the plan stays
+ * unknown, but only while the card shows no plan. A card of another provider
+ * has no plan and always says what to expect.
  */
 export function QuotaNotice({
   notice,
+  provider,
   hasPlan,
 }: {
   readonly notice: QuotaNoticeKind;
+  readonly provider: QuotaAccount["provider"];
   readonly hasPlan: boolean;
 }): React.ReactElement {
   const { t } = useTranslation();
   const style = NOTICE_STYLES[notice];
   const Icon = style.icon;
-  const title = t(`agentsPage.notice.${notice}.title`);
+  const scope =
+    provider === "antigravity"
+      ? "agentsPage.antigravity.notice"
+      : "agentsPage.notice";
+  const title = t(`${scope}.${notice}.title`);
   const detail =
-    notice === "failed" && hasPlan
-      ? null
-      : t(`agentsPage.notice.${notice}.detail`);
+    notice === "failed" && hasPlan ? null : t(`${scope}.${notice}.detail`);
   return (
     <div
       role="status"

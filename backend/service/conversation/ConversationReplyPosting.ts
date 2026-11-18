@@ -90,6 +90,12 @@ export async function postConversationReply(
     );
     throw error;
   }
+  // Round and attachment updates can fail after the message has committed.
+  if (outcome.isNew && reply.notice === null)
+    reply.liveAnswer?.finish({
+      messageId: outcome.message.id,
+      state: "answered",
+    });
   await host.setState(job, reply.notice === null ? "answered" : "failed", {
     replyMessageId: outcome.message.id,
     notice: reply.notice,
@@ -126,7 +132,6 @@ export async function postConversationReply(
     recipientIds: memberIds,
   });
   if (reply.notice !== null) return null;
-  reply.liveAnswer?.finish({ messageId: message.id, state: "answered" });
   return message;
 }
 

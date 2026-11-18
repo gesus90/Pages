@@ -20,6 +20,32 @@ function isSameLocalDay(first: Date, second: Date): boolean {
   );
 }
 
+function isYesterday(moment: Date, now: Date): boolean {
+  const yesterday = new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    now.getDate() - 1,
+  );
+  return isSameLocalDay(moment, yesterday);
+}
+
+/** The Monday, 00:00 local time, of the calendar week of a moment. */
+function startOfWeek(moment: Date): Date {
+  const daysSinceMonday = (moment.getDay() + 6) % 7;
+  return new Date(
+    moment.getFullYear(),
+    moment.getMonth(),
+    moment.getDate() - daysSinceMonday,
+  );
+}
+
+function dateFormat(language: string): Intl.DateTimeFormat {
+  return new Intl.DateTimeFormat(language, {
+    day: "2-digit",
+    month: "2-digit",
+  });
+}
+
 /**
  * A clock time in the reader's language, such as `22:30`.
  * @param time - The moment.
@@ -46,6 +72,35 @@ export function formatQuotaMoment(
   if (isSameLocalDay(moment, now)) return clock;
   const weekday = context.t(`agentsPage.weekday.${moment.getDay()}`);
   return `${weekday} ${clock}`;
+}
+
+/**
+ * The time of Claude's last answer, by its age: the time today, `gestern`
+ * and the time yesterday, the weekday and the time within this calendar
+ * week, the date and the time before.
+ * @param moment - The moment of the answer.
+ * @param now - The moment of display.
+ * @param context - Translation and language of the interface.
+ * @returns For example `14:12`, `gestern 21:40`, `Mi 21:40` or `11.11. 21:40`.
+ */
+export function formatQuotaStand(
+  moment: Date,
+  now: Date,
+  context: { readonly t: TFunction; readonly language: string },
+): string {
+  const { t, language } = context;
+  const clock = formatQuotaClock(moment, language);
+  if (isSameLocalDay(moment, now)) return clock;
+  if (isYesterday(moment, now))
+    return t("agentsPage.moment.yesterday", { time: clock });
+  const isThisWeek =
+    moment.getTime() >= startOfWeek(now).getTime() &&
+    moment.getTime() < now.getTime();
+  if (isThisWeek) {
+    const weekday = t(`agentsPage.weekday.${moment.getDay()}`);
+    return `${weekday} ${clock}`;
+  }
+  return `${dateFormat(language).format(moment)} ${clock}`;
 }
 
 /**

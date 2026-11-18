@@ -144,6 +144,28 @@ fixed wording cannot be told from model text; it is covered by the model-free
 auth check and by the model, effort and mode that are selected and confirmed
 before every first and every later prompt.
 
+## Quota query
+
+The Agents page shows one quota card per Antigravity connection a person may
+use. Pages reads it in the connection's own isolated ACP context, never with
+the sign-in of a terminal: it opens a metadata session without tools and runs
+the adapter's `/usage` command, which answers without a model turn. The
+command goes out only after the adapter announced a `usage` command in its
+`available_commands_update`; without that announcement nothing is sent,
+because a plain prompt would reach the model, and the card reads "Query
+failed". A connection with a running session is not queried, so a running
+answer finishes undisturbed, and a connection without a sign-in reads "Not
+signed in".
+
+The answer lists groups of models in the order of the source, each with
+windows that carry `window`, `remaining_fraction` and `reset_time`; the
+format is that of `agy --print /usage --output-format json`. Pages shows the
+five-hour and the seven-day window of each group, the reported rest unchanged
+and the reset in the viewer's local time. A group with a single window, such
+as one model with a quota of its own, shows only that window. The answer names
+no plan, so the card shows none. The last successful answer is stored per
+connection and stays visible, greyed, after a failed query.
+
 ## Pica
 
 Pica may use this provider (product release of 08.11.2026). A Pica session

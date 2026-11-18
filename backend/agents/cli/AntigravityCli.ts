@@ -21,6 +21,7 @@ import { logEvent } from "@/backend/logging/Logger";
 import { MODEL_TEST_PROMPT } from "@/definition/AgentConnection";
 
 import { AntigravityProtocol, antigravityFailure } from "./AntigravityProtocol";
+import { readAntigravityUsage } from "./AntigravityUsageResult";
 import { readAntigravityChallenge } from "./CliLoginParser";
 
 import type {
@@ -35,6 +36,7 @@ import type {
 import type { CliToolExecution } from "./CliToolExecution";
 import type { ProviderCheckOutcome } from "@/backend/agents/providers/ProviderContracts";
 import type { AgentCatalogModel } from "@/definition/AgentModelCatalog";
+import type { AntigravityQuotaGroup } from "@/definition/AntigravityQuota";
 import type { SessionConfigOption } from "@agentclientprotocol/sdk";
 import type { AgentErrorCode } from "@/backend/error/AgentErrors";
 
@@ -248,6 +250,36 @@ export class AntigravityCli implements CliLoginAdapter {
       if (models.length === 0) throw new AgentError("cli_unexpected_output");
       return models;
     });
+  }
+
+  /**
+   * Reads the quota groups of the connection's account through the adapter's
+   * `/usage` command, without a model answer.
+   * @param home - The connection's isolated context.
+   * @param signal - Deadline of the query.
+   * @returns Every group and window the adapter reported.
+   * @throws {AgentError} `cli_not_logged_in` without a confirmed sign-in, or
+   * the failure code of the ACP session; a session that cannot run `/usage`
+   * fails with `cli_unexpected_output` before any model is called.
+   * @remarks
+   * The query runs in the same isolated ACP context as every other
+   * Antigravity operation, so it uses exactly the account of the connection
+   * and never the sign-in of a terminal.
+   */
+  public async readUsage(
+    home: CliHome,
+    signal: AbortSignal,
+  ): Promise<readonly AntigravityQuotaGroup[]> {
+    try {
+      await this.requireLogin(home);
+      return await this.withProtocol(home, signal, async (protocol) => {
+        await protocol.initialize();
+        const session = await protocol.newSession(home);
+        return readAntigravityUsage(await protocol.usage(session.sessionId));
+      });
+    } catch (error: unknown) {
+      throw new AgentError(antigravityFailure(error, signal));
+    }
   }
 
   /** An explicit check requires the saved exact model and effort; no default model fallback. */

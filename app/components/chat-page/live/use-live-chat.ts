@@ -120,12 +120,8 @@ export function useLiveChat({
 }: LiveChatInput): LiveChatView {
   const { t } = useTranslation();
   const storedIds = new Set(messages.map((message) => message.id));
-  const storedAnswerIds = new Set(messages.map((message) => message.answerId));
   const views = answersOfChat(state, liveChatOf(opened));
-  const visible = views.filter(
-    (view) => view.end !== null || !storedAnswerIds.has(view.answerId),
-  );
-  const running = runningByAgent(visible);
+  const running = runningByAgent(views);
   const loaded = loadedWorkers(opened);
   const workingAgentIds = [
     ...new Set([...running.keys(), ...loaded.map((agent) => agent.id)]),
@@ -166,7 +162,7 @@ export function useLiveChat({
 
   return {
     history: {
-      answers: shownLiveAnswers(visible, storedIds),
+      answers: shownLiveAnswers(views, storedIds),
       ended: endedByMessage(views),
       deliveries: state.deliveries,
       nameOf,

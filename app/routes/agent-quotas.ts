@@ -10,19 +10,20 @@ import { logCaughtError } from "@/backend/logging/Logger";
 import type { Route } from "./+types/agent-quotas";
 
 /**
- * Answers one query of the quota page: a card per Claude connection the
- * person may use, with the windows Claude reported.
+ * Answers the quota page with the cards of the person: a card per Claude or
+ * Antigravity connection the person may use, with the figures the provider
+ * last reported.
  * @remarks
- * The page asks when it opens and when the refresh button is pressed; the
- * minute beat comes from the event stream of the page. Each query asks
- * Claude for the current usage of these connections.
+ * The answer comes from the stored figures and never waits for a provider: the
+ * page shows these cards at once and then asks for the current usage of each
+ * card on its own route. The rights are read anew with every answer.
  */
 export async function loader({ context }: Route.LoaderArgs): Promise<Response> {
   try {
     const user = context.get(authenticatedUserContext);
     if (!user) throw new AgentError("plan_access_denied");
     const services = await getApplicationServices();
-    const snapshot = await services.claudeQuotaService.listForUser(user.id);
+    const snapshot = await services.quotaService.listStoredForUser(user.id);
     return Response.json(snapshot, { headers: AGENT_NO_STORE });
   } catch (error: unknown) {
     logCaughtError("agent_quotas", error);

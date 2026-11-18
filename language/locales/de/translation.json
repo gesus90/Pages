@@ -9504,7 +9504,8 @@
     "quotas": {
       "title": "Kontingente und Guthaben",
       "shortTitle": "Kontingente",
-      "noConnections": "Keine Claude-Verbindung, die du nutzen darfst."
+      "noConnections": "Keine Claude- oder Antigravity-Verbindung, die du nutzen darfst.",
+      "loadFailed": "Die Karten konnten nicht geladen werden. Mit „Kontingente aktualisieren“ erneut versuchen."
     },
     "status": {
       "refreshing": "wird aktualisiert …",
@@ -9512,17 +9513,24 @@
       "refresh": "Kontingente aktualisieren"
     },
     "card": {
-      "subscription": "claude.ai-Abo"
+      "subscription": "claude.ai-Abo",
+      "antigravity": "Antigravity CLI"
     },
     "state": {
+      "loading": "Wird geladen …",
+      "stored": "Stand {{time}}",
+      "refreshing": "Stand {{time}} · wird aktualisiert …",
       "reported": "Von Claude gemeldet · {{time}}",
       "noWindows": "Keine Fenster gemeldet · Abfrage {{time}}",
-      "failedSince": "Abfrage fehlgeschlagen · letzter Erfolg {{time}}",
+      "failedSince": "Abfrage fehlgeschlagen · Stand {{time}}",
       "failedNever": "Abfrage fehlgeschlagen · noch kein Erfolg",
       "skipped": "Abfrage übersprungen · Sitzung aktiv",
       "signedOut": "Nicht angemeldet · Anmeldung fehlt",
       "retry": "Erneut versuchen",
-      "openConnection": "Verbindung öffnen"
+      "openConnection": "Verbindung öffnen",
+      "reportedAntigravity": "Von Antigravity gemeldet · {{time}}",
+      "limitReached": "{{group}} · {{limit}} erreicht · zurück {{moment}}",
+      "limitReachedNoReset": "{{group}} · {{limit}} erreicht"
     },
     "notice": {
       "noWindows": {
@@ -9569,6 +9577,9 @@
       "minutes_one": "{{count}} Min.",
       "minutes_other": "{{count}} Min."
     },
+    "moment": {
+      "yesterday": "gestern {{time}}"
+    },
     "weekday": {
       "0": "So",
       "1": "Mo",
@@ -9577,6 +9588,40 @@
       "4": "Do",
       "5": "Fr",
       "6": "Sa"
+    },
+    "limit": {
+      "five_hour": "5-Stunden-Limit",
+      "seven_day": "7-Tage-Limit"
+    },
+    "antigravity": {
+      "group": {
+        "gemini": "Gemini",
+        "claudeGpt": "Claude und GPT"
+      },
+      "groupList": "Modellgruppen",
+      "groupCount_one": "{{count}} Gruppe",
+      "groupCount_other": "{{count}} Gruppen",
+      "remainingShort": "{{percent}} %",
+      "remainingLabel": "{{group}}, {{window}}: übrig",
+      "resetsShort": "zurück {{moment}}",
+      "notice": {
+        "noWindows": {
+          "title": "Antigravity hat für diese Verbindung keine Kontingentdaten gemeldet.",
+          "detail": "Pages hat erfolgreich abgefragt."
+        },
+        "skipped": {
+          "title": "Pages fragt nicht ab, solange eine Antigravity-Sitzung dieselbe Anmeldung nutzt.",
+          "detail": "Die Werte erscheinen, sobald die Sitzung endet."
+        },
+        "failed": {
+          "title": "Pages konnte noch keine Werte abrufen.",
+          "detail": "Die Werte erscheinen, sobald eine Abfrage gelingt."
+        },
+        "signedOut": {
+          "title": "Für diese Verbindung fehlt die Anmeldung bei Antigravity.",
+          "detail": "Ohne Anmeldung kann Pages keine Kontingentwerte abrufen."
+        }
+      }
     }
   },
   "runDiagnosis": {

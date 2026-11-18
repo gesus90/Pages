@@ -1,5 +1,14 @@
+import {
+  firstAntigravityQuotaLimit,
+  visibleAntigravityQuotaGroups,
+} from "@/definition/AntigravityQuota";
 import { visibleClaudeQuotaWindows } from "@/definition/ClaudeQuota";
 
+import type {
+  AntigravityQuotaAccount,
+  AntigravityQuotaGroup,
+  AntigravityQuotaLimit,
+} from "@/definition/AntigravityQuota";
 import type {
   ClaudeQuotaAccount,
   ClaudeQuotaStatus,
@@ -30,6 +39,7 @@ export interface QuotaCardView {
 const NOTICE_BY_STATUS: Readonly<
   Record<ClaudeQuotaStatus["kind"], QuotaNoticeKind>
 > = {
+  stored: "noWindows",
   reported: "noWindows",
   no_windows: "noWindows",
   failed: "failed",
@@ -45,6 +55,7 @@ const NOTICE_BY_STATUS: Readonly<
  */
 export function lastClaudeAnswerAt(status: ClaudeQuotaStatus): string | null {
   switch (status.kind) {
+    case "stored":
     case "reported":
     case "no_windows":
       return status.at;
@@ -66,8 +77,9 @@ export function lastClaudeAnswerAt(status: ClaudeQuotaStatus): string | null {
  * reported card leaves, Claude has no window to report any more, so the card
  * reads "Keine Fenster gemeldet" at the time of the answer instead of
  * "Von Claude gemeldet" over an empty area. Stored windows stay visible while
- * a session holds the sign-in, because Claude reported them; after a failed
- * query they stay greyed. A connection without a sign-in shows no windows.
+ * a session holds the sign-in, because Claude reported them, and while a
+ * query of the stored figures is on its way; after a failed query they stay
+ * greyed. A connection without a sign-in shows no windows.
  */
 export function quotaCardView(
   account: ClaudeQuotaAccount,
@@ -91,5 +103,63 @@ export function quotaCardView(
       isStale: status.kind === "failed",
       staleSince: status.kind === "failed" ? status.lastSuccessAt : null,
     },
+  };
+}
+
+/** What the group area of an Antigravity card holds. */
+export type AntigravityCardBody =
+  | {
+      readonly kind: "groups";
+      readonly groups: readonly AntigravityQuotaGroup[];
+      /** After a failed query the figures stay, greyed. */
+      readonly isStale: boolean;
+    }
+  | { readonly kind: "notice"; readonly notice: QuotaNoticeKind };
+
+/** What an Antigravity card shows at a moment. */
+export interface AntigravityCardView {
+  readonly status: ClaudeQuotaStatus;
+  readonly body: AntigravityCardBody;
+  /**
+   * The first window without a rest in any group, also one a scrolled list
+   * does not show; the status line names it. `null` unless the answer is
+   * current.
+   */
+  readonly limit: AntigravityQuotaLimit | null;
+}
+
+/**
+ * What an Antigravity card shows at a moment.
+ * @param account - The card as the server answered it.
+ * @param now - The moment of display.
+ * @returns The status line, the group area and the limit the status line names.
+ * @remarks
+ * A window leaves the card once its reset passed, and a group once its last
+ * window left. When the last group of a reported card leaves, Antigravity has
+ * nothing to report any more, so the card reads "Keine Fenster gemeldet" at
+ * the time of the answer. Stored groups stay visible while a session holds
+ * the sign-in and while a query is on its way; after a failed query they
+ * stay greyed. A connection without a sign-in shows no groups.
+ */
+export function antigravityCardView(
+  account: AntigravityQuotaAccount,
+  now: Date,
+): AntigravityCardView {
+  const groups = visibleAntigravityQuotaGroups(account.groups, now);
+  const status: ClaudeQuotaStatus =
+    account.status.kind === "reported" && groups.length === 0
+      ? { kind: "no_windows", at: account.status.at }
+      : account.status;
+  if (status.kind === "signed_out" || groups.length === 0)
+    return {
+      status,
+      body: { kind: "notice", notice: NOTICE_BY_STATUS[status.kind] },
+      limit: null,
+    };
+  return {
+    status,
+    body: { kind: "groups", groups, isStale: status.kind === "failed" },
+    limit:
+      status.kind === "reported" ? firstAntigravityQuotaLimit(groups) : null,
   };
 }

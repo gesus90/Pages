@@ -6,9 +6,14 @@ import {
   LIVE_ANSWER_EVENT_TYPES,
 } from "@/definition/ConversationLiveAnswer";
 
-import { applyLiveAnswerAction, EMPTY_LIVE_STATE } from "./live-answer-state";
+import {
+  applyLiveAnswerAction,
+  EMPTY_LIVE_STATE,
+  reconcileStoredAnswers,
+} from "./live-answer-state";
 
 import type { LiveAnswerEventPayload } from "@/definition/ConversationLiveAnswer";
+import type { VirtualChatMessage } from "@/definition/VirtualChat";
 import type { LiveAnswerState } from "./live-answer-state";
 
 /** The version of the protocol of Pica Mobile the page speaks. */
@@ -16,8 +21,9 @@ const PROTOCOL_VERSION = 1;
 /** The first wait before a new attempt; it doubles up to the longest wait. */
 const FIRST_RETRY_MILLISECONDS = 1_000;
 const LONGEST_RETRY_MILLISECONDS = 15_000;
-/** Gathers the ends of several answers into one reading of the page. */
+/** Gathers several changes into one reading of the page. */
 const REVALIDATE_GATHER_MILLISECONDS = 150;
+const NO_STORED_MESSAGES: readonly VirtualChatMessage[] = [];
 
 /** What the chat page knows of the answers being written, and of its connection. */
 export interface ConversationStream {
@@ -26,9 +32,10 @@ export interface ConversationStream {
   readonly isConnected: boolean;
 }
 
-/** What the hook needs from the browser; tests replace it. */
+/** The loaded history and the connection used to follow live answers. */
 export interface ConversationStreamOptions {
   readonly createSocket?: (url: string) => WebSocket;
+  readonly storedMessages?: readonly VirtualChatMessage[];
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -39,14 +46,9 @@ function isLiveType(type: unknown): type is LiveAnswerEventPayload["type"] {
   return LIVE_ANSWER_EVENT_TYPES.some((known) => known === type);
 }
 
-function isAnswerSyncComplete(frame: unknown): boolean {
-  return (
-    isRecord(frame) &&
-    frame.type === "conversation_event" &&
-    isRecord(frame.payload) &&
-    frame.payload.type === "answer_sync_complete" &&
-    isRecord(frame.payload.data)
-  );
+function conversationEventOf(frame: unknown): Record<string, unknown> | null {
+  if (!isRecord(frame) || frame.type !== "conversation_event") return null;
+  return isRecord(frame.payload) ? frame.payload : null;
 }
 
 /**
@@ -56,9 +58,8 @@ function isAnswerSyncComplete(frame: unknown): boolean {
  * page's own, and an unknown event is ignored, as the protocol asks.
  */
 export function readLivePayload(frame: unknown): LiveAnswerEventPayload | null {
-  if (!isRecord(frame) || frame.type !== "conversation_event") return null;
-  const { payload } = frame;
-  if (!isRecord(payload) || !isLiveType(payload.type)) return null;
+  const payload = conversationEventOf(frame);
+  if (!payload || !isLiveType(payload.type)) return null;
   const { data: eventData } = payload;
   if (
     !isRecord(eventData) ||
@@ -101,10 +102,17 @@ function useGatheredRevalidate(): () => void {
   useEffect(() => {
     revalidateRef.current = revalidate;
   }, [revalidate]);
-  useEffect(() => () => window.clearTimeout(timer.current), []);
+  useEffect(
+    () => () => {
+      window.clearTimeout(timer.current);
+      timer.current = 0;
+    },
+    [],
+  );
   const schedule = useRef(() => {
-    window.clearTimeout(timer.current);
+    if (timer.current !== 0) return;
     timer.current = window.setTimeout(() => {
+      timer.current = 0;
       void revalidateRef.current();
     }, REVALIDATE_GATHER_MILLISECONDS);
   });
@@ -120,26 +128,32 @@ function useGatheredRevalidate(): () => void {
  * thoughts only where it may read them. A lost connection is opened again
  * with a growing wait. After sign-in the server confirms which answers it
  * still holds. When every snapshot arrived, the page drops missing answers
- * and reloads its history after a reconnect. The end
- * of an answer reads the page once, so the stored message takes its place.
+ * and reloads its history. A new message or the end of an answer reads the
+ * page again, so the stored message takes its place.
  * There is no reading at fixed intervals.
  */
-export function useConversationStream(
-  options: ConversationStreamOptions = {},
-): ConversationStream {
+export function useConversationStream({
+  createSocket: socketFactory,
+  storedMessages = NO_STORED_MESSAGES,
+}: ConversationStreamOptions = {}): ConversationStream {
   const [state, dispatch] = useReducer(applyLiveAnswerAction, EMPTY_LIVE_STATE);
   const [isConnected, setConnected] = useState(false);
   const revalidate = useGatheredRevalidate();
   const createSocket = useRef(
-    options.createSocket ?? ((url: string) => new WebSocket(url)),
+    socketFactory ?? ((url: string) => new WebSocket(url)),
   );
+  const reconciled = reconcileStoredAnswers(state, storedMessages);
+
+  // Keep completions seen in history even after the loaded page moves on.
+  useEffect(() => {
+    if (reconciled !== state)
+      dispatch({ type: "answer_history_loaded", messages: storedMessages });
+  }, [reconciled, state, storedMessages]);
 
   useEffect(() => {
     let socket: WebSocket | null = null;
     let retryTimer = 0;
     let wait = FIRST_RETRY_MILLISECONDS;
-    let hasConnected = false;
-    let isReconnecting = false;
     let isClosed = false;
 
     function handleFrame(frame: unknown): void {
@@ -147,15 +161,16 @@ export function useConversationStream(
         wait = FIRST_RETRY_MILLISECONDS;
         setConnected(true);
         dispatch({ type: "answer_sync_started" });
-        isReconnecting = hasConnected;
-        hasConnected = true;
-        if (isReconnecting) revalidate();
         return;
       }
-      if (isAnswerSyncComplete(frame)) {
+      const event = conversationEventOf(frame);
+      if (event?.type === "answer_sync_complete" && isRecord(event.data)) {
         dispatch({ type: "answer_sync_complete" });
-        if (isReconnecting) revalidate();
-        isReconnecting = false;
+        revalidate();
+        return;
+      }
+      if (event?.type === "message" && isRecord(event.data)) {
+        revalidate();
         return;
       }
       const payload = readLivePayload(frame);
@@ -192,5 +207,5 @@ export function useConversationStream(
     };
   }, [revalidate]);
 
-  return { state, isConnected };
+  return { state: reconciled, isConnected };
 }

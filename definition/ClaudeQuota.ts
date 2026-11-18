@@ -28,6 +28,7 @@ export interface ClaudeQuotaWindow {
 
 /** What happened when Pages last asked Claude about a connection. */
 export const CLAUDE_QUOTA_STATUS_KINDS = [
+  "stored",
   "reported",
   "no_windows",
   "failed",
@@ -39,14 +40,18 @@ export type ClaudeQuotaStatusKind = (typeof CLAUDE_QUOTA_STATUS_KINDS)[number];
 /**
  * The outcome of the last query of a connection, as its status line says it.
  * @remarks
- * `reported`: Claude answered and at least one window has a value; `at` is
- * the time of that answer. `no_windows`: Claude answered without a window;
+ * `stored`: Pages answered from the stored figures without asking Claude;
+ * `at` is the time of Claude's last answer, `null` if there never was one.
+ * A page that shows it queries the card next and replaces the status with
+ * that query's outcome. `reported`: Claude answered and at least one window
+ * has a value; `at` is the time of that answer. `no_windows`: Claude answered without a window;
  * `at` is the time of the query. `failed`: Pages got no answer;
  * `lastSuccessAt` is the time of the last answer, `null` if there never was
  * one. `skipped`: a running Claude session holds the sign-in, so Pages did
  * not ask. `signed_out`: the connection has no sign-in, so Pages cannot ask.
  */
 export type ClaudeQuotaStatus =
+  | { readonly kind: "stored"; readonly at: string | null }
   | { readonly kind: "reported"; readonly at: string }
   | { readonly kind: "no_windows"; readonly at: string }
   | { readonly kind: "failed"; readonly lastSuccessAt: string | null }
@@ -63,6 +68,7 @@ export type ClaudeQuotaStatus =
  * alike.
  */
 export interface ClaudeQuotaAccount {
+  readonly provider: "claude_code";
   readonly connectionId: string;
   readonly name: string;
   readonly plan: ClaudePlan | null;
@@ -70,10 +76,18 @@ export interface ClaudeQuotaAccount {
   readonly status: ClaudeQuotaStatus;
 }
 
-/** What one query of the quota page answers. */
+/**
+ * What one query of the quota page answers.
+ * @remarks
+ * The answer to the query of a single card holds that card, or no account
+ * when the person may not use the connection (any more).
+ */
 export interface ClaudeQuotaSnapshot {
   readonly accounts: readonly ClaudeQuotaAccount[];
-  /** Server time of the query. */
+  /**
+   * Server time at which the stored figures were read. A page keeps the
+   * answer with the later time when two answers cross.
+   */
   readonly readAt: string;
 }
 
@@ -85,7 +99,9 @@ const windowSchema = z.object({
 
 const isoTimeSchema = z.string().min(1).max(40);
 
-const statusSchema = z.discriminatedUnion("kind", [
+/** Validates the status of a card, which Claude and Antigravity cards share. */
+export const quotaStatusSchema = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("stored"), at: isoTimeSchema.nullable() }),
   z.object({ kind: z.literal("reported"), at: isoTimeSchema }),
   z.object({ kind: z.literal("no_windows"), at: isoTimeSchema }),
   z.object({
@@ -96,20 +112,14 @@ const statusSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("signed_out") }),
 ]);
 
-/** Validates a quota answer before the browser shows it. */
-export const claudeQuotaSnapshotSchema = z.object({
-  accounts: z
-    .array(
-      z.object({
-        connectionId: z.string().min(1).max(200),
-        name: z.string().max(400),
-        plan: z.enum(CLAUDE_PLANS).nullable(),
-        windows: z.array(windowSchema).max(CLAUDE_QUOTA_WINDOWS.length),
-        status: statusSchema,
-      }),
-    )
-    .max(500),
-  readAt: isoTimeSchema,
+/** Validates the Claude card of a quota answer before the browser shows it. */
+export const claudeQuotaAccountSchema = z.object({
+  provider: z.literal("claude_code"),
+  connectionId: z.string().min(1).max(200),
+  name: z.string().max(400),
+  plan: z.enum(CLAUDE_PLANS).nullable(),
+  windows: z.array(windowSchema).max(CLAUDE_QUOTA_WINDOWS.length),
+  status: quotaStatusSchema,
 });
 
 /** Narrows stored and reported window names. */

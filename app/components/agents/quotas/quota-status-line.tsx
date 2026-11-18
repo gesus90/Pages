@@ -1,150 +1,113 @@
-import {
-  CircleCheck,
-  CirclePause,
-  Info,
-  RefreshCw,
-  TriangleAlert,
-} from "lucide-react";
+import { RefreshCw } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
 
 import { cn } from "@/app/lib/cn";
 
-import { formatQuotaMoment } from "./quota-time";
+import { QUOTA_STATUS_LINE_CLASS } from "./quota-card-layout";
+import { QuotaSpinner } from "./quota-spinner";
+import { statusPresentation } from "./quota-status-presentation";
+import { formatQuotaMoment, formatQuotaStand } from "./quota-time";
 
-import type { TFunction } from "i18next";
-import type { LucideIcon } from "lucide-react";
+import type { StatusLimit, StatusTone } from "./quota-status-presentation";
+import type { QuotaAccount } from "@/definition/AgentQuota";
 import type { ClaudeQuotaStatus } from "@/definition/ClaudeQuota";
-
-/** The colour of a status line; static, so Tailwind finds the classes. */
-type StatusTone = "success" | "muted" | "warning";
 
 const TONE_CLASSES: Readonly<Record<StatusTone, string>> = {
   success: "text-success",
   muted: "text-muted-foreground",
   warning: "text-warning",
+  destructive: "text-destructive",
 };
-
-/** What the line offers on its right: nothing, a new query or the settings. */
-type StatusAction = "none" | "retry" | "openConnection";
-
-interface StatusPresentation {
-  readonly icon: LucideIcon;
-  readonly tone: StatusTone;
-  readonly text: string;
-  readonly action: StatusAction;
-}
 
 const BUTTON_CLASS =
   "inline-flex h-7 shrink-0 items-center gap-1.5 rounded-[9px] border border-border bg-surface px-2.5 text-xs font-semibold text-foreground transition-colors hover:bg-surface-hover disabled:cursor-default";
 
 /**
- * Word, symbol, colour and action of each status.
- * @remarks
- * "Keine Fenster gemeldet" (Claude answered without a window) and
- * "Abfrage fehlgeschlagen" (Pages got no answer) never share a word, a
- * symbol or a colour. A missing sign-in is no failed query, so it offers the
- * connection settings instead of another attempt.
- */
-function statusPresentation(
-  status: ClaudeQuotaStatus,
-  format: { readonly t: TFunction; readonly time: (iso: string) => string },
-): StatusPresentation {
-  const { t, time } = format;
-  switch (status.kind) {
-    case "reported":
-      return {
-        icon: CircleCheck,
-        tone: "success",
-        text: t("agentsPage.state.reported", { time: time(status.at) }),
-        action: "none",
-      };
-    case "no_windows":
-      return {
-        icon: Info,
-        tone: "muted",
-        text: t("agentsPage.state.noWindows", { time: time(status.at) }),
-        action: "none",
-      };
-    case "failed":
-      return {
-        icon: TriangleAlert,
-        tone: "warning",
-        text:
-          status.lastSuccessAt === null
-            ? t("agentsPage.state.failedNever")
-            : t("agentsPage.state.failedSince", {
-                time: time(status.lastSuccessAt),
-              }),
-        action: "retry",
-      };
-    case "skipped":
-      return {
-        icon: CirclePause,
-        tone: "muted",
-        text: t("agentsPage.state.skipped"),
-        action: "none",
-      };
-    case "signed_out":
-      return {
-        icon: TriangleAlert,
-        tone: "warning",
-        text: t("agentsPage.state.signedOut"),
-        action: "openConnection",
-      };
-  }
-}
-
-/**
  * The status line at the foot of every card: what happened at the last query.
  * @remarks
  * 48 px high below a 1 px border, so it stands on the same line in every
- * card. On a narrow card the text wraps while the button stays whole. The
- * retry button queries once more without moving the minute beat.
+ * card. On a narrow card the text wraps while the button stays whole, and
+ * the full text stands in the tooltip for a text that is cut. The retry
+ * button queries the card once more without moving the minute beat; it is
+ * off while the card queries, and its icon turns once the hint shows.
+ * A card without figures says "Wird geladen …" with the ring at once; a card
+ * with figures says "wird aktualisiert" only once `isHintShown` is set. An
+ * Antigravity card names a used-up window, with its group, instead of the
+ * time of the answer.
  */
 export function QuotaStatusLine({
   status,
   now,
-  isRefreshing,
+  source,
+  progress,
   onRetry,
 }: {
   readonly status: ClaudeQuotaStatus;
   readonly now: Date;
-  readonly isRefreshing: boolean;
+  readonly source: {
+    readonly provider: QuotaAccount["provider"];
+    /** The window without a rest that the line names, if any. */
+    readonly limit?: StatusLimit | null;
+  };
+  readonly progress: {
+    /** Whether the card waits for the answer of its query. */
+    readonly isQuerying: boolean;
+    /** Whether the hint for a query that takes longer shows. */
+    readonly isHintShown: boolean;
+  };
   readonly onRetry: () => void;
 }): React.ReactElement {
   const { t, i18n } = useTranslation();
+  const { isQuerying, isHintShown } = progress;
   const presentation = statusPresentation(status, {
     t,
+    provider: source.provider,
     time: (iso) =>
+      formatQuotaStand(new Date(iso), now, { t, language: i18n.language }),
+    moment: (iso) =>
       formatQuotaMoment(new Date(iso), now, { t, language: i18n.language }),
+    isHintShown,
+    limit: source.limit,
   });
   const Icon = presentation.icon;
   return (
     <footer
       data-quota-state={status.kind}
       data-quota-state-tone={presentation.tone}
-      className="flex h-12 shrink-0 items-center gap-3 border-t border-border"
+      className={QUOTA_STATUS_LINE_CLASS}
     >
       <p
+        role={Icon === "spinner" ? "status" : undefined}
         className={cn(
           "flex min-w-0 flex-1 items-center gap-2 text-xs leading-4",
           TONE_CLASSES[presentation.tone],
         )}
       >
-        <Icon aria-hidden="true" className="size-3.5 shrink-0" />
-        <span className="line-clamp-2 min-w-0">{presentation.text}</span>
+        {Icon === "spinner" ? (
+          <QuotaSpinner />
+        ) : (
+          <Icon aria-hidden="true" className="size-3.5 shrink-0" />
+        )}
+        <span className="line-clamp-2 min-w-0" title={presentation.text}>
+          {presentation.text}
+        </span>
       </p>
       {presentation.action === "retry" ? (
         <button
           type="button"
           onClick={onRetry}
-          disabled={isRefreshing}
+          disabled={isQuerying}
           className={BUTTON_CLASS}
         >
           <RefreshCw
             aria-hidden="true"
-            className={cn("size-[13px]", isRefreshing && "animate-spin")}
+            className={cn(
+              "size-[13px]",
+              isQuerying &&
+                isHintShown &&
+                "animate-spin motion-reduce:animate-none",
+            )}
           />
           {t("agentsPage.state.retry")}
         </button>

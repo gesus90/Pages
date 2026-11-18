@@ -43,9 +43,13 @@
   --color-sidebar-hover: #e8ebf0;
   --color-sidebar-active: var(--color-primary-subtle);
   --color-muted: #eef0f4;
+  /* The lighter shade of `muted` that runs over a placeholder as a band. */
+  --color-muted-highlight: #f8f9fb;
   --color-foreground: #171717;
   --color-muted-foreground: #6d7482;
   --color-border: #e9ebf0;
+  /* The stronger line of a thin control, such as the scroll bar of a list. */
+  --color-border-strong: #c3c9d4;
   --color-primary: #f97316;
   --color-primary-hover: #ea580c;
   --color-primary-subtle: #fdf4ee;
@@ -183,14 +187,19 @@
   /* Agent badges: Claude's brand orange, ChatGPT's tile green and
      Antigravity's blue outline the model badge of their tool, the same in
      both palettes. OpenCode's mark has no color of its own, so its outline
-     is a neutral grey per palette, at least 3:1 against the surface; every
-     reasoning level has its own hue, from grey (none) to violet (ultra), its
-     background mixed from the same hue (light 12 %, dark 18 %). High is
-     yellow so that it stays apart from the orange "working" state. */
+     is a neutral grey per palette, at least 3:1 against the surface. The
+     Z.AI mark is anthracite with a white sign: its outline takes the
+     anthracite of the tile in the light palette (16.5:1) and the white of
+     the sign in the dark one (15.7:1), so it stays apart from the grey of
+     OpenCode in both. Every reasoning level has its own hue, from grey
+     (none) to violet (ultra), its background mixed from the same hue (light
+     12 %, dark 18 %). High is yellow so that it stays apart from the orange
+     "working" state. */
   --color-claude: #d97757;
   --color-chatgpt: #74aa9c;
   --color-antigravity: #4285f4;
   --color-opencode: #52525b;
+  --color-zai: #1f1f1f;
   --color-reasoning-none: #4b5563;
   --color-reasoning-minimal: #1d4ed8;
   --color-reasoning-low: #4d7c0f;
@@ -652,9 +661,11 @@
     --color-sidebar: #0f1217;
     --color-sidebar-hover: #1d222a;
     --color-muted: #232831;
+    --color-muted-highlight: #2e3541;
     --color-foreground: #e9ebef;
     --color-muted-foreground: #9aa3b2;
     --color-border: #2a303a;
+    --color-border-strong: #4b5565;
     --color-primary: #f97316;
     --color-primary-hover: #fb8a3c;
     --color-primary-subtle: #2a1b11;
@@ -693,6 +704,7 @@
     --color-chatgpt: #74aa9c;
     --color-antigravity: #4285f4;
     --color-opencode: #a1a1aa;
+    --color-zai: #f4f4f5;
     --color-reasoning-none: #c3c9d2;
     --color-reasoning-minimal: #93c5fd;
     --color-reasoning-low: #bef264;

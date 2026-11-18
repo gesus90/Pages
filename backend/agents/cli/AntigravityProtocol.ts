@@ -6,6 +6,7 @@ import { AcpLineChannel } from "@/backend/agents/acp/AcpLineChannel";
 import { ANTIGRAVITY_ACP_DRIVER } from "@/backend/agents/acp/AntigravityAcpDriver";
 import { findAcpSelectOption } from "@/backend/agents/acp/AcpConfigOptions";
 import { AgentError } from "@/backend/error/AgentErrors";
+import { logEvent } from "@/backend/logging/Logger";
 import { classifyOpenCodeFailure } from "@/backend/agents/acp/OpenCodeAcpErrors";
 
 import { closeCliSession } from "./CliSessionCloseout";
@@ -24,6 +25,12 @@ import type { CliSessionProcess } from "./CliSessionProcess";
 import type { TaggedProcessScope } from "./CliProcessScan";
 import type { AgentErrorCode } from "@/backend/error/AgentErrors";
 
+/** How long a session may take to announce its commands before `/usage` is judged unavailable. */
+const COMMAND_ANNOUNCEMENT_MILLISECONDS = 5_000;
+
+/** The adapter's own command that reports the quota groups, without a model answer. */
+const USAGE_COMMAND = "usage";
+
 /** Short-lived official ACP operations for connection setup and model discovery. */
 export class AntigravityProtocol {
   public readonly connection: ClientConnection;
@@ -33,6 +40,8 @@ export class AntigravityProtocol {
   private text = "";
   private hasOversizedAnswer = false;
   private hasLoginChallenge = false;
+  private commands: readonly string[] | null = null;
+  private onCommands: (() => void) | null = null;
 
   private constructor(input: {
     readonly child: CliSessionProcess;
@@ -49,6 +58,12 @@ export class AntigravityProtocol {
       }))
       .onNotification(methods.client.session.update, (notification) => {
         const update = notification.params.update;
+        if (update.sessionUpdate === "available_commands_update") {
+          this.commands = update.availableCommands.map(
+            (command) => command.name,
+          );
+          this.onCommands?.();
+        }
         if (
           update.sessionUpdate === "agent_message_chunk" &&
           update.content.type === "text"
@@ -165,6 +180,41 @@ export class AntigravityProtocol {
     );
   }
 
+  /**
+   * Runs the adapter's `/usage` command and returns its answer text.
+   * @param sessionId - The disposable metadata session.
+   * @returns The text the adapter answered with.
+   * @throws {AgentError} `cli_unexpected_output` when the adapter does not
+   * announce a usage command, or answers oversized or without ending its turn.
+   * @remarks
+   * The command goes out only after the adapter announced a `usage` command
+   * itself: otherwise a plain prompt would reach the model. Nothing is sent
+   * in that case, so no model is called.
+   */
+  public async usage(sessionId: string): Promise<string> {
+    const commands = await this.waitForCommands();
+    if (!commands.some((name) => name.replace(/^\//u, "") === USAGE_COMMAND)) {
+      logEvent({
+        level: "warn",
+        event: "antigravity.usage.command_missing",
+        component: "AntigravityProtocol",
+        message:
+          "The Antigravity adapter announced no usage command; no usage was requested",
+        metadata: { provider: "antigravity" },
+      });
+      throw new AgentError("cli_unexpected_output");
+    }
+    this.text = "";
+    this.hasOversizedAnswer = false;
+    const result = await this.connection.agent.request(
+      methods.agent.session.prompt,
+      { sessionId, prompt: [{ type: "text", text: `/${USAGE_COMMAND}` }] },
+    );
+    if (result.stopReason !== "end_turn" || this.hasOversizedAnswer)
+      throw new AgentError("cli_unexpected_output");
+    return this.text;
+  }
+
   /** Ends the adapter, its loopback callback and tagged children, and confirms closeout. */
   public async close(): Promise<void> {
     this.connection.close();
@@ -180,6 +230,20 @@ export class AntigravityProtocol {
       ).isConfirmed
     )
       throw new AgentError("credential_cleanup_failed");
+  }
+
+  /** The command names the adapter announced; empty when it announced none in time. */
+  private waitForCommands(): Promise<readonly string[]> {
+    if (this.commands !== null) return Promise.resolve(this.commands);
+    return new Promise((resolve) => {
+      const finish = (): void => {
+        clearTimeout(timer);
+        this.onCommands = null;
+        resolve(this.commands ?? []);
+      };
+      const timer = setTimeout(finish, COMMAND_ANNOUNCEMENT_MILLISECONDS);
+      this.onCommands = finish;
+    });
   }
 }
 

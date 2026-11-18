@@ -1,6 +1,6 @@
 import { logCaughtError } from "@/backend/logging/Logger";
 
-import type { ClaudeQuotaSnapshot } from "@/definition/ClaudeQuota";
+import type { QuotaSnapshot } from "@/definition/AgentQuota";
 
 /** How often the server pushes new figures to an open quota page. */
 export const CLAUDE_QUOTA_PUSH_MILLISECONDS = 60_000;
@@ -46,7 +46,7 @@ function pause(milliseconds: number, signal: AbortSignal): Promise<void> {
 export function claudeQuotaStream(input: {
   readonly signal: AbortSignal;
   readonly isReconnect: boolean;
-  readonly read: () => Promise<ClaudeQuotaSnapshot>;
+  readonly read: () => Promise<QuotaSnapshot>;
 }): ReadableStream<Uint8Array> {
   const { signal, read } = input;
   let nextPushAt =

@@ -230,12 +230,13 @@ export interface AgentSessionView {
   readonly model: AgentSessionModelReport;
   /**
    * The model as catalog identity for the shared badges; present only for
-   * Claude Code, Codex and Antigravity.
+   * the providers with model badges: Claude Code, Codex, Antigravity,
+   * OpenCode and direct Z.AI.
    */
   readonly modelIdentity?: AgentModelIdentity | null;
   /**
-   * The reasoning level for the shared badge; present only for Claude Code,
-   * Codex and Antigravity.
+   * The reasoning level for the shared badge; present only for the same
+   * providers as {@link AgentSessionView.modelIdentity}.
    */
   readonly reasoning?: AgentReasoningIdentity;
   readonly context: AgentSessionContextUsage;

@@ -1,0 +1,21 @@
+/* The scroll bar of the group list is always visible: 4 px wide with a 2 px radius, as long as the share of the list that is in view. */
+.groupList::-webkit-scrollbar {
+  width: 4px;
+}
+
+.groupList::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.groupList::-webkit-scrollbar-thumb {
+  border-radius: 2px;
+  background-color: var(--color-border-strong);
+}
+
+/* Browsers without the WebKit scroll bar fall back to the thin standard one. */
+@supports not selector(::-webkit-scrollbar) {
+  .groupList {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-border-strong) transparent;
+  }
+}

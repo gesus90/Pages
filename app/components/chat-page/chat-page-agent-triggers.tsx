@@ -29,8 +29,8 @@ interface AgentTriggerProps {
 /**
  * The short name of the model of an agent, such as "Opus", where the chat
  * deviates from the agent's own model; nothing otherwise. A Claude Code,
- * Codex, Antigravity or OpenCode model shows the shared model badge of its
- * vendor or tool instead.
+ * Codex, Antigravity or OpenCode model, or a model of a direct Z.AI
+ * connection, shows the shared model badge of its vendor or tool instead.
  * `className` changes its size, such as to the 32 px of the direct chat's
  * head.
  */

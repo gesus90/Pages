@@ -9,9 +9,18 @@ import claudeUrl from "@/assets/providers/logo-claude.png?no-inline";
 
 import { ClaudePlanBadge } from "./claude-plan-badge";
 import { ClaudeQuotaWindow } from "./claude-quota-window";
+import {
+  QUOTA_CARD_CLASS,
+  QUOTA_WINDOWS_AREA_CLASS,
+} from "./quota-card-layout";
 import { quotaCardView } from "./quota-card-state";
 import { QuotaNotice } from "./quota-notice";
+import {
+  QuotaBadgePlaceholder,
+  QuotaWindowsPlaceholder,
+} from "./quota-placeholders";
 import { QuotaStatusLine } from "./quota-status-line";
+import { useRefreshHint } from "./use-refresh-hint";
 
 import type { ClaudeQuotaAccount } from "@/definition/ClaudeQuota";
 import type { QuotaCardBody } from "./quota-card-state";
@@ -21,7 +30,8 @@ import type { QuotaCardBody } from "./quota-card-state";
  * @remarks
  * The area takes the height the card leaves between head and status line,
  * 172 px on a wide card, with 15 px above and below. Two windows fill both
- * 62 px slots with an 18 px gap, five hours first; a single window and a
+ * 62 px slots with an 18 px gap, five hours first; on a phone the slots are
+ * 76 px with 24 px above and below and 20 px between. A single window and a
  * notice stand centred, so nothing greyed holds the place of a missing
  * window.
  */
@@ -39,7 +49,7 @@ function QuotaCardWindows({
       data-quota-windows={
         body.kind === "windows" ? body.windows.length : "notice"
       }
-      className="flex min-h-0 flex-1 flex-col justify-center gap-[18px] overflow-hidden py-[15px]"
+      className={QUOTA_WINDOWS_AREA_CLASS}
     >
       {body.kind === "windows" ? (
         body.windows.map((quotaWindow) => (
@@ -52,7 +62,11 @@ function QuotaCardWindows({
           />
         ))
       ) : (
-        <QuotaNotice notice={body.notice} hasPlan={hasPlan} />
+        <QuotaNotice
+          notice={body.notice}
+          provider="claude_code"
+          hasPlan={hasPlan}
+        />
       )}
     </div>
   );
@@ -67,24 +81,41 @@ function QuotaCardWindows({
  * inside the card and takes no room, so head, window area and status line
  * add up to the card's height exactly. A window Claude did not
  * report is not shown at all, and one whose reset passed leaves the card.
+ * Logo, name and subtitle come from the connection, so they stand from the
+ * first moment. A card without stored figures shows placeholders for plan
+ * and windows and "Wird geladen …" until its query answers; a card with
+ * stored figures keeps them in full colour while the query runs and only
+ * its status line changes, after 400 ms and for at least 600 ms, so a quick
+ * answer shows no change. Every card follows its own query.
  */
 export function ClaudeQuotaCard({
   account,
+  pendingQueries,
   now,
-  isRefreshing,
   onRetry,
 }: {
   readonly account: ClaudeQuotaAccount;
+  /** Queries of exactly this card that have not answered yet. */
+  readonly pendingQueries: number;
   readonly now: Date;
-  readonly isRefreshing: boolean;
-  readonly onRetry: () => void;
+  readonly onRetry: (connectionId: string) => void;
 }): React.ReactElement {
   const { t } = useTranslation();
+  const isQuerying = pendingQueries > 0;
   const view = quotaCardView(account, now);
+  const isLoading = view.status.kind === "stored" && view.status.at === null;
+  const isHintShown = useRefreshHint(isQuerying && !isLoading);
+
+  function handleRetry(): void {
+    onRetry(account.connectionId);
+  }
+
   return (
     <article
       data-quota-card={account.connectionId}
-      className="flex h-full min-w-0 flex-col overflow-hidden rounded-[20px] bg-surface px-4 py-4 ring-1 ring-border ring-inset md:rounded-3xl md:px-6 md:py-[22px]"
+      data-quota-loading={isLoading ? "true" : "false"}
+      aria-busy={isQuerying}
+      className={QUOTA_CARD_CLASS}
     >
       <header className="flex h-11 shrink-0 items-center gap-3">
         <img
@@ -101,18 +132,27 @@ export function ClaudeQuotaCard({
             {t("agentsPage.card.subscription")}
           </p>
         </div>
-        <ClaudePlanBadge plan={account.plan} />
+        {isLoading ? (
+          <QuotaBadgePlaceholder />
+        ) : (
+          <ClaudePlanBadge plan={account.plan} />
+        )}
       </header>
-      <QuotaCardWindows
-        body={view.body}
-        now={now}
-        hasPlan={account.plan !== null}
-      />
+      {isLoading ? (
+        <QuotaWindowsPlaceholder />
+      ) : (
+        <QuotaCardWindows
+          body={view.body}
+          now={now}
+          hasPlan={account.plan !== null}
+        />
+      )}
       <QuotaStatusLine
         status={view.status}
         now={now}
-        isRefreshing={isRefreshing}
-        onRetry={onRetry}
+        source={{ provider: "claude_code" }}
+        progress={{ isQuerying, isHintShown }}
+        onRetry={handleRetry}
       />
     </article>
   );

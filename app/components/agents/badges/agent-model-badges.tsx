@@ -22,10 +22,10 @@ export type AgentModelBadgeValues = Pick<
  * The model and reasoning of an agent in a chat.
  * @remarks
  * The order is model, "Free", reasoning, 6 px apart. Claude Code, Codex,
- * Antigravity and OpenCode models get the shared model badge of their vendor
- * or tool and the reasoning badge; an OpenCode model names its source, such
- * as OpenCode Zen, in the badge's tooltip. Every other provider keeps the grey pill of model and
- * level until it is moved to badges of its own; its text is joined from the
+ * Antigravity, OpenCode and direct Z.AI models get the shared model badge of
+ * their vendor or tool and the reasoning badge; an OpenCode model names its
+ * source, such as OpenCode Zen, in the badge's tooltip. Every other provider
+ * keeps the grey pill of model and level until it is moved to badges of its own; its text is joined from the
  * structured values here and never read back. "Free" stands as a badge of its
  * own beside either, only where the catalog of the used connection states it
  * (`isFree`), never because of the name; a trailing "Free" of the catalog

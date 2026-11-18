@@ -69,8 +69,8 @@ function BranchFacts({
 }
 
 /**
- * Model, reasoning, access and branch of a Claude Code, Codex, Antigravity
- * or OpenCode session as the shared badges, one 36 px row each.
+ * Model, reasoning, access and branch of a Claude Code, Codex, Antigravity,
+ * OpenCode or direct Z.AI session as the shared badges, one 36 px row each.
  * @remarks
  * The model and the reasoning are the structured values of the session view:
  * confirmed ones as confirmed, requested ones as requested. An OpenCode

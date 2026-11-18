@@ -9,6 +9,7 @@ import { PicaMobileVoiceUploads } from "./PicaMobileVoiceUploads";
 
 import type { ConversationAnswerStream } from "@/backend/service/conversation/ConversationAnswerStream";
 import type { ConversationEvent } from "@/backend/service/conversation/ConversationEvents";
+import type { LiveAnswerSnapshot } from "@/definition/ConversationLiveAnswer";
 import type { PicaMobileSessionIdentity } from "../PicaMobileDashboardProvider";
 import type { PicaMobileConversationClientMessage } from "../PicaMobileMessages";
 import type { PicaMobilePlansHost } from "../plans/PicaMobilePlansHandler";
@@ -39,6 +40,23 @@ function isVoiceMessage(
   message: PicaMobileConversationClientMessage,
 ): message is PicaMobileVoiceMessage {
   return message.type.startsWith("voice_");
+}
+
+function encodeAnswerSnapshot(snapshot: LiveAnswerSnapshot): string {
+  return encodePicaMobileConversation(null, {
+    type: "conversation_event",
+    payload: { type: "answer_snapshot", data: snapshot },
+  });
+}
+
+function snapshotFrame(snapshot: LiveAnswerSnapshot): string {
+  const full = encodeAnswerSnapshot(snapshot);
+  if (full.length <= PICA_MOBILE_MAXIMUM_CHAT_FRAME_LENGTH) return full;
+  // Keep the answer's identity and end state even when its details exceed the frame limit.
+  const compact = { ...snapshot, thought: null, tools: [] };
+  const withText = encodeAnswerSnapshot(compact);
+  if (withText.length <= PICA_MOBILE_MAXIMUM_CHAT_FRAME_LENGTH) return withText;
+  return encodeAnswerSnapshot({ ...compact, text: "" });
 }
 
 /**
@@ -237,23 +255,14 @@ export class PicaMobileConversationsHandler {
     if (answers === undefined || session === null) return;
     this.host.enqueue(() => {
       if (this.isStopped || !this.host.isOpen()) return Promise.resolve();
-      let isComplete = true;
-      for (const snapshot of answers.snapshots(session.userId)) {
-        const isSent = this.sendFrame(
-          encodePicaMobileConversation(null, {
-            type: "conversation_event",
-            payload: { type: "answer_snapshot", data: snapshot },
-          }),
-        );
-        isComplete = isSent && isComplete;
-      }
-      if (isComplete && this.host.isOpen())
-        this.sendFrame(
-          encodePicaMobileConversation(null, {
-            type: "conversation_event",
-            payload: { type: "answer_sync_complete", data: {} },
-          }),
-        );
+      for (const snapshot of answers.snapshots(session.userId))
+        if (!this.sendFrame(snapshotFrame(snapshot))) return Promise.resolve();
+      this.sendFrame(
+        encodePicaMobileConversation(null, {
+          type: "conversation_event",
+          payload: { type: "answer_sync_complete", data: {} },
+        }),
+      );
       return Promise.resolve();
     });
   }

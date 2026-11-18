@@ -23,10 +23,11 @@ export type ReasoningBadgeLevel = (typeof REASONING_BADGE_LEVELS)[number];
  * Antigravity and OpenCode are named as the tool, because they offer models
  * of several vendors: Sonnet over Antigravity must not read like Sonnet over
  * Claude Code, and a Gemini model over OpenCode keeps OpenCode as the way it
- * runs.
+ * runs. `zai` is the direct connection to Z.AI with its own API key; a GLM
+ * model that runs over OpenCode or OpenRouter shows the badge of that way.
  */
 export type ModelBadgeVendor =
-  "anthropic" | "openai" | "antigravity" | "opencode";
+  "anthropic" | "openai" | "antigravity" | "opencode" | "zai";
 
 /**
  * The providers whose models carry the shared model badge, with their vendor.
@@ -38,18 +39,27 @@ const MODEL_BADGE_VENDORS: Readonly<Record<string, ModelBadgeVendor>> = {
   codex_cli: "openai",
   antigravity: "antigravity",
   opencode: "opencode",
+  zai: "zai",
 };
 
 /**
  * The providers that confirm a model only as the exact selector value of
- * their configuration option, never as an alias: Codex, Antigravity and
- * OpenCode, whose selector is the full `provider/model` ID.
+ * their configuration option, never as an alias: Codex, Antigravity,
+ * OpenCode, whose selector is the full `provider/model` ID, and Z.AI, whose
+ * sessions run over the same runtime.
  */
 const SELECTOR_CONFIRMING_PROVIDERS: ReadonlySet<string> = new Set([
   "codex_cli",
   "antigravity",
   "opencode",
+  "zai",
 ]);
+
+/**
+ * The selector prefix the runtime adds to the model of a direct Z.AI
+ * connection, which the connection's catalog does not carry.
+ */
+const ZAI_RUNTIME_PREFIX = "zai/";
 
 /**
  * The vendor of a provider's shared model badge.
@@ -128,6 +138,22 @@ function capitalize(word: string): string {
   return `${word.charAt(0).toUpperCase()}${word.slice(1)}`;
 }
 
+/**
+ * The model value as the catalog of the connection names it.
+ * @remarks
+ * A Z.AI session runs over a runtime that selects its model as `zai/<model>`,
+ * while the catalog of the connection lists `<model>`.
+ */
+function catalogValue(
+  provider: AgentProviderId,
+  value: string | null,
+): string | null {
+  if (provider !== "zai" || value === null) return value;
+  return value.startsWith(ZAI_RUNTIME_PREFIX)
+    ? value.slice(ZAI_RUNTIME_PREFIX.length)
+    : value;
+}
+
 /** The catalog entry of a canonical ID; an alias never matches here. */
 function byId(
   catalog: readonly AgentCatalogModelName[],
@@ -166,7 +192,8 @@ function uncatalogedName(id: string): string {
  * family runs, not which version, so it stays `requested` until the reported
  * model arrives. Codex and Antigravity confirm the exact selector through
  * their configuration option, so that value is confirmed, with its catalog
- * name or as the raw ID; OpenCode confirms its full model ID the same way.
+ * name or as the raw ID; OpenCode confirms its full model ID the same way,
+ * and a direct Z.AI connection its model without the runtime's `zai/` prefix.
  * The reported model wins over every requested
  * value, so a changed or resumed session never keeps an older name.
  * @returns `null` when nothing names a model.
@@ -174,7 +201,17 @@ function uncatalogedName(id: string): string {
 export function resolveModelIdentity(
   reading: AgentModelReading,
 ): AgentModelIdentity | null {
-  return confirmedModelIdentity(reading) ?? requestedModelIdentity(reading);
+  const { provider } = reading;
+  const catalogReading: AgentModelReading = {
+    ...reading,
+    requested: catalogValue(provider, reading.requested),
+    configured: catalogValue(provider, reading.configured),
+    reported: catalogValue(provider, reading.reported),
+  };
+  return (
+    confirmedModelIdentity(catalogReading) ??
+    requestedModelIdentity(catalogReading)
+  );
 }
 
 /** The model identity an adapter confirmed; `null` while only a request is known. */
@@ -200,7 +237,7 @@ function confirmedModelIdentity(
       status: "confirmed",
     };
   // A concrete Claude ID the adapter confirmed names its version itself;
-  // Codex, Antigravity and OpenCode confirm only exact selector values.
+  // Codex, Antigravity, OpenCode and Z.AI confirm only exact selector values.
   if (
     configured !== null &&
     (SELECTOR_CONFIRMING_PROVIDERS.has(provider) ||

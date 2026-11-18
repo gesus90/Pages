@@ -15,6 +15,7 @@ const MARK_STYLES: Readonly<Record<string, MarkStyle>> = {
   openai: { borderClass: "border-chatgpt", vendor: "OpenAI" },
   antigravity: { borderClass: "border-antigravity", vendor: "Antigravity" },
   opencode: { borderClass: "border-opencode", vendor: "OpenCode" },
+  zai: { borderClass: "border-zai", vendor: "Z.AI" },
 };
 
 /**
@@ -23,6 +24,11 @@ const MARK_STYLES: Readonly<Record<string, MarkStyle>> = {
  */
 const TILE_RIM_CLASSES: Readonly<Record<string, string>> = {
   opencode: "p-[2px]",
+};
+
+/** The tiles whose radius is 7 px instead of 6 px; static, so Tailwind finds the class. */
+const TILE_RADIUS_CLASSES: Readonly<Record<string, string>> = {
+  zai: "rounded-[7px]",
 };
 
 function markStyle(mark: string): MarkStyle | null {
@@ -34,8 +40,9 @@ function markStyle(mark: string): MarkStyle | null {
  * model's badge.
  * @param mark - The mark key of the model's tool; `null` while no model is shown.
  * @returns Claude's orange, the green of the ChatGPT tile, Antigravity's
- * blue or OpenCode's neutral grey on the surface; every other tool and a
- * missing model keep the neutral field border.
+ * blue, OpenCode's neutral grey or the anthracite of the Z.AI tile (white in
+ * the dark palette) on the surface; every other tool and a missing model keep
+ * the neutral field border.
  */
 export function modelChoiceFieldClass(mark: string | null): string {
   const style = mark === null ? null : markStyle(mark);
@@ -60,8 +67,8 @@ interface ModelChoiceBadgeProps {
  * @remarks
  * The field around it is the badge, outlined by
  * {@link modelChoiceFieldClass}, so the content has no border of its own.
- * The tile has a 6 px radius and stands 6 px before the name in the
- * foreground color. The vendor, such as `Anthropic`, is no part of the
+ * The tile has a 6 px radius, 7 px for the Z.AI tile, and stands 6 px before
+ * the name in the foreground color. The vendor, such as `Anthropic`, is no part of the
  * visible text; it stands in the tooltip and the accessible name beside the
  * full name, followed by a known source such as `OpenCode Zen`. OpenCode's
  * mark keeps a 2 px white rim in the tile. A name that does not fit, roughly
@@ -84,7 +91,11 @@ export function ModelChoiceBadge({
     >
       <ToolMark
         mark={mark}
-        className={cn("size-7 rounded-[6px]", TILE_RIM_CLASSES[mark])}
+        className={cn(
+          "size-7 rounded-[6px]",
+          TILE_RADIUS_CLASSES[mark],
+          TILE_RIM_CLASSES[mark],
+        )}
       />
       <span className="sr-only">{[name, ...origin].join(", ")}</span>
       <span aria-hidden="true" className="min-w-0 truncate text-foreground">

@@ -346,6 +346,10 @@ function agentWorkspaceRoutes(routes: RouteBuilder): RouteConfigEntry[] {
     }),
     resource("agent-api/quotas", "routes/agent-quotas.ts"),
     resource("agent-api/quotas/events", "routes/agent-quota-events.ts"),
+    resource(
+      "agent-api/quotas/cards/:connectionId",
+      "routes/agent-quota-card.ts",
+    ),
     ...page("agents", { browser: "routes/agents.tsx" }),
   ];
 }

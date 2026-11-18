@@ -20,6 +20,9 @@ import { CatalogHttpClient } from "@/backend/agents/catalog/CatalogHttpClient";
 import { AuthorizationRepository } from "@/backend/database/repositories/AuthorizationRepository";
 import { UserGroupRepository } from "@/backend/database/repositories/UserGroupRepository";
 import { AgentConnectionAccess } from "@/backend/service/agents/AgentConnectionAccess";
+import { AgentQuotaService } from "@/backend/service/agents/AgentQuotaService";
+import { AntigravityQuotaProbe } from "@/backend/service/agents/AntigravityQuotaProbe";
+import { AntigravityQuotaService } from "@/backend/service/agents/AntigravityQuotaService";
 import { ClaudeQuotaProbe } from "@/backend/service/agents/ClaudeQuotaProbe";
 import { ClaudeQuotaService } from "@/backend/service/agents/ClaudeQuotaService";
 import { LocalSessions } from "@/backend/agents/local/LocalSessions";
@@ -85,8 +88,8 @@ export interface AgentApplicationServices
   /** Text runs of the chat; parallel chats share a verified connection. */
   /** The scope of every connection, checked again before each Pica bridge call. */
   readonly agentConnectionAccess: AgentConnectionAccess;
-  /** The quota page: the Claude subscription figures of the connections a person may use. */
-  readonly claudeQuotaService: ClaudeQuotaService;
+  /** The Agents page: the quota cards of the Claude and Antigravity connections a person may use. */
+  readonly quotaService: AgentQuotaService;
   /**
    * Running chat answers may use several model calls within one deadline.
    * Shutdown cancels them before the database closes.
@@ -108,7 +111,8 @@ export interface AgentApplicationServices
 
 /**
  * The connection scope check, the quota page and the decision model, which
- * share one reading of the groups; the quota page asks Claude through the CLI runtime.
+ * share one reading of the groups; the quota page asks Claude and Antigravity
+ * through the CLI runtime.
  */
 function createAccessServices(
   database: Database,
@@ -117,7 +121,7 @@ function createAccessServices(
   runtime: AgentCliRuntime,
 ): {
   readonly access: AgentConnectionAccess;
-  readonly claudeQuotaService: ClaudeQuotaService;
+  readonly quotaService: AgentQuotaService;
 } & ChatDecisionApplicationServices {
   const groups = new UserGroupRepository(database);
   const authorization = new AuthorizationRepository(database);
@@ -130,13 +134,24 @@ function createAccessServices(
       authorization,
       groups,
     }),
-    claudeQuotaService: new ClaudeQuotaService({
-      connections: repository,
-      authorization,
-      groups,
-      probe: new ClaudeQuotaProbe({
-        reader: runtime,
-        repository: repository.quotas(),
+    quotaService: new AgentQuotaService({
+      claude: new ClaudeQuotaService({
+        connections: repository,
+        authorization,
+        groups,
+        probe: new ClaudeQuotaProbe({
+          reader: runtime,
+          repository: repository.quotas(),
+        }),
+      }),
+      antigravity: new AntigravityQuotaService({
+        connections: repository,
+        authorization,
+        groups,
+        probe: new AntigravityQuotaProbe({
+          reader: runtime,
+          repository: repository.antigravityQuotas(),
+        }),
       }),
     }),
     ...createChatDecisionServices({

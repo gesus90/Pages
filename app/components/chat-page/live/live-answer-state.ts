@@ -7,6 +7,7 @@ import type {
   LiveAnswerThought,
   LiveAnswerTool,
 } from "@/definition/ConversationLiveAnswer";
+import type { VirtualChatMessage } from "@/definition/VirtualChat";
 
 /** One answer as the chat page shows it while it is written and right after. */
 export interface LiveAnswerView {
@@ -23,6 +24,8 @@ export interface LiveAnswerView {
   readonly thought: LiveAnswerThought | null;
   readonly tools: readonly LiveAnswerTool[];
   readonly end: LiveAnswerEnd | null;
+  /** The message that replaced this answer has already appeared in history. */
+  readonly hasAppearedInHistory?: boolean;
 }
 
 /** How a message reached an agent, as the stream told it. */
@@ -166,12 +169,13 @@ export function applyLiveAnswerEvent(
   const known = state.answers[payload.data.answerId];
   if (payload.type === "answer_snapshot") {
     if (known && known.seq >= payload.data.seq) return state;
+    if (known?.end && payload.data.end === null) return state;
     const { at, ...snapshot } = payload.data;
     return {
       ...state,
       answers: {
         ...state.answers,
-        [snapshot.answerId]: { ...snapshot, lastAt: at },
+        [snapshot.answerId]: { ...known, ...snapshot, lastAt: at },
       },
     };
   }
@@ -197,6 +201,10 @@ export function applyLiveAnswerEvent(
 /** An answer update or a boundary of the snapshot exchange. */
 export type LiveAnswerAction =
   | LiveAnswerEventPayload
+  | {
+      readonly type: "answer_history_loaded";
+      readonly messages: readonly VirtualChatMessage[];
+    }
   | { readonly type: "answer_sync_started" }
   | { readonly type: "answer_sync_complete" }
   | { readonly type: "answer_sync_interrupted" };
@@ -224,14 +232,55 @@ export function applyLiveAnswerAction(
   if (action.type === "answer_sync_interrupted")
     return { ...state, unconfirmedAnswerIds: null };
   if (action.type === "answer_sync_complete") return finishAnswerSync(state);
+  if (action.type === "answer_history_loaded")
+    return reconcileStoredAnswers(state, action.messages);
   return applySyncedAnswerEvent(state, action);
+}
+
+function endFromStoredMessage(
+  view: LiveAnswerView,
+  message: VirtualChatMessage,
+): LiveAnswerEnd {
+  if (view.end?.messageId === message.id) return view.end;
+  const { answerDurationMs } = message;
+  const endedAt =
+    answerDurationMs === undefined
+      ? (message.createdAt ?? view.lastAt)
+      : new Date(Date.parse(view.startedAt) + answerDurationMs).toISOString();
+  return {
+    messageId: message.id,
+    state: view.end?.state === "stopped" ? "stopped" : "answered",
+    endedAt,
+  };
+}
+
+/** Records the completion of each live answer matched by its stored answer ID. */
+export function reconcileStoredAnswers(
+  state: LiveAnswerState,
+  messages: readonly VirtualChatMessage[],
+): LiveAnswerState {
+  let answers: Record<string, LiveAnswerView> | undefined;
+  for (const message of messages) {
+    if (message.answerId === undefined) continue;
+    const view = state.answers[message.answerId];
+    if (!view) continue;
+    if (view.hasAppearedInHistory && view.end?.messageId === message.id)
+      continue;
+    answers ??= { ...state.answers };
+    answers[view.answerId] = {
+      ...view,
+      end: endFromStoredMessage(view, message),
+      hasAppearedInHistory: true,
+    };
+  }
+  return answers === undefined ? state : { ...state, answers };
 }
 
 function finishAnswerSync(state: LiveAnswerState): LiveAnswerState {
   const { unconfirmedAnswerIds } = state;
   if (unconfirmedAnswerIds === null) return state;
   const confirmed = Object.entries(state.answers).filter(
-    ([id]) => !unconfirmedAnswerIds.has(id),
+    ([id, view]) => view.end !== null || !unconfirmedAnswerIds.has(id),
   );
   return {
     ...state,
@@ -297,6 +346,7 @@ export function shownLiveAnswers(
   storedIds: ReadonlySet<string>,
 ): LiveAnswerView[] {
   return views.filter((view) => {
+    if (view.hasAppearedInHistory) return false;
     if (view.end === null) return true;
     const { messageId } = view.end;
     return messageId !== null && !storedIds.has(messageId);

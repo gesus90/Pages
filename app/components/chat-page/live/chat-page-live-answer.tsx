@@ -273,10 +273,14 @@ export function ChatPageLiveAnswer({
     isRunning && view.thought !== null && view.lastAt === view.thought.endedAt;
   return (
     <article
-      aria-label={t("chatPage.liveAnswer.liveAnswer", { name: author.name })}
+      aria-label={
+        isRunning
+          ? t("chatPage.liveAnswer.liveAnswer", { name: author.name })
+          : author.name
+      }
       aria-busy={isRunning}
       className={ANSWER_FRAME_CLASS}
-      data-live-answer={view.answerId}
+      data-live-answer={isRunning ? view.answerId : undefined}
     >
       <ParticipantAvatar
         participant={author}

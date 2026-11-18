@@ -887,7 +887,7 @@ Jeder Teil einer Antwort trägt `chatKind` (`agent` für den Direkt-Chat mit ein
 | `answer_snapshot`      | der Stand einer Antwort beim Start sowie der laufenden und kürzlich beendeten Antworten nach jeder Anmeldung                                   | alle Mitglieder, Gedanken nur für Berechtigte                |
 | `answer_sync_complete` | `{}` nach dem vollständigen Versand der Snapshots für die aktuelle Anmeldung                                                                   | das angemeldete Konto                                        |
 
-Auch ein Abgleich ohne Snapshots endet mit `answer_sync_complete`. Erst danach verwirft die Chat-Seite bisher offene Antworten, zu denen in dieser Verbindung weder ein Snapshot noch ein neues Ereignis eingegangen ist. Ältere Browser ignorieren unbekannte Ereignisse.
+Auch ein Abgleich ohne Snapshots endet mit `answer_sync_complete`. Überschreitet ein Snapshot das Rahmenlimit, entfallen zuerst Gedanken und Werkzeugaufrufe und bei Bedarf auch der Antworttext. Identität und Abschlusszustand bleiben erhalten. Nach dem Abschlussmarker verwirft die Chat-Seite offene Antworten, die diese Verbindung nicht bestätigt hat, und lädt den Verlauf neu. Eine gespeicherte Nachricht mit derselben `answerId` beendet die Live-Anzeige auch dann, wenn das einzelne `answer_end` fehlt. Ältere Browser ignorieren unbekannte Ereignisse.
 
 Eine Nachricht, die die Seite während einer Antwort sendet, trägt im Formular `delivery`: `steer` schiebt sie in die laufende Antwort (in Gruppen ohne `@` in die Antworten aller gerade antwortenden Agenten, mit `@Name` nur in die des Genannten), `after` stellt sie hinter die laufende Antwort. Nimmt eine Antwort sie nicht mehr an, wartet sie auf ihre eigene Runde und ist als wartend markiert.
 

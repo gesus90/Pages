@@ -9497,7 +9497,8 @@
     "quotas": {
       "title": "Quotas and credits",
       "shortTitle": "Quotas",
-      "noConnections": "No Claude connection you may use."
+      "noConnections": "No Claude or Antigravity connection you may use.",
+      "loadFailed": "The cards could not be loaded. Try again with “Refresh quotas”."
     },
     "status": {
       "refreshing": "refreshing …",
@@ -9505,17 +9506,24 @@
       "refresh": "Refresh quotas"
     },
     "card": {
-      "subscription": "claude.ai subscription"
+      "subscription": "claude.ai subscription",
+      "antigravity": "Antigravity CLI"
     },
     "state": {
+      "loading": "Loading …",
+      "stored": "As of {{time}}",
+      "refreshing": "As of {{time}} · refreshing …",
       "reported": "Reported by Claude · {{time}}",
       "noWindows": "No windows reported · queried {{time}}",
-      "failedSince": "Query failed · last success {{time}}",
+      "failedSince": "Query failed · as of {{time}}",
       "failedNever": "Query failed · no success yet",
       "skipped": "Query skipped · session active",
       "signedOut": "Not signed in · sign-in missing",
       "retry": "Try again",
-      "openConnection": "Open connection"
+      "openConnection": "Open connection",
+      "reportedAntigravity": "Reported by Antigravity · {{time}}",
+      "limitReached": "{{group}} · {{limit}} reached · back {{moment}}",
+      "limitReachedNoReset": "{{group}} · {{limit}} reached"
     },
     "notice": {
       "noWindows": {
@@ -9562,6 +9570,9 @@
       "minutes_one": "{{count}} min",
       "minutes_other": "{{count}} min"
     },
+    "moment": {
+      "yesterday": "yesterday {{time}}"
+    },
     "weekday": {
       "0": "Sun",
       "1": "Mon",
@@ -9570,6 +9581,40 @@
       "4": "Thu",
       "5": "Fri",
       "6": "Sat"
+    },
+    "limit": {
+      "five_hour": "5-hour limit",
+      "seven_day": "7-day limit"
+    },
+    "antigravity": {
+      "group": {
+        "gemini": "Gemini",
+        "claudeGpt": "Claude and GPT"
+      },
+      "groupList": "Model groups",
+      "groupCount_one": "{{count}} group",
+      "groupCount_other": "{{count}} groups",
+      "remainingShort": "{{percent}} %",
+      "remainingLabel": "{{group}}, {{window}}: left",
+      "resetsShort": "resets {{moment}}",
+      "notice": {
+        "noWindows": {
+          "title": "Antigravity reported no quota data for this connection.",
+          "detail": "Pages queried successfully."
+        },
+        "skipped": {
+          "title": "Pages does not query while an Antigravity session uses the same sign-in.",
+          "detail": "The values appear as soon as the session ends."
+        },
+        "failed": {
+          "title": "Pages could not retrieve any values yet.",
+          "detail": "The values appear as soon as a query succeeds."
+        },
+        "signedOut": {
+          "title": "This connection is not signed in to Antigravity.",
+          "detail": "Without a sign-in Pages cannot retrieve quota values."
+        }
+      }
     }
   },
   "runDiagnosis": {

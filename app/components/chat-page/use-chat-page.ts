@@ -569,7 +569,6 @@ export function useChatPage(
       firstSelection(lists),
   );
   const sender = useFetcher();
-  const stream = useConversationStream();
 
   const found = searchLists(lists, query);
   const opened = openConversation(lists, selection);
@@ -587,6 +586,7 @@ export function useChatPage(
     stored,
     directory.olderHistoryIds?.includes(historyId) === true,
   );
+  const stream = useConversationStream({ storedMessages: older.messages });
   const mute = useMute(conversation);
   const messages = pending ? [...older.messages, pending] : older.messages;
   const answering = answeringState(opened, pending !== null);

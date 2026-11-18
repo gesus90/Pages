@@ -9,6 +9,7 @@ import { AgentProfileRepository } from "./agent/AgentProfileRepository";
 import { AgentCatalogRepository } from "./agent/AgentCatalogRepository";
 import { AgentCheckRepository } from "./agent/AgentCheckRepository";
 import { AgentConnectionScopeRepository } from "./agent/AgentConnectionScopeRepository";
+import { AntigravityQuotaRepository } from "./agent/AntigravityQuotaRepository";
 import { ClaudeQuotaRepository } from "./agent/ClaudeQuotaRepository";
 import {
   CONNECTION_COLUMNS,
@@ -84,6 +85,11 @@ export class AgentConnectionRepository {
   /** The subscription figures Claude Code reports, stored per connection. */
   public quotas(): ClaudeQuotaRepository {
     return new ClaudeQuotaRepository(this.database);
+  }
+
+  /** The quota groups Antigravity reports, stored per connection. */
+  public antigravityQuotas(): AntigravityQuotaRepository {
+    return new AntigravityQuotaRepository(this.database);
   }
 
   /** Scope persistence decides who may use the models of a connection. */

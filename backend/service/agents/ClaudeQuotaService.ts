@@ -1,7 +1,8 @@
-import { isInAgentConnectionScope } from "@/backend/auth/AgentConnectionScopePolicy";
 import { visibleClaudeQuotaWindows } from "@/definition/ClaudeQuota";
 
-import type { AgentViewer } from "@/backend/auth/AgentProfilePolicy";
+import { quotaCardStatus } from "./QuotaCardStatus";
+import { QuotaConnectionAccess } from "./QuotaConnectionAccess";
+
 import type { AgentConnectionRepository } from "@/backend/database/repositories/AgentConnectionRepository";
 import type { AuthorizationRepository } from "@/backend/database/repositories/AuthorizationRepository";
 import type { UserGroupRepository } from "@/backend/database/repositories/UserGroupRepository";
@@ -10,8 +11,6 @@ import type { ClaudeQuotaRecord } from "@/backend/database/repositories/agent/Cl
 import type {
   ClaudeQuotaAccount,
   ClaudeQuotaSnapshot,
-  ClaudeQuotaStatus,
-  ClaudeQuotaWindow,
 } from "@/definition/ClaudeQuota";
 import type {
   ClaudeQuotaProbe,
@@ -33,29 +32,8 @@ const EMPTY_RECORD: ClaudeQuotaRecord = {
   reportedAt: null,
 };
 
-/**
- * What the status line of a card says about the last query.
- * @param outcome - The outcome of this query of the connection.
- * @param record - The figures stored after it.
- * @param windows - The stored windows still ahead of their reset.
- * @remarks
- * After an answer the time is that of the answer, which the probe stored as
- * the newest reading; at least one window with a value means "reported",
- * none means "no windows", never a failure.
- */
-function quotaStatus(
-  outcome: ClaudeQuotaProbeOutcome,
-  record: ClaudeQuotaRecord,
-  windows: readonly ClaudeQuotaWindow[],
-): ClaudeQuotaStatus {
-  if (outcome.status === "busy") return { kind: "skipped" };
-  if (outcome.status === "signed_out") return { kind: "signed_out" };
-  if (outcome.status === "failed" || record.reportedAt === null)
-    return { kind: "failed", lastSuccessAt: record.reportedAt };
-  return windows.length > 0
-    ? { kind: "reported", at: record.reportedAt }
-    : { kind: "no_windows", at: record.reportedAt };
-}
+/** The outcomes of an answer that asked Claude about no connection. */
+const NO_OUTCOMES: ReadonlyMap<string, ClaudeQuotaProbeOutcome> = new Map();
 
 /**
  * Answers the quota page: one card per Claude connection a person may use.
@@ -64,98 +42,131 @@ function quotaStatus(
  * person, read anew with every query: an active account, and for a
  * restricted scope a named person, group or department membership.
  * Administrators get no exception, because managing a connection is not
- * using it. Only active Claude Code connections have cards. Every query asks
- * Claude for the current usage of exactly these connections, stores it and
- * answers from the stored figures, so a connection Claude cannot be asked
- * about right now keeps its last figures. Each card carries the outcome of
- * its own query: reported, no windows, failed, skipped while a session holds
- * the sign-in, or signed out.
+ * using it. Only active Claude Code connections have cards. The stored
+ * figures answer at once, without waiting for Claude; a query of a card, or
+ * of all cards, asks Claude for the current usage of exactly the connections
+ * the person may use, stores it and answers from the stored figures, so a
+ * connection Claude cannot be asked about right now keeps its last figures.
+ * Each card carries the outcome of its own query: reported, no windows,
+ * failed, skipped while a session holds the sign-in, or signed out. The
+ * rights are read before a query starts and again before its answer leaves,
+ * so a right withdrawn meanwhile never gives out a card.
  */
 export class ClaudeQuotaService {
   private readonly dependencies: ClaudeQuotaDependencies;
+  private readonly access: QuotaConnectionAccess;
 
   public constructor(dependencies: ClaudeQuotaDependencies) {
     this.dependencies = dependencies;
+    this.access = new QuotaConnectionAccess(dependencies);
   }
 
   /**
-   * Reads the cards of a person.
+   * Reads the cards of a person from the stored figures, without asking Claude.
+   * @param userId - The person reading the page.
+   * @returns The cards in the order of the connection names, each with its
+   * last stored figures and the status `stored`; an unknown or inactive
+   * account sees none.
+   */
+  public async listStoredForUser(userId: string): Promise<ClaudeQuotaSnapshot> {
+    return this.snapshot(await this.usableFor(userId), NO_OUTCOMES);
+  }
+
+  /**
+   * Asks Claude about every connection of a person and reads their cards.
    * @param userId - The person reading the page.
    * @returns The cards in the order of the connection names; an unknown or
    * inactive account sees none. A failed usage query is the status of its
    * card, not a failure of the answer.
+   * @remarks
+   * The connections are queried side by side, so one slow connection delays
+   * this answer but no other card's query.
    */
   public async listForUser(userId: string): Promise<ClaudeQuotaSnapshot> {
-    const now = (this.dependencies.clock ?? (() => new Date()))();
-    const viewer = await this.viewer(userId);
-    const readAt = now.toISOString();
-    if (!viewer) return { accounts: [], readAt };
-    const { connections } = this.dependencies;
-    const candidates = (await connections.list()).filter(
-      (connection) =>
-        connection.provider === "claude_code" && connection.isActive,
+    const outcomes = await this.refresh(await this.usableFor(userId));
+    return this.snapshot(await this.usableFor(userId), outcomes);
+  }
+
+  /**
+   * Asks Claude about one connection and reads its card.
+   * @param userId - The person reading the page.
+   * @param connectionId - The connection of the card.
+   * @returns A snapshot with the card, or without an account when the person
+   * may not use the connection (any more) or it does not exist.
+   */
+  public async refreshForUser(
+    userId: string,
+    connectionId: string,
+  ): Promise<ClaudeQuotaSnapshot> {
+    const [connection] = await this.usableFor(userId, connectionId);
+    if (!connection) return this.snapshot([], NO_OUTCOMES);
+    const outcome = await this.dependencies.probe.refresh(connection);
+    return this.snapshot(
+      await this.usableFor(userId, connectionId),
+      new Map([[connection.id, outcome]]),
     );
-    const usable = await this.usableConnections(candidates, viewer);
-    if (usable.length === 0) return { accounts: [], readAt };
-    const outcomes = await this.refresh(usable);
-    const records = await connections.quotas().list();
-    const accounts = usable
+  }
+
+  /**
+   * Queries the connections side by side.
+   * @returns The outcome of each connection's query by connection id.
+   */
+  private async refresh(
+    connections: readonly AgentConnectionRecord[],
+  ): Promise<ReadonlyMap<string, ClaudeQuotaProbeOutcome>> {
+    const outcomes = await Promise.all(
+      connections.map(
+        async (connection) =>
+          [
+            connection.id,
+            await this.dependencies.probe.refresh(connection),
+          ] as const,
+      ),
+    );
+    return new Map(outcomes);
+  }
+
+  /**
+   * The cards of connections from the stored figures.
+   * @param connections - The connections the person may use.
+   * @param outcomes - The outcome of each connection's query by connection
+   * id; a connection without one is answered from the stored figures.
+   */
+  private async snapshot(
+    connections: readonly AgentConnectionRecord[],
+    outcomes: ReadonlyMap<string, ClaudeQuotaProbeOutcome>,
+  ): Promise<ClaudeQuotaSnapshot> {
+    // The time is taken before the read, so a later answer never carries
+    // older figures than an earlier one.
+    const now = this.now();
+    if (connections.length === 0)
+      return { accounts: [], readAt: now.toISOString() };
+    const records = await this.dependencies.connections.quotas().list();
+    const accounts = connections
       .map((connection) =>
         this.account(
           connection,
           {
-            outcome: outcomes.get(connection.id) ?? {
-              status: "failed",
-              errorCode: "cli_check_failed",
-            },
+            outcome: outcomes.get(connection.id) ?? null,
             record: records.get(connection.id) ?? EMPTY_RECORD,
           },
           now,
         ),
       )
       .sort((first, second) => first.name.localeCompare(second.name));
-    return { accounts, readAt };
+    return { accounts, readAt: now.toISOString() };
   }
 
   /**
-   * Queries one connection after the other, so a page never starts a burst
-   * of CLIs.
-   * @returns The outcome of each connection's query by connection id.
+   * The Claude connections a person may use right now.
+   * @param userId - The person.
+   * @param connectionId - Limits the answer to this connection.
    */
-  private async refresh(
-    connections: readonly AgentConnectionRecord[],
-  ): Promise<ReadonlyMap<string, ClaudeQuotaProbeOutcome>> {
-    const outcomes = new Map<string, ClaudeQuotaProbeOutcome>();
-    for (const connection of connections)
-      outcomes.set(
-        connection.id,
-        await this.dependencies.probe.refresh(connection),
-      );
-    return outcomes;
-  }
-
-  private async viewer(userId: string): Promise<AgentViewer | null> {
-    const { authorization, groups } = this.dependencies;
-    const [snapshot, groupIds] = await Promise.all([
-      authorization.snapshot(),
-      groups.findIdsByMember(userId),
-    ]);
-    const actor = snapshot.accounts.find((entry) => entry.userId === userId);
-    return actor ? { actor, groupIds } : null;
-  }
-
-  private async usableConnections(
-    candidates: readonly AgentConnectionRecord[],
-    viewer: AgentViewer,
+  private usableFor(
+    userId: string,
+    connectionId?: string,
   ): Promise<AgentConnectionRecord[]> {
-    const scopes = this.dependencies.connections.scopes();
-    const usable: AgentConnectionRecord[] = [];
-    for (const connection of candidates) {
-      const scope = await scopes.find(connection.id);
-      if (scope && isInAgentConnectionScope(scope, viewer))
-        usable.push(connection);
-    }
-    return usable;
+    return this.access.usableFor(userId, "claude_code", connectionId);
   }
 
   /**
@@ -167,21 +178,29 @@ export class ClaudeQuotaService {
   private account(
     connection: AgentConnectionRecord,
     query: {
-      readonly outcome: ClaudeQuotaProbeOutcome;
+      readonly outcome: ClaudeQuotaProbeOutcome | null;
       readonly record: ClaudeQuotaRecord;
     },
     now: Date,
   ): ClaudeQuotaAccount {
     const { outcome, record } = query;
     const windows = visibleClaudeQuotaWindows(record.windows, now);
-    const status = quotaStatus(outcome, record, windows);
+    const status = quotaCardStatus(outcome, {
+      at: record.reportedAt,
+      hasWindows: windows.length > 0,
+    });
     const isSignedOut = status.kind === "signed_out";
     return {
+      provider: "claude_code",
       connectionId: connection.id,
       name: connection.name,
       plan: isSignedOut ? null : record.plan,
       windows: isSignedOut ? [] : windows,
       status,
     };
+  }
+
+  private now(): Date {
+    return (this.dependencies.clock ?? (() => new Date()))();
   }
 }

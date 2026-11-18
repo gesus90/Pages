@@ -1,6 +1,6 @@
 import { useTranslation } from "react-i18next";
 
-import { ClaudeQuotaCard } from "./claude-quota-card";
+import { QuotaCardGrid } from "./quota-card-grid";
 import { QuotaSectionHeader } from "./quota-section-header";
 import { useClaudeQuotas } from "./use-claude-quotas";
 import { useQuotaClock } from "./use-quota-clock";
@@ -10,17 +10,22 @@ import { useQuotaClock } from "./use-quota-clock";
  * Agent Plan, runs and the working directory stand below "Agents" in the
  * main navigation.
  * @remarks
- * The first version shows one card per Claude connection. The figures stay
- * while a query runs or fails, so the page never falls back to an empty
- * state once it has figures. All cards have the same height, 308 px on a
- * wide screen and 344 px in the single column of a phone, also in a row
+ * It shows one card per Claude connection and one per Antigravity connection
+ * the person may use. The page stands with its cards at once: three placeholder cards while the connections are
+ * unknown, then a card per connection with its last stored figures, which
+ * the current figures replace card by card as each query answers. The
+ * figures stay while a query runs or fails, so the page never falls back to
+ * an empty state once it has cards; the empty state appears only when it is
+ * certain that no card is available. All cards have the same height, 308 px
+ * on a wide screen and 344 px in the single column of a phone, also in a row
  * with fewer cards.
  */
 export function AgentsPage(): React.ReactElement {
   const { t } = useTranslation();
   const quotas = useClaudeQuotas();
   const now = useQuotaClock();
-  const accounts = quotas.snapshot?.accounts ?? null;
+  const { cards, hasListFailed, isLive } = quotas.state;
+  const hasNoCards = cards !== null && cards.length === 0;
   return (
     <div className="flex w-full flex-col">
       <header>
@@ -35,25 +40,24 @@ export function AgentsPage(): React.ReactElement {
         aria-label={t("agentsPage.quotas.title")}
         className="mt-8 flex flex-col gap-4"
       >
-        <QuotaSectionHeader state={quotas} onRefresh={quotas.refresh} />
-        {accounts !== null && accounts.length === 0 ? (
+        <QuotaSectionHeader
+          isRefreshing={quotas.isRefreshing}
+          isLive={isLive}
+          onRefresh={quotas.refresh}
+        />
+        {hasNoCards ? (
           <p className="text-[13px] text-muted-foreground">
             {t("agentsPage.quotas.noConnections")}
           </p>
         ) : null}
-        {accounts !== null && accounts.length > 0 ? (
-          <div className="grid auto-rows-[344px] grid-cols-1 gap-5 md:auto-rows-[308px] md:grid-cols-2 xl:grid-cols-3">
-            {accounts.map((account) => (
-              <ClaudeQuotaCard
-                key={account.connectionId}
-                account={account}
-                now={now}
-                isRefreshing={quotas.pendingQueries > 0}
-                onRetry={quotas.refresh}
-              />
-            ))}
-          </div>
+        {hasListFailed ? (
+          <p role="alert" className="text-[13px] text-warning">
+            {t("agentsPage.quotas.loadFailed")}
+          </p>
         ) : null}
+        {hasNoCards || hasListFailed ? null : (
+          <QuotaCardGrid cards={cards} now={now} onRetry={quotas.retryCard} />
+        )}
       </section>
     </div>
   );

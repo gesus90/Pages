@@ -12,7 +12,7 @@ import type { Route } from "./+types/agent-quota-events";
  * @remarks
  * Only the quota page opens this stream, so no other page causes a read.
  * Every push reads the cards anew with the person's current rights and asks
- * Claude for the current usage of the connections they may use.
+ * Claude and Antigravity for the current usage of the connections they may use.
  */
 export async function loader({
   request,
@@ -21,7 +21,7 @@ export async function loader({
   try {
     const user = context.get(authenticatedUserContext);
     if (!user) throw new AgentError("plan_access_denied");
-    const quotas = (await getApplicationServices()).claudeQuotaService;
+    const quotas = (await getApplicationServices()).quotaService;
     return new Response(
       claudeQuotaStream({
         signal: request.signal,

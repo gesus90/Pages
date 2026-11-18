@@ -35,6 +35,7 @@ const VENDOR_STYLES: Readonly<Record<ModelBadgeVendor, VendorStyle>> = {
     name: "OpenCode",
     borderClass: "border-opencode",
   },
+  zai: { mark: "zai", name: "Z.AI", borderClass: "border-zai" },
 };
 
 interface ModelBadgeProps {
@@ -67,9 +68,10 @@ const NARROW_DIVIDER_CLASS = "hidden @min-[520px]:block";
  * 24 px high with a 1 px border and a 7 px radius; the 18 px tile with a 5 px
  * radius sits 2 px from the top, bottom and left edge, so the corners run
  * parallel. Anthropic is outlined in Claude's orange, OpenAI in the green of
- * the ChatGPT tile, Antigravity in its blue, OpenCode in its neutral grey.
- * Antigravity and OpenCode name the tool, not the model's vendor, because
- * they offer models of several vendors: Antigravity's Sonnet keeps the
+ * the ChatGPT tile, Antigravity in its blue, OpenCode in its neutral grey and
+ * the direct Z.AI connection in the anthracite of its tile, which turns white
+ * in the dark palette. Antigravity and OpenCode name the tool, not the
+ * model's vendor, because they offer models of several vendors: Antigravity's Sonnet keeps the
  * Antigravity tile and outline and never reads like Sonnet over Claude Code,
  * and a Gemini model over OpenCode reads "OpenCode │ Gemini …". A known
  * source of the model, such as OpenCode Zen, stands in the tooltip and the

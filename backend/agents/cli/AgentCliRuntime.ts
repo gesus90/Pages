@@ -16,6 +16,7 @@ import type {
 } from "@/definition/AgentConnection";
 import type { ProviderCheckOutcome } from "@/backend/agents/providers/ProviderContracts";
 import type { AgentCatalogModel } from "@/definition/AgentModelCatalog";
+import type { AntigravityQuotaGroup } from "@/definition/AntigravityQuota";
 import type { AgentCredentialStore } from "./AgentCredentialStore";
 import type { ClaudeUsageReading } from "./ClaudeUsageResult";
 import type { CliLoginAdapter, CliToolAdapter } from "./CliContracts";
@@ -183,6 +184,38 @@ export class AgentCliRuntime {
     if (runner.hasSession(store.paths(connection.id, connection.provider)))
       throw new AgentError("check_in_progress");
     const cli = new ClaudeCodeCli(await this.execution(connection.provider));
+    const home = await store.prepare(connection.id, connection.provider);
+    try {
+      return await cli.readUsage(home, signal);
+    } finally {
+      await store.secure(connection.id, connection.provider);
+    }
+  }
+
+  /**
+   * Asks Antigravity for the quota groups of a signed-in connection.
+   * @param connection - An Antigravity connection.
+   * @param signal - Deadline of the query.
+   * @returns The groups and windows the adapter reported.
+   * @throws {AgentError} `provider_invalid` for another provider,
+   * `cli_not_logged_in` before a confirmed login, `check_in_progress` while a
+   * native session uses the connection's home, or the CLI failure code.
+   * @remarks
+   * Like every probe, the query waits while a session may refresh the
+   * sign-in, so a running answer of the connection is never disturbed.
+   */
+  public async readAntigravityUsage(
+    connection: AgentConnectionRecord,
+    signal: AbortSignal,
+  ): Promise<readonly AntigravityQuotaGroup[]> {
+    if (connection.provider !== "antigravity")
+      throw new AgentError("provider_invalid");
+    if (connection.cliLoggedInAt === null)
+      throw new AgentError("cli_not_logged_in");
+    const { runner, store } = this.dependencies;
+    if (runner.hasSession(store.paths(connection.id, connection.provider)))
+      throw new AgentError("check_in_progress");
+    const cli = new AntigravityCli(await this.execution(connection.provider));
     const home = await store.prepare(connection.id, connection.provider);
     try {
       return await cli.readUsage(home, signal);
