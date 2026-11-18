@@ -839,6 +839,7 @@
         "cli_auth_failed": "Das CLI-Konto wurde abgelehnt. Melden Sie sich erneut an.",
         "cli_check_failed": "Der CLI-Test ist fehlgeschlagen.",
         "cli_unexpected_output": "Die CLI hat eine unerwartete Ausgabe geliefert.",
+        "claude_usage_stale": "Claude Code hat den Nutzungsendpunkt nicht erreicht und nur gespeicherte Werte geliefert.",
         "login_in_progress": "Für diese Anbindung läuft bereits eine Anmeldung.",
         "login_limit_reached": "Die Höchstzahl gleichzeitiger CLI-Vorgänge oder Anmeldungen ist erreicht. Versuchen Sie es später erneut.",
         "login_not_running": "Es läuft keine passende Anmeldung.",
@@ -9490,7 +9491,6 @@
   "agentsPage": {
     "title": "Agents",
     "subtitle": "Was von deinen KI-Konten noch übrig ist.",
-    "links": "Bereiche der Agents",
     "quotas": {
       "title": "Kontingente und Guthaben",
       "shortTitle": "Kontingente",

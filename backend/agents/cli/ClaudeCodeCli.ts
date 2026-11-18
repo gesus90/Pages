@@ -6,6 +6,11 @@ import { logCaughtError } from "@/backend/logging/Logger";
 import { readClaudeChallenge } from "./CliLoginParser";
 import { readClaudeModels } from "./CliModelCatalog";
 import { readClaudeTest } from "./CliResultParser";
+import {
+  CLAUDE_USAGE_REQUEST_ID,
+  isClaudeUsageAnswer,
+  readClaudeUsage,
+} from "./ClaudeUsageResult";
 
 import type { AgentErrorCode } from "@/backend/error/AgentErrors";
 import type { ProviderCheckOutcome } from "@/backend/agents/providers/ProviderContracts";
@@ -19,7 +24,23 @@ import type {
   CliStatusOutcome,
   CliLoginAdapter,
 } from "./CliContracts";
+import type { ClaudeUsageReading } from "./ClaudeUsageResult";
 import type { CliToolExecution } from "./CliToolExecution";
+
+/**
+ * The environment of the usage query.
+ * @remarks
+ * Claude Code counts the usage endpoint as non-essential traffic, which every
+ * other Pages start switches off. The switch counts as set for any value but
+ * the empty one, so the query empties it and keeps telemetry and error
+ * reporting off by their own switches; updates stay off through the shared
+ * environment.
+ */
+const USAGE_ENVIRONMENT: Readonly<Record<string, string>> = {
+  CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: "",
+  DISABLE_TELEMETRY: "1",
+  DISABLE_ERROR_REPORTING: "1",
+};
 
 function accountLabel(status: Record<string, unknown>): string | null {
   const email = status.email;
@@ -177,6 +198,67 @@ export class ClaudeCodeCli implements CliLoginAdapter {
     if (result.errorCode) throw new AgentError(result.errorCode);
     if (result.exitCode !== 0) throw new AgentError("cli_unexpected_output");
     return readClaudeModels(result.stdout);
+  }
+
+  /**
+   * Reads the data behind `/usage` through the SDK control request `get_usage`.
+   * @param home - The connection's Claude home.
+   * @param signal - Deadline of the query.
+   * @returns The subscription and the plan windows of the claude.ai usage endpoint.
+   * @throws {AgentError} The CLI failure code, or `cli_unexpected_output`.
+   * @remarks
+   * Only control requests go to the CLI; no user message is sent, so no model
+   * is called. The usage endpoint needs non-essential traffic, see
+   * {@link USAGE_ENVIRONMENT}. The input stays open until the answer arrived: at its end the CLI shuts
+   * down, drops the running request to the endpoint and answers from its
+   * own stored copy of up to an hour.
+   */
+  public async readUsage(
+    home: CliHome,
+    signal: AbortSignal,
+  ): Promise<ClaudeUsageReading> {
+    const requests = [
+      {
+        type: "control_request",
+        request_id: "pages-usage-initialize",
+        request: {
+          subtype: "initialize",
+          hooks: {},
+          agents: {},
+          sdkMcpServers: [],
+        },
+      },
+      {
+        type: "control_request",
+        request_id: CLAUDE_USAGE_REQUEST_ID,
+        request: { subtype: "get_usage", skip_behaviors: true },
+      },
+    ];
+    const result = await this.execution.exchange(
+      home,
+      {
+        arguments: [
+          "--print",
+          "--input-format",
+          "stream-json",
+          "--output-format",
+          "stream-json",
+          "--verbose",
+          "--tools",
+          "",
+          "--strict-mcp-config",
+          "--no-session-persistence",
+          "--safe-mode",
+        ],
+        requests: requests.map((request) => JSON.stringify(request)),
+        environment: USAGE_ENVIRONMENT,
+        isAnswer: isClaudeUsageAnswer,
+      },
+      signal,
+    );
+    if (result.errorCode) throw new AgentError(result.errorCode);
+    if (result.exitCode !== 0) throw new AgentError("cli_unexpected_output");
+    return readClaudeUsage(result.stdout);
   }
 
   /** Logs out the Pages-owned Claude configuration directory. */

@@ -15,6 +15,11 @@ import { OpenCodeAcpClient, classifyOpenCodeFailure } from "./opencode.mjs";
 // backend/agents/acp/AntigravityAcpLaunch.ts, which the Pages host applies.
 const VERIFIED_VERSION = "1.5.9";
 const AGENT_NAME = "Antigravity ACP Server";
+// How `agy acp` titles a permission request for a tool of the Pages MCP server.
+const PAGES_TOOL_TITLE_PREFIX = "Run mcp_pages_";
+// The select option that carries a model's thinking level; the entry point
+// refuses `thinking_level` as an unknown option.
+const EFFORT_OPTION = "thought_level";
 const READ_TOOLS = [
   "view_file",
   "list_directory",
@@ -170,8 +175,19 @@ function refuse(options) {
     : { outcome: "cancelled" };
 }
 
-function decide(options, access) {
-  if (access !== "yolo") return refuse(options);
+// In `default` mode `agy acp` asks before every call of an MCP tool, the
+// step's own Pages tools included. A read-only job approves only those; its
+// native tools are limited to the reading allowlist, so nothing else exists.
+function isPagesToolCall(toolCall) {
+  return (
+    (toolCall?.kind ?? "other") === "other" &&
+    typeof toolCall?.title === "string" &&
+    toolCall.title.startsWith(PAGES_TOOL_TITLE_PREFIX)
+  );
+}
+
+function decide(options, access, toolCall) {
+  if (access !== "yolo" && !isPagesToolCall(toolCall)) return refuse(options);
   const option = options.find((entry) => entry.kind === "allow_once");
   return option
     ? { outcome: "selected", optionId: option.optionId }
@@ -220,7 +236,7 @@ function start(environment, directory, options = {}) {
     },
     client: new OpenCodeAcpClient(
       child,
-      (choices) => decide(choices, options.access),
+      (choices, toolCall) => decide(choices, options.access, toolCall),
       options.publish,
     ),
   };
@@ -340,7 +356,7 @@ export async function antigravityInventory(base, context = {}) {
       entry.models.push({
         id: model.value,
         name: model.name,
-        reasoningEfforts: choices(selected, "thinking_level").map(
+        reasoningEfforts: choices(selected, EFFORT_OPTION).map(
           (effort) => effort.value,
         ),
       });
@@ -453,20 +469,22 @@ export async function executeAntigravity(job, prompt, base = process.env) {
     );
     if (job.reasoningEffort !== null)
       options = await chooseAntigravity(client, session.sessionId, options, {
-        id: "thinking_level",
+        id: EFFORT_OPTION,
         value: job.reasoningEffort,
         error: "plan_reasoning_unsupported",
       });
+    // `agy acp` refuses `yolo` as an unknown mode. A YOLO job runs in
+    // `default`, and `decide` approves every permission request.
     options = await chooseAntigravity(client, session.sessionId, options, {
       id: "mode",
-      value: job.access === "yolo" ? "yolo" : "default",
+      value: "default",
       error: "antigravity_acp_unsupported",
     });
     if (
       options.find((entry) => entry.id === "model")?.currentValue !==
         job.model ||
       (job.reasoningEffort !== null &&
-        options.find((entry) => entry.id === "thinking_level")?.currentValue !==
+        options.find((entry) => entry.id === EFFORT_OPTION)?.currentValue !==
           job.reasoningEffort)
     )
       throw Object.assign(new Error("Configuration changed before prompt"), {
@@ -475,7 +493,7 @@ export async function executeAntigravity(job, prompt, base = process.env) {
     await publish({
       type: "pages.configuration",
       model: options.find((entry) => entry.id === "model")?.currentValue,
-      reasoningEffort: options.find((entry) => entry.id === "thinking_level")
+      reasoningEffort: options.find((entry) => entry.id === EFFORT_OPTION)
         ?.currentValue,
     });
     const turn = await client.call("session/prompt", {

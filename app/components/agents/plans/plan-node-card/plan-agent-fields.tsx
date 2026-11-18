@@ -7,7 +7,7 @@ import {
 } from "@/app/components/agents/badges/model-choice-badge";
 import {
   REASONING_LEVEL_CLASSES,
-  ReasoningTile,
+  ReasoningSign,
   reasoningSignLevel,
 } from "@/app/components/agents/badges/reasoning-sign";
 import {
@@ -22,6 +22,7 @@ import {
 } from "@/definition/AgentModelIdentity";
 
 import type { ReasoningSelectOptions } from "@/app/lib/reasoning-options";
+import type { ReasoningBadgeLevel } from "@/definition/AgentModelIdentity";
 import type { TFunction } from "i18next";
 
 /** The dash of a level field whose model offers no level to choose. */
@@ -29,10 +30,11 @@ const NO_LEVEL = "–";
 
 /**
  * The arrow of the level choice: 12 px with a 1.8 px stroke at the right
- * edge, in the level's color at 75 %, and the value beside it on one line.
+ * edge, muted like the arrow of the model field, and the value beside it on
+ * one line.
  */
 const REASONING_TRIGGER_CLASS =
-  "[&>span]:flex [&>span]:min-w-0 [&>span]:flex-1 [&>svg]:ml-auto [&>svg]:size-3 [&>svg]:stroke-[1.8] [&>svg]:text-current [&>svg]:opacity-75";
+  "[&>span]:flex [&>span]:min-w-0 [&>span]:flex-1 [&>svg]:ml-auto [&>svg]:size-3 [&>svg]:stroke-[1.8] [&>svg]:text-muted-foreground";
 
 /**
  * The open level choice: 200 px wide and at least as wide as the field,
@@ -42,9 +44,9 @@ const REASONING_MENU_CLASS =
   "w-[200px] min-w-(--radix-select-trigger-width) rounded-xl border border-border p-0";
 
 /**
- * A row of the open level choice: 36 px high, 8 px radius, the 24 px tile
- * 8 px before the word in 13/500; the check of the chosen row takes the
- * level's color.
+ * A row of the open level choice: 36 px high, 8 px radius, the sign in its
+ * 24 px place 8 px before the word in 13/500; the check of the chosen row
+ * takes the level's color.
  */
 const REASONING_ROW_CLASS =
   "h-9 min-h-9 gap-2 rounded-lg px-1.5 py-0 text-[13px] font-medium [&_svg]:text-current";
@@ -57,19 +59,45 @@ function levelWord(level: string, t: TFunction): string {
 }
 
 /**
- * The border, background and text of a level field: the colors of the
- * level, or the neutral field for the default and the dash.
+ * The border and background of a level field: the surface like the model
+ * field, outlined in the level's dot color, or the neutral border for the
+ * default and the dash. Hovering keeps the surface, as on the model field.
  */
 function reasoningFieldClass(value: string): string {
-  if (value === "") return "border-field-border bg-surface";
-  const classes = REASONING_LEVEL_CLASSES[reasoningSignLevel(value)];
-  return cn(classes.badge, classes.fieldHover);
+  const border =
+    value === ""
+      ? "border-field-border"
+      : REASONING_LEVEL_CLASSES[reasoningSignLevel(value)].fieldBorder;
+  return cn("bg-surface hover:bg-surface", border);
 }
 
 /**
- * A saved level inside its field: the 28 px tile with the level's sign and
- * the word; a level the model does not offer adds a warning sign and says
- * so in the tooltip.
+ * The sign of a level without a tile: 16 px in the level's color, centered
+ * in the place a tile would take, so the word starts where the model name
+ * beside it starts.
+ */
+function ReasoningSignPlace(props: {
+  readonly level: ReasoningBadgeLevel;
+  readonly className: string;
+}): React.ReactElement {
+  return (
+    <span
+      aria-hidden="true"
+      className={cn(
+        "inline-flex shrink-0 items-center justify-center",
+        REASONING_LEVEL_CLASSES[props.level].sign,
+        props.className,
+      )}
+    >
+      <ReasoningSign level={props.level} className="size-4" />
+    </span>
+  );
+}
+
+/**
+ * A saved level inside its field: the level's sign in the 28 px place of the
+ * model's tile and the word in the foreground color; a level the model does
+ * not offer adds a warning sign and says so in the tooltip.
  */
 function ReasoningLevelValue(props: {
   readonly level: string;
@@ -87,11 +115,7 @@ function ReasoningLevelValue(props: {
       }
       className="flex min-w-0 flex-1 items-center gap-1.5"
     >
-      <ReasoningTile
-        level={signLevel}
-        className="size-7 rounded-[6px]"
-        signClassName="size-4"
-      />
+      <ReasoningSignPlace level={signLevel} className="size-7" />
       <span className="min-w-0 truncate">{word}</span>
       {props.isOffered ? null : (
         <>
@@ -106,7 +130,7 @@ function ReasoningLevelValue(props: {
 }
 
 /**
- * What the closed reasoning field shows: the level with its tile, the
+ * What the closed reasoning field shows: the level with its sign, the
  * default as quiet text, or a dash while the model offers no level.
  * @remarks
  * A saved level stays visible even when it cannot be chosen, marked as not
@@ -150,8 +174,8 @@ function levelRank(level: string): number {
 
 /**
  * The rows of the open level choice: only the levels the model offers, from
- * the least effort, each with its tile and word and the colors of the level
- * while it is the chosen one.
+ * the least effort, each with its sign without a tile and its word, and the
+ * colors of the level while it is the chosen one.
  */
 function levelMenuOptions(
   levels: readonly string[],
@@ -164,13 +188,7 @@ function levelMenuOptions(
       return {
         value: level,
         label: levelWord(level, t),
-        icon: (
-          <ReasoningTile
-            level={signLevel}
-            className="size-6 rounded-[6px]"
-            signClassName="size-4"
-          />
-        ),
+        icon: <ReasoningSignPlace level={signLevel} className="size-6" />,
         className: cn(
           REASONING_ROW_CLASS,
           REASONING_LEVEL_CLASSES[signLevel].chosenRow,
@@ -191,7 +209,7 @@ function fixedLevel(value: string, levels: readonly string[]): string {
 /**
  * The level field without an arrow, for a model with one level or none.
  * @remarks
- * It keeps the measures of the field. One level stands with its tile;
+ * It keeps the measures of the field. One level stands with its sign;
  * without a level the field is greyed out with a dash.
  */
 function FixedReasoningField(props: {
@@ -216,12 +234,12 @@ function FixedReasoningField(props: {
 }
 
 /**
- * The reasoning level of an agent node's footer as a field whose whole
- * surface is the level's badge.
+ * The reasoning level of an agent node's footer as a field built like the
+ * model field beside it.
  * @remarks
- * The field has the measures of the model field beside it; choosing another
- * level changes only tile, sign, colors and word, never the field or the
- * arrow. The open choice lists only the levels the model's catalog entry
+ * The field has the measures, surface, text and arrow of the model field;
+ * choosing another level changes only the sign, the border color and the
+ * word, never the field or the arrow. The open choice lists only the levels the model's catalog entry
  * offers. A model with a single level shows it without an arrow, a model
  * without levels a greyed dash without an arrow; a saved level the single
  * level replaces keeps the choice, so it can be corrected.

@@ -24,13 +24,15 @@ export const MODEL_FIELD_CLASS =
  * footer of an agent node: 40 px high, 12 px radius, one solid 1 px border,
  * text 12/600.
  * @remarks
- * The value adds its own border color and background, such as the vendor
- * color on the surface or the colors of a reasoning level; there is no inner
- * field and no second border, and hovering only lightens the background
- * slightly. A 28 px tile stands 5 px from the left, top and bottom edge, the
- * text 6 px after it on one line, cut with an ellipsis, and the 12 px arrow
- * 7 px from the right edge with `ml-auto`, so the arrow keeps its place
- * whatever the value says and a value never grows the field.
+ * The value adds its own border color on the surface, such as the vendor
+ * color or the dot color of a reasoning level; there is no inner field and
+ * no second border, and hovering only lightens the background slightly. A
+ * 28 px tile, or the place of a reasoning sign, stands 5 px from the left,
+ * top and bottom edge, so the 12 px radius equals the tile's 6 px radius,
+ * the 5 px gap and the 1 px border. The text follows 6 px after it on one
+ * line, cut with an ellipsis, and the 12 px arrow 7 px from the right edge
+ * with `ml-auto`, so the arrow keeps its place whatever the value says and
+ * a value never grows the field.
  */
 export const MODEL_BADGE_FIELD_CLASS =
   "flex h-10 w-full min-w-0 items-center justify-start gap-1.5 rounded-xl border bg-surface py-0 pr-[7px] pl-[5px] text-left text-xs leading-none font-semibold text-foreground outline-none transition enabled:hover:brightness-105 focus-visible:ring-2 focus-visible:ring-primary disabled:cursor-not-allowed disabled:opacity-60";

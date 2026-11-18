@@ -4,6 +4,7 @@ import {
   readTextColumn,
 } from "@/backend/database/RowValue";
 import {
+  CLAUDE_QUOTA_WINDOWS,
   isClaudeQuotaWindowKind,
   readClaudePlan,
 } from "@/definition/ClaudeQuota";
@@ -69,6 +70,40 @@ export class ClaudeQuotaRepository {
         observed_at: observedAt,
       },
     );
+  }
+
+  /**
+   * Stores a complete usage reading of a connection.
+   * @param connectionId - The connection that was queried.
+   * @param windows - Every window the usage endpoint reported.
+   * @param observedAt - ISO time of the reading.
+   * @remarks
+   * The reading names every current window, so a window it lacks is removed
+   * instead of kept or stored as 0; a newer session reading stays.
+   */
+  public async replaceWindows(
+    connectionId: string,
+    windows: readonly ClaudeQuotaWindow[],
+    observedAt: string,
+  ): Promise<void> {
+    for (const kind of CLAUDE_QUOTA_WINDOWS) {
+      if (windows.some((window) => window.kind === kind)) continue;
+      await this.database.execute(
+        `
+        DELETE FROM claude_connection_quota_windows
+        WHERE connection_id = $connection_id
+            AND window_kind = $window_kind
+            AND observed_at <= $observed_at;
+      `,
+        {
+          connection_id: connectionId,
+          window_kind: kind,
+          observed_at: observedAt,
+        },
+      );
+    }
+    for (const window of windows)
+      await this.saveWindow(connectionId, window, observedAt);
   }
 
   /**

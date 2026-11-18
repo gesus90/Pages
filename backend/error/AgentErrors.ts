@@ -525,6 +525,8 @@ export const AGENT_ERROR_MESSAGES = {
   cli_auth_failed: "The CLI account was rejected. Sign in again.",
   cli_check_failed: "The CLI test failed.",
   cli_unexpected_output: "The CLI returned unexpected output.",
+  claude_usage_stale:
+    "Claude Code could not reach the usage endpoint and answered with stored figures.",
   login_in_progress: "A login is already running for this connection.",
   login_limit_reached:
     "The CLI process or login limit was reached. Try again later.",

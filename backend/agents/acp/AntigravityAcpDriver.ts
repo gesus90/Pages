@@ -4,6 +4,7 @@ import { PAGES_MCP_SERVER, pagesMcpServers } from "./AcpLaunch";
 import { approvePermission, refusePermission } from "./AcpPermissions";
 import { requireManagedAntigravityConfiguration } from "./AntigravityConfiguration";
 import {
+  ANTIGRAVITY_EFFORT_OPTION,
   ANTIGRAVITY_MINIMUM_VERSION,
   antigravityAcpArguments,
   isSupportedAntigravityAcp,
@@ -29,6 +30,9 @@ export const ANTIGRAVITY_READ_TOOLS = [
   "read_url_content",
 ] as const;
 
+/** How `agy acp` titles a permission request for a tool of the Pages MCP server. */
+const PAGES_TOOL_TITLE_PREFIX = `Run mcp_${PAGES_MCP_SERVER}_`;
+
 /** Tool kinds of native tools Pica's session has none of: files, commands, the web and modes. */
 const CHAT_REFUSED_KINDS: ReadonlySet<string> = new Set([
   "edit",
@@ -42,7 +46,7 @@ const CHAT_REFUSED_KINDS: ReadonlySet<string> = new Set([
 const REPORTED_OPTIONS = {
   sessionMode: "mode",
   model: "model",
-  reasoningEffort: "thinking_level",
+  reasoningEffort: ANTIGRAVITY_EFFORT_OPTION,
 } as const;
 
 // Model and thinking level are selected explicitly, so a remapped value is refused.
@@ -58,7 +62,7 @@ function modelSteps(request: AcpModelRequest): AcpConfigStep[] {
       ? []
       : [
           {
-            id: "thinking_level",
+            id: ANTIGRAVITY_EFFORT_OPTION,
             value: request.reasoningEffort,
             refusal: "plan_reasoning_unsupported" as const,
             isExplicit: true,
@@ -120,13 +124,35 @@ const CHAT_PROFILE: AcpSessionProfile = {
   decide: decideChatPermission,
 };
 
+/**
+ * Answers a permission request of a read-only plan node.
+ * @remarks
+ * In `default` mode `agy acp` asks before every call of an MCP tool, including
+ * the step's own Pages tools, so refusing everything would leave the node
+ * without them. Only a call of a Pages tool is approved. The node's native
+ * tools are limited to the reading allowlist, so no other tool can exist in
+ * the session, and anything else is refused.
+ */
+function decideReadOnlyPermission(
+  request: RequestPermissionRequest,
+): AcpPermissionDecision {
+  const { kind, title } = request.toolCall;
+  const isPagesTool =
+    (kind ?? "other") === "other" &&
+    (title ?? "").startsWith(PAGES_TOOL_TITLE_PREFIX);
+  return isPagesTool ? approvePermission(request) : refusePermission(request);
+}
+
+// `agy acp` offers the modes default, accept-edits and plan, and refuses `yolo`
+// as unknown. A YOLO session therefore runs in `default`, and Pages answers
+// every permission request itself with `approvePermission`.
 function profile(mode: AcpPermissionMode): AcpSessionProfile {
   return {
     mode,
     unattended:
       "Official Antigravity ACP; exact selectors and automatic permission decisions",
     permissions: {
-      sessionMode: mode === "yolo" ? "yolo" : "default",
+      sessionMode: "default",
       files: mode === "yolo" ? "workspace write" : "read only",
       shell: mode === "yolo" ? "on" : "off",
       web: "on",
@@ -141,11 +167,11 @@ function profile(mode: AcpPermissionMode): AcpSessionProfile {
       ...modelSteps(request),
       {
         id: "mode",
-        value: mode === "yolo" ? "yolo" : "default",
+        value: "default",
         refusal: "plan_permission_mode_unenforceable",
       },
     ],
-    decide: mode === "yolo" ? approvePermission : refusePermission,
+    decide: mode === "yolo" ? approvePermission : decideReadOnlyPermission,
   };
 }
 
@@ -189,6 +215,9 @@ export const ANTIGRAVITY_ACP_DRIVER: AcpDriver = {
   binary: "agy",
   launchArguments: antigravityAcpArguments,
   supportedVersions: `${ANTIGRAVITY_MINIMUM_VERSION} or later`,
+  // `agy acp` leaves `mcpCapabilities` out of its `initialize` answer, yet it
+  // connects to an HTTP MCP server named in `session/new` and calls its tools.
+  mcpCapabilities: { http: true },
   errors: {
     modeRequired: "plan_permission_mode_unenforceable",
     adapterMissing: "cli_not_found",

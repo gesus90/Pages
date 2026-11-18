@@ -34,21 +34,24 @@ import type { AgentPlanGroup } from "@/definition/AgentPlanGroup";
 import type { PageAgentModel } from "@/definition/PageAgent";
 
 /**
- * The footer: 48 px high, 12 px padding, two equally wide columns 8 px
- * apart, so a field is 143 px wide on a 320 px card and 138 px on the
- * narrowest 310 px card, whatever it shows.
+ * The footer: a 1 px line above 64 px, 12 px padding on every side around
+ * the 40 px fields, two equally wide columns 8 px apart, so a field is
+ * 143 px wide on a 320 px card and 138 px on the narrowest 310 px card,
+ * whatever it shows.
  */
 const FOOTER_CLASS =
-  "grid h-12 shrink-0 grid-cols-2 items-center gap-2 border-t border-border px-3";
+  "grid h-[65px] shrink-0 grid-cols-2 items-center gap-2 border-t border-border p-3";
 
 /**
  * Model and reasoning of an agent node at the bottom of its card, each as a
  * fixed field whose whole surface is the badge of its value.
  * @remarks
- * Both fields are 40 px high and equally wide; tile and name stand left and
- * the name is cut with an ellipsis when it is too long, the arrow stays at
- * the right edge. Choosing another model or level changes only tile, colors
- * and name, never a field, an arrow or the footer.
+ * Both fields are 40 px high and equally wide and built alike: the model's
+ * tile or the level's sign in the same 28 px place, the name in the
+ * foreground color, cut with an ellipsis when it is too long, and the muted
+ * arrow at the right edge. Choosing another model or level changes only
+ * tile or sign, border color and name, never a field, an arrow or the
+ * footer.
  * The list offers known models of connections currently shared with the person.
  * Choosing one pins its connection, model and provider on this node only;
  * instructions, bindings, reasoning and run options stay as they are. A member of an ACP

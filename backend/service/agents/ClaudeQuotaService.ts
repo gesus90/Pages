@@ -1,4 +1,5 @@
 import { isInAgentConnectionScope } from "@/backend/auth/AgentConnectionScopePolicy";
+import { AgentError } from "@/backend/error/AgentErrors";
 import { visibleClaudeQuotaWindows } from "@/definition/ClaudeQuota";
 
 import type { AgentViewer } from "@/backend/auth/AgentProfilePolicy";
@@ -11,11 +12,14 @@ import type {
   ClaudeQuotaAccount,
   ClaudeQuotaSnapshot,
 } from "@/definition/ClaudeQuota";
+import type { ClaudeQuotaProbe } from "./ClaudeQuotaProbe";
 
 interface ClaudeQuotaDependencies {
   readonly connections: AgentConnectionRepository;
   readonly authorization: Pick<AuthorizationRepository, "snapshot">;
   readonly groups: Pick<UserGroupRepository, "findIdsByMember">;
+  /** Asks Claude anew; without it the cards show the stored figures. */
+  readonly probe?: Pick<ClaudeQuotaProbe, "refresh">;
   readonly clock?: () => Date;
 }
 
@@ -28,7 +32,10 @@ const EMPTY_RECORD: ClaudeQuotaRecord = { plan: null, windows: [] };
  * person, read anew with every query: an active account, and for a
  * restricted scope a named person, group or department membership.
  * Administrators get no exception, because managing a connection is not
- * using it. Only active Claude Code connections have cards.
+ * using it. Only active Claude Code connections have cards. Every query asks
+ * Claude for the current usage of exactly these connections, stores it and
+ * answers from the stored figures, so a connection Claude cannot be asked
+ * about right now keeps its last figures.
  */
 export class ClaudeQuotaService {
   private readonly dependencies: ClaudeQuotaDependencies;
@@ -42,6 +49,9 @@ export class ClaudeQuotaService {
    * @param userId - The person reading the page.
    * @returns The cards in the order of the connection names; an unknown or
    * inactive account sees none.
+   * @throws {AgentError} The failure of the usage query when every queried
+   * connection failed, so the page keeps its last figures and reports the
+   * failure.
    */
   public async listForUser(userId: string): Promise<ClaudeQuotaSnapshot> {
     const now = (this.dependencies.clock ?? (() => new Date()))();
@@ -55,6 +65,7 @@ export class ClaudeQuotaService {
     );
     const usable = await this.usableConnections(candidates, viewer);
     if (usable.length === 0) return { accounts: [], readAt };
+    await this.refresh(usable);
     const records = await connections.quotas().list();
     const accounts = usable
       .map((connection) =>
@@ -62,6 +73,26 @@ export class ClaudeQuotaService {
       )
       .sort((first, second) => first.name.localeCompare(second.name));
     return { accounts, readAt };
+  }
+
+  /**
+   * Queries one connection after the other, so a page never starts a burst
+   * of CLIs; the query fails only when no connection could be read.
+   */
+  private async refresh(
+    connections: readonly AgentConnectionRecord[],
+  ): Promise<void> {
+    const { probe } = this.dependencies;
+    if (!probe) return;
+    let hasRead = false;
+    let failure: AgentError | null = null;
+    for (const connection of connections) {
+      const outcome = await probe.refresh(connection);
+      if (outcome.status === "read") hasRead = true;
+      if (outcome.status === "failed")
+        failure ??= new AgentError(outcome.errorCode);
+    }
+    if (failure && !hasRead) throw failure;
   }
 
   private async viewer(userId: string): Promise<AgentViewer | null> {

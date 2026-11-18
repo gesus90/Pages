@@ -156,7 +156,12 @@ export class OpenCodeAcpClient {
     if (message.id === undefined) return;
     const result =
       message.method === "session/request_permission"
-        ? { outcome: this.#decide(message.params?.options ?? []) }
+        ? {
+            outcome: this.#decide(
+              message.params?.options ?? [],
+              message.params?.toolCall,
+            ),
+          }
         : undefined;
     await this.#write(
       result

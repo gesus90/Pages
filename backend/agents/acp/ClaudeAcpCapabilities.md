@@ -110,3 +110,32 @@ connection; a newer reading replaces an older one, and a window Claude never
 reported has no row. The Agents page shows one card per active Claude
 connection whose usage scope admits the reader and drops a window once its
 reset passed.
+
+The Agents page also asks Claude itself, when it opens, when its refresh button
+is pressed and with every push of its minute stream (`ClaudeQuotaProbe`). The
+question is the data behind Claude Code's `/usage`: the connection's CLI starts
+in stream-json mode and receives only the SDK control requests `initialize` and
+`get_usage` (`skip_behaviors: true`), never a user message, so no model is
+called. The answer carries `subscription_type` and `rate_limits.five_hour` and
+`rate_limits.seven_day`, each with `utilization` in percent (0 to 100) and
+`resets_at` as ISO time, straight from the claude.ai usage endpoint. Claude Code
+counts that endpoint as non-essential traffic, so this one start sets
+`CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC` to the empty value (any other value,
+`0` included, counts as set: with `1` the answer has `rate_limits: null`, with
+`0` the call is dropped) and keeps telemetry and error reporting off with
+`DISABLE_TELEMETRY=1` and `DISABLE_ERROR_REPORTING=1`. Standard input stays
+open until the answer arrived: at its end the CLI shuts down and drops a
+running endpoint call. A failed call is answered from the CLI's stored copy of
+up to an hour, recognizable by the missing `limits` rows; Pages counts such an
+answer as a failed query (`claude_usage_stale`). A copy younger than a minute
+is answered without a call and counts as current. A reading names every
+current window, so a window it lacks is removed; `rate_limits: null` (no
+subscription limits) keeps the stored windows. Checked on 18 November 2026 against Claude Code 2.1.322 with a Max
+sign-in: the answer named the plan `max`, a seven-day window and no five-hour
+window, and the output held no assistant message.
+
+A connection has at most one such query at a time; requests during it and up
+to ten seconds after it share its result. A connection that is not signed in,
+or whose home a native session holds (it may refresh the sign-in), is not
+asked and keeps its stored figures. The page reports a failure only when no
+asked connection answered.

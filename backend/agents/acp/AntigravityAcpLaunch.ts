@@ -16,6 +16,15 @@ export const ANTIGRAVITY_APP_DATA_DIRECTORY = "antigravity-acp";
 export const ANTIGRAVITY_TOKEN_FILE = "antigravity-oauth-token";
 
 /**
+ * The select option of `agy acp` that carries a model's thinking level.
+ * @remarks
+ * The official entry point names it `thought_level` and refuses
+ * `thinking_level` as an unknown option. It appears after a model is
+ * selected, and each model offers its own levels.
+ */
+export const ANTIGRAVITY_EFFORT_OPTION = "thought_level";
+
+/**
  * The arguments of the official ACP entry point for one connection context.
  * @param home - The connection's isolated context.
  * @returns `agy acp` with its Gemini and application folders inside that

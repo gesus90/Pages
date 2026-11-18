@@ -74,7 +74,7 @@ export function PlanAgentCard(props: {
       }
       onEdit={edit}
     >
-      <div className="flex flex-col gap-1.5 px-3 pt-1 pb-2">
+      <div className="flex flex-col gap-1.5 px-3 pt-1 pb-3">
         {profileProblem ? (
           <p
             role="alert"

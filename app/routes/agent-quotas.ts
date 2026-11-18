@@ -14,7 +14,8 @@ import type { Route } from "./+types/agent-quotas";
  * person may use, with the windows Claude reported.
  * @remarks
  * The page asks when it opens and when the refresh button is pressed; the
- * minute beat comes from the event stream of the page.
+ * minute beat comes from the event stream of the page. Each query asks
+ * Claude for the current usage of these connections.
  */
 export async function loader({ context }: Route.LoaderArgs): Promise<Response> {
   try {

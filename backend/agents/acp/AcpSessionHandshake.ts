@@ -60,7 +60,8 @@ export async function initializeAcpSession(
   });
   requireAcpMcpCapabilities(
     context.request.mcpServers,
-    response.agentCapabilities?.mcpCapabilities,
+    response.agentCapabilities?.mcpCapabilities ??
+      context.driver.mcpCapabilities,
   );
   const promptCapabilities = response.agentCapabilities?.promptCapabilities;
   const isSteeringSupported =

@@ -6,6 +6,7 @@ import { methods, RequestError } from "@agentclientprotocol/sdk";
 import { requireManagedAntigravityConfiguration } from "@/backend/agents/acp/AntigravityConfiguration";
 import {
   ANTIGRAVITY_APP_DATA_DIRECTORY,
+  ANTIGRAVITY_EFFORT_OPTION,
   ANTIGRAVITY_TOKEN_FILE,
   antigravityAcpArguments,
 } from "@/backend/agents/acp/AntigravityAcpLaunch";
@@ -118,7 +119,7 @@ async function readCatalogModel(
     );
     return null;
   }
-  const thinking = findAcpSelectOption(options, "thinking_level");
+  const thinking = findAcpSelectOption(options, ANTIGRAVITY_EFFORT_OPTION);
   return {
     id: entry.value,
     name: entry.name,
@@ -271,7 +272,7 @@ export class AntigravityCli implements CliLoginAdapter {
       );
       if (selection.reasoningEffort !== null)
         options = await protocol.select(session.sessionId, options, {
-          id: "thinking_level",
+          id: ANTIGRAVITY_EFFORT_OPTION,
           value: selection.reasoningEffort,
           error: "plan_reasoning_unsupported",
         });
@@ -284,8 +285,8 @@ export class AntigravityCli implements CliLoginAdapter {
         findAcpSelectOption(options, "model")?.currentValue !==
           selection.model ||
         (selection.reasoningEffort !== null &&
-          findAcpSelectOption(options, "thinking_level")?.currentValue !==
-            selection.reasoningEffort)
+          findAcpSelectOption(options, ANTIGRAVITY_EFFORT_OPTION)
+            ?.currentValue !== selection.reasoningEffort)
       )
         throw new AgentError("plan_context_changed");
       if (!(await protocol.test(session.sessionId, MODEL_TEST_PROMPT)))

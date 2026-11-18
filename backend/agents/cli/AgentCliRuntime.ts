@@ -17,6 +17,7 @@ import type {
 import type { ProviderCheckOutcome } from "@/backend/agents/providers/ProviderContracts";
 import type { AgentCatalogModel } from "@/definition/AgentModelCatalog";
 import type { AgentCredentialStore } from "./AgentCredentialStore";
+import type { ClaudeUsageReading } from "./ClaudeUsageResult";
 import type { CliLoginAdapter, CliToolAdapter } from "./CliContracts";
 import type { CliLocator } from "./CliLocator";
 import type { CliProcessRunner } from "./CliProcessRunner";
@@ -156,6 +157,38 @@ export class AgentCliRuntime {
     const models = await adapter.listModels(home, signal);
     await this.dependencies.store.secure(connection.id, connection.provider);
     return models;
+  }
+
+  /**
+   * Asks Claude Code for the subscription usage of a signed-in connection.
+   * @param connection - A Claude Code connection.
+   * @param signal - Deadline of the query.
+   * @returns The subscription and plan windows the claude.ai usage endpoint reported.
+   * @throws {AgentError} `provider_invalid` for another provider,
+   * `cli_not_logged_in` before a confirmed login, `check_in_progress` while a
+   * native session uses the connection's home, or the CLI failure code.
+   * @remarks
+   * Like every probe, the query waits while a native session may refresh the
+   * sign-in, so it cannot invalidate that session.
+   */
+  public async readClaudeUsage(
+    connection: AgentConnectionRecord,
+    signal: AbortSignal,
+  ): Promise<ClaudeUsageReading> {
+    if (connection.provider !== "claude_code")
+      throw new AgentError("provider_invalid");
+    if (connection.cliLoggedInAt === null)
+      throw new AgentError("cli_not_logged_in");
+    const { runner, store } = this.dependencies;
+    if (runner.hasSession(store.paths(connection.id, connection.provider)))
+      throw new AgentError("check_in_progress");
+    const cli = new ClaudeCodeCli(await this.execution(connection.provider));
+    const home = await store.prepare(connection.id, connection.provider);
+    try {
+      return await cli.readUsage(home, signal);
+    } finally {
+      await store.secure(connection.id, connection.provider);
+    }
   }
 
   /** Local deletion remains mandatory even if the CLI cannot revoke its remote session. */

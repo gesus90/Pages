@@ -11,6 +11,9 @@ import type {
 import type { CliProcessRunner } from "./CliProcessRunner";
 import type { CliSessionProcess } from "./CliSessionProcess";
 
+/** Output bound of a control exchange, in characters. */
+const EXCHANGE_OUTPUT_LIMIT = 8 * 1024 * 1024;
+
 interface LoginOptions {
   readonly arguments: readonly string[];
   readonly parse: (output: string) => CliLoginChallenge | null;
@@ -148,6 +151,54 @@ export class CliToolExecution {
       ...request,
       maxStdoutBytes: 8 * 1024 * 1024,
     });
+  }
+
+  /**
+   * Sends control requests on an input that stays open until the answer arrived.
+   * @param home - The connection's CLI home.
+   * @param exchange - Arguments, request lines, extra environment and the test
+   * that recognizes the answer line.
+   * @param signal - Deadline of the exchange.
+   * @returns The result with the collected output, bounded at 8 MiB.
+   * @remarks
+   * A CLI that reads its input to the end shuts down there and drops a
+   * request it is still working on, so the input ends only after the answer.
+   * A missing answer ends with the 20-second timeout.
+   */
+  public async exchange(
+    home: CliHome,
+    exchange: {
+      readonly arguments: readonly string[];
+      readonly requests: readonly string[];
+      readonly environment: Readonly<Record<string, string>>;
+      readonly isAnswer: (line: string) => boolean;
+    },
+    signal: AbortSignal,
+  ): Promise<CliProcessResult> {
+    const lines: string[] = [];
+    let size = 0;
+    const session = this.runner.startSession({
+      file: this.file,
+      provider: this.provider,
+      home,
+      arguments: exchange.arguments,
+      workingDirectory: home.work,
+      environment: exchange.environment,
+      timeoutMs: 20_000,
+      signal,
+      onLine: (line) => {
+        size += line.length;
+        if (size > EXCHANGE_OUTPUT_LIMIT) {
+          session.cancel("cli_unexpected_output");
+          return;
+        }
+        lines.push(line);
+        if (exchange.isAnswer(line)) session.endInput();
+      },
+    });
+    for (const request of exchange.requests) session.write(request);
+    const result = await session.completed;
+    return { ...result, stdout: lines.join("\n") };
   }
 
   /** Reads version only when an administrator explicitly starts a check or login. */

@@ -35,6 +35,9 @@ const PLAN_VARIABLE_HEIGHT = 90;
 // Header, preview, file name, meta line and the data OUT of an asset card.
 const PLAN_ASSET_HEIGHT = 268;
 const AGENT_BASE_HEIGHT = 172;
+// The rows an agent card adds to the base: its execution context and its
+// result, the 12 px below them and the model footer, 64 px with its 1 px line.
+const AGENT_BODY_HEIGHT = 116;
 const AGENT_INPUT_HEIGHT = 38;
 // The two optional rows of an agent, Ereignis IN and the boolean Ergebnis, with their gaps.
 const AGENT_BRANCHING_HEIGHT = 68;
@@ -72,7 +75,7 @@ function agentHeight(step: AgentPlanStep, sources: AgentPlanSources): number {
   const inputs = planStepTemplate(step, sources.agents)?.parameters.length ?? 0;
   return (
     AGENT_BASE_HEIGHT +
-    96 +
+    AGENT_BODY_HEIGHT +
     AGENT_BRANCHING_HEIGHT +
     inputs * AGENT_INPUT_HEIGHT
   );

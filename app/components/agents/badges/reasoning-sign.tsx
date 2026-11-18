@@ -5,10 +5,12 @@ import type { ReasoningBadgeLevel } from "@/definition/AgentModelIdentity";
 
 /** The colors of one reasoning level; static, so Tailwind finds the classes. */
 interface ReasoningLevelClasses {
-  /** Border, background and text of a badge or a field that shows the level. */
+  /** Border, background and text of a badge that shows the level. */
   readonly badge: string;
-  /** The unchanged background of a field that shows the level, while it is hovered. */
-  readonly fieldHover: string;
+  /** The border of a field on the surface that shows the level. */
+  readonly fieldBorder: string;
+  /** The color of the level's sign where it stands without a tile. */
+  readonly sign: string;
   /** Background and sign color of the level's tile. */
   readonly tile: string;
   /** Background and text of the level's row while it is the chosen one. */
@@ -29,7 +31,8 @@ export const REASONING_LEVEL_CLASSES: Readonly<
   none: {
     badge:
       "border-reasoning-none-dot bg-reasoning-none-subtle text-reasoning-none",
-    fieldHover: "hover:bg-reasoning-none-subtle",
+    fieldBorder: "border-reasoning-none-dot",
+    sign: "text-reasoning-none",
     tile: "bg-reasoning-none-dot/24 text-reasoning-none",
     chosenRow:
       "data-[state=checked]:bg-reasoning-none-subtle data-[state=checked]:text-reasoning-none",
@@ -37,7 +40,8 @@ export const REASONING_LEVEL_CLASSES: Readonly<
   minimal: {
     badge:
       "border-reasoning-minimal-dot bg-reasoning-minimal-subtle text-reasoning-minimal",
-    fieldHover: "hover:bg-reasoning-minimal-subtle",
+    fieldBorder: "border-reasoning-minimal-dot",
+    sign: "text-reasoning-minimal",
     tile: "bg-reasoning-minimal-dot/24 text-reasoning-minimal",
     chosenRow:
       "data-[state=checked]:bg-reasoning-minimal-subtle data-[state=checked]:text-reasoning-minimal",
@@ -45,7 +49,8 @@ export const REASONING_LEVEL_CLASSES: Readonly<
   low: {
     badge:
       "border-reasoning-low-dot bg-reasoning-low-subtle text-reasoning-low",
-    fieldHover: "hover:bg-reasoning-low-subtle",
+    fieldBorder: "border-reasoning-low-dot",
+    sign: "text-reasoning-low",
     tile: "bg-reasoning-low-dot/24 text-reasoning-low",
     chosenRow:
       "data-[state=checked]:bg-reasoning-low-subtle data-[state=checked]:text-reasoning-low",
@@ -53,7 +58,8 @@ export const REASONING_LEVEL_CLASSES: Readonly<
   medium: {
     badge:
       "border-reasoning-medium-dot bg-reasoning-medium-subtle text-reasoning-medium",
-    fieldHover: "hover:bg-reasoning-medium-subtle",
+    fieldBorder: "border-reasoning-medium-dot",
+    sign: "text-reasoning-medium",
     tile: "bg-reasoning-medium-dot/24 text-reasoning-medium",
     chosenRow:
       "data-[state=checked]:bg-reasoning-medium-subtle data-[state=checked]:text-reasoning-medium",
@@ -61,7 +67,8 @@ export const REASONING_LEVEL_CLASSES: Readonly<
   high: {
     badge:
       "border-reasoning-high-dot bg-reasoning-high-subtle text-reasoning-high",
-    fieldHover: "hover:bg-reasoning-high-subtle",
+    fieldBorder: "border-reasoning-high-dot",
+    sign: "text-reasoning-high",
     tile: "bg-reasoning-high-dot/24 text-reasoning-high",
     chosenRow:
       "data-[state=checked]:bg-reasoning-high-subtle data-[state=checked]:text-reasoning-high",
@@ -69,7 +76,8 @@ export const REASONING_LEVEL_CLASSES: Readonly<
   xhigh: {
     badge:
       "border-reasoning-xhigh-dot bg-reasoning-xhigh-subtle text-reasoning-xhigh",
-    fieldHover: "hover:bg-reasoning-xhigh-subtle",
+    fieldBorder: "border-reasoning-xhigh-dot",
+    sign: "text-reasoning-xhigh",
     tile: "bg-reasoning-xhigh-dot/24 text-reasoning-xhigh",
     chosenRow:
       "data-[state=checked]:bg-reasoning-xhigh-subtle data-[state=checked]:text-reasoning-xhigh",
@@ -77,7 +85,8 @@ export const REASONING_LEVEL_CLASSES: Readonly<
   max: {
     badge:
       "border-reasoning-max-dot bg-reasoning-max-subtle text-reasoning-max",
-    fieldHover: "hover:bg-reasoning-max-subtle",
+    fieldBorder: "border-reasoning-max-dot",
+    sign: "text-reasoning-max",
     tile: "bg-reasoning-max-dot text-surface",
     chosenRow:
       "data-[state=checked]:bg-reasoning-max-subtle data-[state=checked]:text-reasoning-max",
@@ -85,7 +94,8 @@ export const REASONING_LEVEL_CLASSES: Readonly<
   ultra: {
     badge:
       "border-reasoning-ultra-dot bg-reasoning-ultra-subtle text-reasoning-ultra",
-    fieldHover: "hover:bg-reasoning-ultra-subtle",
+    fieldBorder: "border-reasoning-ultra-dot",
+    sign: "text-reasoning-ultra",
     tile: "bg-linear-135 from-reasoning-ultra-dot to-reasoning-max-dot text-surface",
     chosenRow:
       "data-[state=checked]:bg-reasoning-ultra-subtle data-[state=checked]:text-reasoning-ultra",
@@ -174,9 +184,8 @@ export function ReasoningSign({
  * The tile of a reasoning level with its sign centered on it.
  * @remarks
  * The size and radius of the tile come from `className`, the size of the
- * sign from `signClassName`: 18 px with a 12 px sign in the small badge,
- * 24 px with a 16 px sign in the open choice and 28 px with a 16 px sign in
- * the footer of an agent node.
+ * sign from `signClassName`, such as 18 px with a 12 px sign in the small
+ * badge. The footer of an agent node shows the sign without a tile.
  */
 export function ReasoningTile({
   level,

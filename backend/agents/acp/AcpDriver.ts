@@ -1,5 +1,6 @@
 import type {
   Implementation,
+  McpCapabilities,
   RequestPermissionOutcome,
   RequestPermissionRequest,
 } from "@agentclientprotocol/sdk";
@@ -142,6 +143,11 @@ export interface AcpDriver {
   readonly launchArguments?: (home: CliHome) => readonly string[];
   /** The adapter versions Pages verified, as the run record names them. */
   readonly supportedVersions: string;
+  /**
+   * The MCP transports the adapter takes although its `initialize` answer
+   * names none; a transport the adapter does advertise is always preferred.
+   */
+  readonly mcpCapabilities?: McpCapabilities;
   readonly errors: AcpDriverErrors;
   /**
    * The `_meta` of a steering request, or `null` for none.

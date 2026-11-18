@@ -20,6 +20,7 @@ import { CatalogHttpClient } from "@/backend/agents/catalog/CatalogHttpClient";
 import { AuthorizationRepository } from "@/backend/database/repositories/AuthorizationRepository";
 import { UserGroupRepository } from "@/backend/database/repositories/UserGroupRepository";
 import { AgentConnectionAccess } from "@/backend/service/agents/AgentConnectionAccess";
+import { ClaudeQuotaProbe } from "@/backend/service/agents/ClaudeQuotaProbe";
 import { ClaudeQuotaService } from "@/backend/service/agents/ClaudeQuotaService";
 import { LocalSessions } from "@/backend/agents/local/LocalSessions";
 import { CHAT_REQUEST_TIMEOUT_MS } from "@/backend/service/chat/ChatExecutionLimits";
@@ -105,11 +106,15 @@ export interface AgentApplicationServices
   readonly agentCliGitHubCredentials: CliGitHubCredentials;
 }
 
-/** The connection scope check and the decision model, which share one reading of the groups. */
+/**
+ * The connection scope check, the quota page and the decision model, which
+ * share one reading of the groups; the quota page asks Claude through the CLI runtime.
+ */
 function createAccessServices(
   database: Database,
   repository: AgentConnectionRepository,
   cipher: InstanceSecretCipher,
+  runtime: AgentCliRuntime,
 ): {
   readonly access: AgentConnectionAccess;
   readonly claudeQuotaService: ClaudeQuotaService;
@@ -129,6 +134,10 @@ function createAccessServices(
       connections: repository,
       authorization,
       groups,
+      probe: new ClaudeQuotaProbe({
+        reader: runtime,
+        repository: repository.quotas(),
+      }),
     }),
     ...createChatDecisionServices({
       database,
@@ -198,12 +207,8 @@ export function createAgentServices(
   const cipher = new InstanceSecretCipher(tokenKey);
   const operations = new AgentOperationRegistry();
   const acpResourceScheduler = createAcpResources(database, resources);
-  const cliRuntime = createCliRuntime({
-    dataDirectory,
-    agentsDirectory,
-    cipher,
-  });
-  const { runtime, agentToolManagerService } = cliRuntime;
+  const cli = createCliRuntime({ dataDirectory, agentsDirectory, cipher });
+  const { runtime, agentToolManagerService } = cli;
   startEnvironmentMaintenance(
     database,
     dataDirectory,
@@ -220,7 +225,7 @@ export function createAgentServices(
     dataDirectory,
     agentsDirectory,
     connections: repository,
-    credentials: cliRuntime.store,
+    credentials: cli.store,
     operations,
     ticketAssets,
   });
@@ -230,6 +235,7 @@ export function createAgentServices(
     database,
     repository,
     cipher,
+    runtime,
   );
   const github = createGitHubCredentials({
     database,
@@ -246,7 +252,7 @@ export function createAgentServices(
     repository,
     cipher,
     operations,
-    ...cliRuntime,
+    ...cli,
     access,
     github: github.agentCliGitHubCredentials,
     catalog: refresh,
@@ -281,7 +287,7 @@ export function createAgentServices(
       repository,
       cipher,
       operations,
-      cliRuntime,
+      cliRuntime: cli,
       refresh,
     }),
   };

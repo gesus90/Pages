@@ -346,6 +346,7 @@ const ERROR_CLASSES: Readonly<Record<AgentErrorCode, AgentPlanBlockerClass>> = {
   cli_auth_failed: "open",
   cli_check_failed: "open",
   cli_unexpected_output: "infrastructure",
+  claude_usage_stale: "infrastructure",
   login_in_progress: "open",
   login_limit_reached: "infrastructure",
   login_not_running: "open",

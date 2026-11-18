@@ -86,9 +86,11 @@ than provider tokens in DuckDB.
 
 ## Models, permissions and lifecycle
 
-The catalog reads ACP model **selectors** and each model's `thinking_level`
-choices. Model family IDs may differ from both CLI names and concrete variant
-IDs. Every model the connection's ACP picker offers is listed, whatever its
+The catalog reads ACP model **selectors** and each model's `thought_level`
+choices; `agy acp` offers that select after a model is chosen and refuses the
+name `thinking_level` as an unknown option. A model without that select has no
+effort levels. Model family IDs may differ from both CLI names and concrete
+variant IDs. Every model the connection's ACP picker offers is listed, whatever its
 family (Gemini, Claude, GPT-OSS or an orchestrator); Pages keeps no list of
 model names or IDs. A model whose selector Pages cannot accept or whose
 selection the adapter refuses is left out with its selector and reason in the
@@ -98,21 +100,28 @@ once. The models a terminal `agy models` lists belong to the terminal's own
 sign-in and CLI version and prove nothing about a connection: its catalog is
 what `agy acp` offers in the connection's context with the managed CLI
 generation. Pages requires membership and exact confirmation of `model`, the requested
-`thinking_level`, and `mode` before sending a prompt. It does not guess a Flash
+`thought_level`, and `mode` before sending a prompt. It does not guess a Flash
 alias, choose another model or accept a silently remapped effort.
 
 Read-only plans use the adapter's `default` mode with an explicit allowlist of
 file-reading and web tools. Shell, writes, browser and delegation are excluded.
-Every unexpected permission request is denied. YOLO requires the explicit Pages
-YOLO choice and the adapter's `yolo` mode. Local plans require the existing
-namespace isolation in both modes. Global MCP, hooks and unreviewed settings are
+Every unexpected permission request is denied. In `default` mode `agy acp` asks
+before every call of an MCP tool, so a read-only node approves the calls of its
+own Pages tools, recognized by the title `Run mcp_pages_<tool>`, and nothing
+else. YOLO requires the explicit Pages YOLO choice. `agy acp` offers the modes `default`, `accept-edits` and `plan` and
+refuses `yolo` as an unknown mode, so a YOLO session also runs in `default`
+and Pages answers every permission request of that session itself. Local plans
+require the existing namespace isolation in both modes. Global MCP, hooks and unreviewed settings are
 refused; project hook files are also refused because they can execute outside
 the tool permission path.
 
-The adapter supports stdio, HTTP and SSE MCP. Pages offers the tools of a plan
+Pages offers the tools of a plan
 step as an HTTP MCP server (`/api/v1/plan-bridge`) with a step-bound token, so no
 separate process is started. Shared ACP launch contracts accept HTTP/SSE entries only when the actual
-handshake advertises their transport. Tokens travel through protocol input or
+handshake advertises their transport. `agy acp` advertises no `mcpCapabilities`
+at all, yet it connects to an HTTP server named in `session/new` and calls its
+tools, so the Antigravity driver declares HTTP itself; stdio and SSE stay
+unclaimed. Tokens travel through protocol input or
 a process environment, never the process argument list.
 
 Plan turns, streaming, continuation, targeted session resume, deadlines,
@@ -138,7 +147,7 @@ before every first and every later prompt.
 ## Pica
 
 Pica may use this provider (product release of 08.11.2026). A Pica session
-runs in the shared ACP engine with the same model, `thinking_level` and `mode`
+runs in the shared ACP engine with the same model, `thought_level` and `mode`
 confirmation as a plan, inside the namespace isolation, and only in "Nur
 Lesen"; an agent stored with YOLO is refused, never narrowed. No native tool
 is enabled (`enabledTools: []`). The session's one MCP server is Pica's bridge
@@ -218,7 +227,7 @@ claim that the original universal reliability requirements have been met.
 
 | Behavior                   | Existing implementation and meaning                                                                                                                                                                                                                                                                                                                                                                                   |
 | -------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Start and model selection  | `AntigravityAcpDriver.ts` supplies the official adapter profile, exact model and `thinking_level` selectors, native-tool policy and step-bound Pages bridge. `AcpSession.ts` verifies the handshake and confirms configuration before prompting. No model is hardcoded in the runtime.                                                                                                                                |
+| Start and model selection  | `AntigravityAcpDriver.ts` supplies the official adapter profile, exact model and `thought_level` selectors, native-tool policy and step-bound Pages bridge. `AcpSession.ts` verifies the handshake and confirms configuration before prompting. No model is hardcoded in the runtime.                                                                                                                                 |
 | Assigned TODOs             | `backend/service/agents/AgentPlanStepProgressService.ts` initializes ticket criteria and instruction checkboxes before dispatch, stores `update_step_progress` immediately, and retains completed work only within the matching iteration and ticket scope. Ticket completion uses the revision-protected checklist service.                                                                                          |
 | Structured agent TODOs     | `AcpSession.ts` forwards ACP updates to `backend/service/agents/sessions/AgentSessionRecorder.ts`. The recorder journals structured `plan` entries; `backend/database/repositories/agent/AgentSessionRepository.ts` projects them into `agent_plan_agent_todos`. `backend/service/agents/AgentPlanAgentTodoService.ts` looks up each node/loop iteration by its attempt ID. Free text is never inferred to be a TODO. |
 | Run panel                  | `backend/service/agents/AgentPlanRunReader.ts` combines authorized checklist observations, explicit progress and agent TODOs. `app/components/agents/plans/plan-agent-todo-model.ts` combines those lists for the counter and visible TODOs. `use-plan-poll.ts` polls active runs at a nominal two-second interval while the tab is visible; that interval does not establish a two-second end-to-end guarantee.      |

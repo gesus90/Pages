@@ -11,7 +11,8 @@ import type { Route } from "./+types/agent-quota-events";
  * Pushes the quota figures to the open quota page once a minute.
  * @remarks
  * Only the quota page opens this stream, so no other page causes a read.
- * Every push reads the cards anew with the person's current rights.
+ * Every push reads the cards anew with the person's current rights and asks
+ * Claude for the current usage of the connections they may use.
  */
 export async function loader({
   request,

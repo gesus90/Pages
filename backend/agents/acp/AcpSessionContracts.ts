@@ -54,6 +54,7 @@ export interface AcpSessionContext {
     | "supportedVersions"
     | "isSupportedAdapter"
     | "steeringMeta"
+    | "mcpCapabilities"
   >;
   readonly profile: AcpSessionProfile;
   readonly request: AcpSessionRequest;
