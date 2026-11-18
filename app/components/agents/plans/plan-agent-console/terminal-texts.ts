@@ -1,3 +1,5 @@
+import { formatMinuteTime, formatSecondTime } from "./console-time";
+
 import type { TFunction } from "i18next";
 import type { TerminalTexts } from "./terminal-lines";
 
@@ -15,6 +17,7 @@ const TOOL_KINDS: ReadonlySet<string> = new Set([
 /**
  * The words of the Pages terminal in the language of the reader.
  * @param t - The translation function of the console.
+ * @param language - The app language; it also sets how the times and numbers read, never the language of the browser.
  */
 export function terminalTexts(t: TFunction, language: string): TerminalTexts {
   const key = "plans.console.terminal";
@@ -26,6 +29,8 @@ export function terminalTexts(t: TFunction, language: string): TerminalTexts {
     t(`${key}.${isSameSession ? "sameSession" : "newSession"}`);
   return {
     attempt: (number) => t(`${key}.attempt`, { number }),
+    minute: (at) => formatMinuteTime(at, language),
+    clock: (at) => formatSecondTime(at, language),
     toolKind: (kind) =>
       TOOL_KINDS.has(kind) ? t(`${key}.toolKind.${kind}`) : null,
     done: t(`${key}.done`),
@@ -37,12 +42,13 @@ export function terminalTexts(t: TFunction, language: string): TerminalTexts {
       t(`${key}.toolDuration`, {
         seconds: secondsFormat.format(milliseconds / 1000),
       }),
-    showDetails: t(`${key}.toolShowDetails`),
-    hideDetails: t(`${key}.toolHideDetails`),
+    showOutput: t(`${key}.toolShowOutput`),
+    hideOutput: t(`${key}.toolHideOutput`),
+    showJson: (lines) => t(`${key}.toolShowJson`, { count: lines }),
+    hideJson: t(`${key}.toolHideJson`),
     outputLimited: t(`${key}.toolOutputLimited`),
     history: (note) => t(`${key}.history.${note}`),
-    todoActive: (id, text) => t(`${key}.todoActive`, { id, text }),
-    todoDone: (id) => t(`${key}.todoDone`, { id }),
+    todo: (id, text) => t(`${key}.todo`, { id, text }),
     turnEnded: t(`${key}.turnEnded`),
     interrupted: t(`${key}.interrupted`),
     reportReceived: (done, total) =>

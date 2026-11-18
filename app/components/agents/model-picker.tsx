@@ -6,11 +6,16 @@ import { modelConsumerRefusal } from "@/definition/AgentModelConsumers";
 
 import { cn } from "@/app/lib/cn";
 
+import { FreeBadge } from "./badges/free-badge";
 import {
   ModelChoiceBadge,
   modelChoiceFieldClass,
 } from "./badges/model-choice-badge";
-import { findModelChoice, modelGroups } from "./model-picker/model-catalog";
+import {
+  findModelChoice,
+  modelGroups,
+  openCodeSourceName,
+} from "./model-picker/model-catalog";
 import {
   MODEL_BADGE_FIELD_ARROW_CLASS,
   MODEL_BADGE_FIELD_CLASS,
@@ -19,7 +24,6 @@ import {
   MODEL_FIELD_LABEL_CLASS,
 } from "./model-picker/model-field";
 import { ModelPickerPanel } from "./model-picker/model-picker-panel";
-import { FreeBadge } from "./model-picker/model-picker-rows";
 import { ToolMark } from "./model-picker/tool-mark";
 import { useModelPicker } from "./model-picker/use-model-picker";
 
@@ -97,7 +101,7 @@ function TriggerValue(props: {
       </span>
     );
   const { choice, group } = selected;
-  // A source named like its tool, such as OpenCode's own models, adds nothing.
+  // A source named like its tool adds nothing.
   const source = choice.source === group.label ? null : choice.source;
   const detail = [group.label, source, choice.detail]
     .filter((part) => part !== null)
@@ -150,6 +154,11 @@ function BadgeTriggerValue(props: {
       mark={selected.group.mark}
       name={selected.choice.label}
       tool={selected.group.label}
+      source={openCodeSourceName(
+        selected.choice.model.provider,
+        selected.choice.model.model,
+        t,
+      )}
     />
   );
 }

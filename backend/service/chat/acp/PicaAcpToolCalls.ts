@@ -83,6 +83,41 @@ function status(update: ToolUpdate): ChatJobToolEvent["status"] | null {
   return update.sessionUpdate === "tool_call" ? "running" : null;
 }
 
+/** The input and the result of a call, each merged with its earlier state. */
+function payload(
+  update: ToolUpdate,
+  previous: PicaNativeToolEvent | undefined,
+): Pick<PicaNativeToolEvent, "input" | "output"> {
+  const input = merged(describe(update.rawInput), previous?.input);
+  const output = merged(
+    contentText(update.content) ?? describe(update.rawOutput),
+    previous?.output,
+  );
+  return {
+    ...(input === undefined ? {} : { input }),
+    ...(output === undefined ? {} : { output }),
+  };
+}
+
+/** The state of a call after one of its updates, merged with the state it had before. */
+function nextCall(
+  update: ToolUpdate,
+  name: string | null,
+  turn: number,
+  previous: PicaNativeToolEvent | undefined,
+): PicaNativeToolEvent {
+  const title = update.title ?? previous?.tool ?? name ?? "tool";
+  return {
+    callId: update.toolCallId,
+    turn: previous?.turn ?? turn,
+    tool: bounded(title).slice(0, 200),
+    status: status(update) ?? previous?.status ?? "running",
+    error: null,
+    isNative: true,
+    ...payload(update, previous),
+  };
+}
+
 /**
  * Collects the tool calls an adapter reports for the chat of an agent with
  * host tools: command or tool, input and result, bounded and with
@@ -103,26 +138,16 @@ export class PicaAcpToolCalls {
    *
    * @returns The new state of the call, or `null` for any other update.
    */
-  public read(update: SessionUpdate): PicaNativeToolEvent | null {
+  public read(update: SessionUpdate, turn: number): PicaNativeToolEvent | null {
     if (!isToolUpdate(update)) return null;
     const name = toolName(update);
     if (isOwnTool(name)) return null;
-    const previous = this.calls.get(update.toolCallId);
-    const input = merged(describe(update.rawInput), previous?.input);
-    const output = merged(
-      contentText(update.content) ?? describe(update.rawOutput),
-      previous?.output,
+    const next = nextCall(
+      update,
+      name,
+      turn,
+      this.calls.get(update.toolCallId),
     );
-    const title = update.title ?? previous?.tool ?? name ?? "tool";
-    const next: PicaNativeToolEvent = {
-      callId: update.toolCallId,
-      tool: bounded(title).slice(0, 200),
-      status: status(update) ?? previous?.status ?? "running",
-      error: null,
-      isNative: true,
-      ...(input === undefined ? {} : { input }),
-      ...(output === undefined ? {} : { output }),
-    };
     this.calls.set(update.toolCallId, next);
     return next;
   }

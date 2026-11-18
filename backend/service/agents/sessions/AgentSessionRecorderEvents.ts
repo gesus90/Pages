@@ -16,6 +16,33 @@ const TOOL_TEXT = 3_000;
 /** Longest identity of a tool call that is kept; a provider ID is far shorter. */
 const CALL_IDENTITY_LENGTH = 200;
 
+/** Longest short description of a call that is kept. */
+const ABOUT_LENGTH = 200;
+
+/** Longest name of a tool that is kept; a tool name is far shorter. */
+const TOOL_NAME_LENGTH = 120;
+
+/**
+ * Fields of a JSON input that name what a call works on, most telling first.
+ * @remarks
+ * A call of a Pages tool has no command; the ticket, path or query it works
+ * on says more than its arguments as JSON.
+ */
+const SUBJECT_FIELDS = [
+  "ticketId",
+  "ticket",
+  "key",
+  "id",
+  "path",
+  "filePath",
+  "file_path",
+  "query",
+  "pattern",
+  "url",
+  "name",
+  "title",
+] as const;
+
 /** What a tool call reported so far: its identity, title, kind and input. */
 export interface ToolCallState {
   /** The `toolCallId` of the provider, which pairs every update and result with its call. */
@@ -23,6 +50,10 @@ export interface ToolCallState {
   title: string;
   kind: string;
   input: string;
+  /** The tool name the adapter reported, such as `Bash` or `mcp__pages__read_ticket`; empty when it reported none. */
+  toolName?: string;
+  /** The short description of the call, such as the `description` of a Claude Code command; empty when the call has none. */
+  about?: string;
   /** The raw input, kept only for a call of `update_step_progress`. */
   raw?: unknown;
   /** The start was recorded; an adapter that names the arguments only later is announced then. */
@@ -61,6 +92,64 @@ export function describeInput(raw: unknown): string {
     if (typeof value === "string") return shortened(value);
   }
   return shortened(JSON.stringify(raw));
+}
+
+/** The first line of a text that is not blank, without surrounding blanks. */
+function firstNonBlankLine(text: string): string {
+  return (
+    text
+      .split("\n")
+      .find((line) => line.trim() !== "")
+      ?.trim() ?? ""
+  );
+}
+
+/**
+ * The tool name Claude Code reports in the `_meta` of a tool call update.
+ * @param meta - The `_meta` of an ACP tool call or tool call update.
+ * @returns The name, or an empty text when the update names none.
+ */
+export function reportedToolName(meta: unknown): string {
+  const claudeCode = readRecord(readRecord(meta)?.claudeCode);
+  const name = claudeCode?.toolName;
+  return typeof name === "string" ? name.trim().slice(0, TOOL_NAME_LENGTH) : "";
+}
+
+/** What a call of an MCP tool works on: the ticket, path or query its JSON input names, else its first plain arguments. */
+function describeSubject(input: Record<string, unknown>): string {
+  for (const field of SUBJECT_FIELDS) {
+    const value = input[field];
+    if (typeof value === "string" && value.trim() !== "")
+      return firstNonBlankLine(value).slice(0, ABOUT_LENGTH);
+    if (typeof value === "number") return String(value);
+  }
+  // Keys of the idempotency and revision checks name nothing the reader looks for.
+  const argumentTexts = Object.entries(input).flatMap(([name, value]) =>
+    (typeof value === "string" || typeof value === "number") &&
+    !/^(?:operationId|expected)/u.test(name)
+      ? [`${name}=${firstNonBlankLine(String(value))}`]
+      : [],
+  );
+  return argumentTexts.slice(0, 2).join(" ").slice(0, ABOUT_LENGTH);
+}
+
+/**
+ * The short description of a call: the `description` an agent gave its
+ * command, and for an MCP tool the thing its JSON input names.
+ * @param raw - The raw input of the call.
+ * @param toolName - The tool name the adapter reported; empty when it reported none.
+ * @returns One line, or an empty text when the call has no short description.
+ * @remarks
+ * Any other tool is described by its own command, path or pattern, which the
+ * input line already holds.
+ */
+export function describeCall(raw: unknown, toolName: string): string {
+  const input = readRecord(raw);
+  if (!input) return "";
+  const description = input.description;
+  if (typeof description === "string" && description.trim() !== "")
+    return firstNonBlankLine(description).slice(0, ABOUT_LENGTH);
+  return toolName.startsWith("mcp__") ? describeSubject(input) : "";
 }
 
 /** What a tool call returned, as far as the adapter reported it. */
@@ -131,6 +220,11 @@ export function describeOutput(
   };
 }
 
+/** A marker text as one line: line breaks and control characters become blanks. */
+function markerText(text: string): string {
+  return text.replace(/[\p{Cc}\s]+/gu, " ").trim();
+}
+
 /** The identity of a call as one line without blanks or control characters; empty when the provider sent none. */
 function callIdentity(callId: string): string {
   return callId.replace(/[\s\p{Cc}]/gu, "").slice(0, CALL_IDENTITY_LENGTH);
@@ -142,6 +236,9 @@ function callIdentity(callId: string): string {
  * A call without a title is named by its kind, never by the internal ID of
  * the call, which says nothing to a reader. The kind line (`@kind read`)
  * lets the Pages terminal name the call the same way for every provider.
+ * `@tool` carries the tool name and `@about` the short description where the
+ * adapter reports them; a command keeps only its first line, because the
+ * terminal shows the first line and never a piece from the middle.
  * The call line (`@call <id>`) carries the adapter's stable `toolCallId`, the
  * only key the terminal joins the start and the end of a call by; the
  * terminal never shows it. `@exit` appears only for an exit code the adapter
@@ -154,9 +251,11 @@ export function toolText(state: ToolCallState, output?: ToolOutput): string {
     title,
     `@kind ${state.kind}`,
     identity ? `@call ${identity}` : "",
+    state.toolName ? `@tool ${markerText(state.toolName)}` : "",
+    state.about ? `@about ${markerText(state.about)}` : "",
     output && output.exitCode !== null ? `@exit ${output.exitCode}` : "",
     output?.isLimited ? "@limited" : "",
-    state.input ? `$ ${state.input.replace(/\n/gu, " ")}` : "",
+    state.input ? `$ ${firstNonBlankLine(state.input)}` : "",
     output?.text ?? "",
   ]
     .filter((part) => part !== "")

@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 
 import { cn } from "@/app/lib/cn";
 
+import { FreeBadge } from "../badges/free-badge";
 import { ToolMark } from "./tool-mark";
 import { groupRowKey, modelRowKey } from "./use-model-picker";
 
@@ -20,16 +21,6 @@ const TEXT_COLUMN = "pl-10";
 // Scrolls the highlighted row into view inside the list.
 function revealRow(element: HTMLElement | null): void {
   element?.scrollIntoView({ block: "nearest" });
-}
-
-/** The green pill of a model the catalog states as free for exactly this access. */
-export function FreeBadge(): React.ReactElement {
-  const { t } = useTranslation();
-  return (
-    <span className="inline-flex h-5 shrink-0 items-center rounded-full border border-success/40 bg-success-subtle px-2 text-[11px] leading-none font-bold text-success">
-      {t("plans.modelPicker.free")}
-    </span>
-  );
 }
 
 function ModelRow({

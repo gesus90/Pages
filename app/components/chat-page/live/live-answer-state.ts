@@ -35,6 +35,8 @@ export interface LiveDelivery {
 export interface LiveAnswerState {
   readonly answers: Readonly<Record<string, LiveAnswerView>>;
   readonly deliveries: Readonly<Record<string, LiveDelivery>>;
+  /** Open answers awaiting confirmation in the current sign-in. */
+  readonly unconfirmedAnswerIds: ReadonlySet<string> | null;
 }
 
 /** The chat a view belongs to. */
@@ -70,6 +72,7 @@ export type ToolAction =
 export const EMPTY_LIVE_STATE: LiveAnswerState = {
   answers: {},
   deliveries: {},
+  unconfirmedAnswerIds: null,
 };
 
 const TOOL_ACTIONS: readonly {
@@ -94,7 +97,7 @@ function emptyView(head: LiveAnswerHead): LiveAnswerView {
     chatId: head.chatId,
     agentId: head.agentId,
     seq: 0,
-    startedAt: head.at,
+    startedAt: head.answerStartedAt ?? head.at,
     lastAt: head.at,
     text: "",
     thought: null,
@@ -137,11 +140,13 @@ function applyPart(
       };
     case "answer_tool":
       return { ...base, tools: withTool(view.tools, payload.data.tool) };
-    case "answer_end":
+    case "answer_end": {
+      const { messageId, state, endedAt = payload.data.at } = payload.data;
       return {
         ...base,
-        end: { messageId: payload.data.messageId, state: payload.data.state },
+        end: { messageId, state, endedAt },
       };
+    }
     case "answer_steer":
       return base;
   }
@@ -183,37 +188,70 @@ export function applyLiveAnswerEvent(
         }
       : state.deliveries;
   return {
+    ...state,
     answers: { ...state.answers, [view.answerId]: view },
     deliveries,
   };
 }
 
-/** What changes the live state: a part of the stream, or a connection that opened again. */
+/** An answer update or a boundary of the snapshot exchange. */
 export type LiveAnswerAction =
-  LiveAnswerEventPayload | { readonly type: "connection_restored" };
+  | LiveAnswerEventPayload
+  | { readonly type: "answer_sync_started" }
+  | { readonly type: "answer_sync_complete" }
+  | { readonly type: "answer_sync_interrupted" };
 
 /**
  * Applies one change to the live state.
  * @remarks
  * Right after the sign-in of a connection the server sends a snapshot of
- * every answer it still holds, running or ended a short while ago. When the
- * connection opens again, the answers that were running before are dropped
- * and the snapshot brings back those that still run; one that is not in it
- * ended or was lost while the connection was down, and the stored message
- * takes its place, so no block of an answer that is long over stays.
- * @param state - What the page knows so far.
- * @param action - A part of the stream, or the restored connection.
+ * every answer it still holds. Previously open answers survive until a
+ * complete exchange confirms which ones are still known to the server.
  */
 export function applyLiveAnswerAction(
   state: LiveAnswerState,
   action: LiveAnswerAction,
 ): LiveAnswerState {
-  if (action.type !== "connection_restored")
-    return applyLiveAnswerEvent(state, action);
-  const ended = Object.entries(state.answers).filter(
-    ([, view]) => view.end !== null,
+  if (action.type === "answer_sync_started")
+    return {
+      ...state,
+      unconfirmedAnswerIds: new Set(
+        Object.values(state.answers)
+          .filter((view) => view.end === null)
+          .map((view) => view.answerId),
+      ),
+    };
+  if (action.type === "answer_sync_interrupted")
+    return { ...state, unconfirmedAnswerIds: null };
+  if (action.type === "answer_sync_complete") return finishAnswerSync(state);
+  return applySyncedAnswerEvent(state, action);
+}
+
+function finishAnswerSync(state: LiveAnswerState): LiveAnswerState {
+  const { unconfirmedAnswerIds } = state;
+  if (unconfirmedAnswerIds === null) return state;
+  const confirmed = Object.entries(state.answers).filter(
+    ([id]) => !unconfirmedAnswerIds.has(id),
   );
-  return { ...state, answers: Object.fromEntries(ended) };
+  return {
+    ...state,
+    answers: Object.fromEntries(confirmed),
+    unconfirmedAnswerIds: null,
+  };
+}
+
+function applySyncedAnswerEvent(
+  state: LiveAnswerState,
+  payload: LiveAnswerEventPayload,
+): LiveAnswerState {
+  const updated = applyLiveAnswerEvent(state, payload);
+  const { unconfirmedAnswerIds } = state;
+  const { answerId } = payload.data;
+  if (!unconfirmedAnswerIds?.has(answerId)) return updated;
+  // A repeated snapshot can confirm a running answer without changing its contents.
+  const remaining = new Set(unconfirmedAnswerIds);
+  remaining.delete(answerId);
+  return { ...updated, unconfirmedAnswerIds: remaining };
 }
 
 /**
@@ -362,13 +400,12 @@ export function elapsedMilliseconds(from: string, to: string): number {
 
 /** The time all calls of an answer took, from the first start to the last end. */
 export function toolsDuration(tools: readonly LiveAnswerTool[]): number | null {
-  const ended = tools.filter((tool) => tool.endedAt !== undefined);
-  if (ended.length === 0) return null;
-  return ended.reduce(
-    (sum, tool) =>
-      sum + elapsedMilliseconds(tool.startedAt, tool.endedAt ?? tool.startedAt),
-    0,
+  const ended = tools.flatMap((tool) =>
+    tool.endedAt === undefined ? [] : [Date.parse(tool.endedAt)],
   );
+  if (ended.length === 0) return null;
+  const starts = tools.map((tool) => Date.parse(tool.startedAt));
+  return Math.max(0, Math.max(...ended) - Math.min(...starts));
 }
 
 /**

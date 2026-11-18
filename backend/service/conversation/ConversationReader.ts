@@ -180,6 +180,7 @@ function limitPage(newestFirst: readonly StoredConversationMessage[]): {
  */
 export interface ConversationHistoryOptions {
   readonly withDecisions?: boolean;
+  readonly withAgentAnswers?: boolean;
 }
 
 /**
@@ -268,7 +269,9 @@ export class ConversationReader {
     conversationId: string,
     beforeId: string | null,
   ): Promise<ConversationHistoryPage> {
-    return this.historyPage(conversationId, beforeId);
+    return this.historyPage(conversationId, beforeId, {
+      withAgentAnswers: true,
+    });
   }
 
   /**
@@ -389,11 +392,15 @@ export class ConversationReader {
   public async messages(
     stored: readonly StoredConversationMessage[],
     accounts: ConversationAccounts,
+    options: Pick<ConversationHistoryOptions, "withAgentAnswers"> = {},
   ): Promise<ConversationMessage[]> {
     const content = await this.dependencies.content.describe(stored);
-    return stored.map((message) =>
-      toConversationMessage(message, accounts, content.get(message.id)),
-    );
+    return stored.map((message) => ({
+      ...toConversationMessage(message, accounts, content.get(message.id)),
+      ...(options.withAgentAnswers && message.agentAnswer
+        ? { agentAnswer: message.agentAnswer }
+        : {}),
+    }));
   }
 
   private async historyPage(
@@ -421,7 +428,7 @@ export class ConversationReader {
       this.dependencies.directory.read(),
     ]);
     const page = limitPage(stored);
-    const messages = await this.messages(page.messages, accounts);
+    const messages = await this.messages(page.messages, accounts, options);
     return {
       conversationId,
       messages: options.withDecisions
@@ -450,7 +457,9 @@ export class ConversationReader {
         summary,
         messages: await this.withDeliveries(
           await this.withDecisions(
-            await this.messages(page.messages, accounts),
+            await this.messages(page.messages, accounts, {
+              withAgentAnswers: true,
+            }),
             accounts,
           ),
           summary.kind,

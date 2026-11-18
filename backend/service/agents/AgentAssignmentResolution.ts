@@ -15,6 +15,8 @@ import type { AgentModelSelection } from "@/definition/AgentModelSelection";
 export interface ResolvedAgentAssignment {
   readonly supportsImages?: boolean;
   readonly isFree?: boolean;
+  /** The catalog name of the model; absent where the catalog does not list it. */
+  readonly modelName?: string;
   readonly connection: AgentConnectionRecord;
   readonly model: string;
   readonly reasoningEffort: string | null;
@@ -118,7 +120,7 @@ export async function resolveAgentAssignment(
     ...(model?.supportsImages === undefined
       ? {}
       : { supportsImages: model.supportsImages }),
-    ...(model ? { isFree: model.isFree } : {}),
+    ...(model ? { isFree: model.isFree, modelName: model.name } : {}),
     connection: { ...connection },
     model: model?.id ?? assignment.model,
     reasoningEffort: effort,

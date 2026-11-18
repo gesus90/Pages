@@ -2,6 +2,8 @@ import { AgentEmployeeError } from "@/backend/error/AgentEmployeeError";
 import { ConversationError } from "@/backend/error/ConversationError";
 import { CONVERSATION_DEFAULT_REPLY_MODE } from "@/definition/ConversationDecision";
 
+import { addAnswerDetails, type AnswerModelReader } from "./ChatAnswerModels";
+import { virtualAgentAnswer } from "./AgentToolCallView";
 import {
   agentWrittenConversations,
   isShownWithAgentChat,
@@ -19,7 +21,6 @@ import {
   withConversationPartners,
   type AccountFacts,
   type AgentHistory,
-  addConversationQuestions,
 } from "./ChatDirectoryView";
 import {
   markQueuedMessages,
@@ -148,6 +149,8 @@ export interface ChatDirectoryDependencies {
   readonly guard?: Pick<ConversationAgentGuard, "isPaused">;
   /** The cards of the questions of agents; absent shows their messages as text. */
   readonly questions?: Pick<AgentChatQuestionService, "views">;
+  /** The models stored answers were written with; absent shows them without. */
+  readonly answerModels?: AnswerModelReader;
   /** The current time; tests pass a fixed one. */
   readonly now?: () => Date;
 }
@@ -213,11 +216,7 @@ export class ChatDirectoryService {
         ...groupEntries,
         ...overseen.groups.filter(({ id }) => !conversations.groups.has(id)),
       ],
-      histories: await addConversationQuestions(
-        this.dependencies.questions,
-        person,
-        histories,
-      ),
+      histories: await addAnswerDetails(this.dependencies, person, histories),
       liveToolUses,
       olderHistoryIds: [
         ...olderHistoryIds(conversations),
@@ -248,16 +247,14 @@ export class ChatDirectoryService {
       person,
       target.conversationId,
       target.beforeId,
-      { withDecisions: true },
+      { withDecisions: true, withAgentAnswers: true },
     );
     const messages = page.messages.map((message) =>
       toVirtualMessage(message, person),
     );
-    const shown = await addConversationQuestions(
-      this.dependencies.questions,
-      person,
-      { page: messages },
-    );
+    const shown = await addAnswerDetails(this.dependencies, person, {
+      page: messages,
+    });
     return {
       conversationId: page.conversationId,
       messages: shown.page ?? messages,
@@ -662,7 +659,7 @@ export class ChatDirectoryService {
         id: message.id,
         authorId: message.role === "user" ? null : agent.id,
         content: message.content,
-        toolUses: calls.byMessage[message.id] ?? [],
+        ...virtualAgentAnswer(message.agentAnswer, calls.byMessage[message.id]),
         ...(written.length > 0 ? { createdAt: message.createdAt } : {}),
         ...(message.isFromPreview === true ? { isFromPreview: true } : {}),
       }));

@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 
 import { cn } from "@/app/lib/cn";
 
-import { formatLocalTime } from "./console-time";
+import { formatRunTime } from "./console-time";
 import { RUN_ROW_HEIGHT, useRunPicker } from "./use-run-picker";
 
 import type { RunPicker } from "./use-run-picker";
@@ -28,7 +28,7 @@ function RunOptions({
   readonly selectedId: string;
   readonly listId: string;
 }): React.ReactElement {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { rows } = picker;
   return (
     <div className="relative" style={{ height: rows.totalHeight }}>
@@ -50,7 +50,9 @@ function RunOptions({
             onPointerDown={(event) => event.preventDefault()}
             onClick={() => picker.choose(index)}
           >
-            <span className="truncate">{runLabel(entry, t)}</span>
+            <span className="truncate">
+              {runLabel(entry, { t, language: i18n.language })}
+            </span>
             {entry.id === selectedId ? (
               <Check
                 className="size-3.5 shrink-0 text-primary"
@@ -64,11 +66,16 @@ function RunOptions({
   );
 }
 
+/** The run as the choice names it, such as `18.11.2026, 14:23 · Läuft`: the app language sets date and clock, a 24-hour clock. */
 function runLabel(
   entry: AgentPlanRunSummary,
-  t: ReturnType<typeof useTranslation>["t"],
+  texts: {
+    readonly t: ReturnType<typeof useTranslation>["t"];
+    readonly language: string;
+  },
 ): string {
-  const started = formatLocalTime(entry.startedAt) ?? entry.startedAt;
+  const { t, language } = texts;
+  const started = formatRunTime(entry.startedAt, language) ?? entry.startedAt;
   const manual = entry.manualInputAt
     ? ` · ${t("plans.console.manualInput")}`
     : "";
@@ -88,12 +95,15 @@ export function ConsoleRunPicker({
   ariaLabel,
   onSelect,
 }: ConsoleRunPickerProps): React.ReactElement {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const listId = useId();
   const picker = useRunPicker({ runs, selectedId, onSelect });
   const selected = runs.find((entry) => entry.id === selectedId);
   return (
-    <div ref={picker.rootRef} className="relative w-full sm:w-64">
+    <div
+      ref={picker.rootRef}
+      className="relative min-w-0 flex-1 sm:w-64 sm:flex-none"
+    >
       <button
         ref={picker.triggerRef}
         type="button"
@@ -102,12 +112,12 @@ export function ConsoleRunPicker({
         aria-haspopup="listbox"
         aria-expanded={picker.isOpen}
         aria-controls={picker.isOpen ? listId : undefined}
-        className="inline-flex h-9 w-full max-w-full items-center justify-between gap-2 rounded-lg bg-surface px-2.5 text-xs font-medium text-foreground shadow-field outline-none transition-colors hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-primary"
+        className="inline-flex h-10 w-full max-w-full items-center justify-between gap-2 rounded-lg border border-border bg-surface px-3 text-[13px] font-semibold text-foreground outline-none transition-colors hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-primary"
         onClick={picker.toggle}
         onKeyDown={picker.onTriggerKeyDown}
       >
         <span className="truncate">
-          {selected ? runLabel(selected, t) : ""}
+          {selected ? runLabel(selected, { t, language: i18n.language }) : ""}
         </span>
         <ChevronDown
           className="size-3.5 shrink-0 text-muted-foreground"

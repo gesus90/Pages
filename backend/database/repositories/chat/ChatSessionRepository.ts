@@ -8,18 +8,23 @@ import {
 import { ChatError } from "@/backend/error/ChatErrors";
 import { CONVERSATION_PREVIEW_SEND_PREFIX } from "@/definition/Conversation";
 
+import { readAgentAnswer } from "./StoredAgentAnswer";
+
 import type {
   Database,
   DatabaseTransaction,
   DatabaseValue,
 } from "@/backend/database/Database";
 import type { ChatMessage, ChatSession } from "@/definition/Chat";
+import type { StoredAgentAnswer } from "@/definition/ConversationLiveAnswer";
 
 /** Characters of the first message shown to recognize a session. */
 const PREVIEW_CHARACTERS = 80;
 
 /** A message as stored; attachments are read separately. */
-export type StoredChatMessage = Omit<ChatMessage, "attachments">;
+export interface StoredChatMessage extends Omit<ChatMessage, "attachments"> {
+  readonly agentAnswer?: StoredAgentAnswer;
+}
 
 /** A message to store. */
 export interface NewChatMessage extends Pick<
@@ -31,6 +36,7 @@ export interface NewChatMessage extends Pick<
    * the same ID in the conversation is refused.
    */
   readonly clientMessageId?: string | null;
+  readonly agentAnswer?: StoredAgentAnswer;
 }
 
 function readSession(row: readonly DatabaseValue[]): ChatSession {
@@ -60,6 +66,7 @@ function readMessage(row: readonly DatabaseValue[]): StoredChatMessage {
     ) === true
       ? { isFromPreview: true }
       : {}),
+    ...readAgentAnswer(row, 6),
   };
 }
 
@@ -219,7 +226,8 @@ export class ChatSessionRepository {
           content,
           created_at,
           is_stopped,
-          client_message_id
+          client_message_id,
+          agent_answer
       FROM chat_messages
       WHERE session_id = $session_id
       ORDER BY position, id;
@@ -246,7 +254,8 @@ export class ChatSessionRepository {
           content,
           created_at,
           is_stopped,
-          client_message_id
+          client_message_id,
+          agent_answer
       FROM chat_messages
       WHERE session_id = $session_id
           AND client_message_id = $client_message_id;
@@ -293,7 +302,8 @@ export class ChatSessionRepository {
             role,
             content,
             client_message_id,
-            is_stopped
+            is_stopped,
+            agent_answer
         )
         SELECT
             $id,
@@ -302,7 +312,8 @@ export class ChatSessionRepository {
             $role,
             $content,
             $client_message_id,
-            $is_stopped
+            $is_stopped,
+            $agent_answer
         FROM chat_messages
         WHERE session_id = $session_id
         RETURNING
@@ -311,7 +322,8 @@ export class ChatSessionRepository {
             content,
             created_at,
             is_stopped,
-            client_message_id;
+            client_message_id,
+            agent_answer;
       `,
         {
           id,
@@ -320,6 +332,9 @@ export class ChatSessionRepository {
           content: message.content,
           client_message_id: clientMessageId,
           is_stopped: message.isStopped ?? null,
+          agent_answer: message.agentAnswer
+            ? JSON.stringify(message.agentAnswer)
+            : null,
         },
       );
       return readMessage(rows[0]);

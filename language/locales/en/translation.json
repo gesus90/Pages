@@ -4675,6 +4675,7 @@
       "tools_one": "{{count}} tool",
       "tools_other": "{{count}} tools",
       "toolsSummary": "{{tools}} · {{duration}}",
+      "totalDuration": "Total time · {{duration}}",
       "toolRunning": "running: {{tool}}",
       "toolLast": "last: {{tool}}",
       "liveAnswer": "Answer from {{name}}, being written",
@@ -5913,15 +5914,14 @@
         "done": "done",
         "aborted": "cancelled",
         "running": "running for {{seconds}} s",
-        "todoActive": "{{id}} active · {{text}}",
-        "todoDone": "{{id}} done",
+        "todo": "{{id}} {{text}}",
         "turnEnded": "Turn ended",
         "interrupted": "Interrupted, waiting for your input",
         "reportReceived": "Report received · {{done}} of {{total}} todos, acceptance met",
         "sessionClosed": "Session closed · node succeeded",
         "abort": "Aborted: {{reason}}",
-        "resume": "Resume planned in {{seconds}} s · restart {{restart}} of {{limit}} · {{session}}",
-        "repair": "Repair round {{restart}} of {{limit}} · {{session}}",
+        "resume": "Restart {{restart}} / {{limit}} in {{seconds}} s · {{session}}",
+        "repair": "Repair round {{restart}} / {{limit}} · {{session}}",
         "sameSession": "same session",
         "newSession": "new session",
         "blocked": "Blocked: {{reason}} · {{attempts}} attempts",
@@ -5953,7 +5953,8 @@
           "activityWaiting": "Waiting for the restart",
           "usage": "Usage",
           "context": "Context",
-          "contextNotReported": "Context not reported yet",
+          "contextNotReported": "not reported yet",
+          "contextTokens": "{{used}} tokens",
           "tokens": "Total tokens",
           "afterTurn": "after the turn",
           "antigravity": {
@@ -6035,8 +6036,11 @@
         "toolLines_one": "{{count}} line",
         "toolLines_other": "{{count}} lines",
         "toolDuration": "{{seconds}} s",
-        "toolShowDetails": "Show details",
-        "toolHideDetails": "Hide details",
+        "toolShowOutput": "Open output",
+        "toolHideOutput": "Close output",
+        "toolShowJson_one": "Open JSON ({{count}} line)",
+        "toolShowJson_other": "Open JSON ({{count}} lines)",
+        "toolHideJson": "Close JSON",
         "toolOutputLimited": "Output ends at the stored limit",
         "history": {
           "retained": "Older entries of this attempt are no longer stored.",
@@ -7688,7 +7692,7 @@
         "zai": "Z.AI"
       },
       "sources": {
-        "opencode": "OpenCode",
+        "opencode": "OpenCode Zen",
         "openrouter": "OpenRouter",
         "google": "Google",
         "zai": "Z.AI",
@@ -10381,6 +10385,8 @@
   "agentBadges": {
     "model": {
       "label": "Model {{vendor}} {{name}}, {{status}}",
+      "labelWithSource": "Model {{vendor}} {{name}}, source {{source}}, {{status}}",
+      "source": "Source: {{source}}",
       "status": {
         "confirmed": "confirmed by the adapter",
         "requested": "requested, not confirmed yet",

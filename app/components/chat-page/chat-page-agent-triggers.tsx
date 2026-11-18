@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 
 import { Button } from "@/app/components/ui/button";
 import { ModelBadge } from "@/app/components/agents/badges/model-badge";
+import { openCodeSourceName } from "@/app/components/agents/model-picker/model-catalog";
 import { cn } from "@/app/lib/cn";
 import { shortModelName } from "@/definition/AgentChatControl";
 import { modelBadgeVendor } from "@/definition/AgentModelIdentity";
@@ -28,8 +29,8 @@ interface AgentTriggerProps {
 /**
  * The short name of the model of an agent, such as "Opus", where the chat
  * deviates from the agent's own model; nothing otherwise. A Claude Code,
- * Codex or Antigravity model shows the shared model badge of its vendor or
- * tool instead.
+ * Codex, Antigravity or OpenCode model shows the shared model badge of its
+ * vendor or tool instead.
  * `className` changes its size, such as to the 32 px of the direct chat's
  * head.
  */
@@ -49,7 +50,11 @@ export function ChatModelBadge({
         className={className}
         title={t("chatPage.modelChoice.badgeHint", { model: model.name })}
       >
-        <ModelBadge vendor={vendor} name={model.name} />
+        <ModelBadge
+          vendor={vendor}
+          name={model.name}
+          source={openCodeSourceName(model.provider, model.modelId, t)}
+        />
       </span>
     );
   return (

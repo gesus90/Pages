@@ -8,8 +8,9 @@ import {
   RunBranchNoteValue,
   runBranchNote,
 } from "@/app/components/agents/badges/run-branch-badge";
+import { openCodeSourceName } from "@/app/components/agents/model-picker/model-catalog";
 
-import { SidebarRow } from "./console-sidebar-parts";
+import { RowBadge, SidebarRow } from "./console-sidebar-parts";
 
 import type { AgentPlanStepResult } from "@/definition/AgentPlan";
 import type { ModelBadgeVendor } from "@/definition/AgentModelIdentity";
@@ -49,14 +50,18 @@ function BranchFacts({
     <>
       <SidebarRow label={t(`${key}.branch`)}>
         {runBranch ? (
-          <RunBranchBadge branch={runBranch} />
+          <RowBadge>
+            <RunBranchBadge branch={runBranch} />
+          </RowBadge>
         ) : (
           <UnknownValue text={unknown} />
         )}
       </SidebarRow>
       {note ? (
         <SidebarRow label={t(`${key}.gitState`)}>
-          <RunBranchNoteValue note={note} />
+          <RowBadge>
+            <RunBranchNoteValue note={note} />
+          </RowBadge>
         </SidebarRow>
       ) : null}
     </>
@@ -64,13 +69,14 @@ function BranchFacts({
 }
 
 /**
- * Model, reasoning, access and branch of a Claude Code, Codex or Antigravity
- * session as the shared badges, one 36 px row each.
+ * Model, reasoning, access and branch of a Claude Code, Codex, Antigravity
+ * or OpenCode session as the shared badges, one 36 px row each.
  * @remarks
  * The model and the reasoning are the structured values of the session view:
- * confirmed ones as confirmed, requested ones as requested. A reasoning level
- * nobody named stays "default of the model" and never reads as `none` or a
- * confirmed `medium`.
+ * confirmed ones as confirmed, requested ones as requested. An OpenCode
+ * model names its known source, such as OpenCode Zen, in the tooltip. A
+ * reasoning level nobody named stays "default of the model" and never reads
+ * as `none` or a confirmed `medium`.
  */
 export function BadgeSessionFacts({
   step,
@@ -79,7 +85,7 @@ export function BadgeSessionFacts({
 }: {
   readonly step: AgentPlanStepResult;
   readonly view: AgentSessionView;
-  /** The vendor the model badge names, such as `openai` for Codex or `antigravity`. */
+  /** The vendor or tool of the model badge, such as `openai` or `opencode`. */
   readonly vendor: ModelBadgeVendor;
 }): React.ReactElement {
   const { t } = useTranslation();
@@ -91,29 +97,40 @@ export function BadgeSessionFacts({
     <>
       <SidebarRow label={t(`${key}.model`)}>
         {modelIdentity ? (
-          <ModelBadge
-            vendor={vendor}
-            name={modelIdentity.name}
-            status={modelIdentity.status}
-          />
+          <RowBadge>
+            <ModelBadge
+              vendor={vendor}
+              name={modelIdentity.name}
+              status={modelIdentity.status}
+              source={openCodeSourceName(
+                view.provider,
+                modelIdentity.modelId,
+                t,
+              )}
+            />
+          </RowBadge>
         ) : (
           <UnknownValue text={unknown} />
         )}
       </SidebarRow>
       <SidebarRow label={t(`${key}.reasoning`)}>
         {reasoning?.value && reasoning.status !== "unknown" ? (
-          <ReasoningBadge
-            level={reasoning.value}
-            status={reasoning.status}
-            isOffered={reasoning.isOffered}
-          />
+          <RowBadge>
+            <ReasoningBadge
+              level={reasoning.value}
+              status={reasoning.status}
+              isOffered={reasoning.isOffered}
+            />
+          </RowBadge>
         ) : (
           <UnknownValue text={t("agentBadges.reasoning.default")} />
         )}
       </SidebarRow>
       <SidebarRow label={t(`${key}.access`)}>
         {access ? (
-          <AccessBadge access={access} />
+          <RowBadge>
+            <AccessBadge access={access} />
+          </RowBadge>
         ) : (
           <UnknownValue text={unknown} />
         )}

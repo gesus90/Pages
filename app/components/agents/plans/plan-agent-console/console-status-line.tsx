@@ -56,7 +56,9 @@ function statusParts(
  * running call with its seconds, the countdown of a planned resume, or that
  * the agent works. The terminal text itself never depends on the time, so it
  * only grows while the session runs. The caller keeps the line for the whole
- * session, so the height of the terminal stays the same.
+ * session, so the height of the terminal stays the same. It is 44 px high
+ * with a 1 px rule on top, an 8 px dot in the primary color, the tool in
+ * bold, its description muted and the seconds at the right in fixed digits.
  */
 export function ConsoleStatusLine(
   props: ConsoleStatusLineProps,
@@ -68,13 +70,13 @@ export function ConsoleStatusLine(
   return (
     <div
       data-testid="plan-terminal-status"
-      className="mx-[22px] flex min-w-0 items-center gap-2 border-t border-agent-terminal-rule py-1.5 font-mono text-[13px] leading-[1.6]"
+      className="flex h-11 min-w-0 shrink-0 items-center gap-2 border-t border-border px-[22px] font-mono text-[13px] leading-[21px]"
     >
       <span
         aria-hidden="true"
-        className="size-2 shrink-0 rounded-full bg-agent-terminal-accent"
+        className="size-2 shrink-0 rounded-full bg-primary"
       />
-      <span className="shrink-0 font-semibold text-agent-terminal-foreground">
+      <span className="shrink-0 font-bold text-agent-terminal-foreground">
         {status.name}
       </span>
       <span

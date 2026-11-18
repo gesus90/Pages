@@ -4675,6 +4675,7 @@
       "tools_one": "{{count}} Werkzeug",
       "tools_other": "{{count}} Werkzeuge",
       "toolsSummary": "{{tools}} · {{duration}}",
+      "totalDuration": "Gesamtdauer · {{duration}}",
       "toolRunning": "läuft: {{tool}}",
       "toolLast": "zuletzt: {{tool}}",
       "liveAnswer": "Antwort von {{name}}, wird geschrieben",
@@ -5913,15 +5914,14 @@
         "done": "fertig",
         "aborted": "abgebrochen",
         "running": "läuft seit {{seconds}} s",
-        "todoActive": "{{id}} aktiv · {{text}}",
-        "todoDone": "{{id}} erledigt",
+        "todo": "{{id}} {{text}}",
         "turnEnded": "Turn beendet",
         "interrupted": "Unterbrochen, wartet auf deine Eingabe",
         "reportReceived": "Bericht erhalten · {{done}} von {{total}} To-dos, Abnahme erfüllt",
         "sessionClosed": "Session geschlossen · Node erfolgreich",
         "abort": "Abbruch: {{reason}}",
-        "resume": "Wiederaufnahme geplant in {{seconds}} s · Neustart {{restart}} von {{limit}} · {{session}}",
-        "repair": "Korrekturrunde {{restart}} von {{limit}} · {{session}}",
+        "resume": "Neustart {{restart}} / {{limit}} in {{seconds}} s · {{session}}",
+        "repair": "Korrekturrunde {{restart}} / {{limit}} · {{session}}",
         "sameSession": "gleiche Session",
         "newSession": "neue Session",
         "blocked": "Blockiert: {{reason}} · {{attempts}} Versuche",
@@ -5953,7 +5953,8 @@
           "activityWaiting": "Wartet auf Neustart",
           "usage": "Verbrauch",
           "context": "Kontext",
-          "contextNotReported": "Kontext noch nicht gemeldet",
+          "contextNotReported": "noch nicht gemeldet",
+          "contextTokens": "{{used}} Tokens",
           "tokens": "Tokens gesamt",
           "afterTurn": "nach Turn-Ende",
           "antigravity": {
@@ -6035,8 +6036,11 @@
         "toolLines_one": "{{count}} Zeile",
         "toolLines_other": "{{count}} Zeilen",
         "toolDuration": "{{seconds}} s",
-        "toolShowDetails": "Details einblenden",
-        "toolHideDetails": "Details ausblenden",
+        "toolShowOutput": "Ausgabe öffnen",
+        "toolHideOutput": "Ausgabe schließen",
+        "toolShowJson_one": "JSON öffnen ({{count}} Zeile)",
+        "toolShowJson_other": "JSON öffnen ({{count}} Zeilen)",
+        "toolHideJson": "JSON schließen",
         "toolOutputLimited": "Ausgabe endet an der gespeicherten Grenze",
         "history": {
           "retained": "Ältere Einträge dieses Versuchs sind nicht mehr gespeichert.",
@@ -7688,7 +7692,7 @@
         "zai": "Z.AI"
       },
       "sources": {
-        "opencode": "OpenCode",
+        "opencode": "OpenCode Zen",
         "openrouter": "OpenRouter",
         "google": "Google",
         "zai": "Z.AI",
@@ -10388,6 +10392,8 @@
   "agentBadges": {
     "model": {
       "label": "Modell {{vendor}} {{name}}, {{status}}",
+      "labelWithSource": "Modell {{vendor}} {{name}}, Quelle {{source}}, {{status}}",
+      "source": "Quelle: {{source}}",
       "status": {
         "confirmed": "vom Adapter bestätigt",
         "requested": "angefordert, noch nicht bestätigt",

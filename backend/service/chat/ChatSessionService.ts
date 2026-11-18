@@ -300,7 +300,12 @@ export class ChatSessionService {
       ...(activity ? { activity } : {}),
       session,
       messages: messages.map((message) => ({
-        ...message,
+        id: message.id,
+        role: message.role,
+        content: message.content,
+        createdAt: message.createdAt,
+        ...(message.isStopped ? { isStopped: true } : {}),
+        ...(message.isFromPreview ? { isFromPreview: true } : {}),
         attachments: attachments
           .filter((attachment) => attachment.messageId === message.id)
           .map(publicChatAttachment),

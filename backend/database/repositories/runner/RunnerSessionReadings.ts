@@ -67,7 +67,9 @@ async function readStored(
  * The CLI names a window only in the result at the end of a turn, and a plan
  * step is one turn. A window is a property of the model, so the one an
  * earlier attempt of the same model stored lets a running step show its
- * occupancy against the window before its own result arrives.
+ * occupancy against the window before its own result arrives. Only a window
+ * a CLI job reported counts: an ACP adapter guesses one from the model name
+ * until its first result.
  */
 async function knownModelWindow(
   transaction: DatabaseTransaction,
@@ -80,6 +82,7 @@ async function knownModelWindow(
     WHERE provider = $provider
         AND confirmed_model = $model
         AND context_limit IS NOT NULL
+        AND context_source IN ('cli_assistant_usage', 'cli_compact_boundary')
     ORDER BY context_at DESC NULLS LAST
     LIMIT 1;
   `,

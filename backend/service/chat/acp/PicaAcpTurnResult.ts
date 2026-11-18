@@ -11,7 +11,6 @@ import { CHAT_LIMITS } from "@/definition/Chat";
 import type { PlanSessionTurn } from "@/backend/agents/AgentPlanExecution";
 import type { DatabaseLogSummary } from "@/backend/logging/DatabaseLogMetrics";
 import type { ResolvedAgentAssignment } from "@/backend/service/agents/AgentAssignmentResolution";
-import type { AgentProviderId } from "@/definition/AgentConnection";
 import type {
   ChatJobFailureDetail,
   ChatJobFailureStage,
@@ -142,6 +141,7 @@ export function logPicaJobStart(agent: ResolvedAgentAssignment): void {
     component: "PicaAcpJob",
     message: "Pica job started",
     metadata: {
+      connectionId: agent.connection.id,
       provider: agent.connection.provider,
       model: agent.model,
       reasoningEffort: agent.reasoningEffort,
@@ -149,9 +149,9 @@ export function logPicaJobStart(agent: ResolvedAgentAssignment): void {
   });
 }
 
-/** Logs the adapter's configuration and outcome under the job's correlation ID. */
+/** Logs the assigned connection and the adapter's reported configuration and outcome. */
 export function logPicaRunnerResult(
-  provider: AgentProviderId,
+  connection: Pick<ResolvedAgentAssignment["connection"], "id" | "provider">,
   result: PlanSessionTurn,
 ): void {
   const { adapter, model, modelOption, reasoningEffort } = result.effective;
@@ -161,7 +161,8 @@ export function logPicaRunnerResult(
     component: "PicaAcpJob",
     message: "Pica runner returned a turn result",
     metadata: {
-      provider,
+      connectionId: connection.id,
+      provider: connection.provider,
       adapter: adapter ?? null,
       model: model ?? null,
       modelOption: modelOption ?? null,

@@ -55,6 +55,8 @@ export interface AgentChatModelChoice {
   readonly contextWindow: number | null;
   /** Short names a CLI resolves to the model, such as `opus`. */
   readonly aliases: readonly string[];
+  /** Whether the catalog of this connection states a price of zero for exactly this model. */
+  readonly isFree?: boolean;
 }
 
 /** How the model of an agent in one chat reads. */
@@ -70,6 +72,31 @@ export interface AgentChatModelLabel {
   readonly isOverride: boolean;
   /** The context size of the model; `null` when unknown. */
   readonly contextWindow: number | null;
+  /**
+   * Whether the catalog of the model's connection states a price of zero for
+   * exactly this model; absent or `false` shows no "Free" badge. A "Free" in
+   * the name is never read as a price.
+   */
+  readonly isFree?: boolean;
+}
+
+/**
+ * The model an agent answered with, kept with the stored answer.
+ * @remarks
+ * Pages records it when the answer is stored, from the catalog of the
+ * connection the run used, so the head of the answer reads the same after a
+ * reload even when the chat switched to another model since. Answers stored
+ * before Pages kept it carry none.
+ */
+export interface AgentAnswerModel {
+  /** The catalog name of the model, or its ID when the catalog names none. */
+  readonly name: string;
+  /** The provider of the connection the run used; `null` when unknown. */
+  readonly provider: AgentProviderId | null;
+  readonly modelId: string;
+  readonly reasoningEffort: string | null;
+  /** Whether the catalog of the used connection stated a price of zero for the model. */
+  readonly isFree: boolean;
 }
 
 /** What the model choice of an agent in a chat shows. */

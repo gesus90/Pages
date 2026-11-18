@@ -402,15 +402,17 @@ function GenericSessionFacts(props: ConsoleSidebarProps): React.ReactElement {
  * progress projection of the plan, the context from the session. A value a
  * provider does not report reads as unknown, never as 0. Providers with
  * token and cost reports add them after the context. Blocks stand 14 px
- * apart with a 1 px divider. Its bottom padding keeps the last line above
- * Pica's symbol, also in a low window.
+ * apart with a 1 px divider. It is 300 px wide with 20 px of inner padding,
+ * and the todo list takes the room the other blocks leave: only the list
+ * scrolls, the context and the session stay in view. A window too low for
+ * that scrolls the whole sidebar instead of hiding them.
  */
 export function ConsoleSidebar(props: ConsoleSidebarProps): React.ReactElement {
   const { t } = useTranslation();
   return (
     <aside
       aria-label={t("plans.console.details")}
-      className="min-w-0 shrink-0 overflow-y-auto border-t border-agent-console-border bg-agent-console-surface px-5 pt-5 [&>*+*]:mt-3.5 [&>*+*]:border-t [&>*+*]:border-agent-console-border [&>*+*]:pt-3.5 pb-8 min-[680px]:w-[300px] min-[680px]:border-t-0 min-[680px]:border-l min-[680px]:pb-28"
+      className="flex min-w-0 shrink-0 flex-col overflow-y-auto border-t border-agent-console-border bg-agent-console-surface px-5 pt-5 pb-8 [&>*+*]:mt-3.5 [&>*+*]:border-t [&>*+*]:border-agent-console-border [&>*+*]:pt-3.5 min-[680px]:w-[300px] min-[680px]:border-t-0 min-[680px]:border-l"
     >
       <ConsoleTodoList
         step={props.step}

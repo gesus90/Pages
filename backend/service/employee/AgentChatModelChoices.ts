@@ -57,6 +57,7 @@ function toChoice(model: PageAgentModel): AgentChatModelChoice {
     defaultReasoningEffort: model.catalogDefaultReasoningEffort,
     contextWindow: model.contextWindow ?? null,
     aliases: model.aliases ?? [],
+    ...(model.isFree === true ? { isFree: true } : {}),
   };
 }
 
@@ -132,6 +133,7 @@ export function chatModelLabel(
     reasoningEffort: setting.reasoningEffort,
     isOverride,
     contextWindow: choice?.contextWindow ?? null,
+    ...(choice?.isFree === true ? { isFree: true } : {}),
   };
 }
 
@@ -177,6 +179,7 @@ export async function chatModelLabels(
       reasoningEffort: setting.reasoningEffort,
       isOverride: override !== undefined,
       contextWindow: null,
+      ...(description.isFree === true ? { isFree: true } : {}),
     };
   }
   return labels;

@@ -4,6 +4,7 @@ import { ModelPicker } from "@/app/components/agents/model-picker";
 import {
   findModelChoice,
   modelGroups,
+  openCodeSourceName,
 } from "@/app/components/agents/model-picker/model-catalog";
 import { reasoningOptions } from "@/app/lib/reasoning-options";
 import { modelsOfSameTarget } from "@/definition/AgentReasoningChoice";
@@ -125,6 +126,11 @@ function ModelValues(props: {
                 mark: selected.group.mark,
                 name: selected.choice.label,
                 tool: selected.group.label,
+                source: openCodeSourceName(
+                  selected.choice.model.provider,
+                  selected.choice.model.model,
+                  t,
+                ),
               }
             : null
         }

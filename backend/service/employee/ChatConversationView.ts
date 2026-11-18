@@ -7,6 +7,8 @@ import {
   CONVERSATION_AGENT_QUESTION_PREFIX,
 } from "@/definition/AgentChatQuestion";
 
+import { virtualAgentAnswer } from "./AgentToolCallView";
+
 import type { ConversationView } from "@/backend/service/conversation/ConversationReader";
 import type {
   ConversationMessage,
@@ -42,7 +44,7 @@ export function toVirtualMessage(
     content: message.text,
     createdAt: message.createdAt,
     mentions: message.mentions,
-    toolUses: [],
+    ...virtualAgentAnswer(message.agentAnswer),
     author: {
       name: message.sender.name,
       kind: message.sender.kind,

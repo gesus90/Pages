@@ -26,6 +26,15 @@
     "Inter Variable", Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont,
     "Segoe UI", sans-serif;
 
+  /* The sign of a todo that is in progress: one turn in 1.2 s, linear. */
+  --animate-todo-spin: todo-spin 1.2s linear infinite;
+
+  @keyframes todo-spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
   --color-background: #f2f4f7;
   --color-surface: #ffffff;
   --color-surface-hover: #f6f7f9;
@@ -109,7 +118,9 @@
   --color-agent-terminal-warning: var(--color-warning);
   --color-agent-terminal-error: var(--color-destructive);
   --color-agent-terminal-info: var(--color-info);
-  --color-agent-terminal-accent: var(--color-primary);
+  /* Restarts and recoveries: the violet of the design, apart from the status
+     colors. The primary color of the terminal chrome is `primary` itself. */
+  --color-agent-terminal-accent: var(--color-plan-parameter);
   --color-agent-terminal-cyan: var(--color-info);
   --color-agent-terminal-rule: var(--color-border);
   /* The dialog around the Pages terminal. */
@@ -117,15 +128,7 @@
   --color-agent-console-border: var(--color-border);
   --color-agent-console-foreground: var(--color-foreground);
   --color-agent-console-muted: var(--color-muted-foreground);
-  --color-agent-console-pill: var(--color-muted);
   --color-agent-console-track: var(--color-muted);
-  --color-agent-console-danger: var(--color-destructive);
-  --color-agent-console-danger-hover: color-mix(
-    in srgb,
-    var(--color-destructive) 85%,
-    var(--color-foreground)
-  );
-  --color-agent-console-danger-foreground: var(--color-surface);
 
   /* Syntax colors and diff rows of the chat content cards. The
      code surface is `panel-body`, cards use `surface`. The colors follow the
@@ -179,13 +182,15 @@
 
   /* Agent badges: Claude's brand orange, ChatGPT's tile green and
      Antigravity's blue outline the model badge of their tool, the same in
-     both palettes; every
+     both palettes. OpenCode's mark has no color of its own, so its outline
+     is a neutral grey per palette, at least 3:1 against the surface; every
      reasoning level has its own hue, from grey (none) to violet (ultra), its
      background mixed from the same hue (light 12 %, dark 18 %). High is
      yellow so that it stays apart from the orange "working" state. */
   --color-claude: #d97757;
   --color-chatgpt: #74aa9c;
   --color-antigravity: #4285f4;
+  --color-opencode: #52525b;
   --color-reasoning-none: #4b5563;
   --color-reasoning-minimal: #1d4ed8;
   --color-reasoning-low: #4d7c0f;
@@ -687,6 +692,7 @@
     --color-claude: #d97757;
     --color-chatgpt: #74aa9c;
     --color-antigravity: #4285f4;
+    --color-opencode: #a1a1aa;
     --color-reasoning-none: #c3c9d2;
     --color-reasoning-minimal: #93c5fd;
     --color-reasoning-low: #bef264;

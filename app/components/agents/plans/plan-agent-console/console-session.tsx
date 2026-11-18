@@ -16,6 +16,7 @@ import type {
   AgentSessionKey,
   AgentSessionView,
 } from "@/definition/AgentSessionJournal";
+import type { HeaderState, StateTone } from "./console-header-badges";
 import type { ConsoleStepState } from "./console-step-state";
 import type { TerminalInputMode } from "./console-terminal";
 import type { SessionCommands } from "./use-session-commands";
@@ -30,7 +31,7 @@ interface ConsoleSessionProps {
   readonly onClose: () => void;
   /** Draws the header with the translated state and the stop of the run. */
   readonly header: (
-    stateLabel: string | null,
+    state: HeaderState | null,
     onStopRun: (() => Promise<void>) | undefined,
   ) => React.ReactNode;
 }
@@ -53,16 +54,31 @@ function useIsCompact(): boolean {
   return isCompact;
 }
 
-function stateLabel(
+/** Work in progress reads in the primary color, a failure in red, a success in green, any other state in neutral grey. */
+function stateTone(state: ConsoleStepState): StateTone {
+  if (state.kind === "succeeded") return "success";
+  if (state.kind === "blocked" || state.kind === "failed") return "danger";
+  if (state.kind !== "session") return "neutral";
+  if (state.state === "failed") return "danger";
+  const isWorking =
+    state.state === "starting" ||
+    state.state === "running" ||
+    state.state === "recovering";
+  return isWorking ? "active" : "neutral";
+}
+
+function headerState(
   state: ConsoleStepState | null,
   t: ReturnType<typeof useTranslation>["t"],
-): string | null {
+): HeaderState | null {
   if (!state) return null;
   const key = "plans.console.terminal.state";
+  const tone = stateTone(state);
   if (state.kind === "resume")
-    return t(`${key}.resume`, { seconds: state.seconds });
-  if (state.kind === "session") return t(`plans.console.state.${state.state}`);
-  return t(`${key}.${state.kind}`);
+    return { label: t(`${key}.resume`, { seconds: state.seconds }), tone };
+  if (state.kind === "session")
+    return { label: t(`plans.console.state.${state.state}`), tone };
+  return { label: t(`${key}.${state.kind}`), tone };
 }
 
 function modelLabel(
@@ -174,7 +190,6 @@ export function ConsoleSession(props: ConsoleSessionProps): React.ReactElement {
   const session = useAgentSession(props.sessionKey, {
     isLive: props.isLive || step.remote?.liveHistoryVersion === 1,
     status: step.status,
-    isRemote: step.execution?.target.kind === "remote",
   });
   const commands = useSessionCommands(props.sessionKey, session.refresh);
   const now = useNow(step.session?.retry?.state === "waiting");
@@ -183,7 +198,7 @@ export function ConsoleSession(props: ConsoleSessionProps): React.ReactElement {
   return (
     <>
       {props.header(
-        stateLabel(consoleStepState(step, view?.state ?? null, now), t),
+        headerState(consoleStepState(step, view?.state ?? null, now), t),
         canStop ? () => commands.cancel("run") : undefined,
       )}
       <SessionNotice session={session} hasView={view !== null} />

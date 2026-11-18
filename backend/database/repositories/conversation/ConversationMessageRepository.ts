@@ -5,6 +5,7 @@ import {
   readTextColumn,
 } from "@/backend/database/RowValue";
 import { PagesEventOutboxRepository } from "@/backend/database/repositories/events/PagesEventOutboxRepository";
+import { readAgentAnswer } from "@/backend/database/repositories/chat/StoredAgentAnswer";
 
 import type {
   Database,
@@ -16,6 +17,7 @@ import type {
   ConversationNotice,
   ConversationTranscriptionState,
 } from "@/definition/Conversation";
+import type { StoredAgentAnswer } from "@/definition/ConversationLiveAnswer";
 
 const MESSAGE_COLUMNS = `
     conversation_messages.id,
@@ -31,7 +33,8 @@ const MESSAGE_COLUMNS = `
     conversation_messages.voice_size_bytes,
     conversation_messages.voice_duration_ms,
     conversation_messages.transcription_state,
-    conversation_messages.notice`;
+    conversation_messages.notice,
+    conversation_messages.agent_answer`;
 
 /** The stored audio of a voice message. */
 export interface StoredConversationVoice {
@@ -56,6 +59,7 @@ export interface StoredConversationMessage {
   readonly voice: StoredConversationVoice | null;
   /** Why an agent did not answer, for a hint in its name; otherwise `null`. */
   readonly notice: ConversationNotice | null;
+  readonly agentAnswer?: StoredAgentAnswer;
 }
 
 /** What a new message is stored with. */
@@ -69,6 +73,7 @@ export interface NewConversationMessage {
   readonly createdAt: string;
   readonly voice: StoredConversationVoice | null;
   readonly notice?: ConversationNotice | null;
+  readonly agentAnswer?: StoredAgentAnswer;
 }
 
 const NOTICES: readonly ConversationNotice[] = [
@@ -135,6 +140,7 @@ function toMessage(row: readonly DatabaseValue[]): StoredConversationMessage {
     createdAt: readTextColumn(row, 7, "created_at"),
     voice: readVoice(row),
     notice: readNotice(row),
+    ...readAgentAnswer(row, 14),
   };
 }
 
@@ -180,7 +186,8 @@ async function insertMessage(
           voice_size_bytes,
           voice_duration_ms,
           transcription_state,
-          notice
+          notice,
+          agent_answer
       )
       VALUES (
           $id,
@@ -195,7 +202,8 @@ async function insertMessage(
           $voice_size_bytes,
           $voice_duration_ms,
           $transcription_state,
-          $notice
+          $notice,
+          $agent_answer
       )
       ON CONFLICT (conversation_id, sender_id, client_message_id) DO NOTHING
       RETURNING${MESSAGE_COLUMNS};
@@ -214,6 +222,9 @@ async function insertMessage(
       voice_duration_ms: voice?.durationMs ?? null,
       transcription_state: voice?.transcriptionState ?? null,
       notice: message.notice ?? null,
+      agent_answer: message.agentAnswer
+        ? JSON.stringify(message.agentAnswer)
+        : null,
     },
   );
   const [row] = rows;

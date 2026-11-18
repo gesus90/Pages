@@ -20,10 +20,13 @@ export type ReasoningBadgeLevel = (typeof REASONING_BADGE_LEVELS)[number];
 /**
  * The vendor or tool a shared model badge names beside its tile.
  * @remarks
- * Antigravity is named as the tool, because it offers models of several
- * vendors: Sonnet over Antigravity must not read like Sonnet over Claude Code.
+ * Antigravity and OpenCode are named as the tool, because they offer models
+ * of several vendors: Sonnet over Antigravity must not read like Sonnet over
+ * Claude Code, and a Gemini model over OpenCode keeps OpenCode as the way it
+ * runs.
  */
-export type ModelBadgeVendor = "anthropic" | "openai" | "antigravity";
+export type ModelBadgeVendor =
+  "anthropic" | "openai" | "antigravity" | "opencode";
 
 /**
  * The providers whose models carry the shared model badge, with their vendor.
@@ -34,15 +37,18 @@ const MODEL_BADGE_VENDORS: Readonly<Record<string, ModelBadgeVendor>> = {
   claude_code: "anthropic",
   codex_cli: "openai",
   antigravity: "antigravity",
+  opencode: "opencode",
 };
 
 /**
  * The providers that confirm a model only as the exact selector value of
- * their configuration option, never as an alias: Codex and Antigravity.
+ * their configuration option, never as an alias: Codex, Antigravity and
+ * OpenCode, whose selector is the full `provider/model` ID.
  */
 const SELECTOR_CONFIRMING_PROVIDERS: ReadonlySet<string> = new Set([
   "codex_cli",
   "antigravity",
+  "opencode",
 ]);
 
 /**
@@ -160,7 +166,8 @@ function uncatalogedName(id: string): string {
  * family runs, not which version, so it stays `requested` until the reported
  * model arrives. Codex and Antigravity confirm the exact selector through
  * their configuration option, so that value is confirmed, with its catalog
- * name or as the raw ID. The reported model wins over every requested
+ * name or as the raw ID; OpenCode confirms its full model ID the same way.
+ * The reported model wins over every requested
  * value, so a changed or resumed session never keeps an older name.
  * @returns `null` when nothing names a model.
  */
@@ -193,7 +200,7 @@ function confirmedModelIdentity(
       status: "confirmed",
     };
   // A concrete Claude ID the adapter confirmed names its version itself;
-  // Codex and Antigravity confirm only exact selector values, never an alias.
+  // Codex, Antigravity and OpenCode confirm only exact selector values.
   if (
     configured !== null &&
     (SELECTOR_CONFIRMING_PROVIDERS.has(provider) ||

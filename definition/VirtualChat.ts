@@ -18,7 +18,7 @@ import type {
 import type { AgentEmployeeAccess } from "./AgentEmployee";
 import type { AgentQuestionView } from "./AgentChatQuestion";
 import type { AgentChatSessionBrief } from "./AgentChatSession";
-import type { AgentChatModelLabel } from "./AgentChatControl";
+import type { AgentAnswerModel, AgentChatModelLabel } from "./AgentChatControl";
 import type { AgentMessageQueue } from "./AgentSessionLimits";
 import type { ConversationNotice } from "./Conversation";
 import type {
@@ -140,7 +140,7 @@ export interface VirtualToolUse {
   /** The ID of the call within its job. */
   readonly callId?: string;
   readonly status?: "running" | "completed" | "failed" | "cancelled";
-  /** How long the call took, in milliseconds, where the page saw it run. */
+  /** How long the call took, in milliseconds, when measured by the server. */
   readonly durationMs?: number;
   /** The command or input of the call, bounded and with credentials masked. */
   readonly input?: string;
@@ -173,6 +173,10 @@ export interface VirtualChatMessage {
   /** The account IDs the text mentions with `@username`, as stored. */
   readonly mentions?: readonly string[];
   readonly toolUses: readonly VirtualToolUse[];
+  /** The live answer this message replaces. */
+  readonly answerId?: string;
+  /** Elapsed server time for this answer, absent for messages without a measurement. */
+  readonly answerDurationMs?: number;
   /** The author as the conversation names it, for one outside the person's list. */
   readonly author?: {
     readonly name: string;
@@ -230,6 +234,8 @@ export interface VirtualChatMessage {
   readonly isInterim?: boolean;
   /** The question with answer buttons the message carries. */
   readonly question?: AgentQuestionView;
+  /** The model an agent answered with, where Pages kept it with the stored answer. */
+  readonly answerModel?: AgentAnswerModel;
 }
 
 /** What the list can open: a group or a single participant. */

@@ -22,6 +22,7 @@ import type {
 import type { AgentFile } from "./content/ConversationAgentFiles";
 import type { PendingAttachmentReference } from "./content/ConversationAttachmentReferences";
 import type { ConversationAccounts } from "./ConversationDirectory";
+import type { LiveAnswerSink } from "./ConversationLiveAnswer";
 import type {
   ConversationReplyJob,
   ConversationReplyRunnerDependencies,
@@ -54,10 +55,12 @@ export async function postConversationReply(
   reply: {
     readonly text: string;
     readonly notice: ConversationNotice | null;
+    readonly liveAnswer?: LiveAnswerSink;
   },
 ): Promise<ConversationMessage | null> {
   const { conversation, memberIds } = job.round;
   const staged = await stageReplyPayload(host, job, accounts, reply);
+  const agentAnswer = reply.liveAnswer?.complete();
   let outcome: Awaited<
     ReturnType<ConversationReplyRunnerDependencies["messages"]["insert"]>
   >;
@@ -75,6 +78,7 @@ export async function postConversationReply(
         createdAt: host.now(),
         voice: null,
         notice: reply.notice,
+        ...(agentAnswer ? { agentAnswer } : {}),
       },
       changedEvent(conversation.id),
     );
@@ -121,7 +125,9 @@ export async function postConversationReply(
     message,
     recipientIds: memberIds,
   });
-  return reply.notice === null ? message : null;
+  if (reply.notice !== null) return null;
+  reply.liveAnswer?.finish({ messageId: message.id, state: "answered" });
+  return message;
 }
 
 async function stageReplyPayload(

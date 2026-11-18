@@ -32,6 +32,8 @@ interface ScrollViewportProps extends HTMLAttributes<HTMLElement> {
   readonly fadeEdges?: readonly ScrollMaskEdge[];
   /** Length of a masking viewport's upper fade in CSS pixels. */
   readonly fadeTop?: number;
+  /** Length of a masking viewport's lower fade in CSS pixels. */
+  readonly fadeBottom?: number;
   /** Native geometry updates, including initial size and dynamic content changes. */
   readonly onViewportMeasure?: (viewport: HTMLElement) => void;
   /** Receives the native element, preserving focus and scrolling integrations. */
@@ -56,6 +58,7 @@ export function ScrollViewport({
   fadeMode = "overlay",
   fadeEdges = ALL_MASK_EDGES,
   fadeTop = DEFAULT_SCROLL_FADE_SIZE,
+  fadeBottom = DEFAULT_SCROLL_FADE_SIZE,
   onViewportMeasure,
   children,
   ref,
@@ -77,7 +80,10 @@ export function ScrollViewport({
 
   const isMasked = fadeMode === "mask";
   const viewportStyle = isMasked
-    ? { ...style, ...scrollMaskStyle(edges, { fadeEdges, fadeTop }) }
+    ? {
+        ...style,
+        ...scrollMaskStyle(edges, { fadeEdges, fadeTop, fadeBottom }),
+      }
     : style;
 
   const overflowClasses = {

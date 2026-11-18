@@ -1,9 +1,15 @@
+import { virtualLiveToolUse } from "@/definition/ConversationLiveAnswer";
+
 import type {
   ChatJob,
   ChatJobEntry,
   ChatJobToolEvent,
 } from "@/definition/ChatJob";
-import type { VirtualToolUse } from "@/definition/VirtualChat";
+import type { StoredAgentAnswer } from "@/definition/ConversationLiveAnswer";
+import type {
+  VirtualChatMessage,
+  VirtualToolUse,
+} from "@/definition/VirtualChat";
 
 /** The tool calls of one job as the chat page shows them. */
 export interface AgentToolCallView {
@@ -24,6 +30,19 @@ function toolUse(event: ChatJobToolEvent): VirtualToolUse {
     ...(event.isNative === true ? { isNative: true } : {}),
     ...(event.summary === undefined ? {} : { summary: event.summary }),
     ...(event.durationMs === undefined ? {} : { durationMs: event.durationMs }),
+  };
+}
+
+/** Displays a stored measurement, with the old journal calls as a fallback. */
+export function virtualAgentAnswer(
+  answer: StoredAgentAnswer | undefined,
+  journalCalls: readonly VirtualToolUse[] = [],
+): Pick<VirtualChatMessage, "answerId" | "answerDurationMs" | "toolUses"> {
+  if (!answer) return { toolUses: journalCalls };
+  return {
+    answerId: answer.answerId,
+    answerDurationMs: answer.durationMs,
+    toolUses: answer.tools.map((tool) => virtualLiveToolUse(tool)),
   };
 }
 

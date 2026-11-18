@@ -307,6 +307,8 @@ export function PlanModelValue(props: {
     readonly name: string;
     /** The tool the model is listed under, such as `Claude Code`. */
     readonly tool: string;
+    /** Where the tool takes the model from, such as `OpenCode Zen`; `null` when unknown. */
+    readonly source: string | null;
   } | null;
   readonly savedModel: string;
 }): React.ReactElement {
@@ -338,6 +340,7 @@ export function PlanModelValue(props: {
         mark={props.choice.mark}
         name={props.choice.name}
         tool={props.choice.tool}
+        source={props.choice.source}
       />
     </p>
   );

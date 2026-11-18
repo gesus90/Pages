@@ -58,11 +58,15 @@ plan ends the message or the prompt ends; tool calls carry a dedupe key per
 call and status, so a repeated update is stored once.
 
 The text of a tool event is the title, then marker lines and the command and
-output: `@kind <kind>`, `@call <identity>`, `@exit <code>` only when the
+output: `@kind <kind>`, `@call <identity>`, `@tool <name>` (the tool name of
+the adapter, such as `Bash` or `mcp__pages__read_ticket`, reported by Claude
+Code in `_meta.claudeCode.toolName`), `@about <description>` (the short
+description of the call: the `description` an agent gave its command, else the
+ticket, path or query a JSON input names), `@exit <code>` only when the
 adapter reported a numeric exit code (a completed call alone is no exit code
 0), `@limited` when the output was cut to its stored limit of 3,000
-characters, then `$ <command or path>` and the output; every line after the
-title is optional. The identity is the one the provider gave the call (the ACP
+characters, then `$ <first line of the command or path>` and the output; every
+line after the title is optional. The identity is the one the provider gave the call (the ACP
 `toolCallId`, the `tool_use_id` of Claude, the item ID of Codex) as one line
 without blanks or control characters, at most 200 characters. The Pages
 terminal joins the start and the end of a call by the identity within the same
@@ -184,8 +188,19 @@ Context occupancy and token counts are separate values:
   reopening and into the next turn; a reading older than the stored one
   changes nothing. The CLI names the window only in the `result` at the end
   of a turn, and a plan step is one turn: until then the window is the one an
-  earlier Claude Code attempt of the same model stored, so a running step
-  shows its occupancy against the window.
+  earlier Claude Code CLI job of the same model stored, so a running step
+  shows its occupancy against the window. A window an ACP adapter guessed
+  from the model name never counts for this. The `stream_event` `message_delta`
+  of an answer completes the reading of its `assistant` event, which holds the
+  output tokens counted while the answer was still streaming.
+- A restart that resumes the native session of an earlier attempt (the earlier
+  attempt reported a session and it did not fail to resume) continues with the
+  last occupancy that attempt reported, until the new attempt reports its own;
+  the window of the new attempt wins where it has one. A restart into a new
+  session starts empty. "Not reported yet" therefore appears only while no
+  attempt of the session reported a value. The sidebar reads the session view
+  again after activity, at most once per 1.5 seconds, also for a node on a
+  runner, so the value grows during the run and stays on reopening.
 - Except for the Codex plan path described below, token counts come from `PromptResponse.usage`, per turn. A missing
   count is `null`, never 0; nothing is derived from text length or from
   `used/size`.
@@ -213,6 +228,40 @@ Context occupancy and token counts are separate values:
 A later surface can show `112k In (3.6m Cache Read) · 1.2k Out` from
 `inputTokens`, `cacheReadTokens` and `outputTokens`; for Claude the cache is
 not part of the input. Codex plan input includes cache; the remaining providers keep their existing counting.
+
+### Measured source of the context of a Claude Code CLI job
+
+Measured with Claude Code 2.1.322 and `claude-haiku-5-5` with the output
+options of a runner job (`-p --output-format stream-json --verbose
+--include-partial-messages`), one `Bash` call and a final answer:
+
+- Occupancy, first reading: the top-level `assistant` event, `message.usage`,
+  as `input_tokens` + `cache_read_input_tokens` +
+  `cache_creation_input_tokens` + `output_tokens`. It arrives with the first
+  answer, before the first tool call ends: 17,399 in a restricted session,
+  20,592 with the full tool set of an account.
+- Occupancy, afterwards: every further `assistant` event and the
+  `message_delta` of its answer: 17,460, then 17,494 at the end of the turn
+  of the restricted session. The control request `get_context_usage` after
+  the turn reports 17,491 (`totalTokens`), so the stream value is exact
+  within a few tokens.
+- Window: `result.modelUsage[model].contextWindow`, once at the end of the
+  turn: 1,000,000, the same as `maxTokens` of `get_context_usage`. `system`
+  `init`, the `stream_event`s and the model list of the `initialize` request
+  name no window.
+
+`get_context_usage` answers before the first model call (`maxTokens`
+1,000,000 for Haiku 5.5), but only a CLI started with `--input-format
+stream-json` reads control requests. A runner job passes its prompt as plain
+text, so Pages takes the window from the `result` and from the window an
+earlier job of the same model stored.
+
+The path to the sidebar: the runner emits a `usage` event whose text is
+`{"session":{"model","context":{"used","limit","source"}}}` for every change;
+`persistRunnerSessionReading` stores it on the attempt
+(`agent_session_attempts.context_*`) in the transaction that receives the
+event; `AgentSessionService.view` returns it as `AgentSessionView.context`
+(`contextUsed` / `contextLimit`), and the sidebar shows "used / window".
 
 ## Claude plan accounting
 
@@ -283,6 +332,19 @@ in pieces at most one second apart while it is written, and every successful
 attempts of the node with `renderTerminal` (`plan-agent-console/terminal-lines.ts`),
 a pure function, in one xterm; earlier attempts of the run are read with
 `history=only`.
+
+Every line stands in a text column behind a time column of 80 px (ten
+columns). The time is `HH:MM:SS` on a 24-hour clock in the language of the
+app, never in the language of the browser; the start line of an attempt
+carries `HH:MM`. A tool call is `▸`, its name in bold and its description:
+the `@about` description of the call, else the first line of its command. An
+MCP name `mcp__server__tool` reads `server · tool`. Its result stands on its
+own line below: `✓` with the lines and the duration, or `✕` with the exit
+code, the lines and the duration; calls that overlap in time repeat the tool
+name in the result line. An output of three lines or more, and every JSON
+result, is never drawn in the history: the result line ends with
+`▸ Ausgabe öffnen` or `▸ JSON öffnen (48 Zeilen)`, and the opened output
+belongs to the call joined by its identity.
 
 ### Input in the running turn
 

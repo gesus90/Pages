@@ -39,6 +39,16 @@ function isLiveType(type: unknown): type is LiveAnswerEventPayload["type"] {
   return LIVE_ANSWER_EVENT_TYPES.some((known) => known === type);
 }
 
+function isAnswerSyncComplete(frame: unknown): boolean {
+  return (
+    isRecord(frame) &&
+    frame.type === "conversation_event" &&
+    isRecord(frame.payload) &&
+    frame.payload.type === "answer_sync_complete" &&
+    isRecord(frame.payload.data)
+  );
+}
+
 /**
  * The live part a frame carries, or `null` for every other frame.
  * @remarks
@@ -108,9 +118,9 @@ function useGatheredRevalidate(): () => void {
  * The page connects with the session of its cookie and the server's rights
  * checks; it receives only the parts of chats its account belongs to, and
  * thoughts only where it may read them. A lost connection is opened again
- * with a growing wait, and the page then reads its state once; the snapshot
- * the server sends after the sign-in continues every running answer, and an
- * answer the snapshot does not hold any more is dropped. The end
+ * with a growing wait. After sign-in the server confirms which answers it
+ * still holds. When every snapshot arrived, the page drops missing answers
+ * and reloads its history after a reconnect. The end
  * of an answer reads the page once, so the stored message takes its place.
  * There is no reading at fixed intervals.
  */
@@ -129,19 +139,23 @@ export function useConversationStream(
     let retryTimer = 0;
     let wait = FIRST_RETRY_MILLISECONDS;
     let hasConnected = false;
+    let isReconnecting = false;
     let isClosed = false;
 
     function handleFrame(frame: unknown): void {
       if (isRecord(frame) && frame.type === "connected") {
         wait = FIRST_RETRY_MILLISECONDS;
         setConnected(true);
-        // After a gap the snapshot that follows tells what still runs, and the
-        // page reads what it may have missed, once.
-        if (hasConnected) {
-          dispatch({ type: "connection_restored" });
-          revalidate();
-        }
+        dispatch({ type: "answer_sync_started" });
+        isReconnecting = hasConnected;
         hasConnected = true;
+        if (isReconnecting) revalidate();
+        return;
+      }
+      if (isAnswerSyncComplete(frame)) {
+        dispatch({ type: "answer_sync_complete" });
+        if (isReconnecting) revalidate();
+        isReconnecting = false;
         return;
       }
       const payload = readLivePayload(frame);
@@ -155,14 +169,15 @@ export function useConversationStream(
       const current = createSocket.current(socketUrl());
       socket = current;
       current.addEventListener("open", () => current.send(authFrame()));
-      current.addEventListener("message", (event: MessageEvent) =>
-        handleFrame(readFrame(event.data)),
-      );
+      current.addEventListener("message", (event: MessageEvent) => {
+        if (socket === current) handleFrame(readFrame(event.data));
+      });
       current.addEventListener("close", () => {
         if (socket !== current) return;
         socket = null;
         setConnected(false);
         if (isClosed) return;
+        dispatch({ type: "answer_sync_interrupted" });
         retryTimer = window.setTimeout(connect, wait);
         wait = Math.min(wait * 2, LONGEST_RETRY_MILLISECONDS);
       });

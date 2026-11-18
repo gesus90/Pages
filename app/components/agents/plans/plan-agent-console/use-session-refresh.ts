@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 
-/** Refreshes local usage and session facts after activity, at most once per 1.5 seconds. */
+/** Refreshes usage and session facts, such as the context occupancy, after activity, at most once per 1.5 seconds. */
 export function useSessionRefresh(
   isEnabled: boolean,
   refresh: () => void,

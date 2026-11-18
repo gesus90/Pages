@@ -2,41 +2,79 @@ import { useTranslation } from "react-i18next";
 
 import { modelBadgeVendor } from "@/definition/AgentModelIdentity";
 
+import {
+  openCodeSourceName,
+  withoutTrailingFree,
+} from "../model-picker/model-catalog";
+import { FreeBadge } from "./free-badge";
 import { ModelBadge } from "./model-badge";
 import { ReasoningBadge } from "./reasoning-badge";
 
 import type { AgentChatModelLabel } from "@/definition/AgentChatControl";
 
+/** What the badges read of a model: the live label of a chat or the model kept with a stored answer. */
+export type AgentModelBadgeValues = Pick<
+  AgentChatModelLabel,
+  "name" | "provider" | "modelId" | "reasoningEffort" | "isFree"
+>;
+
 /**
  * The model and reasoning of an agent in a chat.
  * @remarks
- * Claude Code, Codex and Antigravity models get the shared model badge of
- * their vendor or tool and the reasoning badge. Every other provider keeps
- * the grey pill of model and level until it is moved to badges of its own;
- * its text is joined from the structured values here and never read back.
+ * The order is model, "Free", reasoning, 6 px apart. Claude Code, Codex,
+ * Antigravity and OpenCode models get the shared model badge of their vendor
+ * or tool and the reasoning badge; an OpenCode model names its source, such
+ * as OpenCode Zen, in the badge's tooltip. Every other provider keeps the grey pill of model and
+ * level until it is moved to badges of its own; its text is joined from the
+ * structured values here and never read back. "Free" stands as a badge of its
+ * own beside either, only where the catalog of the used connection states it
+ * (`isFree`), never because of the name; a trailing "Free" of the catalog
+ * name then stands in the badge alone. Only the model name is cut with an
+ * ellipsis, the full name stands in its tooltip; "Free" and the reasoning
+ * never shrink. `isCompactWhenNarrow` drops the vendor word of the model
+ * badge in a container narrower than 520 px; the caller provides it.
  */
 export function AgentModelBadges({
   model,
+  isCompactWhenNarrow = false,
 }: {
-  readonly model: AgentChatModelLabel;
+  readonly model: AgentModelBadgeValues;
+  readonly isCompactWhenNarrow?: boolean;
 }): React.ReactElement {
   const { t } = useTranslation();
   const vendor = modelBadgeVendor(model.provider);
+  const isFree = model.isFree === true;
+  // The catalog stated the price apart from the name, so "Free" stands in its badge alone.
+  const name = isFree ? withoutTrailingFree(model.name) : model.name;
+  const free = isFree ? <FreeBadge size="badge" /> : null;
   if (vendor)
     return (
       <span className="inline-flex max-w-full min-w-0 items-center gap-1.5">
-        <ModelBadge vendor={vendor} name={model.name} />
+        <ModelBadge
+          vendor={vendor}
+          name={name}
+          source={openCodeSourceName(model.provider, model.modelId, t)}
+          isVendorHiddenWhenNarrow={isCompactWhenNarrow}
+        />
+        {free}
         {model.reasoningEffort ? (
           <ReasoningBadge level={model.reasoningEffort} />
         ) : null}
       </span>
     );
   const effort = model.reasoningEffort;
+  const text = effort
+    ? `${name} · ${t(`chatPage.modelChoice.effort.${effort}`, { defaultValue: effort })}`
+    : name;
   return (
-    <span className="rounded-full border border-border px-2 py-0.5 text-[11px] text-muted-foreground">
-      {effort
-        ? `${model.name} · ${t(`chatPage.modelChoice.effort.${effort}`, { defaultValue: effort })}`
-        : model.name}
+    <span className="inline-flex max-w-full min-w-0 items-center gap-1.5">
+      <span
+        title={text}
+        className="min-w-0 truncate rounded-full border border-border px-2 py-0.5 text-[11px] text-muted-foreground"
+      >
+        {text}
+      </span>
+      {free}
     </span>
   );
 }

@@ -64,8 +64,8 @@ export async function consumePicaAcpAnswer(
   sessionId: string,
   completed: boolean,
 ): Promise<void> {
-  const messages = await dependencies.messages.messages(sessionId);
-  const answer = messages.at(-1);
-  if (completed && answer?.role === "assistant")
-    await dependencies.consumeAnswer?.(answer.content);
+  const { consumeAnswer, messages } = dependencies;
+  if (!completed || consumeAnswer === undefined) return;
+  const answer = (await messages.messages(sessionId)).at(-1);
+  if (answer?.role === "assistant") await consumeAnswer(answer.content);
 }

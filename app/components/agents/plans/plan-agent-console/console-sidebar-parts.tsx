@@ -1,8 +1,8 @@
 /**
- * The title of a block of the console sidebar: 14/600.
+ * The title of a block of the console sidebar: 14/650.
  */
 export const SIDEBAR_TITLE_CLASS =
-  "text-sm font-semibold text-agent-console-foreground";
+  "text-sm font-[650] text-agent-console-foreground";
 
 /**
  * One block of the console sidebar with its title.
@@ -43,6 +43,18 @@ export function SidebarRow(props: {
         {props.children}
       </dd>
     </div>
+  );
+}
+
+/**
+ * The cap of a badge in a session row: 144 px at most, so the label always
+ * keeps its room and a long value ends with "…" inside its badge.
+ */
+export function RowBadge(props: {
+  readonly children: React.ReactNode;
+}): React.ReactElement {
+  return (
+    <span className="flex max-w-36 min-w-0 justify-end">{props.children}</span>
   );
 }
 

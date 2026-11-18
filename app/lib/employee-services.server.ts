@@ -16,6 +16,7 @@ import { AuthorizationRepository } from "@/backend/database/repositories/Authori
 import { ChatAcpSessionRepository } from "@/backend/database/repositories/chat/ChatAcpSessionRepository";
 import { ChatSessionRepository } from "@/backend/database/repositories/chat/ChatSessionRepository";
 import { AgentChatHistoryRepository } from "@/backend/database/repositories/conversation/AgentChatHistoryRepository";
+import { ChatAnswerModelRepository } from "@/backend/database/repositories/conversation/ChatAnswerModelRepository";
 import { ConversationMessageRepository } from "@/backend/database/repositories/conversation/ConversationMessageRepository";
 import { ConversationRepository } from "@/backend/database/repositories/conversation/ConversationRepository";
 import { EmployeeStore } from "@/backend/database/repositories/employee/EmployeeStore";
@@ -599,7 +600,17 @@ function createEmployeeSessions(
     toolGuard: new AgentChatToolGuard({ store: base.store }),
     logbook: () => late.logbook,
     recipes: new AgentRecipeService({ store: base.store }),
-    answers: sharedConversationAnswerStream(),
+    answers: {
+      open: (target) =>
+        sharedConversationAnswerStream().open({
+          ...target,
+          recordModel: (messageId, model) =>
+            new ChatAnswerModelRepository(input.database).record(
+              messageId,
+              model,
+            ),
+        }),
+    },
   });
 }
 

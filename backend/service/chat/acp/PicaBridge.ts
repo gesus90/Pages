@@ -504,26 +504,33 @@ export class PicaBridge {
     const details = { catalog: owner.catalog, tool, input, isPrivileged };
     owner.onTool({
       callId,
+      turn: turn.answerTurn,
       tool,
       status: "running",
       error: null,
+      startedAt: new Date(startedAt).toISOString(),
       ...privileged,
       ...bridgeToolDetails(details),
     });
     // Every call shows in the tool line with its input, result and duration.
-    const report: CallReport = (status, error, result) =>
+    const report: CallReport = (status, error, result) => {
+      const endedAt = Date.now();
       owner.onTool({
         callId,
+        turn: turn.answerTurn,
         tool,
         status,
         error,
+        startedAt: new Date(startedAt).toISOString(),
+        endedAt: new Date(endedAt).toISOString(),
         ...privileged,
         ...bridgeToolDetails({
           ...details,
           ...(result ? { outcome: result } : {}),
-          durationMs: Date.now() - startedAt,
+          durationMs: Math.max(0, endedAt - startedAt),
         }),
       });
+    };
     const fail = (error: string): PicaToolOutcome => {
       report("failed", error);
       return refused(error);

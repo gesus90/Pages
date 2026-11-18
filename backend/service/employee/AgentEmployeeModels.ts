@@ -33,6 +33,8 @@ export interface AgentEmployeeModelDependencies {
 export interface AgentModelDescription {
   readonly modelName: string;
   readonly provider: string | null;
+  /** Whether the catalog of the connection states a price of zero for exactly this model. */
+  readonly isFree?: boolean;
 }
 
 /**
@@ -129,6 +131,7 @@ export class AgentEmployeeModels {
     return {
       modelName: model?.name ?? settings.model,
       provider: connection.provider,
+      ...(model?.isFree === true ? { isFree: true } : {}),
     };
   }
 

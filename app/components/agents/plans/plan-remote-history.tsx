@@ -70,7 +70,7 @@ function RemoteHistoryExcerpt({
   const session = useAgentSession(sessionKey, {
     isLive: true,
     status: step.status,
-    isRemote: true,
+    isViewShown: false,
   });
   const events = session.events.slice(-8);
   return (

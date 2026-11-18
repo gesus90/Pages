@@ -30,6 +30,11 @@ const VENDOR_STYLES: Readonly<Record<ModelBadgeVendor, VendorStyle>> = {
     name: "Antigravity",
     borderClass: "border-antigravity",
   },
+  opencode: {
+    mark: "opencode",
+    name: "OpenCode",
+    borderClass: "border-opencode",
+  },
 };
 
 interface ModelBadgeProps {
@@ -37,8 +42,23 @@ interface ModelBadgeProps {
   /** The catalog name, such as `Haiku 5.5`, `GPT-6.2 Sol` or `Gemini 4 Argon`. */
   readonly name: string;
   readonly status?: AgentValueStatus;
+  /**
+   * Where the tool takes the model from, such as `OpenCode Zen`; it stands in
+   * the tooltip and the accessible name only, `null` or absent when unknown.
+   */
+  readonly source?: string | null;
+  /**
+   * Drops the vendor word and its divider in a container narrower than
+   * 520 px, so tile and name remain; the caller provides the container.
+   */
+  readonly isVendorHiddenWhenNarrow?: boolean;
   readonly className?: string;
 }
+
+// Static, so Tailwind finds the classes: hidden below 520 px of the nearest
+// container, shown from there on.
+const NARROW_VENDOR_CLASS = "hidden @min-[520px]:inline";
+const NARROW_DIVIDER_CLASS = "hidden @min-[520px]:block";
 
 /**
  * The model badge of a vendor: its unchanged tile, the vendor and the
@@ -47,10 +67,13 @@ interface ModelBadgeProps {
  * 24 px high with a 1 px border and a 7 px radius; the 18 px tile with a 5 px
  * radius sits 2 px from the top, bottom and left edge, so the corners run
  * parallel. Anthropic is outlined in Claude's orange, OpenAI in the green of
- * the ChatGPT tile, Antigravity in its blue. Antigravity names the tool,
- * not the model's vendor, because it offers models of several vendors: its
- * Sonnet keeps the Antigravity tile and outline and never reads like Sonnet
- * over Claude Code. Vendor and model name stay apart until here. A long name
+ * the ChatGPT tile, Antigravity in its blue, OpenCode in its neutral grey.
+ * Antigravity and OpenCode name the tool, not the model's vendor, because
+ * they offer models of several vendors: Antigravity's Sonnet keeps the
+ * Antigravity tile and outline and never reads like Sonnet over Claude Code,
+ * and a Gemini model over OpenCode reads "OpenCode │ Gemini …". A known
+ * source of the model, such as OpenCode Zen, stands in the tooltip and the
+ * accessible name. Vendor and model name stay apart until here. A long name
  * is cut with an ellipsis while the tile and the vendor stay whole. The border
  * is always solid; whether the adapter confirmed the model stands in the
  * tooltip and the accessible name.
@@ -59,19 +82,25 @@ export function ModelBadge({
   vendor,
   name,
   status = "configured",
+  source = null,
+  isVendorHiddenWhenNarrow = false,
   className,
 }: ModelBadgeProps): React.ReactElement {
   const { t } = useTranslation();
   const style = VENDOR_STYLES[vendor];
   const statusText = t(`agentBadges.model.status.${status}`);
+  const sourceText =
+    source === null ? "" : ` · ${t("agentBadges.model.source", { source })}`;
+  const values = { vendor: style.name, name, status: statusText, source };
   return (
     <span
-      title={`${style.name} ${name} · ${statusText}`}
-      aria-label={t("agentBadges.model.label", {
-        vendor: style.name,
-        name,
-        status: statusText,
-      })}
+      title={`${style.name} ${name}${sourceText} · ${statusText}`}
+      aria-label={t(
+        source === null
+          ? "agentBadges.model.label"
+          : "agentBadges.model.labelWithSource",
+        values,
+      )}
       data-model-badge={style.mark}
       data-value-status={status}
       className={cn(
@@ -81,8 +110,21 @@ export function ModelBadge({
       )}
     >
       <ToolMark mark={style.mark} className="size-[18px] rounded-[5px]" />
-      <span className="shrink-0 text-muted-foreground">{style.name}</span>
-      <span aria-hidden="true" className="h-3 w-px shrink-0 bg-border" />
+      <span
+        className={cn(
+          "shrink-0 text-muted-foreground",
+          isVendorHiddenWhenNarrow && NARROW_VENDOR_CLASS,
+        )}
+      >
+        {style.name}
+      </span>
+      <span
+        aria-hidden="true"
+        className={cn(
+          "h-3 w-px shrink-0 bg-border",
+          isVendorHiddenWhenNarrow && NARROW_DIVIDER_CLASS,
+        )}
+      />
       <span className="min-w-0 truncate font-semibold text-foreground">
         {name}
       </span>

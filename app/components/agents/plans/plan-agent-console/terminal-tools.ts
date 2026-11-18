@@ -2,30 +2,32 @@ import type { AgentSessionEvent } from "@/definition/AgentSessionJournal";
 
 /** The longest result line of a tool call. */
 export const RESULT_LENGTH = 160;
-/** Width of the time column and the space after it. */
-const TIME_COLUMN = "         ";
-/** Indent of a call's expanded output below its time column. */
-const OUTPUT_INDENT = `${TIME_COLUMN}  `;
 
 /** The words the tool lines need. */
 export interface ToolLineTexts {
   /** The name of a tool kind such as `read` or `execute`; `null` where the title names the call better. */
   readonly toolKind: (kind: string) => string | null;
+  /** A time of day as `HH:MM:SS` on a 24-hour clock; the app language decides, never the browser. */
+  readonly clock: (at: number | null) => string;
   readonly done: string;
   readonly aborted: string;
   readonly running: string;
   readonly exitCode: (code: number) => string;
   readonly lineCount: (count: number) => string;
   readonly duration: (milliseconds: number) => string;
-  readonly showDetails: string;
-  readonly hideDetails: string;
+  /** Opens the output of a call, such as „Ausgabe öffnen“. */
+  readonly showOutput: string;
+  readonly hideOutput: string;
+  /** Opens a JSON result and names its lines, such as „JSON öffnen (48 Zeilen)“. */
+  readonly showJson: (lines: number) => string;
+  readonly hideJson: string;
   /** The stored output ends at its limit. */
   readonly outputLimited: string;
 }
 
 /** Paints a text in one of the terminal styles. */
 export type ToolPainter = (
-  style: "muted" | "tool" | "toolName" | "success" | "error",
+  style: "muted" | "toolName" | "success" | "error",
   text: string,
 ) => string;
 
@@ -36,6 +38,10 @@ export interface ToolLine {
   readonly callId: string | null;
   title: string;
   toolKind: string;
+  /** The tool name of the adapter, such as `Bash`; empty when it reported none. */
+  toolName: string;
+  /** The short description of the call; empty when it has none. */
+  about: string;
   input: string;
   /** When the call started; `null` when only its end is stored. */
   startedAt: number | null;
@@ -58,12 +64,16 @@ export interface ToolToggle {
 export interface TerminalLine {
   readonly text: string;
   readonly toggle?: ToolToggle;
+  /** Columns the following rows of the wrapped line start at; without it they stand behind the line's own marker. */
+  readonly hang?: number;
 }
 
 /** Everything a tool event of the journal says. */
 interface ToolEventText {
   readonly title: string;
   readonly toolKind: string;
+  readonly toolName: string;
+  readonly about: string;
   readonly callId: string | null;
   readonly exitCode: number | null;
   readonly isLimited: boolean;
@@ -78,12 +88,12 @@ export function plainText(text: string): string {
     .replace(/[\u0000-\u0008\u000b-\u001f\u007f]/gu, "");
 }
 
-/** The first non-empty line, cut to the result length. */
+/** The first non-empty line, cut to the result length with „…“ at its end. */
 export function firstLine(text: string): string {
   const line = text.split("\n").find((entry) => entry.trim() !== "") ?? "";
   const trimmed = line.trim();
   return trimmed.length > RESULT_LENGTH
-    ? `${trimmed.slice(0, RESULT_LENGTH)} …`
+    ? `${trimmed.slice(0, RESULT_LENGTH - 1).trimEnd()}…`
     : trimmed;
 }
 
@@ -94,7 +104,7 @@ function readMarkers(lines: readonly string[]): {
   const markers = new Map<string, string>();
   let index = 0;
   for (; index < lines.length; index += 1) {
-    const match = /^@(kind|call|exit|limited)(?: (.*))?$/u.exec(
+    const match = /^@(kind|call|tool|about|exit|limited)(?: (.*))?$/u.exec(
       lines[index] ?? "",
     );
     if (!match) break;
@@ -119,7 +129,7 @@ function readExitCode(text: string | undefined): number | null {
 
 /**
  * Reads a tool event: its title, then the marker lines `@kind`, `@call`,
- * `@exit` and `@limited`, then `$ command` and the output.
+ * `@tool`, `@about`, `@exit` and `@limited`, then `$ command` and the output.
  */
 export function readToolEvent(event: AgentSessionEvent): ToolEventText {
   const [title = "", ...lines] = plainText(event.text).split("\n");
@@ -128,6 +138,8 @@ export function readToolEvent(event: AgentSessionEvent): ToolEventText {
   return {
     title: title.trim(),
     toolKind: markerText(markers, "kind") ?? "other",
+    toolName: markerText(markers, "tool") ?? "",
+    about: markerText(markers, "about") ?? "",
     callId: markerText(markers, "call"),
     exitCode: readExitCode(markers.get("exit")),
     isLimited: markers.has("limited") || event.isTruncated,
@@ -136,7 +148,8 @@ export function readToolEvent(event: AgentSessionEvent): ToolEventText {
   };
 }
 
-function eventTime(event: AgentSessionEvent): number | null {
+/** The time of an event in milliseconds since the epoch; `null` when it is unreadable. */
+export function eventTime(event: AgentSessionEvent): number | null {
   const time = Date.parse(event.createdAt);
   return Number.isFinite(time) ? time : null;
 }
@@ -196,6 +209,8 @@ function updateCall(
 ): void {
   if (event.kind === "tool_started") {
     call.input = tool.input || call.input;
+    call.toolName = tool.toolName || call.toolName;
+    call.about = tool.about || call.about;
     return;
   }
   if (call.state === "running") {
@@ -208,6 +223,8 @@ function updateCall(
   call.endedAt = eventTime(event);
   call.title = tool.title || call.title;
   call.toolKind = tool.toolKind === "other" ? call.toolKind : tool.toolKind;
+  call.toolName = tool.toolName || call.toolName;
+  call.about = tool.about || call.about;
   // The input is complete only once the call ended.
   call.input = tool.input || call.input;
   call.exitCode = tool.exitCode ?? call.exitCode;
@@ -239,6 +256,8 @@ export function applyToolEvent(
     callId: callKey,
     title: tool.title,
     toolKind: tool.toolKind,
+    toolName: tool.toolName,
+    about: tool.about,
     input: tool.input,
     startedAt: isStart ? eventTime(event) : null,
     endedAt: isStart ? null : eventTime(event),
@@ -249,133 +268,77 @@ export function applyToolEvent(
   };
 }
 
-/** Name and detail of a call: a known kind names it, its command or path follows. */
+/** The parts of the name of a tool call. */
+export interface ToolParts {
+  /** The MCP server a call went to, such as `pages`; `null` for any other tool. */
+  readonly server: string | null;
+  /** The tool, such as `Bash` or `read_ticket`. */
+  readonly name: string;
+  /** The short description of the call, else the first line of its command; empty when it has neither. */
+  readonly detail: string;
+}
+
+const MCP_TOOL = /^mcp__(.+?)__(.+)$/u;
+
+/**
+ * Name and description of a call.
+ * @remarks
+ * The tool name of the adapter names the call, else its known kind, else its
+ * title. A name `mcp__server__tool` splits into the server and the tool. The
+ * description is the short description of the call, else the first line of
+ * its command, never a piece from the middle; JSON arguments say less than
+ * the title, so they never stand in.
+ */
 export function toolParts(
   tool: ToolLine,
   texts: Pick<ToolLineTexts, "toolKind">,
-): { readonly name: string; readonly detail: string } {
-  const label = texts.toolKind(tool.toolKind);
-  // Arguments of Pages tools and other JSON say less than the title of the call.
-  const detail = /^[[{]/u.test(tool.input) ? "" : firstLine(tool.input);
-  if (label) return { name: label, detail: detail || tool.title };
+): ToolParts {
+  const label = texts.toolKind(tool.toolKind) ?? "";
+  const named = tool.toolName || label || tool.title || "Tool";
+  const mcp = MCP_TOOL.exec(named);
+  const name = mcp?.[2] ?? named;
+  const command = /^[[{]/u.test(tool.input) ? "" : firstLine(tool.input);
+  // Claude Code titles a command with the command itself in backticks.
+  const title = tool.title.replace(/^`(.*)`$/su, "$1").trim();
+  const fallback = title !== named && title !== name ? firstLine(title) : "";
   return {
-    name: tool.title || "Tool",
-    detail: detail && detail !== tool.title ? detail : "",
+    server: mcp?.[1] ?? null,
+    name,
+    detail: firstLine(tool.about) || command || fallback,
   };
 }
 
-function clockTime(at: number | null): string {
-  if (at === null) return "--:--:--";
-  return new Date(at).toLocaleTimeString(undefined, {
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    // A 24-hour clock keeps the time column eight characters wide.
-    hourCycle: "h23",
-  });
-}
-
-/** Whether the output needs more than its result line: several lines, JSON or a long line. */
-function isExpandable(tool: ToolLine): boolean {
-  const output = tool.output.trim();
-  if (output === "") return false;
-  return (
-    output.includes("\n") ||
-    /^[[{]/u.test(output) ||
-    output.length > RESULT_LENGTH ||
-    tool.isLimited
-  );
-}
-
-function outputLineCount(tool: ToolLine): number | null {
-  const output = tool.output.replace(/\n+$/u, "");
-  // A cut output proves no count.
-  if (output.trim() === "" || tool.isLimited) return null;
-  return output.split("\n").length;
-}
-
-/** Exit code, line count and duration, each only where the history proves it. */
-function resultFacts(tool: ToolLine, texts: ToolLineTexts): string[] {
-  const facts: string[] = [];
-  if (tool.exitCode !== null) facts.push(texts.exitCode(tool.exitCode));
-  const lines = outputLineCount(tool);
-  if (lines !== null && isExpandable(tool)) facts.push(texts.lineCount(lines));
-  if (
-    tool.startedAt !== null &&
-    tool.endedAt !== null &&
-    tool.endedAt >= tool.startedAt
-  )
-    facts.push(texts.duration(tool.endedAt - tool.startedAt));
-  return facts;
-}
-
-function resultLine(
-  tool: ToolLine,
-  options: { readonly hasEnded: boolean; readonly texts: ToolLineTexts },
-): string {
-  const { texts } = options;
-  const facts = resultFacts(tool, texts);
-  // An expandable output names its facts; only without any its first line stands for it.
-  const summary =
-    isExpandable(tool) && facts.length > 0 ? "" : firstLine(tool.output);
-  const isFailed =
-    tool.state === "failed" || (tool.state === "running" && options.hasEnded);
-  const fallback = isFailed ? texts.aborted : texts.done;
-  return [summary, ...facts].filter(Boolean).join(" · ") || fallback;
-}
-
-function expandedLines(
-  tool: ToolLine,
-  texts: ToolLineTexts,
-  paint: ToolPainter,
-): TerminalLine[] {
-  const lines = tool.output
-    .replace(/\n+$/u, "")
-    .split("\n")
-    .map((line) => ({ text: `${OUTPUT_INDENT}${line}` }));
-  if (tool.isLimited)
-    lines.push({
-      text: paint("muted", `${OUTPUT_INDENT}… ${texts.outputLimited}`),
-    });
-  return lines;
+/** The name of a call as one text, such as `pages · read_ticket`. */
+export function toolDisplayName(parts: ToolParts): string {
+  return parts.server === null ? parts.name : `${parts.server} · ${parts.name}`;
 }
 
 /**
- * The lines of one call: time, tool and command, then its result.
+ * The calls that ran at the same time as another call of the attempt.
+ * @param calls - The calls in the order their first event arrived.
+ * @param hasEnded - Whether the attempt ended; a call without a result then ends where it started.
  * @remarks
- * A finished call with a longer or JSON output offers its full stored output
- * behind a toggle. An exit code appears only when the adapter reported one;
- * a completed call alone is no exit code 0.
+ * Calls arrive in the order they start, so a call is compared only with
+ * those that start before it ends, and a long list of sequential calls costs
+ * one step per call.
  */
-export function toolLines(
-  tool: ToolLine,
-  options: {
-    readonly hasEnded: boolean;
-    readonly isExpanded: boolean;
-    readonly texts: ToolLineTexts;
-    readonly paint: ToolPainter;
-  },
-): readonly TerminalLine[] {
-  const { texts, paint } = options;
-  const { name, detail } = toolParts(tool, texts);
-  const head: TerminalLine = {
-    text: `${paint("muted", clockTime(tool.startedAt ?? tool.endedAt))} ${paint("tool", "▸")} ${paint("toolName", name)}${detail ? `  ${detail}` : ""}`,
-  };
-  // A start without an ID cannot be joined with its end, so it says nothing about it.
-  if (tool.state === "running" && tool.callId === null) return [head];
-  if (tool.state === "running" && !options.hasEnded)
-    return [head, { text: paint("muted", `${TIME_COLUMN}${texts.running}`) }];
-  const isSuccess = tool.state === "completed";
-  const mark = isSuccess ? paint("success", "✓") : paint("error", "✗");
-  const result = resultLine(tool, options);
-  if (!isExpandable(tool) || tool.callId === null)
-    return [head, { text: `${TIME_COLUMN}${mark} ${result}` }];
-  const label = options.isExpanded ? texts.hideDetails : texts.showDetails;
-  const toggleLine: TerminalLine = {
-    text: `${TIME_COLUMN}${mark} ${result} · ${paint("tool", label)}`,
-    toggle: { callId: tool.callId, label },
-  };
-  return options.isExpanded
-    ? [head, toggleLine, ...expandedLines(tool, texts, paint)]
-    : [head, toggleLine];
+export function parallelCalls(
+  calls: readonly ToolLine[],
+  hasEnded: boolean,
+): ReadonlySet<ToolLine> {
+  const parallel = new Set<ToolLine>();
+  const startOf = (call: ToolLine): number =>
+    call.startedAt ?? call.endedAt ?? 0;
+  const endOf = (call: ToolLine): number =>
+    call.endedAt ?? (hasEnded ? startOf(call) : Number.POSITIVE_INFINITY);
+  for (const [index, call] of calls.entries()) {
+    const end = endOf(call);
+    for (let next = index + 1; next < calls.length; next += 1) {
+      const other = calls[next];
+      if (!other || startOf(other) >= end) break;
+      parallel.add(call);
+      parallel.add(other);
+    }
+  }
+  return parallel;
 }

@@ -3,6 +3,7 @@ import path from "node:path";
 import { AgentChatQuestionRepository } from "@/backend/database/repositories/conversation/AgentChatQuestionRepository";
 import { AgentChatQuestionService } from "@/backend/service/conversation/AgentChatQuestionService";
 import { AgentChatSettingsRepository } from "@/backend/database/repositories/conversation/AgentChatSettingsRepository";
+import { ChatAnswerModelRepository } from "@/backend/database/repositories/conversation/ChatAnswerModelRepository";
 import { AuthorizationRepository } from "@/backend/database/repositories/AuthorizationRepository";
 import { ConversationAgentChatRepository } from "@/backend/database/repositories/conversation/ConversationAgentChatRepository";
 import { ConversationMessageRepository } from "@/backend/database/repositories/conversation/ConversationMessageRepository";
@@ -496,7 +497,15 @@ function createReplies(
     generatedImages: sharedConversationGeneratedImages(),
     content: content.reader,
     answerStream: {
-      open: (target) => sharedConversationAnswerStream().open(target),
+      open: (target) =>
+        sharedConversationAnswerStream().open({
+          ...target,
+          recordModel: (messageId, model) =>
+            new ChatAnswerModelRepository(input.database).record(
+              messageId,
+              model,
+            ),
+        }),
       ownerOf: (conversationId) =>
         shared.conversations.createdBy(conversationId),
     },

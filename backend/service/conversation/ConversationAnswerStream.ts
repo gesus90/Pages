@@ -68,16 +68,13 @@ export class ConversationAnswerStream {
    */
   public snapshots(userId: string): LiveAnswerSnapshot[] {
     this.forgetEnded();
-    return [...this.answers].flatMap((answer) => {
-      const snapshot = answer.snapshotFor(userId);
-      return snapshot ? [snapshot] : [];
-    });
+    return [...this.answers].flatMap((answer) => answer.snapshotsFor(userId));
   }
 
   private forgetEnded(): void {
     const limit = this.now().getTime() - ENDED_ANSWER_RETENTION_MS;
     for (const answer of this.answers)
-      if (answer.hasEndedBefore(limit)) this.answers.delete(answer);
+      if (answer.forgetEndedBefore(limit)) this.answers.delete(answer);
   }
 }
 

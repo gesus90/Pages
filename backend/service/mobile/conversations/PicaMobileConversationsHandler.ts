@@ -27,7 +27,7 @@ export interface PicaMobileConversationsHandlerOptions {
   /**
    * The answers agents are writing: present only for the
    * connection of the signed-in browser, which receives their parts and a
-   * snapshot after the authentication; absent, as for Pica Mobile, the
+   * snapshot and a completion marker after authentication; absent, as for Pica Mobile, the
    * connection receives none of them.
    */
   readonly answers?: Pick<ConversationAnswerStream, "snapshots">;
@@ -237,11 +237,21 @@ export class PicaMobileConversationsHandler {
     if (answers === undefined || session === null) return;
     this.host.enqueue(() => {
       if (this.isStopped || !this.host.isOpen()) return Promise.resolve();
-      for (const snapshot of answers.snapshots(session.userId))
-        this.sendFrame(
+      let isComplete = true;
+      for (const snapshot of answers.snapshots(session.userId)) {
+        const isSent = this.sendFrame(
           encodePicaMobileConversation(null, {
             type: "conversation_event",
             payload: { type: "answer_snapshot", data: snapshot },
+          }),
+        );
+        isComplete = isSent && isComplete;
+      }
+      if (isComplete && this.host.isOpen())
+        this.sendFrame(
+          encodePicaMobileConversation(null, {
+            type: "conversation_event",
+            payload: { type: "answer_sync_complete", data: {} },
           }),
         );
       return Promise.resolve();
@@ -283,8 +293,11 @@ export class PicaMobileConversationsHandler {
     );
   }
 
-  private sendFrame(frame: string): void {
-    if (frame.length <= PICA_MOBILE_MAXIMUM_CHAT_FRAME_LENGTH)
-      this.host.send(frame);
+  private sendFrame(frame: string): boolean {
+    return (
+      frame.length <= PICA_MOBILE_MAXIMUM_CHAT_FRAME_LENGTH &&
+      this.host.isOpen() &&
+      this.host.send(frame)
+    );
   }
 }

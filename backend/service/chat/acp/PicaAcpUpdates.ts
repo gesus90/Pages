@@ -245,7 +245,9 @@ export class PicaAcpUpdates implements AcpSessionListener {
     }
     const compaction = readCompaction(update);
     if (compaction !== null) this.sink.compaction(compaction);
-    const toolCall = this.sink.nativeTool ? this.toolCalls.read(update) : null;
+    const toolCall = this.sink.nativeTool
+      ? this.toolCalls.read(update, this.turn)
+      : null;
     if (toolCall !== null) this.sink.nativeTool?.(toolCall);
     if (
       update.sessionUpdate === "agent_message_chunk" &&

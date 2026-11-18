@@ -73,7 +73,12 @@ export function useAgentSession(
   options: {
     readonly isLive: boolean;
     readonly status: string;
-    readonly isRemote?: boolean;
+    /**
+     * Whether the caller shows the facts of the session view, such as the
+     * context occupancy: they are read again after activity, also for a node
+     * on a runner, which reports them with its events. Defaults to `true`.
+     */
+    readonly isViewShown?: boolean;
   },
 ): AgentSessionData {
   const address = sessionAddress(key);
@@ -82,7 +87,7 @@ export function useAgentSession(
   const [before, setBefore] = useState<number | null>(null);
   const [isFollowing, setFollowing] = useState(true);
   const [isHistoryLoading, setHistoryLoading] = useState(true);
-  const onActivity = useSessionRefresh(!options.isRemote, () =>
+  const onActivity = useSessionRefresh(options.isViewShown ?? true, () =>
     setRevision((current) => current + 1),
   );
   const cursor = useRef(0);

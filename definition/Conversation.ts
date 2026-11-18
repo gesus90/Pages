@@ -14,6 +14,7 @@ import type {
   ConversationLink,
 } from "./ConversationContent";
 import type { ConversationDecisionView } from "./ConversationDecision";
+import type { StoredAgentAnswer } from "./ConversationLiveAnswer";
 import type { ConversationRecipientDelivery } from "./ConversationRecipientDelivery";
 
 /** Longest text of a message, in characters. */
@@ -191,6 +192,8 @@ export interface ConversationMessage {
   readonly voice?: ConversationVoice;
   /** Present only for a hint why an agent did not answer; `text` then says it in German. */
   readonly notice?: ConversationNotice;
+  /** The measurement and tool details supplied to the web chat history. */
+  readonly agentAnswer?: StoredAgentAnswer;
   /**
    * The decision of the decision model; only the chat page reads it.
    * On the message of a person it is the decision that nobody answers, which

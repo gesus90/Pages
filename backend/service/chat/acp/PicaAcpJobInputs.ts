@@ -1,9 +1,11 @@
 import { randomUUID } from "node:crypto";
 
+import { continuedPicaBrief } from "./PicaAcpContent";
 import { chatMcpServers } from "./PicaAcpRunners";
 
 import type { RuntimeExecutionContext } from "@/backend/agents/runtime/RuntimeExecutionContext";
 import type { AgentPlanSessionInput } from "@/backend/agents/AgentPlanExecution";
+import type { AgentPlanExecutionInput } from "@/backend/service/agents/AgentPlanStepStart";
 import type { PicaTurnBrief } from "./PicaAcpContent";
 import type { PicaAcpCredential } from "./PicaAcpCredential";
 import type { PicaAcpJobDependencies } from "./PicaAcpJobDependencies";
@@ -23,6 +25,23 @@ export interface PicaAcpInputSources {
   readonly updates: PicaAcpUpdates;
   readonly context: () => RuntimeExecutionContext;
   readonly authorize: () => Promise<void>;
+}
+
+/** The input of a follow-up turn; it keeps only the brief of a context that the agent session already knows. */
+export function followUpPromptInput(
+  message: PicaAcpMessage,
+  sources: PicaAcpInputSources,
+): AgentPlanExecutionInput {
+  return {
+    ...sources.prompt.create(
+      message,
+      continuedPicaBrief(sources.specification.brief),
+    ),
+    agent: sources.specification.agent,
+    userId: sources.userId,
+    directory: sources.specification.directory,
+    beforeStart: () => sources.authorize(),
+  };
 }
 
 /** The input that opens a new agent session for a job. */

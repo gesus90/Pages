@@ -4,6 +4,7 @@ import { acpRunOptions } from "@/definition/AgentConfiguration";
 import { employeeAccessMode } from "@/definition/AgentEmployee";
 
 import type { StoredAgentEmployee } from "@/backend/database/repositories/employee/AgentEmployeeRepository";
+import type { AgentAnswerModel } from "@/definition/AgentChatControl";
 import type { ResolvedAgentAssignment } from "../agents/AgentAssignmentResolution";
 import type {
   AgentEmployeeSessionDependencies,
@@ -75,5 +76,24 @@ export async function agentIdentity(
   return {
     position: titles.get(agentId) ?? null,
     roleName: account?.role?.name ?? null,
+  };
+}
+
+/**
+ * The model a job answers with, as its stored answers keep it.
+ * @param assignment - The resolved model of the job, which names the
+ * connection the job really uses after any fallback to the agent's own model.
+ * @returns Catalog name, provider and level; free only where the catalog of
+ * that connection states it for exactly this model, never because of a name.
+ */
+export function answerModelOf(
+  assignment: ResolvedAgentAssignment,
+): AgentAnswerModel {
+  return {
+    name: assignment.modelName ?? assignment.model,
+    provider: assignment.connection.provider,
+    modelId: assignment.model,
+    reasoningEffort: assignment.reasoningEffort,
+    isFree: assignment.isFree === true,
   };
 }

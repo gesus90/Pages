@@ -77,6 +77,26 @@ function readAnswer(event, session) {
   return true;
 }
 
+/**
+ * The counters an answer ended with.
+ * The `assistant` event is sent while the answer streams and holds the output
+ * tokens counted so far, so the `message_delta` of the same answer, which
+ * names the final counters, completes the reading.
+ */
+function readAnswerEnd(event, session) {
+  if (
+    event.parent_tool_use_id !== null &&
+    event.parent_tool_use_id !== undefined
+  )
+    return false;
+  if (event.event?.type !== "message_delta" || session.model === null)
+    return false;
+  const used = occupancy(event.event.usage);
+  if (used === null) return false;
+  session.context = { used, source: "cli_assistant_usage" };
+  return true;
+}
+
 function readSystem(event, session) {
   if (event.subtype === "init")
     return observeModel(session, modelName(event.model));
@@ -124,6 +144,8 @@ export function createClaudeSessionReader() {
 export async function receiveClaudeSession(event, session, emit) {
   let hasChanged = false;
   if (event?.type === "assistant") hasChanged = readAnswer(event, session);
+  else if (event?.type === "stream_event")
+    hasChanged = readAnswerEnd(event, session);
   else if (event?.type === "system") hasChanged = readSystem(event, session);
   else if (event?.type === "result") hasChanged = readResult(event, session);
   if (!hasChanged || session.model === null) return;

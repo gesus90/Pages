@@ -351,17 +351,15 @@ export class ConversationReplyRunner {
             message: await this.post(job, accounts, {
               text: this.answerText(answer),
               notice: null,
+              liveAnswer,
             }),
           };
         },
       });
       const message = posted
         ? posted.message
-        : await this.post(job, accounts, { text, notice: null });
-      liveAnswer?.finish({
-        messageId: message?.id ?? null,
-        state: message ? "answered" : "failed",
-      });
+        : await this.post(job, accounts, { text, notice: null, liveAnswer });
+      if (!message) liveAnswer?.finish({ messageId: null, state: "failed" });
       await this.settleSteered(controllerKey, {
         state: "answered",
         ...(message ? { replyMessageId: message.id } : {}),
@@ -563,6 +561,7 @@ export class ConversationReplyRunner {
         void this.deliveries.record(job, "queued");
       },
       onAdmitted: () => {
+        context.liveAnswer?.start();
         this.unmarkQueued(job);
         void this.deliveries.record(job, "started");
       },
@@ -610,6 +609,7 @@ export class ConversationReplyRunner {
     reply: {
       readonly text: string;
       readonly notice: ConversationNotice | null;
+      readonly liveAnswer?: LiveAnswerSink;
     },
   ): Promise<ConversationMessage | null> {
     return postConversationReply(

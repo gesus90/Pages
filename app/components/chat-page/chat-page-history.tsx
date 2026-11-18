@@ -9,6 +9,12 @@ import { cn } from "@/app/lib/cn";
 import { MentionMarkdown } from "./mentions/mention-markdown";
 import { useMentionDirectory } from "./mentions/mention-context";
 import { ChatPageAnswerFailure } from "./chat-page-answer-failure";
+import {
+  ANSWER_CONTENT_CLASS,
+  ANSWER_FRAME_CLASS,
+  AnswerHead,
+  answerAvatarClass,
+} from "./chat-page-answer-head";
 import { ParticipantAvatar } from "./chat-page-avatar";
 import { participantColors } from "./chat-page-colors";
 import { ChatPageDecision } from "./chat-page-decision";
@@ -17,6 +23,7 @@ import { ChatPageQuestionCard } from "./chat-page-question-card";
 import { ChatPageToolUse } from "./chat-page-tool-uses";
 import { ChatPageVoice } from "./chat-page-voice";
 import { MessageContentView } from "./content/message-content-view";
+import { ChatAnswerDuration } from "./live/chat-answer-duration";
 import {
   answerToolSummary,
   ChatPageLiveAnswer,
@@ -32,6 +39,7 @@ import type {
   VirtualToolUse,
 } from "@/definition/VirtualChat";
 import type { AgentChatModelLabel } from "@/definition/AgentChatControl";
+import type { AgentModelBadgeValues } from "@/app/components/agents/badges/agent-model-badges";
 import type { LiveAnswerView, LiveDelivery } from "./live/live-answer-state";
 
 /** What the history shows of the answers agents are writing. */
@@ -286,7 +294,7 @@ function ToolUses({
   readonly live?: LiveAnswerView;
 }): React.ReactElement | null {
   const { t, i18n } = useTranslation();
-  const { uses, durationMs } = answerToolSummary(stored, live?.tools);
+  const { uses, durationMs } = answerToolSummary(stored, live);
   if (uses.length === 0) return null;
   const tools = t("chatPage.liveAnswer.tools", { count: uses.length });
   const summary =
@@ -419,6 +427,9 @@ function AnswerBubble({
       )}
       {message.isFromPreview === true ? <PreviewSentBadge /> : null}
       <ToolUses uses={message.toolUses} live={live} />
+      {message.answerDurationMs === undefined ? null : (
+        <ChatAnswerDuration durationMs={message.answerDurationMs} />
+      )}
     </article>
   );
 }
@@ -427,28 +438,57 @@ interface AnswerRunProps {
   readonly messages: readonly VirtualChatMessage[];
   readonly author: VirtualParticipant;
   readonly ended: ReadonlyMap<string, LiveAnswerView>;
+  /** The model label of an agent in this chat, for an answer that ended on this page. */
+  readonly modelOf?: (agentId: string) => AgentChatModelLabel | undefined;
+}
+
+/**
+ * The model the head of a run of answers shows: the one kept with its first
+ * answer, or, for an answer that just ended on this page before the kept
+ * model arrived, the label of the agent in this chat. An answer stored before
+ * Pages kept the model shows none.
+ */
+function runModel(
+  first: VirtualChatMessage,
+  { ended, modelOf }: Pick<AnswerRunProps, "ended" | "modelOf">,
+): AgentModelBadgeValues | undefined {
+  if (first.answerModel) return first.answerModel;
+  if (first.authorId === null || !ended.has(first.id)) return undefined;
+  return modelOf?.(first.authorId);
 }
 
 /**
  * Consecutive answers of one participant at the left: the avatar once at the
  * top, the name in the person color above the first bubble, the bubbles 8 px
  * apart on the same indent.
+ * @remarks
+ * A run whose first answer knows its model starts with the head of a live
+ * answer, without "live": name, model, "Free" and reasoning.
  */
 function AnswerRun({
   messages,
   author,
   ended,
+  modelOf,
 }: AnswerRunProps): React.ReactElement {
+  const [first] = messages;
+  const model = first ? runModel(first, { ended, modelOf }) : undefined;
+  const hasHead = model !== undefined;
   return (
-    <div className="flex items-start gap-3">
-      <ParticipantAvatar participant={author} size={32} />
-      <div className="flex min-w-0 flex-1 flex-col items-start gap-2">
+    <div className={ANSWER_FRAME_CLASS}>
+      <ParticipantAvatar
+        participant={author}
+        size={36}
+        className={answerAvatarClass(hasHead)}
+      />
+      {hasHead ? <AnswerHead author={author} model={model} hasRole /> : null}
+      <div className={ANSWER_CONTENT_CLASS}>
         {messages.map((message, index) => (
           <Fragment key={message.id}>
             <AnswerBubble
               message={message}
               author={author}
-              hasName={index === 0}
+              hasName={index === 0 && !hasHead}
               live={ended.get(message.id)}
             />
             {message.decision ? (
@@ -490,6 +530,7 @@ function StoredMessages({
                   messages={run.messages}
                   author={author}
                   ended={live.ended}
+                  modelOf={live.modelOf}
                 />
               ) : null;
             }),

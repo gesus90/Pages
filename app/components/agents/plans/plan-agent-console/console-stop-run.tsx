@@ -14,7 +14,8 @@ import {
  * Stops the whole run from the header of the console, after a question.
  * @remarks
  * Stopping ends every node of the run, not only this one; the dialog says so
- * before anything happens.
+ * before anything happens. The button is the soft destructive variant, 40 px
+ * high with a 12 px radius.
  */
 export function ConsoleStopRun({
   onStop,
@@ -37,7 +38,8 @@ export function ConsoleStopRun({
     <Dialog open={isOpen} onOpenChange={setOpen}>
       <Button
         size="sm"
-        className="bg-agent-console-danger font-semibold text-agent-console-danger-foreground hover:bg-agent-console-danger-hover"
+        variant="destructive-soft"
+        className="h-10 min-h-10 px-4 text-[13px] font-semibold xl:min-h-10 xl:px-4 xl:text-[13px]"
         onClick={() => setOpen(true)}
       >
         {t("plans.console.stopRun")}

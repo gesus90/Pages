@@ -1,9 +1,13 @@
+import { GUTTER_WIDTH, EMPTY_GUTTER, timeGutter } from "./terminal-gutter";
+import { toolLines } from "./terminal-tool-lines";
 import { wrapTerminalLine } from "./terminal-wrap";
 import {
   applyToolEvent,
+  eventTime,
   firstLine,
+  parallelCalls,
   plainText as plain,
-  toolLines,
+  toolDisplayName,
   toolParts,
 } from "./terminal-tools";
 
@@ -20,8 +24,7 @@ const STYLE = {
   reset: "\u001b[0m",
   strong: "\u001b[1;97m",
   muted: "\u001b[90m",
-  thought: "\u001b[2;3m",
-  tool: "\u001b[36m",
+  thought: "\u001b[90;3m",
   toolName: "\u001b[1;36m",
   success: "\u001b[32m",
   error: "\u001b[31m",
@@ -31,8 +34,12 @@ const STYLE = {
 
 type Style = keyof typeof STYLE;
 
-/** The rule after the start line of an attempt. */
+/** The rule after the start line of an attempt, when the width of the terminal is not known. */
 const RULE = "─".repeat(14);
+/** The shortest rule worth drawing after the start line. */
+const MINIMUM_RULE = 3;
+/** Columns of a mark such as `✓ ` or `☐ ` and the text column before it. */
+const MARK_HANG = GUTTER_WIDTH + 2;
 
 /** How an attempt ended, as the step tells it; `null` while it runs. */
 export type TerminalEnding =
@@ -82,9 +89,11 @@ export type TerminalHistoryNote = "retained" | "legacy" | "missing";
 /** The translated words of the terminal. */
 export interface TerminalTexts extends ToolLineTexts {
   readonly attempt: (number: number) => string;
+  /** A time of day as `HH:MM` on a 24-hour clock, for the start line of an attempt. */
+  readonly minute: (at: string | null) => string;
   readonly history: (note: TerminalHistoryNote) => string;
-  readonly todoActive: (id: string, text: string) => string;
-  readonly todoDone: (id: string) => string;
+  /** A todo of the contract: its ID and its text. */
+  readonly todo: (id: string, text: string) => string;
   readonly turnEnded: string;
   readonly interrupted: string;
   readonly reportReceived: (done: number, total: number) => string;
@@ -143,17 +152,28 @@ export interface TerminalRows {
 
 /** The newest tool call of the running attempt that has no result yet. */
 export interface TerminalRunningTool {
-  /** The kind or title of the call, such as `Shell`. */
+  /** The tool, such as `Bash` or `pages · read_ticket`. */
   readonly name: string;
-  /** Its command or path; empty when the name says all. */
+  /** Its short description or the first line of its command; empty when the name says all. */
   readonly detail: string;
   /** Milliseconds since the epoch; `null` when the event time is unreadable. */
   readonly startedAt: number | null;
 }
 
 type Block =
-  | { readonly kind: "lines"; readonly lines: readonly string[] }
-  | { readonly kind: "text"; text: string; readonly style: Style | null }
+  | {
+      readonly kind: "lines";
+      /** When the event happened; the time column of the first line. */
+      readonly at: number | null;
+      /** Lines in one style each, starting with their mark such as `☐`. */
+      readonly lines: readonly string[];
+    }
+  | {
+      readonly kind: "text";
+      readonly at: number | null;
+      text: string;
+      readonly style: Style | null;
+    }
   | ToolLine;
 
 function styled(style: Style, text: string): string {
@@ -161,15 +181,6 @@ function styled(style: Style, text: string): string {
 }
 
 const paintTool: ToolPainter = (style, text) => styled(style, text);
-
-function localTime(at: string | null): string {
-  const date = at ? new Date(at) : null;
-  if (!date || Number.isNaN(date.getTime())) return "--:--";
-  return date.toLocaleTimeString(undefined, {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
 
 /** The todo states of an `update_step_progress` event; an unreadable one reports none. */
 function readProgress(
@@ -216,36 +227,34 @@ function addProgress(state: BlockState, event: AgentSessionEvent): void {
     (todo) => state.todos.get(todo.id) !== todo.status,
   );
   for (const todo of changed) state.todos.set(todo.id, todo.status);
-  const active = changed.filter((todo) => todo.status === "active");
-  const done = changed.filter((todo) => todo.status === "done");
+  const todoLine = (mark: string, id: string): string =>
+    styled("todo", `${mark} ${texts.todo(id, todoTexts.get(id) ?? "")}`);
   // What is finished comes first, then what starts next.
-  const lines =
-    done.length > 0
-      ? [
-          styled(
-            "todo",
-            `◆ ${done.map((todo) => texts.todoDone(todo.id)).join(" · ")}`,
-          ),
-        ]
-      : [];
-  for (const todo of active)
-    lines.push(
-      styled(
-        "todo",
-        `◆ ${texts.todoActive(todo.id, todoTexts.get(todo.id) ?? "")}`,
-      ),
-    );
-  if (lines.length > 0) state.blocks.push({ kind: "lines", lines });
+  const lines = [
+    ...changed
+      .filter((todo) => todo.status === "done")
+      .map((todo) => todoLine("☑", todo.id)),
+    ...changed
+      .filter((todo) => todo.status === "active")
+      .map((todo) => todoLine("☐", todo.id)),
+  ];
+  if (lines.length > 0)
+    state.blocks.push({ kind: "lines", at: eventTime(event), lines });
 }
 
 /** Text of the model: consecutive pieces of one answer form one block. */
-function addText(state: BlockState, text: string, style: Style | null): void {
+function addText(
+  state: BlockState,
+  event: AgentSessionEvent,
+  style: Style | null,
+): void {
+  const text = plain(event.text);
   const last = state.blocks.at(-1);
   if (last?.kind === "text" && last.style === style) {
     last.text += text;
     return;
   }
-  state.blocks.push({ kind: "text", text, style });
+  state.blocks.push({ kind: "text", at: eventTime(event), text, style });
 }
 
 /** A prompt ended: a tool call it left without a result was cut short. */
@@ -260,22 +269,26 @@ function abortRunningTools(state: BlockState): void {
       block.state = "failed";
 }
 
-function addStatus(state: BlockState, text: string): void {
+function addStatus(state: BlockState, event: AgentSessionEvent): void {
   const { texts } = state.input;
+  const { text } = event;
   if (
     /^turn \d+ (?:ended|continued)$/u.test(text) ||
     text.startsWith("turn cancelled")
   )
     abortRunningTools(state);
+  const at = eventTime(event);
   if (/^turn \d+ ended$/u.test(text))
     state.blocks.push({
       kind: "lines",
-      lines: [styled("success", `◆ ${texts.turnEnded}`)],
+      at,
+      lines: [styled("success", `✓ ${texts.turnEnded}`)],
     });
   else if (text === "turn cancelled by the executor")
     state.blocks.push({
       kind: "lines",
-      lines: [styled("resume", `◆ ${texts.interrupted}`)],
+      at,
+      lines: [styled("resume", `↻ ${texts.interrupted}`)],
     });
 }
 
@@ -285,18 +298,15 @@ function addEvent(state: BlockState, event: AgentSessionEvent): void {
     case "repair_instruction":
       state.blocks.push({
         kind: "lines",
-        lines: plain(event.text)
-          .split("\n")
-          .map((line, index) =>
-            styled("strong", `${index === 0 ? "> " : "  "}${line}`),
-          ),
+        at: eventTime(event),
+        lines: promptLines(event.text),
       });
       return;
     case "agent_message":
-      addText(state, plain(event.text), null);
+      addText(state, event, null);
       return;
     case "thought":
-      addText(state, plain(event.text), "thought");
+      addText(state, event, "thought");
       return;
     case "tool_started":
     case "tool_completed":
@@ -307,20 +317,22 @@ function addEvent(state: BlockState, event: AgentSessionEvent): void {
       addProgress(state, event);
       return;
     case "status":
-      addStatus(state, event.text);
+      addStatus(state, event);
       return;
     case "error":
       // How a turn failed is the abort station of the attempt; the line would only repeat it.
       if (/^turn \w+/u.test(event.text)) return;
       state.blocks.push({
         kind: "lines",
-        lines: [styled("error", `✗ ${firstLine(plain(event.text))}`)],
+        at: eventTime(event),
+        lines: [styled("error", `✕ ${firstLine(plain(event.text))}`)],
       });
       return;
     case "recovery":
       state.blocks.push({
         kind: "lines",
-        lines: [styled("resume", `◆ ${firstLine(plain(event.text))}`)],
+        at: eventTime(event),
+        lines: [styled("resume", `↻ ${firstLine(plain(event.text))}`)],
       });
       return;
     case "plan":
@@ -330,29 +342,73 @@ function addEvent(state: BlockState, event: AgentSessionEvent): void {
   }
 }
 
+/** The prompt or instruction of a person: bold, the first line with its `>`. */
+function promptLines(text: string): readonly string[] {
+  return plain(text)
+    .split("\n")
+    .map((line, index) =>
+      styled("strong", `${index === 0 ? "> " : "  "}${line}`),
+    );
+}
+
+/** Where a block's lines stand: the time column on the first line, the text column behind it. */
+function withGutter(
+  lines: readonly string[],
+  options: {
+    readonly at: number | null;
+    readonly texts: TerminalTexts;
+    /** Columns the wrapped rows of a line start at. */
+    readonly hang: number;
+  },
+): readonly TerminalLine[] {
+  const time = timeGutter(options.texts.clock(options.at), (text) =>
+    styled("muted", text),
+  );
+  return lines.map((text, index) => ({
+    text: text === "" ? "" : `${index === 0 ? time : EMPTY_GUTTER}${text}`,
+    hang: options.hang,
+  }));
+}
+
 function blockLines(
   block: Block,
-  input: TerminalInput,
-  hasEnded: boolean,
+  context: {
+    readonly input: TerminalInput;
+    readonly hasEnded: boolean;
+    readonly parallel: ReadonlySet<ToolLine>;
+  },
 ): readonly TerminalLine[] {
-  if (block.kind === "lines") return block.lines.map((text) => ({ text }));
+  const { input } = context;
+  if (block.kind === "lines")
+    return withGutter(block.lines, {
+      at: block.at,
+      texts: input.texts,
+      hang: MARK_HANG,
+    });
   if (block.kind === "tool")
     return toolLines(block, {
-      hasEnded,
+      hasEnded: context.hasEnded,
       isExpanded:
         block.callId !== null && input.expandedCalls.has(block.callId),
+      isParallel: context.parallel.has(block),
       texts: input.texts,
       paint: paintTool,
     });
   const lines = block.text
     .replace(/\s+$/u, "")
     .replace(/^\n+/u, "")
-    .split("\n");
-  const text = lines.map((line) => ({
-    text: block.style ? styled(block.style, line) : line,
-  }));
+    .split("\n")
+    .map((line) => (line === "" ? "" : styled(block.style ?? "strong", line)));
   // An answer stands apart from tools and todos, as in a CLI.
-  return [{ text: "" }, ...text, { text: "" }];
+  return [
+    { text: "" },
+    ...withGutter(lines, {
+      at: block.at,
+      texts: input.texts,
+      hang: GUTTER_WIDTH,
+    }),
+    { text: "" },
+  ];
 }
 
 function endingLines(
@@ -361,19 +417,19 @@ function endingLines(
 ): readonly string[] {
   if (ending.kind === "succeeded")
     return [
-      styled("success", `◆ ${texts.reportReceived(ending.done, ending.total)}`),
-      styled("success", `◆ ${texts.sessionClosed}`),
+      styled("success", `✓ ${texts.reportReceived(ending.done, ending.total)}`),
+      styled("success", `✓ ${texts.sessionClosed}`),
     ];
   if (ending.kind === "blocked")
     return [
-      styled("error", `◆ ${texts.blocked(ending.reason, ending.attempts)}`),
+      styled("error", `✕ ${texts.blocked(ending.reason, ending.attempts)}`),
     ];
-  if (ending.kind === "stopped") return [styled("error", `◆ ${texts.stopped}`)];
+  if (ending.kind === "stopped") return [styled("error", `✕ ${texts.stopped}`)];
   const { resume } = ending;
   const lines = [
     styled(
       "error",
-      `◆ ${resume?.isRepair ? texts.noReport : texts.abort(ending.reason)}`,
+      `✕ ${resume?.isRepair ? texts.noReport : texts.abort(ending.reason)}`,
     ),
   ];
   if (!resume) return lines;
@@ -385,7 +441,24 @@ function endingLines(
         resume.limit,
         resume.isSameSession,
       );
-  return [...lines, styled("resume", `◆ ${text}`)];
+  return [...lines, styled("resume", `↻ ${text}`)];
+}
+
+/**
+ * The start line of an attempt: provider, model, attempt and the minute it began, then a rule to the right edge.
+ * @remarks
+ * The rule fills the measured width of the terminal; without a measure it has a fixed length.
+ */
+function startLine(
+  attempt: TerminalAttempt,
+  input: TerminalInput,
+): TerminalLine {
+  const { texts, columns } = input;
+  const label = `${input.provider} · ${input.model} · ${texts.attempt(attempt.number)} · ${texts.minute(attempt.startedAt)}`;
+  const ruleLength =
+    columns === null ? RULE.length : columns - [...label].length - 1;
+  const rule = ruleLength >= MINIMUM_RULE ? ` ${"─".repeat(ruleLength)}` : "";
+  return { text: styled("muted", `${label}${rule}`) };
 }
 
 function attemptLines(
@@ -393,37 +466,44 @@ function attemptLines(
   input: TerminalInput,
   todos: Map<string, string>,
 ): readonly TerminalLine[] {
-  const header = styled(
-    "muted",
-    `── ${input.provider} · ${input.model} · ${input.texts.attempt(attempt.number)} · ${localTime(attempt.startedAt)} ${RULE}`,
-  );
   const note = attempt.historyNote
     ? [
         {
-          text: styled(
-            "muted",
-            `◇ ${input.texts.history(attempt.historyNote)}`,
-          ),
+          text: `${EMPTY_GUTTER}${styled("muted", `◇ ${input.texts.history(attempt.historyNote)}`)}`,
+          hang: MARK_HANG,
         },
       ]
     : [];
   const state: BlockState = { blocks: [], todos, input };
   const prompt =
     attempt.number === 1 && input.prompt
-      ? plain(input.prompt)
-          .split("\n")
-          .map((line, index) => ({
-            text: styled("strong", `${index === 0 ? "> " : "  "}${line}`),
-          }))
+      ? promptLines(input.prompt).map((text) => ({
+          text: `${EMPTY_GUTTER}${text}`,
+          hang: MARK_HANG,
+        }))
       : [];
   for (const event of attempt.events) addEvent(state, event);
-  const body = state.blocks.flatMap((block) =>
-    blockLines(block, input, attempt.ending !== null),
+  const hasEnded = attempt.ending !== null;
+  const calls = state.blocks.filter(
+    (block): block is ToolLine => block.kind === "tool",
   );
+  const context = {
+    input,
+    hasEnded,
+    parallel: parallelCalls(calls, hasEnded),
+  };
+  const body = state.blocks.flatMap((block) => blockLines(block, context));
+  // The station of the attempt's end is dated by the last thing it did.
+  const lastEvent = attempt.events.at(-1);
+  const endedAt = lastEvent ? eventTime(lastEvent) : null;
   const ending = attempt.ending
-    ? endingLines(attempt.ending, input.texts).map((text) => ({ text }))
+    ? withGutter(endingLines(attempt.ending, input.texts), {
+        at: endedAt,
+        texts: input.texts,
+        hang: MARK_HANG,
+      })
     : [];
-  return [{ text: header }, ...note, ...prompt, ...body, ...ending];
+  return [startLine(attempt, input), ...note, ...prompt, ...body, ...ending];
 }
 
 /** Collapses runs of empty lines and drops them at the edges of an attempt. */
@@ -463,14 +543,16 @@ function toggleOf(
  * @returns ANSI rows, the same for every provider, wrapped at word boundaries once the terminal is measured.
  *
  * @remarks
- * Every attempt starts with `── Anbieter · Modell · Versuch n · HH:MM` in
- * local time. Prompts and inputs of people are bold, answers plain,
- * thoughts dimmed, tool calls cyan with a green result or a red abort, todo
- * changes yellow, resumes orange and closing stations green. Tool IDs never
- * appear: a tool is named by its title and its command or path, and its
- * start and end are joined by the stored `toolCallId` within its turn alone.
- * A journal without identities pairs a result only with the one running call
- * of its title.
+ * Every attempt starts with `Anbieter · Modell · Versuch n · HH:MM` and a
+ * rule; every other line stands in the text column behind a time column of
+ * `HH:MM:SS` on a 24-hour clock in the app language. Prompts and inputs of
+ * people and answers are bold, thoughts muted and italic, a tool call is `▸`,
+ * its name in bold and its description, followed by its result `✓` in green
+ * or `✕` in red, todos yellow, restarts violet with `↻` and closing stations
+ * green or red. Tool IDs never appear: a tool is named by its tool name or
+ * title and its description or command, and its start and end are joined by
+ * the stored `toolCallId` within its turn alone. A journal without
+ * identities pairs a result only with the one running call of its title.
  */
 export function renderTerminal(input: TerminalInput): TerminalRows {
   const todos = new Map<string, string>();
@@ -485,7 +567,9 @@ export function renderTerminal(input: TerminalInput): TerminalRows {
   for (const line of lines) {
     lineStarts.push(rows.length);
     const wrapped =
-      columns === null ? [line.text] : wrapTerminalLine(line.text, columns);
+      columns === null
+        ? [line.text]
+        : wrapTerminalLine(line.text, columns, line.hang);
     const toggle = toggleOf(wrapped, line);
     if (toggle) {
       const { offset, ...columnsOfLabel } = toggle;
@@ -514,5 +598,10 @@ export function runningTerminalTool(
       block.kind === "tool" && block.state === "running",
   );
   if (!tool) return null;
-  return { ...toolParts(tool, input.texts), startedAt: tool.startedAt };
+  const parts = toolParts(tool, input.texts);
+  return {
+    name: toolDisplayName(parts),
+    detail: parts.detail,
+    startedAt: tool.startedAt,
+  };
 }

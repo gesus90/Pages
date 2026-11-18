@@ -1,3 +1,5 @@
+import type { VirtualToolUse } from "./VirtualChat";
+
 /**
  * The parts of an answer an agent is writing now, as `conversations.v1`
  * streams them to the chat page of the web.
@@ -41,6 +43,8 @@ export interface LiveAnswerHead {
   readonly seq: number;
   /** ISO time the server produced the part. */
   readonly at: string;
+  /** ISO time the server began this answer. */
+  readonly answerStartedAt?: string;
 }
 
 /** One tool call of an answer. */
@@ -48,6 +52,7 @@ export interface LiveAnswerTool {
   readonly callId: string;
   readonly name: string;
   readonly status: LiveAnswerToolStatus;
+  readonly summary?: string;
   /** The command or input, bounded, credentials masked. */
   readonly input?: string;
   /** The result, bounded, credentials masked. */
@@ -73,6 +78,21 @@ export interface LiveAnswerEnd {
   /** The stored message that replaces the live answer; `null` without one. */
   readonly messageId: string | null;
   readonly state: LiveAnswerEndState;
+  /** ISO time the server completed the answer. */
+  readonly endedAt?: string;
+}
+
+/** The completed measurement and tool calls saved with an agent's answer. */
+export interface StoredAgentAnswer {
+  readonly answerId: string;
+  readonly durationMs: number;
+  readonly tools: readonly LiveAnswerTool[];
+}
+
+/** The server sent every snapshot for this connection's sign-in. */
+export interface LiveAnswerSyncComplete {
+  readonly type: "answer_sync_complete";
+  readonly data: Record<string, never>;
 }
 
 /** Everything known of an answer, for a client that connects while it is written. */
@@ -135,3 +155,24 @@ export const LIVE_ANSWER_EVENT_TYPES: readonly LiveAnswerEventType[] = [
 
 /** The WebSocket path of `conversations.v1` on the Pages port for the signed-in browser. */
 export const CONVERSATION_WEB_SOCKET_PATH = "/chat/conversations/socket";
+
+/** Maps a tool's own timestamps and details to the row in the chat history. */
+export function virtualLiveToolUse(
+  tool: LiveAnswerTool,
+  now?: number,
+): VirtualToolUse {
+  const end = tool.endedAt === undefined ? now : Date.parse(tool.endedAt);
+  return {
+    name: tool.name,
+    detail: tool.error ?? "",
+    callId: tool.callId,
+    status: tool.status,
+    ...(tool.input === undefined ? {} : { input: tool.input }),
+    ...(tool.output === undefined ? {} : { output: tool.output }),
+    ...(tool.isNative === true ? { isNative: true } : {}),
+    ...(tool.summary === undefined ? {} : { summary: tool.summary }),
+    ...(end === undefined
+      ? {}
+      : { durationMs: Math.max(0, end - Date.parse(tool.startedAt)) }),
+  };
+}

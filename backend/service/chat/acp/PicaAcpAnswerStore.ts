@@ -8,7 +8,10 @@ import type { PicaAcpJournal } from "./PicaAcpJournal";
 
 /** What a job writes to its conversation and journal: the stores and the job's identity. */
 export interface PicaAcpAnswerStoreInput {
-  readonly dependencies: Pick<PicaAcpJobDependencies, "messages" | "steers">;
+  readonly dependencies: Pick<
+    PicaAcpJobDependencies,
+    "messages" | "steers" | "liveAnswer"
+  >;
   readonly userId: string;
   readonly sessionId: string;
   readonly journal: Pick<PicaAcpJournal, "record">;
@@ -35,14 +38,21 @@ export class PicaAcpAnswerStore {
     const { dependencies, userId, sessionId, journal, answers } = this.input;
     await answers.settle(turn);
     const content = readAnswer(output);
+    const agentAnswer = dependencies.liveAnswer?.complete(turn);
     const message = await dependencies.messages.append(userId, sessionId, {
       role: "assistant",
       content,
       ...ending,
+      ...(agentAnswer ? { agentAnswer } : {}),
     });
     // Files of this turn are linked before the answer event, so the browser reads them with it.
     await answers.claim(turn, message.id);
-    await journal.record({ kind: "answer", turn, messageId: message.id });
+    await journal.record({
+      kind: "answer",
+      turn,
+      messageId: message.id,
+      ...(ending.isStopped ? { isStopped: true } : {}),
+    });
     return message.id;
   }
 

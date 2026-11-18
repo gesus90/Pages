@@ -165,6 +165,8 @@ export interface ChatJobTextEvent {
 export interface ChatJobToolEvent {
   readonly kind: "tool";
   readonly callId: string;
+  /** The running turn that owns the call, when the producer identifies it. */
+  readonly turn?: number;
   readonly tool: string;
   readonly status: "running" | "completed" | "failed";
   readonly error: string | null;
@@ -183,6 +185,9 @@ export interface ChatJobToolEvent {
   readonly summary?: string;
   /** How long the call took, in milliseconds, once it ended. */
   readonly durationMs?: number;
+  /** The bridge's clock at the start and end of the call. */
+  readonly startedAt?: string;
+  readonly endedAt?: string;
 }
 
 /** A message sent while the job ran changed its status. */
@@ -197,6 +202,7 @@ export interface ChatJobAnswerEvent {
   readonly kind: "answer";
   readonly turn: number;
   readonly messageId: string;
+  readonly isStopped?: boolean;
 }
 
 /** The consumption of the job changed. */

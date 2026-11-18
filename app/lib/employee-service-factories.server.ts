@@ -10,6 +10,7 @@ import { SimulatedConversationObserver } from "@/backend/agents/simulation/Simul
 import type { AuthorizationRepository } from "@/backend/database/repositories/AuthorizationRepository";
 import { ChatAttachmentRepository } from "@/backend/database/repositories/chat/ChatAttachmentRepository";
 import type { ChatSessionRepository } from "@/backend/database/repositories/chat/ChatSessionRepository";
+import { ChatAnswerModelRepository } from "@/backend/database/repositories/conversation/ChatAnswerModelRepository";
 import { ConversationReplySettingsRepository } from "@/backend/database/repositories/conversation/ConversationReplySettingsRepository";
 import { ConversationRepository } from "@/backend/database/repositories/conversation/ConversationRepository";
 import type { EmployeeStore } from "@/backend/database/repositories/employee/EmployeeStore";
@@ -199,6 +200,7 @@ export function createChatDirectory(parts: {
       new ConversationReplySettingsRepository(parts.database).modes(
         conversationIds,
       ),
+    answerModels: new ChatAnswerModelRepository(parts.database),
     chatControl: {
       modelLabels: (chat) =>
         chatModelLabels({ store: parts.store, models: parts.models }, chat),

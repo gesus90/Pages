@@ -57,7 +57,7 @@ export type {
   AgentJobRequest,
   QueuedAgentMessage,
 } from "./AgentEmployeeSessionTypes";
-import { employeeAssignment } from "./AgentEmployeeAssignments";
+import { answerModelOf, employeeAssignment } from "./AgentEmployeeAssignments";
 
 /** Jobs of a conversation whose tool calls the chat page shows. */
 const TOOL_CALL_JOBS = 20;
@@ -509,6 +509,8 @@ export class AgentEmployeeSessions {
           chat: chatScopeOf(request, sessionId),
           connectionId: assignment.connection.id,
         });
+        const liveAnswer = this.liveAnswerOf(request);
+        liveAnswer?.useModel(answerModelOf(assignment));
         const start = await acp.start({
           actor: agent,
           request: chatRequest,
@@ -516,7 +518,7 @@ export class AgentEmployeeSessions {
           brief,
           employee: {
             ...run,
-            ...this.liveAnswerOf(request),
+            ...(liveAnswer ? { liveAnswer } : {}),
             prepareTurn: request.prepareTurn,
             consumeAnswer: request.consumeAnswer,
             onSettled: () => {
@@ -545,23 +547,19 @@ export class AgentEmployeeSessions {
    * with a person, whose thoughts only that person reads. A run of the
    * agent's own shows none.
    */
-  private liveAnswerOf(
-    request: AgentJobRequest,
-  ): { readonly liveAnswer: LiveAnswerSink } | Record<string, never> {
-    if (request.liveAnswer) return { liveAnswer: request.liveAnswer };
+  private liveAnswerOf(request: AgentJobRequest): LiveAnswerSink | undefined {
+    if (request.liveAnswer) return request.liveAnswer;
     const { answers } = this.dependencies;
     const { person, agent } = request;
-    if (!answers || request.purpose !== "chat" || !person) return {};
-    return {
-      liveAnswer: answers.open({
-        agentId: agent.id,
-        chatKind: "agent",
-        chatId: agent.id,
-        recipientIds: [person.id],
-        thoughtRecipientIds: [person.id],
-        isTurnStored: true,
-      }),
-    };
+    if (!answers || request.purpose !== "chat" || !person) return undefined;
+    return answers.open({
+      agentId: agent.id,
+      chatKind: "agent",
+      chatId: agent.id,
+      recipientIds: [person.id],
+      thoughtRecipientIds: [person.id],
+      isTurnStored: true,
+    });
   }
 
   /** Tells the session the entries of the Lagebuch its round just carried the hint line for. */

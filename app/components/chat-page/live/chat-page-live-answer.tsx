@@ -4,12 +4,16 @@ import { useTranslation } from "react-i18next";
 
 import { ChatLivePhraseLine } from "@/app/components/chat/chat-live-status";
 import { cn } from "@/app/lib/cn";
-import { AgentModelBadges } from "@/app/components/agents/badges/agent-model-badges";
+import { virtualLiveToolUse } from "@/definition/ConversationLiveAnswer";
 
 import { MentionMarkdown } from "../mentions/mention-markdown";
+import {
+  ANSWER_CONTENT_CLASS,
+  ANSWER_FRAME_CLASS,
+  AnswerHead,
+  answerAvatarClass,
+} from "../chat-page-answer-head";
 import { ParticipantAvatar } from "../chat-page-avatar";
-import { participantColors } from "../chat-page-colors";
-import { PRIMARY_CHIP_CLASS } from "../chat-page-primary-chip";
 import { ChatPageToolStrip } from "../chat-page-tool-strip";
 import { GALLERY_TILES, GalleryPlaceholder } from "../content/image-gallery";
 import {
@@ -50,27 +54,6 @@ export function useTicking(isRunning: boolean): number {
     return () => window.clearInterval(timer);
   }, [isRunning]);
   return now;
-}
-
-/**
- * A call of a live answer as the tool list of the chat shows it, with how
- * long it ran or runs.
- */
-export function liveToolUse(
-  tool: LiveAnswerTool,
-  now: number,
-): VirtualToolUse & { readonly durationMs: number } {
-  const end = tool.endedAt ?? new Date(now).toISOString();
-  return {
-    name: tool.name,
-    detail: tool.error ?? "",
-    callId: tool.callId,
-    status: tool.status,
-    durationMs: elapsedMilliseconds(tool.startedAt, end),
-    ...(tool.input === undefined ? {} : { input: tool.input }),
-    ...(tool.output === undefined ? {} : { output: tool.output }),
-    ...(tool.isNative === true ? { isNative: true } : {}),
-  };
 }
 
 /** The sentences of the waiting line of a live answer, in their order. */
@@ -196,7 +179,7 @@ function LiveTools({
 }): React.ReactElement | null {
   const { i18n } = useTranslation();
   if (tools.length === 0) return null;
-  const uses = tools.map((tool) => liveToolUse(tool, now));
+  const uses = tools.map((tool) => virtualLiveToolUse(tool, now));
   return (
     <div className="flex w-full max-w-[62%] min-w-0">
       <ChatPageToolStrip
@@ -255,60 +238,6 @@ function LiveText({
   );
 }
 
-/**
- * The "live" hint of a running answer.
- * @remarks
- * It has the same shape beside every provider's badges: the orange chip of
- * the chat with a pulsing dot, still while reduced motion is preferred.
- */
-function LiveBadge(): React.ReactElement {
-  const { t } = useTranslation();
-  return (
-    <span data-live-badge="" className={cn(PRIMARY_CHIP_CLASS, "gap-1.5")}>
-      <span
-        aria-hidden="true"
-        className="size-1.5 shrink-0 animate-pulse rounded-full bg-primary motion-reduce:animate-none"
-      />
-      {t("chatPage.liveAnswer.live")}
-    </span>
-  );
-}
-
-/** Name, model and the hint "live" above a live answer, in one line of 24 px. */
-function LiveAnswerHead({
-  author,
-  model,
-  isRunning,
-}: {
-  readonly author: VirtualParticipant;
-  readonly model: AgentChatModelLabel | undefined;
-  readonly isRunning: boolean;
-}): React.ReactElement {
-  const colors = participantColors(author.color);
-  return (
-    <p
-      className="flex h-6 max-w-full min-w-0 items-center gap-1.5 overflow-hidden text-[13px] whitespace-nowrap"
-      data-live-head=""
-    >
-      <span
-        className={cn(
-          "truncate leading-5 font-semibold",
-          colors.text.className,
-        )}
-        style={colors.text.style}
-      >
-        {author.name}
-      </span>
-      {model ? (
-        <span className="inline-flex h-6 min-w-0 shrink-0 items-center">
-          <AgentModelBadges model={model} />
-        </span>
-      ) : null}
-      {isRunning ? <LiveBadge /> : null}
-    </p>
-  );
-}
-
 interface ChatPageLiveAnswerProps {
   readonly view: LiveAnswerView;
   readonly author: VirtualParticipant;
@@ -336,26 +265,35 @@ export function ChatPageLiveAnswer({
   const { t } = useTranslation();
   const isRunning = view.end === null;
   const now = useTicking(isRunning);
+  const end = isRunning
+    ? new Date(now).toISOString()
+    : (view.end?.endedAt ?? view.lastAt);
+  const durationMs = elapsedMilliseconds(view.startedAt, end);
   const isThinking =
     isRunning && view.thought !== null && view.lastAt === view.thought.endedAt;
   return (
     <article
       aria-label={t("chatPage.liveAnswer.liveAnswer", { name: author.name })}
       aria-busy={isRunning}
-      className="flex items-start gap-3"
+      className={ANSWER_FRAME_CLASS}
       data-live-answer={view.answerId}
     >
       <ParticipantAvatar
         participant={author}
-        size={32}
+        size={36}
         className={cn(
-          "shrink-0 rounded-full",
+          answerAvatarClass(true),
           isRunning &&
             "ring-2 ring-primary ring-offset-2 ring-offset-background",
         )}
       />
-      <div className="flex min-w-0 flex-1 flex-col items-start gap-2">
-        <LiveAnswerHead author={author} model={model} isRunning={isRunning} />
+      <AnswerHead
+        author={author}
+        model={model}
+        isLive={isRunning}
+        durationMs={durationMs}
+      />
+      <div className={ANSWER_CONTENT_CLASS}>
         {view.thought ? (
           <ChatPageThoughts
             thought={view.thought}
@@ -365,7 +303,7 @@ export function ChatPageLiveAnswer({
         ) : null}
         <LiveTools
           tools={view.tools}
-          now={now}
+          now={Date.parse(end)}
           onCancel={isRunning ? onCancelTool : undefined}
         />
         <LiveText text={view.text} isRunning={isRunning} now={now} />
@@ -413,30 +351,33 @@ function GeneratingImages({
  * stored calls, with the times the page saw them run, and the time of all.
  *
  * @param uses - The calls stored with the answer; empty where none are stored.
- * @param live - The calls the page followed live, when it did.
+ * @param live - The answer the page followed live, when it did.
  */
 export function answerToolSummary(
   uses: readonly VirtualToolUse[],
-  live: readonly LiveAnswerTool[] | undefined,
+  live: LiveAnswerView | undefined,
 ): {
   readonly uses: readonly VirtualToolUse[];
   readonly durationMs: number | null;
 } {
-  if (!live || live.length === 0) return { uses, durationMs: null };
-  const now = Date.now();
-  const timed = live.map((tool) => liveToolUse(tool, now));
+  if (!live || live.tools.length === 0) return { uses, durationMs: null };
+  const endedAt = Date.parse(live.end?.endedAt ?? live.lastAt);
+  const timed = live.tools.map((tool) => virtualLiveToolUse(tool, endedAt));
   return {
     uses: uses.length > 0 ? withDurations(uses, timed) : timed,
-    durationMs: toolsDuration(live),
+    durationMs: toolsDuration(live.tools),
   };
 }
 
 function withDurations(
   uses: readonly VirtualToolUse[],
-  timed: readonly (VirtualToolUse & { readonly durationMs: number })[],
+  timed: readonly VirtualToolUse[],
 ): VirtualToolUse[] {
   return uses.map((use) => {
+    if (use.durationMs !== undefined) return use;
     const match = timed.find((entry) => entry.callId === use.callId);
-    return match ? { ...use, durationMs: match.durationMs } : use;
+    return match?.durationMs === undefined
+      ? use
+      : { ...use, durationMs: match.durationMs };
   });
 }

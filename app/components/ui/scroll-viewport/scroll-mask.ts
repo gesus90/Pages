@@ -13,17 +13,19 @@ export const DEFAULT_SCROLL_FADE_SIZE = 40;
 /** The column of the native scrollbar, which the mask leaves untouched. */
 const SCROLLBAR_COLUMN = "0.75rem";
 
-/** The edges a masking viewport fades and the length of its upper fade. */
+/** The edges a masking viewport fades and the length of its upper and lower fade. */
 export interface ScrollMaskOptions {
   readonly fadeEdges: readonly ScrollMaskEdge[];
   /** Length of the upper fade in CSS pixels. */
   readonly fadeTop: number;
+  /** Length of the lower fade in CSS pixels; the overlay's length when absent. */
+  readonly fadeBottom?: number;
 }
 
 /**
  * Masks a viewport's content so it fades out at each chosen edge with more content beyond it.
  * @param edges - The measured edges where more content waits.
- * @param options - The faded edges and the length of the upper fade.
+ * @param options - The faded edges and the length of the upper and lower fade.
  * @returns The mask declarations for the native viewport.
  * @remarks
  * A mask lets whatever lies behind the viewport, such as a design's painting,
@@ -40,7 +42,7 @@ export function scrollMaskStyle(
     ? `transparent 0px, #000 ${options.fadeTop}px`
     : "#000 0px";
   const bottomStops = fadesBottom
-    ? `#000 calc(100% - ${DEFAULT_SCROLL_FADE_SIZE}px), transparent 100%`
+    ? `#000 calc(100% - ${options.fadeBottom ?? DEFAULT_SCROLL_FADE_SIZE}px), transparent 100%`
     : "#000 100%";
   return {
     maskImage: `linear-gradient(to bottom, ${topStops}, ${bottomStops}), linear-gradient(#000, #000)`,

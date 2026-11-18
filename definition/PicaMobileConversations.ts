@@ -1,6 +1,9 @@
 import { z } from "zod";
 
-import type { LiveAnswerEventPayload } from "./ConversationLiveAnswer";
+import type {
+  LiveAnswerEventPayload,
+  LiveAnswerSyncComplete,
+} from "./ConversationLiveAnswer";
 import type {
   ConversationContacts,
   ConversationErrorCode,
@@ -173,7 +176,8 @@ export type PicaMobileConversationEventPayload =
   | { readonly type: "conversation"; readonly data: ConversationSummary }
   | { readonly type: "read"; readonly data: ConversationReadState }
   | { readonly type: "typing"; readonly data: PicaMobileConversationTyping }
-  | LiveAnswerEventPayload;
+  | LiveAnswerEventPayload
+  | LiveAnswerSyncComplete;
 
 /** The payload of `conversation_error`. */
 export interface PicaMobileConversationErrorPayload {

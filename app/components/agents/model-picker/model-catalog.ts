@@ -97,10 +97,19 @@ function catalogName(model: PageAgentModel): string {
   return model.modelName ?? model.name;
 }
 
-function shortName(model: PageAgentModel): string {
-  const name = catalogName(model);
+/**
+ * A model name without a trailing "Free", such as "GLM-5.3-Flash Free" or
+ * "Model (free)", for a place whose own badge says it.
+ * @param name - The catalog name of the model.
+ * @returns The name without the word; the name as it is when nothing else remains.
+ */
+export function withoutTrailingFree(name: string): string {
   const shortened = name.replace(TRAILING_FREE, "").trim();
   return shortened === "" ? name : shortened;
+}
+
+function shortName(model: PageAgentModel): string {
+  return withoutTrailingFree(catalogName(model));
 }
 
 function targetKey(model: PageAgentModel): string {
@@ -125,6 +134,30 @@ export function modelToolLabel(
   });
 }
 
+function openCodeSourceLabel(source: string, translate: TFunction): string {
+  return translate(`plans.modelPicker.sources.${source}`, {
+    defaultValue: source,
+  });
+}
+
+/**
+ * The source of an OpenCode model as the model choice names it, such as
+ * "OpenCode Zen" or "OpenRouter".
+ * @param provider - The provider or runner of the model, such as `opencode`; `null` when the connection is gone.
+ * @param modelId - The full model ID, such as `opencode/glm-5.3-flash`.
+ * @param translate - Translates the source names.
+ * @returns `null` for a provider other than OpenCode and for an ID that names no source.
+ */
+export function openCodeSourceName(
+  provider: string | null,
+  modelId: string | null,
+  translate: TFunction,
+): string | null {
+  if (provider !== "opencode" || modelId === null || !modelId.includes("/"))
+    return null;
+  return openCodeSourceLabel(openCodeModelProvider(modelId), translate);
+}
+
 // OpenCode models name their upstream provider; other providers name the connection.
 function sourceOf(
   model: PageAgentModel,
@@ -132,12 +165,7 @@ function sourceOf(
 ): Omit<SourceDraft, "models"> {
   if (model.provider === "opencode") {
     const provider = openCodeModelProvider(model.model);
-    return {
-      key: provider,
-      name: translate(`plans.modelPicker.sources.${provider}`, {
-        defaultValue: provider,
-      }),
-    };
+    return { key: provider, name: openCodeSourceLabel(provider, translate) };
   }
   const key = model.connectionId ?? model.connectionName ?? "";
   return { key, name: model.connectionName ?? key };

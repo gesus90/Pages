@@ -53,7 +53,7 @@ export interface AgentSessionEvent {
   readonly createdAt: string;
   /**
    * Redacted and shortened text; never a credential or an unbounded tool output.
-   * A tool event reads `title`, `@kind k`, `@call id`, `$ input`, then the output; every line after the title is optional.
+   * A tool event reads `title`, `@kind k`, `@call id`, `@tool name`, `@about description`, `$ input`, then the output; every line after the title is optional.
    * The `@call` line holds the identity the provider gave the call. It pairs a start and a result with exactly one call, even when calls overlap or share a name, and is absent in events recorded before identities were kept.
    */
   readonly text: string;

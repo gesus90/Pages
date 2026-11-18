@@ -22,6 +22,7 @@ import type {
   AgentPlanSources,
   AgentPlanStep,
 } from "@/definition/AgentPlan";
+import type { HeaderState } from "./plan-agent-console/console-header-badges";
 import type { ConsoleNode } from "./plan-agent-console/console-target";
 import type { usePlanRun } from "./use-plan-run";
 
@@ -83,7 +84,7 @@ function AgentConsole(props: {
   readonly onClose: () => void;
   readonly header: (
     provider: string | null,
-    stateLabel: string | null,
+    state: HeaderState | null,
     onStopRun?: () => Promise<void>,
   ) => React.ReactNode;
 }): React.ReactElement {
@@ -110,9 +111,7 @@ function AgentConsole(props: {
       isReadOnly={props.isReadOnly}
       prompt={promptLine(props.step)}
       onClose={props.onClose}
-      header={(stateLabel, onStopRun) =>
-        props.header(provider, stateLabel, onStopRun)
-      }
+      header={(state, onStopRun) => props.header(provider, state, onStopRun)}
     />
   );
 }
@@ -162,7 +161,7 @@ export function PlanAgentConsole(
       : planNodeLabel(opened.step, props.sources) || t("plans.missingAgent");
   function header(
     provider: string | null,
-    stateLabel: string | null,
+    state: HeaderState | null,
     onStopRun?: () => Promise<void>,
   ): React.ReactNode {
     return (
@@ -176,7 +175,7 @@ export function PlanAgentConsole(
         runs={running.runs}
         run={run}
         provider={provider}
-        stateLabel={stateLabel}
+        state={state}
         headingRef={heading}
         onSelectRun={(id) => running.select(id, "history")}
         onClose={onClose}

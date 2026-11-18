@@ -7,6 +7,7 @@ import { logCaughtError, withLogContext } from "@/backend/logging/Logger";
 import { continuedPicaBrief, picaSteerText } from "./PicaAcpContent";
 import {
   type PicaAcpInputSources,
+  followUpPromptInput,
   sessionPromptInput,
 } from "./PicaAcpJobInputs";
 import { PicaAcpJournal } from "./PicaAcpJournal";
@@ -45,7 +46,6 @@ import type {
 } from "@/backend/agents/AgentPlanExecution";
 import type { RuntimeExecutionContext } from "@/backend/agents/runtime/RuntimeExecutionContext";
 import type { NewChatMessage } from "@/backend/database/repositories/chat/ChatSessionRepository";
-import type { AgentPlanExecutionInput } from "@/backend/service/agents/AgentPlanStepStart";
 import type {
   ChatJobFailureStage,
   ChatSteerStatus,
@@ -252,6 +252,7 @@ export class PicaAcpJob {
     logPicaJobStart(this.specification.agent);
     let outcome: PicaAcpOutcome;
     try {
+      this.dependencies.liveAnswer?.start();
       await this.prepare(signal);
       await this.execute(this.requireContext().signal);
       outcome = { state: "completed", errorCode: null };
@@ -361,7 +362,7 @@ export class PicaAcpJob {
       hasBridgeMcp: this.specification.run.runner.hasBridgeMcp === true,
       input: (start) =>
         this.sessionInput(message, turnBrief, resumeSessionId, start),
-      turn: () => this.followUpInput(message),
+      turn: () => followUpPromptInput(message, this.inputSources()),
     });
     this.session = session;
     await this.journal.record({ kind: "phase", phase: "running" });
@@ -388,6 +389,7 @@ export class PicaAcpJob {
     signal: AbortSignal,
   ): Promise<string> {
     this.turn += 1;
+    this.dependencies.liveAnswer?.start(this.turn);
     await this.journal.record(
       turnBeganEvent(this.turn, "followUp", message.id),
     );
@@ -411,24 +413,15 @@ export class PicaAcpJob {
     if (!session?.next) throw new PicaAcpJobError("providerFailed");
     await this.beginTurn("followUp", message);
     const result = await this.awaitTurn(
-      session.next(this.followUpInput(message), signal, this.observer()),
+      session.next(
+        followUpPromptInput(message, this.inputSources()),
+        signal,
+        this.observer(),
+      ),
     );
     signal.throwIfAborted();
     requireCompleted(result);
     return this.storeAnswer(result.output);
-  }
-
-  private followUpInput(message: PicaAcpMessage): AgentPlanExecutionInput {
-    return {
-      ...this.prompt.create(
-        message,
-        continuedPicaBrief(this.specification.brief),
-      ),
-      agent: this.specification.agent,
-      userId: this.userId,
-      directory: this.specification.directory,
-      beforeStart: () => this.authorize(),
-    };
   }
 
   private async beginTurn(
@@ -436,6 +429,7 @@ export class PicaAcpJob {
     message: PicaAcpMessage,
   ): Promise<void> {
     this.turn += 1;
+    this.dependencies.liveAnswer?.start(this.turn);
     this.credential.write(
       this.toolTurns.bind(
         this.turn,
@@ -454,7 +448,7 @@ export class PicaAcpJob {
     this.isTurnRunning = true;
     try {
       const result = await pending;
-      logPicaRunnerResult(this.specification.agent.connection.provider, result);
+      logPicaRunnerResult(this.specification.agent.connection, result);
       return result;
     } finally {
       this.isTurnRunning = false;
@@ -579,6 +573,7 @@ export class PicaAcpJob {
     }
     this.credential.bind(nextTurn ?? this.turn);
     this.hasAdapterTurn = nextTurn !== null;
+    if (nextTurn !== null) this.dependencies.liveAnswer?.start(nextTurn);
     return outcome;
   }
 
@@ -632,6 +627,14 @@ export class PicaAcpJob {
     await attemptPicaCloseoutStep(() => this.answerOutput.discard());
     await attemptPicaCloseoutStep(() => this.steering.close());
 
+    // Give the next turn its continuation record before the panel sees the end.
+    await attemptPicaCloseoutStep(() =>
+      savePicaAcpSession(
+        this.dependencies,
+        this.specification,
+        this.acpSessionId,
+      ),
+    );
     await attemptPicaCloseoutStep(async () => {
       await this.usage.idle();
       await this.journal.record({
@@ -642,19 +645,16 @@ export class PicaAcpJob {
       });
       await this.journal.drain();
     });
-    await attemptPicaCloseoutStep(async () => {
-      await savePicaAcpSession(
-        this.dependencies,
-        this.specification,
-        this.acpSessionId,
-      );
-      await consumePicaAcpAnswer(
+    await attemptPicaCloseoutStep(() =>
+      consumePicaAcpAnswer(
         this.dependencies,
         this.specification.sessionId,
         outcome.state === "completed",
-      );
-      if (this.isSessionClosed) await this.dependencies.workspaceClosed?.();
-    });
+      ),
+    );
+    const workspaceClosed = this.dependencies.workspaceClosed;
+    if (this.isSessionClosed && workspaceClosed)
+      await attemptPicaCloseoutStep(workspaceClosed);
     await attemptPicaCloseoutStep(() =>
       this.dependencies.jobs.finish(
         this.id,

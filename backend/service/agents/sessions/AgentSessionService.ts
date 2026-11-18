@@ -15,6 +15,7 @@ import {
   runOpenCodeAttemptIds,
 } from "./AgentSessionRunUsage";
 import { decideContinuation } from "./AgentSessionContinuation";
+import { attemptContext } from "./AgentSessionResumedContext";
 import { antigravityUsage } from "./AntigravityUsage";
 import { AgentSessionRecorder } from "./AgentSessionRecorder";
 import { sumOpenCodeUsage } from "./OpenCodeUsage";
@@ -257,7 +258,8 @@ export class AgentSessionService {
     key: AgentSessionKey,
   ): Promise<AgentSessionView> {
     const { run, attempt } = await this.authorize(userId, key);
-    const stored = await this.dependencies.store.findAttempt(key.attemptId);
+    const { store } = this.dependencies;
+    const stored = await store.findAttempt(key.attemptId);
     const runTurns = await this.dependencies.store.listRunUsage(run.id);
     const turns = runTurns.filter((turn) => turn.attemptId === key.attemptId);
     const nodeAttempts = nodeAttemptIds(key.attemptId, attempt.record);
@@ -289,7 +291,7 @@ export class AgentSessionService {
         model,
         this.dependencies.catalog,
       )),
-      context: stored?.context ?? UNKNOWN_CONTEXT,
+      context: await attemptContext(store, attempt.record, stored),
       turns,
       totals: sumTurnUsage(turns),
       runTotals: sumTurnUsage(runTurns),
