@@ -9,10 +9,8 @@ import claudeUrl from "@/assets/providers/logo-claude.png?no-inline";
 
 import { ClaudePlanBadge } from "./claude-plan-badge";
 import { ClaudeQuotaWindow } from "./claude-quota-window";
-import {
-  QUOTA_CARD_CLASS,
-  QUOTA_WINDOWS_AREA_CLASS,
-} from "./quota-card-layout";
+import { QuotaCardFrame } from "./quota-card-frame";
+import { QUOTA_WINDOWS_AREA_CLASS } from "./quota-card-layout";
 import { quotaCardView } from "./quota-card-state";
 import { QuotaNotice } from "./quota-notice";
 import {
@@ -111,11 +109,10 @@ export function ClaudeQuotaCard({
   }
 
   return (
-    <article
-      data-quota-card={account.connectionId}
-      data-quota-loading={isLoading ? "true" : "false"}
-      aria-busy={isQuerying}
-      className={QUOTA_CARD_CLASS}
+    <QuotaCardFrame
+      connectionId={account.connectionId}
+      isLoading={isLoading}
+      isQuerying={isQuerying}
     >
       <header className="flex h-11 shrink-0 items-center gap-3">
         <img
@@ -154,6 +151,6 @@ export function ClaudeQuotaCard({
         progress={{ isQuerying, isHintShown }}
         onRetry={handleRetry}
       />
-    </article>
+    </QuotaCardFrame>
   );
 }

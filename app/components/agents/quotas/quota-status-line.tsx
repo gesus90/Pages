@@ -9,7 +9,12 @@ import { QuotaSpinner } from "./quota-spinner";
 import { statusPresentation } from "./quota-status-presentation";
 import { formatQuotaMoment, formatQuotaStand } from "./quota-time";
 
-import type { StatusLimit, StatusTone } from "./quota-status-presentation";
+import type {
+  GeneralStatusLimit,
+  StatusLimit,
+  StatusPresentation,
+  StatusTone,
+} from "./quota-status-presentation";
 import type { QuotaAccount } from "@/definition/AgentQuota";
 import type { ClaudeQuotaStatus } from "@/definition/ClaudeQuota";
 
@@ -34,7 +39,8 @@ const BUTTON_CLASS =
  * A card without figures says "Wird geladen …" with the ring at once; a card
  * with figures says "wird aktualisiert" only once `isHintShown` is set. An
  * Antigravity card names a used-up window, with its group, instead of the
- * time of the answer.
+ * time of the answer; a Codex card says "Limit erreicht" when the account
+ * states its limit is reached, with a reset only when one belongs to it.
  */
 export function QuotaStatusLine({
   status,
@@ -49,6 +55,8 @@ export function QuotaStatusLine({
     readonly provider: QuotaAccount["provider"];
     /** The window without a rest that the line names, if any. */
     readonly limit?: StatusLimit | null;
+    /** The limit a Codex account states for itself, if any. */
+    readonly generalLimit?: GeneralStatusLimit | null;
   };
   readonly progress: {
     /** Whether the card waits for the answer of its query. */
@@ -69,11 +77,41 @@ export function QuotaStatusLine({
       formatQuotaMoment(new Date(iso), now, { t, language: i18n.language }),
     isHintShown,
     limit: source.limit,
+    generalLimit: source.generalLimit,
   });
+  return (
+    <QuotaStatusFooter
+      kind={status.kind}
+      presentation={presentation}
+      progress={{ isQuerying, isHintShown }}
+      onRetry={onRetry}
+    />
+  );
+}
+
+/** Common quota status layout for provider-specific text and actions. */
+export function QuotaStatusFooter({
+  kind,
+  presentation,
+  progress,
+  onRetry,
+  connectionHref = "/settings/agents",
+}: {
+  readonly kind: string;
+  readonly presentation: StatusPresentation;
+  readonly progress: {
+    readonly isQuerying: boolean;
+    readonly isHintShown: boolean;
+  };
+  readonly onRetry: () => void;
+  readonly connectionHref?: string;
+}): React.ReactElement {
+  const { t } = useTranslation();
+  const { isQuerying, isHintShown } = progress;
   const Icon = presentation.icon;
   return (
     <footer
-      data-quota-state={status.kind}
+      data-quota-state={kind}
       data-quota-state-tone={presentation.tone}
       className={QUOTA_STATUS_LINE_CLASS}
     >
@@ -113,7 +151,7 @@ export function QuotaStatusLine({
         </button>
       ) : null}
       {presentation.action === "openConnection" ? (
-        <Link to="/settings/agents" className={BUTTON_CLASS}>
+        <Link to={connectionHref} className={BUTTON_CLASS}>
           {t("agentsPage.state.openConnection")}
         </Link>
       ) : null}

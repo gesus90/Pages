@@ -1,8 +1,11 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 
+import { modelBadgeDisplay } from "@/app/components/agents/model-picker/model-catalog";
+
 import { ConsoleComposer } from "./console-composer";
 import { ConsoleFailure } from "./console-failure";
+import { openRouterSessionBadges } from "./console-session-badges";
 import { ConsoleSidebar } from "./console-sidebar";
 import { consoleStepState, hasSessionEnded } from "./console-step-state";
 import { ConsoleTerminal } from "./console-terminal";
@@ -11,6 +14,7 @@ import { useSessionCommands } from "./use-session-commands";
 import { useNow } from "./use-terminal-surface";
 import { PlanRemoteHistoryNotice } from "../plan-remote-history";
 
+import type { AgentModelBadgeValues } from "@/app/components/agents/badges/agent-model-badges";
 import type { AgentPlanStepResult } from "@/definition/AgentPlan";
 import type {
   AgentSessionKey,
@@ -33,6 +37,7 @@ interface ConsoleSessionProps {
   readonly header: (
     state: HeaderState | null,
     onStopRun: (() => Promise<void>) | undefined,
+    model: AgentModelBadgeValues | undefined,
   ) => React.ReactNode;
 }
 
@@ -87,7 +92,7 @@ function modelLabel(
 ): string {
   // The catalog name of a Claude model, such as Haiku 5.5, rather than an alias such as haiku.
   return (
-    view?.modelIdentity?.name ??
+    (view?.modelIdentity ? modelBadgeDisplay(view.modelIdentity).name : null) ??
     view?.model.confirmedModel.value ??
     step.session?.requested.model ??
     ""
@@ -200,6 +205,7 @@ export function ConsoleSession(props: ConsoleSessionProps): React.ReactElement {
       {props.header(
         headerState(consoleStepState(step, view?.state ?? null, now), t),
         canStop ? () => commands.cancel("run") : undefined,
+        openRouterSessionBadges(view),
       )}
       <SessionNotice session={session} hasView={view !== null} />
       {view && step.session ? (

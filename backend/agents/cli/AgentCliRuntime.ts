@@ -6,6 +6,7 @@ import { AntigravityCli } from "./AntigravityCli";
 import { ClaudeCodeCli } from "./ClaudeCodeCli";
 import { CodexCli } from "./CodexCli";
 import { CliToolExecution } from "./CliToolExecution";
+import { prepareCliUsageHome } from "./CliUsageHome";
 import { OpenCodeCli } from "./OpenCodeCli";
 
 import type { AgentConnectionRecord } from "@/backend/database/repositories/agent/AgentConnectionRows";
@@ -19,7 +20,8 @@ import type { AgentCatalogModel } from "@/definition/AgentModelCatalog";
 import type { AntigravityQuotaGroup } from "@/definition/AntigravityQuota";
 import type { AgentCredentialStore } from "./AgentCredentialStore";
 import type { ClaudeUsageReading } from "./ClaudeUsageResult";
-import type { CliLoginAdapter, CliToolAdapter } from "./CliContracts";
+import type { CliHome, CliLoginAdapter, CliToolAdapter } from "./CliContracts";
+import type { CodexUsageReading } from "./CodexUsageResult";
 import type { CliLocator } from "./CliLocator";
 import type { CliProcessRunner } from "./CliProcessRunner";
 
@@ -32,6 +34,12 @@ interface RuntimeDependencies {
   readonly locator: CliLocator;
   readonly runner: CliProcessRunner;
 }
+
+/** The login file of Claude Code inside its configuration folder. */
+const CLAUDE_LOGIN_FILE = ".credentials.json";
+
+/** The login file of Codex inside its home, with the file-backed store the connections use. */
+const CODEX_LOGIN_FILE = "auth.json";
 
 /** Bridges safe connection metadata to isolated CLI adapters. */
 export class AgentCliRuntime {
@@ -166,11 +174,10 @@ export class AgentCliRuntime {
    * @param signal - Deadline of the query.
    * @returns The subscription and plan windows the claude.ai usage endpoint reported.
    * @throws {AgentError} `provider_invalid` for another provider,
-   * `cli_not_logged_in` before a confirmed login, `check_in_progress` while a
-   * native session uses the connection's home, or the CLI failure code.
+   * `cli_not_logged_in` before a confirmed login, or the CLI failure code.
    * @remarks
-   * Like every probe, the query waits while a native session may refresh the
-   * sign-in, so it cannot invalidate that session.
+   * The query asks no model and runs beside a native session of the same
+   * connection, see {@link withUsageHome}.
    */
   public async readClaudeUsage(
     connection: AgentConnectionRecord,
@@ -180,16 +187,41 @@ export class AgentCliRuntime {
       throw new AgentError("provider_invalid");
     if (connection.cliLoggedInAt === null)
       throw new AgentError("cli_not_logged_in");
-    const { runner, store } = this.dependencies;
-    if (runner.hasSession(store.paths(connection.id, connection.provider)))
-      throw new AgentError("check_in_progress");
     const cli = new ClaudeCodeCli(await this.execution(connection.provider));
-    const home = await store.prepare(connection.id, connection.provider);
-    try {
-      return await cli.readUsage(home, signal);
-    } finally {
-      await store.secure(connection.id, connection.provider);
-    }
+    return this.withUsageHome(
+      connection,
+      connection.provider,
+      CLAUDE_LOGIN_FILE,
+      (home) => cli.readUsage(home, signal),
+    );
+  }
+
+  /**
+   * Asks the Codex app server for the general quota of a signed-in connection.
+   * @param connection - A Codex connection.
+   * @param signal - Deadline of the query.
+   * @returns The plan, windows and limit statement the app server reported.
+   * @throws {AgentError} `provider_invalid` for another provider,
+   * `cli_not_logged_in` before a confirmed login, or the CLI failure code.
+   * @remarks
+   * The query starts no thread and no turn and runs beside a native session
+   * of the same connection, see {@link withUsageHome}.
+   */
+  public async readCodexUsage(
+    connection: AgentConnectionRecord,
+    signal: AbortSignal,
+  ): Promise<CodexUsageReading> {
+    if (connection.provider !== "codex_cli")
+      throw new AgentError("provider_invalid");
+    if (connection.cliLoggedInAt === null)
+      throw new AgentError("cli_not_logged_in");
+    const cli = new CodexCli(await this.execution(connection.provider));
+    return this.withUsageHome(
+      connection,
+      connection.provider,
+      CODEX_LOGIN_FILE,
+      (home) => cli.readUsage(home, signal),
+    );
   }
 
   /**
@@ -243,6 +275,42 @@ export class AgentCliRuntime {
       // Directory removal is the authoritative local cleanup, including a missing CLI.
     }
     await this.dependencies.store.remove(connection.id, connection.provider);
+  }
+
+  /**
+   * Runs a usage query in the home that fits the connection's state.
+   * @param connection - The connection to ask about.
+   * @param provider - The CLI provider of that connection.
+   * @param credentialFile - The login file of the CLI inside its configuration folder.
+   * @param read - The query, which receives the home to run in.
+   * @remarks
+   * Without a native session the query runs in the connection's own home.
+   * While a session uses that home, the query gets a private home with a copy
+   * of the login only, so it never touches the files the session works with;
+   * a login it refreshed is handed back only while the connection's file is
+   * unchanged, so the query cannot invalidate the session's sign-in. A running
+   * answer is therefore neither a reason to skip the query nor disturbed by it.
+   */
+  private async withUsageHome<T>(
+    connection: AgentConnectionRecord,
+    provider: CliProviderId,
+    credentialFile: string,
+    read: (home: CliHome) => Promise<T>,
+  ): Promise<T> {
+    const { runner, store } = this.dependencies;
+    const isHeld = runner.hasSession(store.paths(connection.id, provider));
+    const own = await store.prepare(connection.id, provider);
+    try {
+      if (!isHeld) return await read(own);
+      const usage = await prepareCliUsageHome(own, credentialFile);
+      try {
+        return await read(usage.home);
+      } finally {
+        await usage.release();
+      }
+    } finally {
+      await store.secure(connection.id, provider);
+    }
   }
 
   private async execution(

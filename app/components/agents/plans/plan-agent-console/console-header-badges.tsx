@@ -62,6 +62,24 @@ const PROVIDER_BADGES: Readonly<Record<string, ProviderBadgeLook>> = {
     nameKey: "plans.console.providerBadge.codex_cli.name",
     accountKey: "plans.console.providerBadge.codex_cli.account",
   },
+  antigravity: {
+    mark: "antigravity",
+    borderClass: "border-antigravity",
+    nameKey: "plans.console.providerBadge.antigravity.name",
+    accountKey: "plans.modelPicker.access.antigravity",
+  },
+  opencode: {
+    mark: "opencode",
+    borderClass: "border-opencode",
+    nameKey: "plans.console.providerBadge.opencode.name",
+    accountKey: "plans.modelPicker.access.opencode",
+  },
+  zai: {
+    mark: "zai",
+    borderClass: "border-zai",
+    nameKey: "plans.console.providerBadge.zai.name",
+    accountKey: "plans.modelPicker.access.zai",
+  },
 };
 
 /**
@@ -77,7 +95,11 @@ export function hasProviderBadge(provider: string): boolean {
  * The provider of a node: the unchanged tile, the tool and the account, outlined in the provider's color.
  * @remarks
  * Claude Code reads „Claude Code │ Claude-Abo“ in `claude`, Codex reads
- * „Codex │ ChatGPT-Abo“ in `chatgpt` with the ChatGPT tile. The 18 px tile
+ * „Codex │ ChatGPT-Abo“ in `chatgpt` with the ChatGPT tile, Antigravity reads
+ * „Antigravity CLI │ Google-Konto“ in `antigravity` with the white arch tile,
+ * OpenCode and the direct Z.AI connection follow in their own tokens. When
+ * the header is narrow, only the account is cut with "…"; tile and tool name
+ * stay whole. The 18 px tile
  * with a 5 px radius sits 2 px from the top, bottom and left edge of the
  * 24 px badge, so the corners run parallel; a vertical rule separates the
  * tool from the account. A runner without a badge of its own draws nothing.

@@ -48,7 +48,10 @@ const NO_OUTCOMES: ReadonlyMap<string, ClaudeQuotaProbeOutcome> = new Map();
  * the person may use, stores it and answers from the stored figures, so a
  * connection Claude cannot be asked about right now keeps its last figures.
  * Each card carries the outcome of its own query: reported, no windows,
- * failed, skipped while a session holds the sign-in, or signed out. The
+ * failed, or signed out; a running session of the connection never makes a
+ * query skip. A failed query leaves the last windows with the time of the
+ * last answer, and a successful one sets that time anew even when every
+ * percentage is unchanged. The
  * rights are read before a query starts and again before its answer leaves,
  * so a right withdrawn meanwhile never gives out a card.
  */

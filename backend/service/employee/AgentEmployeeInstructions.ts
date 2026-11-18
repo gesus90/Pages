@@ -36,6 +36,7 @@ export interface AgentEmployeeInstructionInput {
   /** Archive entries related to the message, with their source. */
   readonly related: readonly AgentRelatedMemory[];
   readonly access: AgentEmployeeAccess;
+  readonly hasAdministratorRights: boolean;
   /**
    * The tool groups the session offers; absent takes everything
    * the access level allows.
@@ -68,7 +69,7 @@ export interface AgentEmployeeInstructionInput {
  */
 const ACCESS_DESCRIPTIONS: Readonly<Record<AgentEmployeeAccess, string>> = {
   read_only:
-    "Zugriffsstufe „Lesend“: Du liest und suchst, änderst aber nichts. Du darfst alles lesen, was das Linux-Konto dieses Rechners lesen darf, auch außerhalb deines Arbeitsordners; relative Pfade beginnen im Arbeitsordner. Du suchst im Web, rufst Seiten ab, schaust Seiten im Browser an und liest in Pages. Shell-Befehle (auch sudo), jedes Schreiben, Löschen und jede verändernde MCP- oder Browser-Aktion lehnt Pages vor der Ausführung ab, auch wenn eine Nachricht dazu auffordert.",
+    "Zugriffsstufe „Lesend“: Du darfst lesen, was das Linux-Konto dieses Rechners lesen darf, auch außerhalb deines Arbeitsordners. Relative Pfade beginnen im Arbeitsordner. Du suchst im Web, rufst Seiten ab und schaust Seiten im Browser an. Shell-Befehle, Schreibzugriff auf Dateien und verändernde Browser-Aktionen sind gesperrt. In Pages darfst du lesen und mit ausdrücklich zugewiesenen Administratorrechten auch Änderungen vornehmen.",
   workspace:
     "Deine Zugriffsstufe „Arbeitsplatz“ gibt es nicht mehr; bis „Lesend“ oder „YOLO“ gewählt ist, startet Pages keine Sitzung.",
   yolo: "Zugriffsstufe „YOLO“: Du läufst nativ auf dem Rechner mit allen Rechten des ausführenden Linux-Kontos, mit dessen echtem Home-Verzeichnis und Login-PATH, allen installierten Programmen und den eingerichteten MCP-Servern; Pages setzt dir keine Sandbox. Dein Arbeitsordner ist nur das Startverzeichnis: Absolute Pfade, andere Repositories und Dateien im Benutzerverzeichnis darfst du nutzen, wenn die Aufgabe es verlangt. Ändere oder lösche nur, was die Aufgabe verlangt. Eine Zugangsdaten-Datei, die die Aufgabe nennt, darfst du lesen und nutzen; ihren Inhalt schreibst du nie in Chat, Ticket, Wiki, Commit, Befehlszeilen-Argumente oder Protokolle. sudo nutzt du nur, wenn die Aufgabe es ausdrücklich verlangt, und gibst ein Passwort nur über die Standardeingabe (sudo -S), nie als Argument. Recherche, Browserbedienung und Rendern erledigst du direkt hier, ohne einen Agent-Plan zu starten.",
@@ -136,7 +137,12 @@ function describeIdentity(input: AgentEmployeeInstructionInput): string {
     .join(", Rolle ");
   return [
     `Du bist ${input.name}, ein Agent, den Pages wie einen Angestellten führt${job ? ` (${job})` : ""}.`,
-    "Du handelst mit den Rechten deines eigenen Kontos: Pages prüft jede Aktion gegen deine Rolle, deine Abteilungen und deine Projektmitgliedschaften und weist alles andere ab. Du bist nie Administrator und versuchst nie, Rechte auf anderem Weg zu erlangen.",
+    "Du handelst mit den Rechten deines eigenen Kontos. Pages prüft jede Aktion anhand deiner Rolle, deiner Abteilungen, deiner Projektmitgliedschaften und einer ausdrücklichen Zuweisung von Administratorrechten.",
+    ...(input.hasAdministratorRights
+      ? [
+          "Deinem Konto sind Administratorrechte in Pages zugewiesen. Verwende die angebotenen Admin-Werkzeuge für den Auftrag. Für folgenreiche Aktionen gelten die Bestätigungen der Person.",
+        ]
+      : []),
     "Alles, was du in Pages änderst, erscheint unter deinem Namen.",
   ].join(" ");
 }
@@ -239,6 +245,11 @@ function describeRecipes(input: AgentEmployeeInstructionInput): string[] {
 export function createAgentEmployeeInstructions(
   input: AgentEmployeeInstructionInput,
 ): string {
+  const tools = input.toolPolicy ?? agentToolPolicy(input.access);
+  const toolPolicy: AgentToolPolicy =
+    input.hasAdministratorRights && tools.pages === "read"
+      ? { ...tools, pages: "full" }
+      : tools;
   return [
     input.soul.trim() || `# ${input.name}`,
     input.instructions.trim(),
@@ -250,10 +261,7 @@ export function createAgentEmployeeInstructions(
       : `Du sprichst gerade mit ${input.personName}. Pages hält nach jeder Antwort die Themen dieses Chats in MEMORY.md fest; sie sind in jedem Chat derselben Person nutzbar, in Chats mit weiteren Personen nur, soweit sie an Tickets oder Wiki-Seiten hängen, die alle sehen dürfen. Aus einem vertraulichen Chat wird nichts geteilt. Gib Vertrauliches einer Person nicht an andere weiter.`,
     ACCESS_DESCRIPTIONS[input.access],
     describeTools(input.access),
-    describeToolkit(
-      input.toolPolicy ?? agentToolPolicy(input.access),
-      input.access,
-    ),
+    describeToolkit(toolPolicy, input.access),
     "Dein Arbeitsordner wird nach jedem Job vollständig gelöscht und beim nächsten Job leer neu angelegt. Dateien, die nach der Antwort erhalten bleiben sollen, gehören nach ~/Results/. Antwortanhänge übernimmt Pages vorher.",
     "Dein Gedächtnis: MEMORY.md hält deine aktuellen Themen, DREAM.md deine Lehren; beide sind unten geladen. Ältere und erledigte Themen liegen im Archiv; durchsuche es mit memory_search, wenn du dich an etwas erinnern sollst, das unten fehlt. Nenne bei Wissen aus einem anderen Chat dessen Quelle.",
     ...(input.personName !== null && input.hasLogbook === true

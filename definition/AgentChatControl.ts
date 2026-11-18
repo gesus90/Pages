@@ -9,6 +9,7 @@
 
 import type { AgentChatKind } from "./AgentChatSession";
 import type { AgentProviderId } from "./AgentConnection";
+import type { AgentValueStatus } from "./AgentModelIdentity";
 
 /** The endpoint of the control of agents in a chat. */
 export const AGENT_CHAT_CONTROL_ENDPOINT = "/chat-page-api/agent-control";
@@ -95,6 +96,10 @@ export interface AgentAnswerModel {
   readonly provider: AgentProviderId | null;
   readonly modelId: string;
   readonly reasoningEffort: string | null;
+  /** Whether the adapter confirmed the model. Older answers did not record this. */
+  readonly modelStatus?: AgentValueStatus;
+  /** Whether the adapter confirmed the reasoning effort. */
+  readonly reasoningStatus?: AgentValueStatus;
   /** Whether the catalog of the used connection stated a price of zero for the model. */
   readonly isFree: boolean;
 }

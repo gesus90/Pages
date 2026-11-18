@@ -12,6 +12,14 @@ export const ANTIGRAVITY_AGENT_NAME = "Antigravity ACP Server";
 /** The application data folder of a connection, below its own config directory. */
 export const ANTIGRAVITY_APP_DATA_DIRECTORY = "antigravity-acp";
 
+/**
+ * The application data folder `agy --print` reads below `$HOME/.gemini`.
+ * @remarks
+ * Print mode has no flag for another folder, so a print-mode command sees
+ * the connection's {@link ANTIGRAVITY_APP_DATA_DIRECTORY} under this name.
+ */
+export const ANTIGRAVITY_PRINT_DATA_DIRECTORY = "antigravity-cli";
+
 /** The file the CLI keeps a Google sign-in in; Pages checks only that it exists. */
 export const ANTIGRAVITY_TOKEN_FILE = "antigravity-oauth-token";
 

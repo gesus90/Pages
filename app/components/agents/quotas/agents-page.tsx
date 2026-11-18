@@ -10,8 +10,8 @@ import { useQuotaClock } from "./use-quota-clock";
  * Agent Plan, runs and the working directory stand below "Agents" in the
  * main navigation.
  * @remarks
- * It shows one card per Claude connection and one per Antigravity connection
- * the person may use. The page stands with its cards at once: three placeholder cards while the connections are
+ * It shows one card per supported connection the person may use. The page
+ * stands with its cards at once: three placeholder cards while the connections are
  * unknown, then a card per connection with its last stored figures, which
  * the current figures replace card by card as each query answers. The
  * figures stay while a query runs or fails, so the page never falls back to

@@ -158,6 +158,8 @@ export class AgentEmployeeDirectory {
       avatarImageUrl:
         user.avatarType === "image" ? (user.avatarImageUrl ?? null) : null,
       isActive: user.isActive,
+      access: stored.employee.access,
+      hasAdministratorRights: stored.employee.hasAdministratorRights,
       modelName: description.modelName,
       provider: description.provider,
       roleId: account.role?.id ?? null,

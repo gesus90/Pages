@@ -21,7 +21,10 @@ import { logEvent } from "@/backend/logging/Logger";
 import { MODEL_TEST_PROMPT } from "@/definition/AgentConnection";
 
 import { AntigravityProtocol, antigravityFailure } from "./AntigravityProtocol";
-import { readAntigravityUsage } from "./AntigravityUsageResult";
+import {
+  readAntigravityEnvelopeOutcome,
+  readAntigravityUsage,
+} from "./AntigravityUsageResult";
 import { readAntigravityChallenge } from "./CliLoginParser";
 
 import type {
@@ -33,6 +36,7 @@ import type {
   CliModelSelection,
   CliStatusOutcome,
 } from "./CliContracts";
+import type { AntigravityEnvelopeOutcome } from "./AntigravityUsageResult";
 import type { CliToolExecution } from "./CliToolExecution";
 import type { ProviderCheckOutcome } from "@/backend/agents/providers/ProviderContracts";
 import type { AgentCatalogModel } from "@/definition/AgentModelCatalog";
@@ -42,6 +46,66 @@ import type { AgentErrorCode } from "@/backend/error/AgentErrors";
 
 /** The largest number of models one ACP picker may offer. */
 const PICKER_LIMIT = 1000;
+
+/** The CLI's read-only quota command, answered without an agent turn. */
+const USAGE_ARGUMENTS = ["--print", "/usage", "--output-format", "json"];
+
+/** The name print mode reports for the answered quota command. */
+const USAGE_COMMAND = "usage";
+
+/** Stage timeout of the quota command, inside the deadline of a quota query. */
+const USAGE_TIMEOUT_MILLISECONDS = 25_000;
+
+/** What the CLI prints when its sign-in no longer works. */
+const SIGN_IN_REQUEST =
+  /\b(?:authentication required|authentication failed|not logged into antigravity)\b/iu;
+
+/** The step of a quota query that failed, for the server log. */
+type UsageStage = "sign_in" | "configuration" | "command" | "answer";
+
+/** Whether the CLI asks for a sign-in instead of answering. */
+function isSignInRequest(output: string): boolean {
+  return (
+    readAntigravityChallenge(output) !== null || SIGN_IN_REQUEST.test(output)
+  );
+}
+
+/** Logs the failed step of a quota query with its code, without any output. */
+function logUsageFailure(stage: UsageStage, code: AgentErrorCode): void {
+  logEvent({
+    level: "warn",
+    event: "antigravity.usage.failed",
+    component: "AntigravityCli",
+    message: `The Antigravity quota query failed at the ${stage} step`,
+    metadata: { provider: "antigravity", stage, code },
+  });
+}
+
+/**
+ * Logs an answer of the quota command that is no successful usage answer.
+ * @remarks
+ * Only the exit code and the fixed words and counts of the envelope are
+ * logged; the reported text can name the account.
+ */
+function logUsageEnvelope(
+  exitCode: number | null,
+  envelope: AntigravityEnvelopeOutcome,
+): void {
+  logEvent({
+    level: "warn",
+    event: "antigravity.usage.unexpected_answer",
+    component: "AntigravityCli",
+    message:
+      "The Antigravity quota command gave no successful usage answer (operation: answered command, count: agent turns)",
+    metadata: {
+      provider: "antigravity",
+      exitCode,
+      status: envelope.status,
+      operation: envelope.command,
+      count: envelope.turns,
+    },
+  });
+}
 
 /** One model of the ACP picker: its selector and its display name. */
 interface PickerEntry {
@@ -253,32 +317,43 @@ export class AntigravityCli implements CliLoginAdapter {
   }
 
   /**
-   * Reads the quota groups of the connection's account through the adapter's
-   * `/usage` command, without a model answer.
+   * Reads the quota groups of the connection's account through the CLI's
+   * print-mode `/usage` command, without a model turn.
    * @param home - The connection's isolated context.
    * @param signal - Deadline of the query.
-   * @returns Every group and window the adapter reported.
-   * @throws {AgentError} `cli_not_logged_in` without a confirmed sign-in, or
-   * the failure code of the ACP session; a session that cannot run `/usage`
-   * fails with `cli_unexpected_output` before any model is called.
+   * @returns Every group and window the CLI reported; empty when it reported
+   * none.
+   * @throws {AgentError} `cli_not_logged_in` without a sign-in or when the CLI
+   * asks for one, `check_timeout` at the deadline, `cli_unexpected_output`
+   * for an answer that is no usage answer, or the failure of the process.
    * @remarks
-   * The query runs in the same isolated ACP context as every other
+   * The ACP sessions of the managed CLI announce no `usage` command, and an
+   * unannounced command would reach the model as a prompt. `agy --print
+   * /usage --output-format json` is the CLI's documented read-only command:
+   * it answers from the account's quota without an agent turn and reports
+   * `num_turns: 0`. It runs in the same isolated sign-in as every other
    * Antigravity operation, so it uses exactly the account of the connection
-   * and never the sign-in of a terminal.
+   * and never the sign-in of a terminal. Each failure is logged with its
+   * stage and fixed outcome values, never with the CLI's output.
    */
   public async readUsage(
     home: CliHome,
     signal: AbortSignal,
   ): Promise<readonly AntigravityQuotaGroup[]> {
+    let stage: UsageStage = "sign_in";
     try {
       await this.requireLogin(home);
-      return await this.withProtocol(home, signal, async (protocol) => {
-        await protocol.initialize();
-        const session = await protocol.newSession(home);
-        return readAntigravityUsage(await protocol.usage(session.sessionId));
-      });
+      stage = "configuration";
+      await requireManagedAntigravityConfiguration(home);
+      stage = "command";
+      const output = await this.printUsage(home, signal);
+      stage = "answer";
+      return readAntigravityUsage(output);
     } catch (error: unknown) {
-      throw new AgentError(antigravityFailure(error, signal));
+      const code = antigravityFailure(error, signal);
+      // A connection without a sign-in is the card's own status, not a fault.
+      if (stage !== "sign_in") logUsageFailure(stage, code);
+      throw new AgentError(code);
     }
   }
 
@@ -347,6 +422,48 @@ export class AntigravityCli implements CliLoginAdapter {
       await protocol.connection.agent.request(methods.agent.logout, {});
       return { ok: true, detail: {} };
     });
+  }
+
+  /**
+   * Runs the print-mode `/usage` command and returns its standard output.
+   * @throws {AgentError} `cli_not_logged_in` when the CLI asks for a sign-in,
+   * the process failure code, or `cli_unexpected_output` for an envelope
+   * that is no successful, model-free `usage` answer.
+   * @remarks
+   * Print mode waits for an authorization code when the sign-in no longer
+   * works, so its sign-in prompt ends the command at once.
+   */
+  private async printUsage(
+    home: CliHome,
+    signal: AbortSignal,
+  ): Promise<string> {
+    let running: CliRunningProcess | null = null;
+    running = this.execution.printAntigravity(
+      home,
+      {
+        arguments: USAGE_ARGUMENTS,
+        timeoutMs: USAGE_TIMEOUT_MILLISECONDS,
+        onOutput: (stdout, stderr) => {
+          if (isSignInRequest(`${stdout}\n${stderr}`))
+            running?.cancel("cli_not_logged_in");
+        },
+      },
+      signal,
+    );
+    const result = await running.completed;
+    if (result.errorCode) throw new AgentError(result.errorCode);
+    const envelope = readAntigravityEnvelopeOutcome(result.stdout);
+    if (
+      result.exitCode === 0 &&
+      envelope.status === "SUCCESS" &&
+      envelope.command === USAGE_COMMAND &&
+      envelope.turns === 0
+    )
+      return result.stdout;
+    logUsageEnvelope(result.exitCode, envelope);
+    if (isSignInRequest(`${result.stdout}\n${result.stderr}`))
+      throw new AgentError("cli_not_logged_in");
+    throw new AgentError("cli_unexpected_output");
   }
 
   private async requireLogin(home: CliHome): Promise<void> {

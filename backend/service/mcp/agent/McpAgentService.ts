@@ -67,6 +67,7 @@ function createFields(
     model: request.model.modelId,
     reasoningEffort: request.reasoning ?? null,
     access: request.access,
+    hasAdministratorRights: request.hasAdministratorRights,
     soul: request.soul ?? "",
     instructions: request.agentInstructions ?? template?.content ?? "",
     isLearningEnabled: request.isLearningEnabled ?? true,
@@ -90,6 +91,7 @@ function mergedSettings(
     model: request.model?.modelId ?? settings.model,
     reasoningEffort: changed(request.reasoning, settings.reasoningEffort),
     access: request.access ?? settings.access,
+    hasAdministratorRights: request.hasAdministratorRights,
     // The tool groups are switched in the panel only; a change here keeps them.
     disabledToolGroups: settings.disabledToolGroups,
   };

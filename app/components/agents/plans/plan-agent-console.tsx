@@ -16,6 +16,7 @@ import {
 } from "./plan-agent-console/console-target";
 import { planNodeLabel } from "./plan-layout";
 
+import type { AgentModelBadgeValues } from "@/app/components/agents/badges/agent-model-badges";
 import type {
   AgentPlanInput,
   AgentPlanRun,
@@ -86,6 +87,7 @@ function AgentConsole(props: {
     provider: string | null,
     state: HeaderState | null,
     onStopRun?: () => Promise<void>,
+    model?: AgentModelBadgeValues,
   ) => React.ReactNode;
 }): React.ReactElement {
   const { t } = useTranslation();
@@ -111,7 +113,9 @@ function AgentConsole(props: {
       isReadOnly={props.isReadOnly}
       prompt={promptLine(props.step)}
       onClose={props.onClose}
-      header={(state, onStopRun) => props.header(provider, state, onStopRun)}
+      header={(state, onStopRun, model) =>
+        props.header(provider, state, onStopRun, model)
+      }
     />
   );
 }
@@ -163,6 +167,7 @@ export function PlanAgentConsole(
     provider: string | null,
     state: HeaderState | null,
     onStopRun?: () => Promise<void>,
+    model?: AgentModelBadgeValues,
   ): React.ReactNode {
     return (
       <ConsoleHeader
@@ -175,6 +180,7 @@ export function PlanAgentConsole(
         runs={running.runs}
         run={run}
         provider={provider}
+        model={model}
         state={state}
         headingRef={heading}
         onSelectRun={(id) => running.select(id, "history")}
@@ -189,7 +195,7 @@ export function PlanAgentConsole(
       aria-label={t("plans.console.label", { name: title })}
       keyboardInset={keyboardInset}
       isFullscreen
-      className="flex flex-col border border-agent-console-border bg-agent-console-surface text-agent-console-foreground"
+      className="@container flex flex-col border border-agent-console-border bg-agent-console-surface text-agent-console-foreground"
     >
       {member ? (
         <AgentConsole

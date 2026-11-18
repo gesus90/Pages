@@ -35,6 +35,7 @@ import type {
   AgentCliState,
   AgentConnectionInput,
   AgentConnectionSummary,
+  AgentProviderId,
 } from "@/definition/AgentConnection";
 import type { AccountAccess } from "@/definition/Authorization";
 import type { AgentOperationRegistry } from "./AgentOperationRegistry";
@@ -148,6 +149,11 @@ export class AgentConnectionService {
           ),
           provider,
           zaiAccountType,
+          openRouterManagementSecret: managementSecret(input, {
+            id,
+            provider,
+            cipher,
+          }),
           secretEncrypted:
             validated.apiKey === null
               ? null
@@ -217,6 +223,11 @@ export class AgentConnectionService {
           ),
           zaiAccountType,
           clearAccess: hasAccountChanged,
+          openRouterManagementSecret: managementSecret(input, {
+            id,
+            provider: connection.provider,
+            cipher,
+          }),
           secretEncrypted:
             validated.apiKey === null
               ? null
@@ -293,4 +304,22 @@ export class AgentConnectionService {
       throw error;
     }
   }
+}
+
+function managementSecret(
+  input: AgentConnectionInput,
+  options: {
+    id: string;
+    provider: AgentProviderId;
+    cipher: InstanceSecretCipher;
+  },
+): string | null | undefined {
+  const key = input.openRouterManagementKey;
+  if (key === undefined || key === "") return undefined;
+  if (options.provider !== "openrouter")
+    throw new AgentError("provider_invalid");
+  if (key === null) return null;
+  if (key.length > 512 || /[\s\p{Cc}]/u.test(key))
+    throw new AgentError("api_key_invalid_format");
+  return options.cipher.encrypt(`openrouter-management:${options.id}`, key);
 }

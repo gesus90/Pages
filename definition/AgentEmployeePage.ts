@@ -15,6 +15,7 @@ export interface AgentEmployeePageData {
   /** The models the person may give an agent, with their provider. */
   readonly models: readonly PageAgentModel[];
   readonly canCreate: boolean;
+  readonly canAssignAdministratorRights: boolean;
   /** The templates of `AGENT.md` and whether the person may change them. */
   readonly templates: AgentInstructionTemplateList;
   /** The speech output model of the instance and its voices for the voice tab. */
@@ -27,6 +28,7 @@ export interface AgentEmployeeDetailData {
   readonly memoryDetails: AgentMemoryDetails;
   readonly activity: readonly AgentActivityEntry[];
   readonly canEdit: boolean;
+  readonly canAssignAdministratorRights: boolean;
   /** Whether the person may change the access level: an administrator in active admin mode. */
   readonly canChangeAccess: boolean;
   /** Only administrators may grant unrestricted host access. */

@@ -21,8 +21,12 @@ interface ClaudeQuotaProbeDependencies {
  * Asks Claude for the current subscription usage of a connection and stores it.
  * @remarks
  * The query is the `/usage` data of Claude Code, read through a control
- * request without a prompt, so it starts no model answer. The scheduling of
- * the queries is that of {@link ProviderQuotaProbe}.
+ * request without a prompt, so it starts no model answer. A running session
+ * of the same connection does not keep it from asking: the reader gives such
+ * a query a private home with a copy of the login and hands a refreshed login
+ * back only while the connection's own file is unchanged, so the query cannot
+ * invalidate the session's sign-in. The scheduling of the queries is that of
+ * {@link ProviderQuotaProbe}.
  */
 export class ClaudeQuotaProbe {
   private readonly dependencies: ClaudeQuotaProbeDependencies;

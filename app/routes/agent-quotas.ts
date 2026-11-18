@@ -10,9 +10,8 @@ import { logCaughtError } from "@/backend/logging/Logger";
 import type { Route } from "./+types/agent-quotas";
 
 /**
- * Answers the quota page with the cards of the person: a card per Claude or
- * Antigravity connection the person may use, with the figures the provider
- * last reported.
+ * Answers the quota page with a card per supported connection the person
+ * may use, with the figures the provider last reported.
  * @remarks
  * The answer comes from the stored figures and never waits for a provider: the
  * page shows these cards at once and then asks for the current usage of each

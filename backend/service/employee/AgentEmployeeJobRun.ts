@@ -184,6 +184,7 @@ export async function buildEmployeeBrief(
         dream: context.dream,
         related: context.related,
         access: employee.access,
+        hasAdministratorRights: employee.hasAdministratorRights,
         toolPolicy: agentToolPolicy(
           employee.access,
           employee.disabledToolGroups,

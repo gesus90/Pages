@@ -5908,6 +5908,15 @@
         "codex_cli": {
           "name": "Codex",
           "account": "ChatGPT subscription"
+        },
+        "antigravity": {
+          "name": "Antigravity CLI"
+        },
+        "opencode": {
+          "name": "OpenCode"
+        },
+        "zai": {
+          "name": "Z.AI"
         }
       },
       "manualInput": "Manually intervened",
@@ -9001,6 +9010,8 @@
         "ticket": "Ticket: {{message}}",
         "wiki": "Wiki: {{message}}",
         "access": "Access level: {{from}} → {{to}} (changed by {{person}})",
+        "administrator_granted": "{{person}} granted administrator rights.",
+        "administrator_revoked": "{{person}} revoked administrator rights.",
         "image": "Images generated: {{count}} · {{model}}",
         "video": "Video generated · {{model}}",
         "audio": "Sound generated · {{model}}"
@@ -9046,6 +9057,22 @@
         "description": "AGENT.md already holds text. The template “{{name}}” replaces it completely.",
         "confirm": "Replace"
       }
+    },
+    "administratorRights": {
+      "title": "Administrator rights",
+      "label": "This agent has administrator rights",
+      "description": "This assignment lets the agent make the same changes as an administrator, including changes to users, roles, permissions, connections, and other agents’ access levels. Each action appears under the agent’s name. With the box unchecked, the agent keeps its regular user rights.",
+      "adminOnly": "Only human administrators in active admin mode can change this setting.",
+      "pending": "Select Save to apply the assignment.",
+      "pendingRevocation": "Select Save to revoke administrator rights.",
+      "confirmTitle": "Grant administrator rights?",
+      "confirmIntro": "This assignment lets the agent change the following in Pages.",
+      "confirmUsers": "Users, roles, and departments",
+      "confirmConnections": "Connections and other agents’ access levels",
+      "confirmProjects": "Plans, tickets, and wiki pages in all projects",
+      "confirmAudit": "Every action appears under the agent’s name in the audit log. Revocation takes effect at the next permission check, including in running sessions.",
+      "confirm": "Grant administrator rights",
+      "badge": "Admin"
     },
     "accessTab": {
       "intro": "The access level applies to this agent’s chats and its own runs and means the same as in agent plans and swarms: “Read only” or “YOLO”. The Pages tools are available in every level, with the rights of the agent’s account.",
@@ -9497,7 +9524,7 @@
     "quotas": {
       "title": "Quotas and credits",
       "shortTitle": "Quotas",
-      "noConnections": "No Claude or Antigravity connection you may use.",
+      "noConnections": "No connections with quota cards that you can use.",
       "loadFailed": "The cards could not be loaded. Try again with “Refresh quotas”."
     },
     "status": {
@@ -9507,7 +9534,40 @@
     },
     "card": {
       "subscription": "claude.ai subscription",
-      "antigravity": "Antigravity CLI"
+      "antigravity": "Antigravity CLI",
+      "codex": "ChatGPT subscription"
+    },
+    "openRouter": {
+      "subtitle": "OpenRouter · API key",
+      "refresh": "Refresh",
+      "balance": "Credits remaining",
+      "creditTotals": "Purchased {{purchased}} · Used {{used}}",
+      "usage": "Total usage",
+      "remaining": "Remaining key budget",
+      "limit": "Key limit {{amount}}",
+      "daily": "Daily",
+      "weekly": "Weekly",
+      "monthly": "Monthly",
+      "unknown": "Unknown",
+      "noLimit": "No key limit set",
+      "noLimitReported": "No key limit set · Checked at {{time}}",
+      "reported": "Reported by OpenRouter · {{time}}",
+      "creditsExhausted": "Credits exhausted · {{amount}} remaining",
+      "limitReached": "Key limit reached",
+      "exhausted": "Key limit reached · {{amount}} remaining",
+      "nearlyExhausted": "Key limit nearly reached · {{amount}} remaining",
+      "creditsUnavailable": "Account credits unavailable",
+      "creditsNeedsManagement": "OpenRouter requires a management key to read account credits.",
+      "managementMissing": "Credits unknown · Management key missing",
+      "managementInvalid": "Credits unknown · Management key rejected",
+      "creditsUnknown": "Credits unknown · No valid credit amounts reported",
+      "invalidKey": "Key missing or invalid",
+      "keyNotice": "This connection needs a valid OpenRouter API key.",
+      "keyUnknown": "The key budget could not be retrieved.",
+      "noReading": "Pages could not retrieve any figures yet.",
+      "managementKey": "OpenRouter management key (optional)",
+      "managementHint": "Use an organization-scoped management key with read access to view account credits. Leave blank to keep the existing key.",
+      "removeManagementKey": "Remove stored management key"
     },
     "state": {
       "loading": "Loading …",
@@ -9523,7 +9583,11 @@
       "openConnection": "Open connection",
       "reportedAntigravity": "Reported by Antigravity · {{time}}",
       "limitReached": "{{group}} · {{limit}} reached · back {{moment}}",
-      "limitReachedNoReset": "{{group}} · {{limit}} reached"
+      "limitReachedNoReset": "{{group}} · {{limit}} reached",
+      "reportedCodex": "Reported by Codex · {{time}}",
+      "failedSinceCodex": "Query failed · last success {{time}}",
+      "limitReachedGeneral": "Limit reached · back {{moment}}",
+      "limitReachedGeneralNoReset": "Limit reached"
     },
     "notice": {
       "noWindows": {
@@ -9613,6 +9677,43 @@
         "signedOut": {
           "title": "This connection is not signed in to Antigravity.",
           "detail": "Without a sign-in Pages cannot retrieve quota values."
+        }
+      }
+    },
+    "codex": {
+      "plan": {
+        "free": "Free",
+        "go": "Go",
+        "plus": "Plus",
+        "pro": "Pro",
+        "prolite": "Pro Lite",
+        "promax": "Pro Max",
+        "team": "Team",
+        "business": "Business",
+        "enterprise": "Enterprise",
+        "edu": "Edu"
+      },
+      "window": {
+        "unknown": "Quota window",
+        "days_one": "{{count}} day",
+        "days_other": "{{count}} days",
+        "hours_one": "{{count}} h",
+        "hours_other": "{{count}} h",
+        "minutes_one": "{{count}} min",
+        "minutes_other": "{{count}} min"
+      },
+      "notice": {
+        "noWindows": {
+          "title": "Codex reported no quota windows for this connection.",
+          "detail": "Pages queried successfully."
+        },
+        "failed": {
+          "title": "Pages could not retrieve any values yet.",
+          "detail": "The plan stays unknown until Codex reports it."
+        },
+        "signedOut": {
+          "title": "This connection is not signed in to ChatGPT.",
+          "detail": "Without a sign-in Pages can retrieve neither the plan nor values."
         }
       }
     }

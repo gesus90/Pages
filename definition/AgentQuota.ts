@@ -2,12 +2,20 @@ import { z } from "zod";
 
 import { antigravityQuotaAccountSchema } from "@/definition/AntigravityQuota";
 import { claudeQuotaAccountSchema } from "@/definition/ClaudeQuota";
+import { codexQuotaAccountSchema } from "@/definition/CodexQuota";
+import { openRouterQuotaAccountSchema } from "@/definition/OpenRouterQuota";
 
 import type { AntigravityQuotaAccount } from "@/definition/AntigravityQuota";
 import type { ClaudeQuotaAccount } from "@/definition/ClaudeQuota";
+import type { CodexQuotaAccount } from "@/definition/CodexQuota";
+import type { OpenRouterQuotaAccount } from "@/definition/OpenRouterQuota";
 
-/** A card of the Agents page: the account of a Claude or an Antigravity connection. */
-export type QuotaAccount = ClaudeQuotaAccount | AntigravityQuotaAccount;
+/** A provider connection card on the Agents page. */
+export type QuotaAccount =
+  | ClaudeQuotaAccount
+  | CodexQuotaAccount
+  | AntigravityQuotaAccount
+  | OpenRouterQuotaAccount;
 
 /**
  * What one query of the Agents page answers.
@@ -30,7 +38,9 @@ export const quotaSnapshotSchema = z.object({
     .array(
       z.discriminatedUnion("provider", [
         claudeQuotaAccountSchema,
+        codexQuotaAccountSchema,
         antigravityQuotaAccountSchema,
+        openRouterQuotaAccountSchema,
       ]),
     )
     .max(500),

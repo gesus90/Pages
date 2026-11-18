@@ -311,6 +311,7 @@ export interface AgentConnectionInput {
   readonly provider?: string;
   readonly zaiAccountType?: string;
   readonly apiKey?: string;
+  readonly openRouterManagementKey?: string | null;
   readonly testModel?: string;
   readonly reasoningEffort?: string;
   /** Untrusted JSON mapping, validated before persistence. */

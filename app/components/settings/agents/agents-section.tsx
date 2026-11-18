@@ -29,6 +29,7 @@ import type { AgentFilters } from "@/definition/AgentFilters";
 import type { AgentTaskAssignment } from "@/definition/AgentUsage";
 
 interface AgentsSectionProps {
+  readonly initialConnection?: AgentConnectionSummary;
   readonly workspaceChoices?: readonly AgentWorkspaceChoice[];
   readonly connections: readonly AgentConnectionSummary[];
   readonly cliTools: CliToolLocations;
@@ -46,6 +47,7 @@ interface AgentsSectionProps {
 
 /** Manages first-pass connection tables and panels without automatic provider checks. */
 export function AgentsSection({
+  initialConnection,
   connections,
   cliTools,
   catalogs = {},
@@ -63,7 +65,7 @@ export function AgentsSection({
     confirm,
     closeConfirmation,
     returnFocus,
-  } = useAgentManagement();
+  } = useAgentManagement(initialConnection);
   const sessions = useCliLoginPolling(connections);
   const isLoading = useManagementPending();
   const visibleConnections = withLoginSessions(connections, sessions);

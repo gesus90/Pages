@@ -108,9 +108,20 @@ export function QuotaGroupsPlaceholder(): React.ReactElement {
   );
 }
 
-/** The placeholder of the plan badge, 68 × 24 px with a 7 px radius. */
-export function QuotaBadgePlaceholder(): React.ReactElement {
-  return <PlaceholderFace className="h-6 w-[68px] rounded-[7px]" />;
+/**
+ * The placeholder of the plan badge, 24 px high with a 7 px radius: 68 px
+ * wide for a Claude card, 88 px for a Codex card.
+ */
+export function QuotaBadgePlaceholder({
+  isWide = false,
+}: {
+  readonly isWide?: boolean;
+}): React.ReactElement {
+  return (
+    <PlaceholderFace
+      className={cn("h-6 rounded-[7px]", isWide ? "w-[88px]" : "w-[68px]")}
+    />
+  );
 }
 
 /**

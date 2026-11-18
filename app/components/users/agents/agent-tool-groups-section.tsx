@@ -15,6 +15,7 @@ import type {
 
 interface AgentToolGroupsSectionProps {
   readonly access: AgentEmployeeAccess;
+  readonly hasAdministratorRights: boolean;
   readonly disabled: readonly AgentToolGroup[];
   /** The groups switched off when the agent was loaded; `null` for a new agent. */
   readonly savedDisabled: readonly AgentToolGroup[] | null;
@@ -97,6 +98,7 @@ function ToolGroupRow({
  */
 export function AgentToolGroupsSection({
   access,
+  hasAdministratorRights,
   disabled,
   savedDisabled,
   onChange,
@@ -105,6 +107,10 @@ export function AgentToolGroupsSection({
 }: AgentToolGroupsSectionProps): React.ReactElement {
   const { t } = useTranslation();
   const levelModes = agentToolPolicy(access);
+  const pagesMode =
+    hasAdministratorRights && levelModes.pages === "read"
+      ? "full"
+      : levelModes.pages;
 
   function toggle(group: AgentToolGroup, isOn: boolean): void {
     onChange(
@@ -141,7 +147,7 @@ export function AgentToolGroupsSection({
               isLocked={isFixed || !canEdit || (!isOn && wasOff && !canEnable)}
               isOn={isOn}
               key={group}
-              mode={levelModes[group]}
+              mode={group === "pages" ? pagesMode : levelModes[group]}
               onToggle={toggle}
             />
           );

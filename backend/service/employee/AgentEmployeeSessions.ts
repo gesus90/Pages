@@ -369,6 +369,7 @@ export class AgentEmployeeSessions {
    * @param agent - The agent whose job runs.
    * @param target - The chat: the direct chat with a person or a conversation.
    * @param text - The message as the agent reads it.
+   * @param confirmationText - The original human message when the prompt was assembled by Pages.
    * @returns Whether the running job took it; `false` when none runs, so the
    * message waits for its own turn.
    */
@@ -380,6 +381,7 @@ export class AgentEmployeeSessions {
       readonly conversationId?: string;
     },
     text: string,
+    confirmationText?: string,
   ): Promise<boolean> {
     const acp = this.dependencies.acp;
     if (!acp) return false;
@@ -395,6 +397,7 @@ export class AgentEmployeeSessions {
       clientMessageId: null,
       sessionId: conversation.sessionId,
       text,
+      confirmationText,
       attachmentIds: [],
     });
     return steer !== null;
@@ -444,6 +447,13 @@ export class AgentEmployeeSessions {
       clientMessageId: request.clientMessageId,
       sessionId: conversation.sessionId,
       text: request.text,
+      confirmationText:
+        request.purpose === "chat" &&
+        request.isScheduled !== true &&
+        request.person &&
+        request.person.isAgent !== true
+          ? request.text
+          : request.confirmationText,
       attachmentIds: request.attachmentIds ?? [],
       ...(request.isDeferred === true ? { isDeferred: true } : {}),
     };

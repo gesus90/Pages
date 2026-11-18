@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 
 import { AgentOperationError } from "@/backend/error/AgentOperationError";
 import { findAccount } from "@/backend/service/AdministrationAccess";
+import { isAgentEmployeeAccess } from "@/definition/AgentEmployee";
 
 import {
   readAdminBoolean,
@@ -39,6 +40,8 @@ export async function applyChatAdministration(
       return createChatUser(context, parameters);
     case "admin.users.resetPassword":
       return resetChatPassword(context, parameters);
+    case "admin.agents.setAccessLevel":
+      return setChatAgentAccessLevel(context, parameters);
     case "admin.users.setAdministrator":
     case "admin.users.setActive":
       return changeChatUserAccess(context, operation, parameters);
@@ -55,6 +58,41 @@ export async function applyChatAdministration(
     case "admin.roles.delete":
       return deleteChatRole(context, parameters);
   }
+}
+
+async function setChatAgentAccessLevel(
+  context: AgentAdministrationContext,
+  parameters: Readonly<Record<string, unknown>>,
+): Promise<ChatAdminMutation> {
+  await requireAgentConfirmation(
+    context.database,
+    context.actor.id,
+    parameters.confirmation,
+  );
+  const id = readIdentifier(parameters.agentId);
+  const { access, expectedAccess } = parameters;
+  if (
+    !context.employees ||
+    (access !== "read_only" && access !== "yolo") ||
+    !isAgentEmployeeAccess(expectedAccess)
+  )
+    throw new AgentOperationError("INVALID_REQUEST");
+  const actor = findAccount(context.snapshot, context.actor.id);
+  const changed = await context
+    .employees()
+    .updateAccessLevel(context.repository, actor, {
+      agentId: id,
+      access,
+      expectedAccess,
+    });
+  return {
+    result: {
+      id,
+      targetType: "person",
+      changed,
+      affectedUserIds: changed ? [id] : [],
+    },
+  };
 }
 
 async function createChatUser(

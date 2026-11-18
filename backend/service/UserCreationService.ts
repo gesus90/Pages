@@ -120,7 +120,10 @@ export class UserCreationService {
     requireAdministration(this.policy.has(actor, CAPABILITY.MANAGE_USERS));
     if (this.policy.isManagement(actor) && !delivery)
       throw new AgentOperationError("FORBIDDEN", { reason: "core_system" });
-    requireAdministration(!input.isAdmin || this.policy.isAdministrator(actor));
+    requireAdministration(
+      !input.isAdmin ||
+        (actor.isAgent !== true && this.policy.isAdministrator(actor)),
+    );
   }
 
   /** Resolves the requested role and checks that the actor may assign it. */

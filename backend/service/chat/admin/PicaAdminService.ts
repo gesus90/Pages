@@ -128,7 +128,7 @@ export class PicaAdminService {
    */
   public async requireAdministrator(userId: string): Promise<void> {
     if (process.getuid?.() === 0) throw new PicaAdminError("OS_RIGHTS_DENIED");
-    await this.requireAccount(userId);
+    await this.requireAccount(userId, { requiresHuman: true });
   }
 
   /** Tells whether the Storage tools are offered on this instance. */
@@ -422,14 +422,16 @@ export class PicaAdminService {
     }
   }
 
-  private async requireAccount(userId: string): Promise<void> {
+  private async requireAccount(
+    userId: string,
+    options: { readonly requiresHuman?: boolean } = {},
+  ): Promise<void> {
     const user = await this.accounts.users.getById(userId);
     const account = await this.accounts.administration.getContext(userId);
-    if (
-      !user?.isActive ||
-      user.mustChangePassword ||
-      !this.policy.isAdministrator(account)
-    )
+    const isAllowed = options.requiresHuman
+      ? this.policy.isHumanAdministratorInAdminMode(account)
+      : this.policy.isAdministrator(account);
+    if (!user?.isActive || user.mustChangePassword || !isAllowed)
       throw new PicaAdminError("ADMIN_REQUIRED");
   }
 

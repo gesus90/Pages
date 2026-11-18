@@ -94,6 +94,9 @@ export function answerModelOf(
     provider: assignment.connection.provider,
     modelId: assignment.model,
     reasoningEffort: assignment.reasoningEffort,
+    ...(assignment.connection.provider === "openrouter"
+      ? ({ modelStatus: "requested", reasoningStatus: "requested" } as const)
+      : {}),
     isFree: assignment.isFree === true,
   };
 }

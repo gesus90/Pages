@@ -115,7 +115,7 @@ export const ADMIN_READ_TOOLS: readonly {
     tool: buildReadTool({
       name: "read_admin_activity",
       title: "Read admin activity",
-      description: `Reads the administration audit trail, actor, target, affected people, time and source (mcp or ai). ${ADMIN_READ_DESCRIPTION}`,
+      description: `Reads the administration audit trail, actor, target, affected people, time and source. ${ADMIN_READ_DESCRIPTION}`,
       properties: { ...PAGING_PROPERTIES },
       required: [],
     }),

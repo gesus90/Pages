@@ -6,11 +6,15 @@ import { isAgentProvider } from "@/definition/AgentConnection";
 import type { Database } from "@/backend/database/Database";
 import type { AgentAnswerModel } from "@/definition/AgentChatControl";
 
+const VALUE_STATUS = z.enum(["requested", "confirmed", "configured"]);
+
 const STORED_MODEL = z.object({
   name: z.string(),
   provider: z.string().nullable(),
   modelId: z.string(),
   reasoningEffort: z.string().nullable(),
+  modelStatus: VALUE_STATUS.optional().catch(undefined),
+  reasoningStatus: VALUE_STATUS.optional().catch(undefined),
   isFree: z.boolean(),
 });
 
@@ -60,6 +64,8 @@ export class ChatAnswerModelRepository {
         provider: model.provider,
         modelId: model.modelId,
         reasoningEffort: model.reasoningEffort,
+        modelStatus: model.modelStatus,
+        reasoningStatus: model.reasoningStatus,
         isFree: model.isFree,
       }),
     };

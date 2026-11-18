@@ -2,6 +2,8 @@ import { randomUUID } from "node:crypto";
 
 import { databaseTimeToIso, monthStart } from "./AgentEmployeeText";
 
+import type { ActorChannel } from "@/backend/auth/McpActorContext";
+import type { AuthorizationRepository } from "@/backend/database/repositories/AuthorizationRepository";
 import type { EmployeeStore } from "@/backend/database/repositories/employee/EmployeeStore";
 import type { StoredAgentEmployee } from "@/backend/database/repositories/employee/AgentEmployeeRepository";
 import type {
@@ -10,6 +12,7 @@ import type {
   AgentCostState,
   AgentLearningResult,
 } from "@/definition/AgentEmployee";
+import type { AccountAccess } from "@/definition/Authorization";
 
 /** Entries of each kind the activity lists at most. */
 const ACTIVITY_ENTRIES = 60;
@@ -83,6 +86,47 @@ export class AgentActivityService {
         person: change.actorName,
       }),
       cost: { state: "none", amount: null, isEstimated: false },
+    });
+  }
+
+  /** Records the administrator assignment and the human who changed it in the save transaction. */
+  public async recordAdministratorChange(
+    repository: AuthorizationRepository,
+    change: {
+      readonly agentId: string;
+      readonly actor: AccountAccess;
+      readonly hasAdministratorRights: boolean;
+      readonly source: ActorChannel;
+    },
+  ): Promise<void> {
+    const { actor, agentId, hasAdministratorRights } = change;
+    const kind = hasAdministratorRights
+      ? "administrator_granted"
+      : "administrator_revoked";
+    await repository
+      .employees()
+      .activity()
+      .record(agentId, {
+        id: randomUUID(),
+        kind,
+        detail: JSON.stringify({
+          actorId: actor.userId,
+          person: `${actor.firstName} ${actor.lastName}`.trim(),
+        }),
+        cost: { state: "none", amount: null, isEstimated: false },
+      });
+    await repository.administrationActivity().insert({
+      actorId: actor.userId,
+      operation: hasAdministratorRights
+        ? "admin.agents.grantAdministratorRights"
+        : "admin.agents.revokeAdministratorRights",
+      source: change.source,
+      result: {
+        id: agentId,
+        targetType: "person",
+        changed: true,
+        affectedUserIds: [agentId],
+      },
     });
   }
 

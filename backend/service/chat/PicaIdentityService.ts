@@ -1,3 +1,4 @@
+import { UserPolicyService } from "@/backend/auth/UserPolicyService";
 import { PicaAuthorizationError } from "@/backend/error/PicaAuthorizationError";
 import { CAPABILITY } from "@/definition/Authorization";
 
@@ -32,10 +33,14 @@ export class PicaIdentityService {
       throw new PicaAuthorizationError();
     const account = await this.administration.getContext(userId);
     if (!account.isActive) throw new PicaAuthorizationError();
+    const isAdmin =
+      account.isAgent === true
+        ? new UserPolicyService().isAdministrator(account)
+        : account.isAdmin;
     return {
       userId,
-      isAdmin: account.isAdmin,
-      permissions: account.isAdmin
+      isAdmin,
+      permissions: isAdmin
         ? Object.values(CAPABILITY)
         : (account.role?.permissions ?? []),
     };

@@ -2,7 +2,17 @@ import { AgentEmployeeError } from "@/backend/error/AgentEmployeeError";
 
 import type { AuthorizationSnapshot } from "@/backend/database/repositories/AuthorizationRepository";
 import type { EmployeeStore } from "@/backend/database/repositories/employee/EmployeeStore";
-import type { UserRole } from "@/definition/Authorization";
+import type { AccountAccess, UserRole } from "@/definition/Authorization";
+
+/** Resolves an agent account from the authorization snapshot. */
+export function requireAgentAccount(
+  snapshot: AuthorizationSnapshot,
+  agentId: string,
+): AccountAccess {
+  const account = snapshot.accounts.find((entry) => entry.userId === agentId);
+  if (account?.isAgent !== true) throw new AgentEmployeeError("notFound");
+  return account;
+}
 
 /** Resolves a role the snapshot contains, or refuses the change as an invalid input. */
 export function requireRole(

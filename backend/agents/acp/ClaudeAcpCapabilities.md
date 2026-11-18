@@ -136,16 +136,25 @@ sign-in: the answer named the plan `max`, a seven-day window and no five-hour
 window, and the output held no assistant message.
 
 A connection has at most one such query at a time; requests during it and up
-to ten seconds after it share its result. A connection that is not signed in,
-or whose home a native session holds (it may refresh the sign-in), is not
-asked and keeps its stored figures.
+to ten seconds after it share its result. A connection that is not signed in
+is not asked and keeps its stored figures. A running native session of the
+connection does not keep the query from running, at opening, on the refresh
+button and with every push: the query then runs in a private home that holds
+only a copy of the connection's `.credentials.json`, so it touches none of the
+files the session works with. The providers rotate the refresh token with
+every refresh, so a login the query refreshed in its copy is written back by
+an atomic rename, but only while the connection's own file is still byte for
+byte the copy's origin; a file the session wrote meanwhile stays. The query
+therefore cannot invalidate the session's sign-in, and it starts no model
+answer. A successful query sets the time of the last answer anew even when
+every percentage is unchanged; a failed one leaves the last windows with the
+time of the last answer.
 
 Every card carries the outcome of its own query, which its status line shows:
 `reported` (Claude answered and at least one window has a value; the time is
 that of the answer), `no_windows` (Claude answered without a window),
 `failed` (no answer; with the time of the last answer, and earlier windows
-stay greyed), `skipped` (a native session holds the sign-in; windows stored
-from sessions stay visible) and `signed_out` (no confirmed sign-in, or Claude
+stay greyed) and `signed_out` (no confirmed sign-in, or Claude
 rejected it with `cli_auth_failed`; the card shows neither plan nor windows
 and offers the connection settings instead of another attempt). A query or
 push that brings no answer at all marks every card as failed in the browser

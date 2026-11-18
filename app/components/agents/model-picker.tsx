@@ -2,19 +2,20 @@ import { ChevronDown } from "lucide-react";
 import { useId } from "react";
 import { useTranslation } from "react-i18next";
 
-import { modelConsumerRefusal } from "@/definition/AgentModelConsumers";
-
+import { Tooltip } from "@/app/components/ui/tooltip";
 import { cn } from "@/app/lib/cn";
+import { modelConsumerRefusal } from "@/definition/AgentModelConsumers";
 
 import { FreeBadge } from "./badges/free-badge";
 import {
   ModelChoiceBadge,
   modelChoiceFieldClass,
+  modelChoiceLabel,
 } from "./badges/model-choice-badge";
 import {
   findModelChoice,
+  modelChoiceSource,
   modelGroups,
-  openCodeSourceName,
 } from "./model-picker/model-catalog";
 import {
   MODEL_BADGE_FIELD_ARROW_CLASS,
@@ -30,6 +31,8 @@ import { useModelPicker } from "./model-picker/use-model-picker";
 import type { AgentEmployeeAccess } from "@/definition/AgentEmployee";
 import type { AgentModelConsumer } from "@/definition/AgentModelConsumers";
 import type { PageAgentModel } from "@/definition/PageAgent";
+import type { TFunction } from "i18next";
+import type { ModelChoiceBadgeProps } from "./badges/model-choice-badge";
 import type { ModelGroup } from "./model-picker/model-catalog";
 import type {
   ModelPickerMode,
@@ -47,6 +50,8 @@ interface ModelPickerProps {
   readonly employeeAccess?: AgentEmployeeAccess;
   /** The saved model ID, named while no listed model matches it. */
   readonly savedModel?: string;
+  /** The saved connection's provider when no catalog entry is available. */
+  readonly savedProvider?: PageAgentModel["provider"] | null;
   readonly disabled: boolean;
   readonly onChange: (id: string) => void;
   /** The field label; it defaults to "Model". */
@@ -120,10 +125,35 @@ function TriggerValue(props: {
   );
 }
 
-// In the footer of an agent node the field is the badge of the chosen model:
-// its tile and name; a model that is gone is a short warning in the field.
+function badgeChoice(
+  selected: ReturnType<typeof findModelChoice>,
+  props: ModelPickerProps,
+  t: TFunction,
+): ModelChoiceBadgeProps | null {
+  if (selected)
+    return {
+      mark: selected.group.mark,
+      name: selected.choice.label,
+      tool: selected.group.label,
+      source: modelChoiceSource(selected.choice.model, t),
+    };
+  if (
+    props.value !== "" &&
+    props.savedProvider === "openrouter" &&
+    props.savedModel
+  )
+    return {
+      mark: "openrouter",
+      name: props.savedModel,
+      tool: "OpenRouter",
+      unavailableHint: t("pageAgents.missingModel"),
+    };
+  return null;
+}
+
+// The closed field still explains an unavailable model or an empty selection.
 function BadgeTriggerValue(props: {
-  readonly groups: readonly ModelGroup[];
+  readonly choice: ModelChoiceBadgeProps | null;
   readonly value: string;
   readonly savedModel: string | undefined;
   readonly placeholder: string | undefined;
@@ -137,29 +167,15 @@ function BadgeTriggerValue(props: {
         {props.placeholder}
       </span>
     );
-  const selected = findModelChoice(props.groups, props.value);
-  if (!selected) {
-    const reason = t("pageAgents.missingModel");
-    return (
-      <span
-        className={cn(MODEL_BADGE_FIELD_TEXT_CLASS, "text-warning")}
-        title={props.savedModel ? `${props.savedModel} · ${reason}` : reason}
-      >
-        {t("pageAgents.modelMissingShort")}
-      </span>
-    );
-  }
+  if (props.choice) return <ModelChoiceBadge {...props.choice} />;
+  const reason = t("pageAgents.missingModel");
   return (
-    <ModelChoiceBadge
-      mark={selected.group.mark}
-      name={selected.choice.label}
-      tool={selected.group.label}
-      source={openCodeSourceName(
-        selected.choice.model.provider,
-        selected.choice.model.model,
-        t,
-      )}
-    />
+    <span
+      className={cn(MODEL_BADGE_FIELD_TEXT_CLASS, "text-warning")}
+      title={props.savedModel ? `${props.savedModel} · ${reason}` : reason}
+    >
+      {t("pageAgents.modelMissingShort")}
+    </span>
   );
 }
 
@@ -168,13 +184,12 @@ function PickerTrigger(props: {
   readonly labelId: string;
   readonly disabled: boolean;
   readonly valueStyle: ModelPickerValueStyle;
-  /** The mark of the chosen model's tool; it colors the border of a badge field. */
-  readonly mark: string | null;
+  readonly choice: ModelChoiceBadgeProps | null;
   readonly children: React.ReactNode;
 }): React.ReactElement {
   const { state } = props;
   const isBadge = props.valueStyle === "badge";
-  return (
+  const trigger = (
     <button
       ref={state.trigger}
       type="button"
@@ -186,7 +201,10 @@ function PickerTrigger(props: {
       disabled={props.disabled}
       className={
         isBadge
-          ? cn(MODEL_BADGE_FIELD_CLASS, modelChoiceFieldClass(props.mark))
+          ? cn(
+              MODEL_BADGE_FIELD_CLASS,
+              modelChoiceFieldClass(props.choice?.mark ?? null),
+            )
           : cn(
               MODEL_FIELD_CLASS,
               "flex items-center gap-2.5 text-left hover:bg-surface-hover",
@@ -215,6 +233,19 @@ function PickerTrigger(props: {
         aria-hidden="true"
       />
     </button>
+  );
+  if (!isBadge) return trigger;
+  const hint = props.choice ? modelChoiceLabel(props.choice) : null;
+  return (
+    <Tooltip
+      content={<span className="wrap-anywhere">{hint}</span>}
+      isDisabled={props.choice?.mark !== "openrouter" || state.isOpen}
+      className="flex w-full"
+      align="start"
+      isFloating
+    >
+      {() => trigger}
+    </Tooltip>
   );
 }
 
@@ -258,6 +289,10 @@ export function ModelPicker(props: ModelPickerProps): React.ReactElement {
   });
   const labelId = `${useId()}-label`;
   const valueStyle = props.valueStyle ?? "detail";
+  const choice =
+    valueStyle === "badge"
+      ? badgeChoice(findModelChoice(groups, props.value), props, t)
+      : null;
   const triggerValue = {
     groups,
     value: props.value,
@@ -278,10 +313,10 @@ export function ModelPicker(props: ModelPickerProps): React.ReactElement {
           labelId={labelId}
           disabled={props.disabled}
           valueStyle={valueStyle}
-          mark={findModelChoice(groups, props.value)?.group.mark ?? null}
+          choice={choice}
         >
           {valueStyle === "badge" ? (
-            <BadgeTriggerValue {...triggerValue} />
+            <BadgeTriggerValue {...triggerValue} choice={choice} />
           ) : (
             <TriggerValue {...triggerValue} />
           )}

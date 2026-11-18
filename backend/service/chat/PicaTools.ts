@@ -26,6 +26,7 @@ import {
 } from "./browser/PicaBrowserTools";
 import { CHAT_MAXIMUM_ACTIONS } from "./ChatExecutionLimits";
 import { ChatAnswerFileError } from "./ChatAnswerFileService";
+import { isChatOperation, isChatWriteOperation } from "./ChatToolCatalog";
 import {
   PICA_FILE_EXTENSIONS,
   PICA_FILE_SCHEMA,
@@ -80,6 +81,8 @@ export interface PicaToolsInput {
     Partial<Pick<ChatToolExecutor, "runPlan" | "runAdmin" | "repositoryReads">>;
   /** Raw current human message only; never a model prompt, history or attachment text. */
   readonly message?: string;
+  /** Human confirmation text when the prompt itself may have been generated. */
+  readonly confirmationText?: string;
   readonly planTurnId?: string;
   /** The answer-specific staging run, when an ACP job contains several turns. */
   readonly answerRunId?: string;
@@ -87,6 +90,8 @@ export interface PicaToolsInput {
   readonly sessions: Pick<ChatSessionService, "confirmationWord">;
   readonly authorize: () => Promise<void>;
   readonly adminTools?: PicaAdminService | undefined;
+  /** Controls tool discovery; calls check current account rights again. */
+  readonly hasPagesAdministratorAccess?: boolean;
   /** Present only for an employee whose stored access allows a browser. */
   readonly agentBrowsers?: AgentBrowserService | undefined;
   readonly agentDeletions?: AgentDeletionService | undefined;
@@ -284,7 +289,7 @@ async function dispatchPrivileged(
     { operation: binding.operation, parameters },
     context,
     {
-      message: input.message ?? "",
+      message: input.confirmationText ?? input.message ?? "",
       id: input.planTurnId,
       confirmation: await input.sessions.confirmationWord(context.userId),
     },
@@ -339,9 +344,12 @@ function registerAdministratorTools(
   parts: AdministratorToolParts,
 ): void {
   const { input, service, budget, execute } = parts;
-  registerPicaAdminTools(registry, service, () => spend(input, budget));
-  if (!input.agentBrowsers)
-    registerPicaBrowserTools(registry, service, () => spend(input, budget));
+  if (input.toolkit?.job.policy.pages === "off") return;
+  if (!input.toolkit) {
+    registerPicaAdminTools(registry, service, () => spend(input, budget));
+    if (!input.agentBrowsers)
+      registerPicaBrowserTools(registry, service, () => spend(input, budget));
+  }
   registerPicaOperatorTools(registry, {
     native: PICA_NATIVE_OPERATIONS,
     run: (entry, parameters, context) =>
@@ -356,7 +364,7 @@ function registerAdministratorTools(
           ),
       ),
   });
-  if (service.hasStorage())
+  if (!input.toolkit && service.hasStorage())
     registerPicaStorageTools(registry, {
       service,
       spend: () => spend(input, budget),
@@ -433,8 +441,33 @@ function toolkitTurn(input: PicaToolsInput): {
 } {
   return {
     ...(input.planTurnId === undefined ? {} : { id: input.planTurnId }),
-    message: input.message ?? "",
+    message: input.confirmationText ?? input.message ?? "",
   };
+}
+
+async function guardPicaPagesOperation(
+  input: PicaToolsInput,
+  binding: PicaToolBinding,
+  call: {
+    readonly parameters: ToolParameters;
+    readonly context: RuntimeExecutionContext;
+  },
+): Promise<PicaToolOutcome | null> {
+  const { toolkit } = input;
+  if (!toolkit) return null;
+  const { operation } = binding;
+  const isWrite =
+    !isChatOperation(operation) || isChatWriteOperation(operation);
+  const canWritePages =
+    toolkit.job.policy.pages === "read" &&
+    isWrite &&
+    ((await input.adminTools?.isAdministrator(call.context.userId)) ?? false);
+  return guardPagesOperation(toolkit, {
+    ...call,
+    operation,
+    turn: toolkitTurn(input),
+    canWritePages,
+  });
 }
 
 /**
@@ -484,7 +517,11 @@ function registerToolkit(
       return spend(input, budget);
     },
   });
-  applyAgentToolPolicy(registry, toolkit.job.policy);
+  applyAgentToolPolicy(
+    registry,
+    toolkit.job.policy,
+    input.hasPagesAdministratorAccess,
+  );
   auditAgentToolCalls(registry, toolkit.job.agentId);
 }
 
@@ -522,14 +559,10 @@ export function createPicaTools(
   const execute: PicaExecute = async (binding, parameters, context) => {
     await input.authorize();
     context.signal.throwIfAborted();
-    const held = input.toolkit
-      ? guardPagesOperation(input.toolkit, {
-          operation: binding.operation,
-          parameters,
-          context,
-          turn: toolkitTurn(input),
-        })
-      : null;
+    const held = await guardPicaPagesOperation(input, binding, {
+      parameters,
+      context,
+    });
     if (held) return held;
     if (!spend(input, budget)) return refused("STEP_LIMIT");
     const outcome = results.consume(

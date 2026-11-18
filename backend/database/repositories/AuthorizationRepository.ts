@@ -5,6 +5,7 @@ import {
   readTextColumn,
 } from "@/backend/database/RowValue";
 import { isCapability } from "@/definition/Authorization";
+import { AdministrationActivityRepository } from "./AdministrationActivityRepository";
 import { AgentConnectionScopeRepository } from "./agent/AgentConnectionScopeRepository";
 import { AgentProfileStore } from "./agent/AgentProfileStore";
 import { EmployeeStore } from "./employee/EmployeeStore";
@@ -81,6 +82,11 @@ export class AuthorizationRepository {
   /** Shares the persistence of agent employees inside the current aggregate transaction. */
   public employees(): EmployeeStore {
     return new EmployeeStore(this.database);
+  }
+
+  /** Shares administration audit persistence inside the current aggregate transaction. */
+  public administrationActivity(): AdministrationActivityRepository {
+    return new AdministrationActivityRepository(this.database);
   }
 
   /** Reads agent scopes inside the current aggregate transaction, so deletion locks cannot race. */
@@ -250,9 +256,11 @@ export class AuthorizationRepository {
           access.all_departments,
           access.all_projects,
           access.has_had_department,
-          users.account_kind
+          users.account_kind,
+          COALESCE(agent_employees.has_administrator_rights, FALSE) AS has_administrator_rights
       FROM user_authorization AS access
       INNER JOIN users ON users.id = access.user_id
+      LEFT JOIN agent_employees ON agent_employees.user_id = access.user_id
       ORDER BY access.creation_order;
     `);
     return {
@@ -284,7 +292,14 @@ export class AuthorizationRepository {
           allProjects: readBooleanColumn(row, 8, "all_projects"),
           hasHadDepartment: readBooleanColumn(row, 9, "has_had_department"),
           ...(readTextColumn(row, 10, "account_kind") === "agent"
-            ? { isAgent: true }
+            ? {
+                isAgent: true,
+                hasAgentAdministratorRights: readBooleanColumn(
+                  row,
+                  11,
+                  "has_administrator_rights",
+                ),
+              }
             : {}),
           departments: memberships
             .filter((member) => member[0] === userId)

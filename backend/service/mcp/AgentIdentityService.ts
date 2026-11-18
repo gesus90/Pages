@@ -29,11 +29,13 @@ export class AgentIdentityService {
     if (!account.isActive) {
       throw new McpAuthorizationError("invalid_token", 401);
     }
+    const policy = new UserPolicyService("mcp");
+    const isAdmin = policy.isAdministrator(account);
     return {
       userId,
-      isAdmin: account.isAdmin,
-      isManagement: new UserPolicyService().isManagement(account),
-      permissions: account.isAdmin
+      isAdmin,
+      isManagement: policy.isManagement(account),
+      permissions: isAdmin
         ? Object.values(CAPABILITY)
         : (account.role?.permissions ?? []),
     };

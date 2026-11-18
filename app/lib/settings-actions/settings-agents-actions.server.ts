@@ -49,6 +49,10 @@ function readConnectionInput(formData: FormData): AgentConnectionInput {
     provider: readText(formData, "provider") ?? undefined,
     zaiAccountType: readText(formData, "zaiAccountType") ?? undefined,
     apiKey: readTextOrEmpty(formData, "apiKey"),
+    openRouterManagementKey:
+      formData.get("removeOpenRouterManagementKey") === "true"
+        ? null
+        : (readText(formData, "openRouterManagementKey") ?? undefined),
     testModel: readTextOrEmpty(formData, "testModel"),
     reasoningEffort: readTextOrEmpty(formData, "reasoningEffort"),
     scope: readScopeField(formData),

@@ -14,9 +14,9 @@ interface AntigravityQuotaProbeDependencies {
 /**
  * Asks Antigravity for the current quota groups of a connection and stores them.
  * @remarks
- * The query is the `/usage` command of the connection's own ACP session
- * context, a command that answers without a model turn, so a query uses none
- * of the quota it reads. A connection whose session is running is not asked,
+ * The query is the CLI's print-mode `/usage` command in the connection's own
+ * sign-in context, a command that answers without a model turn, so a query
+ * uses none of the quota it reads. A connection whose session is running is not asked,
  * so a running answer finishes undisturbed. The scheduling of the queries is
  * that of {@link ProviderQuotaProbe}.
  */

@@ -33,6 +33,8 @@ interface TooltipProps {
    * scroll area or an `overflow` box around the trigger never cuts it off.
    */
   readonly isFloating?: boolean;
+  /** Keeps the trigger mounted when there is no hint to show. */
+  readonly isDisabled?: boolean;
   /** Classes of the element around the trigger, for a trigger that fills its row. */
   readonly className?: string;
 }
@@ -101,7 +103,9 @@ function useDelayedTooltip(delayMs: number): DelayedTooltip {
   }
 
   function handleKeyDown(event: React.KeyboardEvent): void {
-    if (event.key === "Escape") close();
+    if (event.key !== "Escape" || !isOpen) return;
+    event.preventDefault();
+    close();
   }
 
   return {
@@ -198,28 +202,30 @@ export function Tooltip({
   align = "end",
   delayMs = TOOLTIP_HOVER_DELAY_MS,
   isFloating = false,
+  isDisabled = false,
   className,
 }: TooltipProps): React.ReactElement {
   const tooltipId = useId();
   const tooltip = useDelayedTooltip(delayMs);
+  const isOpen = !isDisabled && tooltip.isOpen;
   const trigger = useRef<HTMLSpanElement>(null);
   return (
     <span
       ref={trigger}
       className={cn("relative inline-flex shrink-0", className)}
-      onPointerEnter={tooltip.handlePointerEnter}
+      onPointerEnter={isDisabled ? undefined : tooltip.handlePointerEnter}
       onPointerLeave={tooltip.handlePointerLeave}
-      onPointerDown={tooltip.handlePointerDown}
-      onFocus={tooltip.handleFocus}
+      onPointerDown={isDisabled ? undefined : tooltip.handlePointerDown}
+      onFocus={isDisabled ? undefined : tooltip.handleFocus}
       onBlur={tooltip.handleBlur}
-      onKeyDown={tooltip.handleKeyDown}
+      onKeyDown={isDisabled ? undefined : tooltip.handleKeyDown}
     >
       {children(tooltipId)}
       {isFloating ? null : (
         <span
           id={tooltipId}
           role="tooltip"
-          hidden={!tooltip.isOpen}
+          hidden={!isOpen}
           className={cn(
             "absolute top-full z-50 w-72 pt-2",
             align === "end" ? "right-0" : "left-0",
@@ -230,7 +236,7 @@ export function Tooltip({
           </span>
         </span>
       )}
-      {isFloating && tooltip.isOpen ? (
+      {isFloating && isOpen ? (
         <FloatingHint id={tooltipId} anchor={trigger} align={align}>
           {content}
         </FloatingHint>

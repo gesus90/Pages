@@ -16,7 +16,7 @@ import type { AgentEmployeeSessionDependencies } from "./AgentEmployeeSessionTyp
 /** What the mode of an agent employee decides for one job. */
 export type AgentEmployeeAccessRun = Pick<
   NonNullable<PicaAcpStart["employee"]>,
-  "runner" | "hasBrowser" | "toolkit" | "attachFile"
+  "runner" | "hasBrowser" | "toolkit" | "attachFile" | "hasAdministratorRights"
 >;
 
 /**
@@ -63,6 +63,7 @@ export async function employeeAccessRun(
   const { hostFiles } = dependencies;
   return {
     runner: employeeAcpRunner(job.assignment, access, hostServers),
+    hasAdministratorRights: employee.hasAdministratorRights,
     // The browser follows the tool policy: only reading in "Lesend".
     hasBrowser: policy.browser !== "off",
     // Every model gets the same toolkit over the bridge of Pages.

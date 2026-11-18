@@ -271,6 +271,15 @@ export function ChatPageLiveAnswer({
   const durationMs = elapsedMilliseconds(view.startedAt, end);
   const isThinking =
     isRunning && view.thought !== null && view.lastAt === view.thought.endedAt;
+  const pendingModel =
+    model?.provider === "openrouter"
+      ? {
+          ...model,
+          isFree: false,
+          modelStatus: "requested" as const,
+          reasoningStatus: "requested" as const,
+        }
+      : model;
   return (
     <article
       aria-label={
@@ -293,7 +302,7 @@ export function ChatPageLiveAnswer({
       />
       <AnswerHead
         author={author}
-        model={model}
+        model={view.model ?? pendingModel}
         isLive={isRunning}
         durationMs={durationMs}
       />

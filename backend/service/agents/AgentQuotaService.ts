@@ -1,15 +1,25 @@
 import type { QuotaSnapshot } from "@/definition/AgentQuota";
 import type { AntigravityQuotaService } from "./AntigravityQuotaService";
 import type { ClaudeQuotaService } from "./ClaudeQuotaService";
+import type { CodexQuotaService } from "./CodexQuotaService";
+import type { OpenRouterQuotaService } from "./OpenRouterQuotaService";
 
 interface AgentQuotaDependencies {
   readonly claude: Pick<
     ClaudeQuotaService,
     "listStoredForUser" | "listForUser" | "refreshForUser"
   >;
+  readonly codex: Pick<
+    CodexQuotaService,
+    "listStoredForUser" | "listForUser" | "refreshForUser"
+  >;
   readonly antigravity: Pick<
     AntigravityQuotaService,
     "listStoredForUser" | "listForUser" | "refreshForUser"
+  >;
+  readonly openRouter: Pick<
+    OpenRouterQuotaService,
+    "listStoredForUser" | "refreshForUser"
   >;
 }
 
@@ -32,7 +42,9 @@ function mergeSnapshots(snapshots: readonly QuotaSnapshot[]): QuotaSnapshot {
  * Each provider decides on its own which connections the person may use and
  * how it is asked; this service only puts the cards side by side. A card
  * belongs to exactly one provider, so the query of one card reaches only that
- * provider's service: the other one finds no such connection and asks nobody.
+ * provider's service: the others find no such connection and ask nobody. The
+ * providers are asked side by side, and the failed query of one is the status
+ * of its own cards only.
  */
 export class AgentQuotaService {
   private readonly dependencies: AgentQuotaDependencies;
@@ -44,14 +56,16 @@ export class AgentQuotaService {
   /**
    * Reads the cards of a person from the stored figures, without asking a provider.
    * @param userId - The person reading the page.
-   * @returns The cards of both providers, each with the status `stored`.
+   * @returns The cards of the providers with their stored figures.
    */
   public async listStoredForUser(userId: string): Promise<QuotaSnapshot> {
-    const { claude, antigravity } = this.dependencies;
+    const { claude, codex, antigravity, openRouter } = this.dependencies;
     return mergeSnapshots(
       await Promise.all([
         claude.listStoredForUser(userId),
+        codex.listStoredForUser(userId),
         antigravity.listStoredForUser(userId),
+        openRouter.listStoredForUser(userId),
       ]),
     );
   }
@@ -59,16 +73,23 @@ export class AgentQuotaService {
   /**
    * Asks every provider about every connection of a person and reads their cards.
    * @param userId - The person reading the page.
-   * @returns The cards of both providers; a failed query is the status of its card.
+   * @returns The cards of every provider; a failed query is the status of its card.
    */
   public async listForUser(userId: string): Promise<QuotaSnapshot> {
-    const { claude, antigravity } = this.dependencies;
-    return mergeSnapshots(
+    const { claude, codex, antigravity, openRouter } = this.dependencies;
+    const [claudeSnapshot, codexSnapshot, antigravitySnapshot] =
       await Promise.all([
         claude.listForUser(userId),
+        codex.listForUser(userId),
         antigravity.listForUser(userId),
-      ]),
-    );
+        openRouter.refreshForUser(userId),
+      ]);
+    return mergeSnapshots([
+      claudeSnapshot,
+      codexSnapshot,
+      antigravitySnapshot,
+      await openRouter.listStoredForUser(userId),
+    ]);
   }
 
   /**
@@ -82,12 +103,19 @@ export class AgentQuotaService {
     userId: string,
     connectionId: string,
   ): Promise<QuotaSnapshot> {
-    const { claude, antigravity } = this.dependencies;
-    return mergeSnapshots(
+    const { claude, codex, antigravity, openRouter } = this.dependencies;
+    const [claudeSnapshot, codexSnapshot, antigravitySnapshot] =
       await Promise.all([
         claude.refreshForUser(userId, connectionId),
+        codex.refreshForUser(userId, connectionId),
         antigravity.refreshForUser(userId, connectionId),
-      ]),
-    );
+        openRouter.refreshForUser(userId, connectionId),
+      ]);
+    return mergeSnapshots([
+      claudeSnapshot,
+      codexSnapshot,
+      antigravitySnapshot,
+      await openRouter.listStoredForUser(userId, connectionId),
+    ]);
   }
 }

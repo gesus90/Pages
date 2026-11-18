@@ -56,6 +56,10 @@ function activityTitle(entry: AgentActivityEntry): string {
     const status = detailText(entry.detail, "status");
     return status === null ? "Lernlauf" : `Lernlauf (${status})`;
   }
+  if (entry.kind === "administrator_granted")
+    return "Administratorrechte erteilt";
+  if (entry.kind === "administrator_revoked")
+    return "Administratorrechte entzogen";
   return changeTitle(entry);
 }
 
@@ -80,6 +84,7 @@ export function projectAgentSummary(agent: AgentEmployee): McpAgentSummary {
     },
     reasoning: agent.settings.reasoningEffort,
     access: agent.settings.access,
+    hasAdministratorRights: agent.hasAdministratorRights,
     costUsdThisMonth: hasOnlyUnknownCosts ? null : agent.cost.spent,
     roleId: agent.roleId,
     departmentIds: agent.departmentIds,

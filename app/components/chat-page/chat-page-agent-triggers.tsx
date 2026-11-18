@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 
 import { Button } from "@/app/components/ui/button";
 import { ModelBadge } from "@/app/components/agents/badges/model-badge";
-import { openCodeSourceName } from "@/app/components/agents/model-picker/model-catalog";
+import { modelBadgeDisplay } from "@/app/components/agents/model-picker/model-catalog";
 import { cn } from "@/app/lib/cn";
 import { shortModelName } from "@/definition/AgentChatControl";
 import { modelBadgeVendor } from "@/definition/AgentModelIdentity";
@@ -29,7 +29,7 @@ interface AgentTriggerProps {
 /**
  * The short name of the model of an agent, such as "Opus", where the chat
  * deviates from the agent's own model; nothing otherwise. A Claude Code,
- * Codex, Antigravity or OpenCode model, or a model of a direct Z.AI
+ * Codex, Antigravity, OpenCode or OpenRouter model, or a model of a direct Z.AI
  * connection, shows the shared model badge of its vendor or tool instead.
  * `className` changes its size, such as to the 32 px of the direct chat's
  * head.
@@ -37,23 +37,30 @@ interface AgentTriggerProps {
 export function ChatModelBadge({
   model,
   className,
+  isInsideButton = false,
 }: {
   readonly model: AgentChatModelLabel | undefined;
   readonly className?: string;
+  readonly isInsideButton?: boolean;
 }): React.ReactElement | null {
   const { t } = useTranslation();
   if (model?.isOverride !== true) return null;
   const vendor = modelBadgeVendor(model.provider);
+  const { name, source } = modelBadgeDisplay(
+    { name: model.name, provider: model.provider, modelId: model.modelId },
+    t,
+  );
   if (vendor)
     return (
       <span
-        className={className}
+        className={cn("min-w-0", className)}
         title={t("chatPage.modelChoice.badgeHint", { model: model.name })}
       >
         <ModelBadge
           vendor={vendor}
-          name={model.name}
-          source={openCodeSourceName(model.provider, model.modelId, t)}
+          name={name}
+          source={source}
+          hasKeyboardTooltip={vendor === "openrouter" && !isInsideButton}
         />
       </span>
     );
@@ -101,7 +108,7 @@ export function ChatPageAgentChip({
           <ParticipantAvatar participant={agent} size={22} />
           {agent.name}
           <AccessMark participant={agent} />
-          <ChatModelBadge model={options.control?.model} />
+          <ChatModelBadge model={options.control?.model} isInsideButton />
           <AgentSessionStatus brief={brief} size="chip" />
         </button>
       </ChatPageAgentMenu>

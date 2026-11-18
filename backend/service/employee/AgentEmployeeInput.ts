@@ -56,8 +56,10 @@ export interface AgentEmployeeInput {
   /** The job title, apart from the role. */
   readonly position: string | null;
   readonly avatarColor: PersonColor | null;
-  /** A normal role; agents never get the administrator account. */
+  /** The agent's normal role. */
   readonly roleId: string;
+  /** An explicit request to change the administrator rights of this agent. */
+  readonly hasAdministratorRights?: boolean | undefined;
   readonly departments: readonly string[];
   readonly settings: AgentEmployeeSettings;
   readonly documents: AgentEmployeeDocuments;
@@ -219,12 +221,19 @@ export function readAgentEmployeeInput(input: unknown): AgentEmployeeInput {
   const roleId: unknown = fields.roleId;
   if (typeof roleId !== "string" || roleId === "")
     throw new AgentEmployeeError("invalidInput");
+  const { hasAdministratorRights } = fields;
+  if (
+    hasAdministratorRights !== undefined &&
+    typeof hasAdministratorRights !== "boolean"
+  )
+    throw new AgentEmployeeError("invalidInput");
   return {
     displayName: readName(fields.displayName, false) ?? "",
     username,
     position: readName(fields.position, true),
     avatarColor: readPersonColor(fields.avatarColor),
     roleId,
+    hasAdministratorRights,
     departments: readDepartments(fields.departments),
     settings: readSettings(fields),
     documents: {
@@ -263,6 +272,7 @@ export function employeeChange(input: AgentEmployeeInput): AgentEmployeeChange {
     model: input.settings.model,
     reasoningEffort: input.settings.reasoningEffort,
     access: input.settings.access,
+    hasAdministratorRights: input.hasAdministratorRights,
     disabledToolGroups: input.settings.disabledToolGroups,
     soul: input.documents.soul,
     instructions: input.documents.instructions,

@@ -70,11 +70,15 @@ export async function readAgentAdministration(
       })),
       window,
     );
-  const users = await context.repository.users().findAll();
+  const [users, levels] = await Promise.all([
+    context.repository.users().findAll(),
+    context.repository.employees().employees().accessLevels(),
+  ]);
   const entries: AgentAdminUser[] = users.flatMap((user) => {
     const account = context.snapshot.accounts.find(
       ({ userId }) => userId === user.id,
     );
+    const agentAccessLevel = levels.get(user.id);
     return account
       ? [
           {
@@ -82,6 +86,7 @@ export async function readAgentAdministration(
             id: user.id,
             displayName: user.displayName,
             username: user.username,
+            ...(agentAccessLevel ? { agentAccessLevel } : {}),
             groups: groups
               .filter(({ memberIds }) => memberIds.includes(user.id))
               .map(({ id, name }) => ({ id, name })),

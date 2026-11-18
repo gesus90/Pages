@@ -266,10 +266,12 @@ Right: `manage_users`, every old and new member in range.
 
 ### `GET /administration/activity` — read_user_management_activity
 
-Administrators only. Newest first: `id, actorId, operation, source (mcp|ai),
-targetType, targetId, affectedUserIds, createdAt`. The history holds only
-public results, never a password or raw request parameters. Project leaders
-get no history right through this API.
+Administrators receive entries newest first. The fields are `id`, `actorId`,
+`operation`, `source` (`ui`, `mcp` or `ai`), `targetType`, `targetId`,
+`affectedUserIds` and `createdAt`. Grants and revocations of an agent's
+administrator rights identify the human actor and the agent account. The
+history contains public results. Project leaders get no history right
+through this API.
 
 ### `GET /users/{userId}/private-wiki` — list_user_private_wiki_pages
 

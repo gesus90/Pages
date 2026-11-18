@@ -1,6 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { Bot } from "lucide-react";
-import { Link, useLoaderData } from "react-router";
+import { Link, useLoaderData, useSearchParams } from "react-router";
 
 import { useLocalStateRoute } from "@/app/components/common/use-local-state-route";
 import { AdminModeRequired } from "@/app/components/settings/admin-mode-required";
@@ -151,10 +151,16 @@ export async function clientAction({
 /** Renders the complete management UI, or the existing admin-mode switch. */
 export default function SettingsAgentsRoute(): React.ReactElement {
   const { t } = useTranslation();
+  const [search] = useSearchParams();
   const result = useLocalStateRoute(
     useLoaderData<typeof clientLoader>(),
     SETTINGS_AGENTS_STATE,
   );
+  const requestedId = search.get("connection");
+  const initialConnection =
+    result.access === "granted" && requestedId
+      ? result.connections.find((connection) => connection.id === requestedId)
+      : undefined;
   return result.access === "granted" ? (
     <div className="space-y-4">
       <SettingsSectionHeader
@@ -162,6 +168,8 @@ export default function SettingsAgentsRoute(): React.ReactElement {
         title={t("settings.agents.title")}
       />
       <AgentsSection
+        key={initialConnection?.id}
+        initialConnection={initialConnection}
         connections={result.connections}
         cliTools={result.cliTools}
         catalogs={result.catalogs}

@@ -34,12 +34,13 @@ const SIGNED_OUT_CODES: ReadonlySet<AgentErrorCode> = new Set<AgentErrorCode>([
   "cli_auth_failed",
 ]);
 
-/** A running session holds the connection's sign-in, so Pages does not ask. */
+/** A provider whose running session holds the sign-in exclusively names it so; Pages then does not ask. */
 const BUSY_CODE: AgentErrorCode = "check_in_progress";
 
 /**
  * The result of one usage query of a connection: read and stored, not asked
- * because a running session holds the sign-in (`busy`), not askable without
+ * because a running session holds the sign-in (`busy`; Claude and Codex
+ * queries run beside a session and never end so), not askable without
  * a sign-in (`signed_out`), or failed with a code.
  */
 export type QuotaProbeOutcome =

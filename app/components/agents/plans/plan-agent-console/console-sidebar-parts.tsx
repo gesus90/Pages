@@ -1,3 +1,5 @@
+import { cn } from "@/app/lib/cn";
+
 /**
  * The title of a block of the console sidebar: 14/650.
  */
@@ -47,14 +49,39 @@ export function SidebarRow(props: {
 }
 
 /**
- * The cap of a badge in a session row: 144 px at most, so the label always
- * keeps its room and a long value ends with "…" inside its badge.
+ * The width a session row's value may take.
+ * - `default`: 144 px at most.
+ * - `wide`: 176 px at most, for the compact model badge.
+ * - `fill`: no cap, the space beside the row label, for OpenRouter model names.
+ */
+type RowBadgeWidth = "default" | "wide" | "fill";
+
+const ROW_BADGE_WIDTH_CLASS: Readonly<Record<RowBadgeWidth, string>> = {
+  default: "max-w-36",
+  wide: "max-w-44",
+  fill: "",
+};
+
+/**
+ * The value of a session row, capped by its width so the label always keeps
+ * its room; a long value ends with "…" inside its badge. A model and its
+ * separate Free badge sit beside each other with a gap.
  */
 export function RowBadge(props: {
   readonly children: React.ReactNode;
+  readonly width?: RowBadgeWidth;
 }): React.ReactElement {
+  const width = props.width ?? "default";
   return (
-    <span className="flex max-w-36 min-w-0 justify-end">{props.children}</span>
+    <span
+      data-row-badge={width}
+      className={cn(
+        "flex min-w-0 justify-end gap-1.5",
+        ROW_BADGE_WIDTH_CLASS[width],
+      )}
+    >
+      {props.children}
+    </span>
   );
 }
 

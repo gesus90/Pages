@@ -16,6 +16,11 @@ interface QuotaConnectionAccessDependencies {
   readonly groups: Pick<UserGroupRepository, "findIdsByMember">;
 }
 
+interface QuotaConnectionView {
+  readonly viewer: AgentViewer;
+  readonly connections: AgentConnectionRecord[];
+}
+
 /**
  * Decides which connections of a provider a person may see a quota card of.
  * @remarks
@@ -45,13 +50,24 @@ export class QuotaConnectionAccess {
     provider: AgentProviderId,
     connectionId?: string,
   ): Promise<AgentConnectionRecord[]> {
+    const view = await this.viewFor(userId, provider, connectionId);
+    return view?.connections ?? [];
+  }
+
+  /** Returns the current usage scope together with the account facts used to check it. */
+  public async viewFor(
+    userId: string,
+    provider: AgentProviderId,
+    connectionId?: string,
+  ): Promise<QuotaConnectionView | null> {
     const viewer = await this.viewer(userId);
-    if (!viewer) return [];
+    if (!viewer?.actor.isActive) return null;
     const stored = await this.storedConnections(connectionId);
     const candidates = stored.filter(
       (connection) => connection.provider === provider && connection.isActive,
     );
-    return this.usableConnections(candidates, viewer);
+    const connections = await this.usableConnections(candidates, viewer);
+    return { viewer, connections };
   }
 
   private async storedConnections(

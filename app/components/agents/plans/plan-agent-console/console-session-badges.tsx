@@ -1,6 +1,7 @@
 import { useTranslation } from "react-i18next";
 
 import { AccessBadge } from "@/app/components/agents/badges/access-badge";
+import { FreeBadge } from "@/app/components/agents/badges/free-badge";
 import { ModelBadge } from "@/app/components/agents/badges/model-badge";
 import { ReasoningBadge } from "@/app/components/agents/badges/reasoning-badge";
 import {
@@ -8,12 +9,13 @@ import {
   RunBranchNoteValue,
   runBranchNote,
 } from "@/app/components/agents/badges/run-branch-badge";
-import { openCodeSourceName } from "@/app/components/agents/model-picker/model-catalog";
+import { modelBadgeDisplay } from "@/app/components/agents/model-picker/model-catalog";
 
 import { RowBadge, SidebarRow } from "./console-sidebar-parts";
 
-import type { AgentPlanStepResult } from "@/definition/AgentPlan";
+import type { AgentModelBadgeValues } from "@/app/components/agents/badges/agent-model-badges";
 import type { ModelBadgeVendor } from "@/definition/AgentModelIdentity";
+import type { AgentPlanStepResult } from "@/definition/AgentPlan";
 import type { AgentSessionView } from "@/definition/AgentSessionJournal";
 
 function UnknownValue({ text }: { readonly text: string }): React.ReactElement {
@@ -70,13 +72,17 @@ function BranchFacts({
 
 /**
  * Model, reasoning, access and branch of a Claude Code, Codex, Antigravity,
- * OpenCode or direct Z.AI session as the shared badges, one 36 px row each.
+ * OpenCode, OpenRouter or direct Z.AI session as shared badges in 36 px rows.
  * @remarks
  * The model and the reasoning are the structured values of the session view:
- * confirmed ones as confirmed, requested ones as requested. An OpenCode
- * model names its known source, such as OpenCode Zen, in the tooltip. A
- * reasoning level nobody named stays "default of the model" and never reads
- * as `none` or a confirmed `medium`.
+ * confirmed ones as confirmed, requested ones as requested. A known model
+ * source, such as OpenCode Zen or an OpenRouter model's manufacturer, appears
+ * in the tooltip. A reasoning level nobody named stays "default of the model"
+ * and never reads as `none` or a confirmed `medium`. The model row shows the
+ * compact model badge, tile and model name up to 176 px, because the full
+ * model badge already stands in the console header; OpenRouter model names
+ * take the space beside the label instead. Tile, outline, tooltip and
+ * accessible name keep the vendor recognizable.
  */
 export function BadgeSessionFacts({
   step,
@@ -93,21 +99,21 @@ export function BadgeSessionFacts({
   const unknown = t(`${key}.unknown`);
   const access = step.session?.requested.options?.access;
   const { modelIdentity, reasoning } = view;
+  const model = modelIdentity ? modelBadgeDisplay(modelIdentity, t) : null;
   return (
     <>
       <SidebarRow label={t(`${key}.model`)}>
-        {modelIdentity ? (
-          <RowBadge>
+        {modelIdentity && model ? (
+          <RowBadge width={vendor === "openrouter" ? "fill" : "wide"}>
             <ModelBadge
+              isVendorHidden
               vendor={vendor}
-              name={modelIdentity.name}
+              name={model.name}
               status={modelIdentity.status}
-              source={openCodeSourceName(
-                view.provider,
-                modelIdentity.modelId,
-                t,
-              )}
+              source={model.source}
+              isVendorHiddenWhenNarrow={vendor === "openrouter"}
             />
+            {modelIdentity.isFree === true ? <FreeBadge size="badge" /> : null}
           </RowBadge>
         ) : (
           <UnknownValue text={unknown} />
@@ -138,4 +144,24 @@ export function BadgeSessionFacts({
       <BranchFacts view={view} unknown={unknown} />
     </>
   );
+}
+
+/** The model and reasoning above an OpenRouter plan session's conversation. */
+export function openRouterSessionBadges(
+  view: AgentSessionView | null,
+): AgentModelBadgeValues | undefined {
+  const model = view?.modelIdentity;
+  if (model?.provider !== "openrouter") return undefined;
+  const reasoning = view?.reasoning;
+  return {
+    name: model.name,
+    provider: model.provider,
+    modelId: model.modelId ?? model.name,
+    modelStatus: model.status,
+    isFree: model.isFree,
+    reasoningEffort: reasoning?.value ?? null,
+    reasoningStatus:
+      reasoning?.status === "unknown" ? undefined : reasoning?.status,
+    isReasoningOffered: reasoning?.isOffered,
+  };
 }

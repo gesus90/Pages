@@ -1,5 +1,7 @@
 import { AntigravityQuotaCard } from "./antigravity-quota-card";
 import { ClaudeQuotaCard } from "./claude-quota-card";
+import { CodexQuotaCard } from "./codex-quota-card";
+import { OpenRouterQuotaCard } from "./openrouter-quota-card";
 import { QuotaPlaceholderCard } from "./quota-placeholders";
 
 import type { QuotaCard } from "./quota-state";
@@ -27,6 +29,24 @@ function QuotaCardOfConnection({
         onRetry={onRetry}
       />
     );
+  if (account.provider === "openrouter")
+    return (
+      <OpenRouterQuotaCard
+        account={account}
+        pendingQueries={pendingQueries}
+        now={now}
+        onRetry={onRetry}
+      />
+    );
+  if (account.provider === "codex_cli")
+    return (
+      <CodexQuotaCard
+        account={account}
+        pendingQueries={pendingQueries}
+        now={now}
+        onRetry={onRetry}
+      />
+    );
   return (
     <ClaudeQuotaCard
       account={account}
@@ -38,7 +58,7 @@ function QuotaCardOfConnection({
 }
 
 /**
- * The grid of the quota cards of the Claude and Antigravity connections: one
+ * The grid of the quota cards of the provider connections: one
  * column on a phone, two on a tablet, three on a wide screen.
  * @remarks
  * While the connections are unknown (`cards` is `null`) three placeholder
@@ -59,7 +79,7 @@ export function QuotaCardGrid({
   return (
     <div
       aria-busy={cards === null}
-      className="grid auto-rows-[344px] grid-cols-1 gap-5 md:auto-rows-[308px] md:grid-cols-2 xl:grid-cols-3"
+      className="grid auto-rows-[344px] grid-cols-1 gap-5 md:auto-rows-[308px] md:grid-cols-2 xl:max-w-[1594px] xl:grid-cols-3"
     >
       {cards === null
         ? PLACEHOLDER_CARDS.map((position) => (

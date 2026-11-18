@@ -39,6 +39,50 @@ session or model call (protocol 1); **bundle** = reading the installed
 | Codex feature switches            | `shell_tool`, `unified_exec`, `view_image`, `js_repl`, `code_mode`, `apps`, `plugins`, `multi_agent` exist as feature keys; `web_search` takes `disabled`.                                                                                           | binary       | All off for Pica; web search disabled.                                                                                                   |
 | Authentication                    | `authMethods` without sign-in: `api-key` (ChatGPT login hidden by `NO_BROWSER`).                                                                                                                                                                     | live         | Unchanged: the connection's ChatGPT sign-in in its credential folder.                                                                    |
 
+## Subscription quota
+
+The Agents page shows one card per active Codex connection whose usage scope
+admits the reader (`CodexQuotaProbe`). The card reads the general Codex quota
+of the connection's own ChatGPT sign-in from the Codex app server: `codex
+app-server` on standard input and output receives `initialize`, the
+notification `initialized` and `account/rateLimits/read` (with
+`excludeResetCreditDetails`), never a thread or a turn, so no model is called
+and the sign-in is not changed. The input stays open until the answer
+arrived. Checked on 18 November 2026 against Codex 0.166.0 with an empty
+temporary `CODEX_HOME`: the three lines in one write are answered in order,
+and without a sign-in the request fails with "codex account authentication
+required to read rate limits", which Pages reads as `signed_out`.
+
+The answer is read as follows. The plan is the `planType` of the general
+snapshot: `free`, `go`, `plus`, `pro`, `prolite`, `promax`, `team`, the
+business variants (`business`, `self_serve_business_*`), the enterprise
+variants (`enterprise`, `enterprise_cbp_*`) and the education variants
+(`edu`, `edu_plus`, `edu_pro`) name a subscription; a missing value,
+`unknown` or any other value reads "Tarif unbekannt", and "Free" appears only
+when the server names it. The general snapshot is `rateLimitsByLimitId.codex`
+when present, otherwise `rateLimits` when it names the limit `codex` or names
+none while the answer has no per-limit view; a snapshot of another limit is a
+model quota and is never shown, nor are credits and reset credits. The windows
+are `primary` and then `secondary`; the label comes from `windowDurationMins`
+(300 reads "5 Stunden", 10080 "7 Tage", otherwise whole days, hours or
+minutes), the rest is 100 minus `usedPercent`, the reset is `resetsAt` (epoch
+seconds) in local time. A window the answer lacks is not shown, and an answer
+with no window is its own state. The limit statement is
+`rateLimitReachedType` or `ordinaryUsageAllowed: false`: the status line reads
+"Limit erreicht", with a reset only when exactly one window is used up and
+names its reset; it never overwrites the figures of a window, and "0 % übrig"
+stands only for a window whose used share reached 100.
+
+The Agents page asks when it opens, on its refresh button and with every push
+of its minute stream, and each query re-reads the reader's rights. A connection
+has at most one query at a time; requests during it and up to ten seconds
+after it share its result. A running Codex session never keeps the query from
+running: it runs in a private home with a copy of the connection's `auth.json`
+only, and a login it refreshed is written back by an atomic rename only while
+the connection's own file is unchanged, so the query cannot invalidate the
+sign-in of the session. A failed query leaves the last windows greyed with the
+time of the last answer.
+
 ## Known gaps
 
 - The end of a turn the adapter started for a steer is detected only through the

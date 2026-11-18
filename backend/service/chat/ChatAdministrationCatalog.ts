@@ -53,6 +53,8 @@ export const CHAT_ADMIN_OPERATIONS: Readonly<
     "{userId, isActive, expectedIsActive} Admin: Benutzer sperren/entsperren, Bestätigung der Person nötig",
   "admin.users.resetPassword":
     "{userId} Admin: temporäres Passwort erzeugen, Bestätigung der Person nötig. Pages zeigt es der Person direkt, nicht dem Modell",
+  "admin.agents.setAccessLevel":
+    "{agentId, access, expectedAccess} Admin: Zugriffsstufe eines anderen Agents ändern, Bestätigung der Person nötig",
   "admin.groups.create":
     "{name, memberIds: []} Admin: Gruppe anlegen, mindestens ein aktives Mitglied",
   "admin.groups.delete":
@@ -79,6 +81,7 @@ const CONFIRMED_OPERATIONS: ReadonlySet<string> = new Set([
   "admin.users.setAdministrator",
   "admin.users.setActive",
   "admin.users.resetPassword",
+  "admin.agents.setAccessLevel",
   "admin.groups.delete",
   "admin.departments.delete",
   "admin.roles.delete",

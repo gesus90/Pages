@@ -16,7 +16,9 @@ interface AgentPanelSelection {
 }
 
 /** Coordinates table triggers, confirmation and focus restoration for one open panel. */
-export function useAgentManagement(): {
+export function useAgentManagement(
+  initialConnection?: AgentConnectionSummary,
+): {
   readonly selection: AgentPanelSelection | null;
   readonly confirmation: AgentConfirmationRequest | null;
   readonly actions: AgentActions;
@@ -29,7 +31,11 @@ export function useAgentManagement(): {
   readonly returnFocus: (event: Event) => void;
 } {
   const opener = useRef<HTMLElement | null>(null);
-  const [selection, setSelection] = useState<AgentPanelSelection | null>(null);
+  const [selection, setSelection] = useState<AgentPanelSelection | null>(
+    initialConnection
+      ? { kind: initialConnection.accessKind, id: initialConnection.id }
+      : null,
+  );
   const [confirmation, setConfirmation] =
     useState<AgentConfirmationRequest | null>(null);
   const actions = useAgentActions(() => setSelection(null));

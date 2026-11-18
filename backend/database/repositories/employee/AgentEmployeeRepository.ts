@@ -34,6 +34,7 @@ export interface StoredAgentEmployee {
   readonly model: string;
   readonly reasoningEffort: string | null;
   readonly access: AgentEmployeeAccess;
+  readonly hasAdministratorRights: boolean;
   /** The tool groups an administrator switched off. */
   readonly disabledToolGroups: readonly AgentToolGroup[];
   readonly soul: string;
@@ -71,6 +72,8 @@ export interface AgentEmployeeChange {
   readonly model: string;
   readonly reasoningEffort: string | null;
   readonly access: AgentEmployeeAccess;
+  /** Omitted on updates that leave the assignment unchanged. */
+  readonly hasAdministratorRights?: boolean | undefined;
   /** The tool groups an administrator switched off; absent keeps none off. */
   readonly disabledToolGroups?: readonly AgentToolGroup[];
   readonly soul: string;
@@ -117,7 +120,8 @@ const COLUMNS = `
     dream_requested_at,
     dream_requested_trigger,
     claude_monthly_cost_limit,
-    disabled_tool_groups`;
+    disabled_tool_groups,
+    has_administrator_rights`;
 
 const STATUSES: readonly AgentLearningStatus[] = [
   "updated",
@@ -171,6 +175,11 @@ function readEmployee(row: readonly DatabaseValue[]): StoredAgentEmployee {
     model: readTextColumn(row, 2, "model"),
     reasoningEffort: readNullableTextColumn(row, 3, "reasoning_effort"),
     access,
+    hasAdministratorRights: readBooleanColumn(
+      row,
+      30,
+      "has_administrator_rights",
+    ),
     disabledToolGroups: readDisabledToolGroups(
       readTextColumn(row, 29, "disabled_tool_groups"),
     ),
@@ -239,6 +248,24 @@ export class AgentEmployeeRepository {
     return rows.map(readEmployee);
   }
 
+  /** Returns only the account IDs and access levels for the administration directory. */
+  public async accessLevels(): Promise<
+    ReadonlyMap<string, AgentEmployeeAccess>
+  > {
+    const rows = await this.database.query(`
+      SELECT user_id, access
+      FROM agent_employees;
+    `);
+    const entries = new Map<string, AgentEmployeeAccess>();
+    for (const row of rows) {
+      const access = readTextColumn(row, 1, "access");
+      if (!isAgentEmployeeAccess(access))
+        throw new Error("Database returned an unsupported agent access.");
+      entries.set(readTextColumn(row, 0, "user_id"), access);
+    }
+    return entries;
+  }
+
   /** Stores the configuration of a new agent account. */
   public async create(
     userId: string,
@@ -260,7 +287,8 @@ export class AgentEmployeeRepository {
             voice_speed_tenths,
             memory_characters,
             dream_characters,
-            claude_monthly_cost_limit
+            claude_monthly_cost_limit,
+            has_administrator_rights
         )
         VALUES (
             $user_id,
@@ -276,7 +304,8 @@ export class AgentEmployeeRepository {
             $voice_speed_tenths,
             $memory_characters,
             $dream_characters,
-            $claude_monthly_cost_limit
+            $claude_monthly_cost_limit,
+            COALESCE($has_administrator_rights, FALSE)
         );
       `,
       { user_id: userId, ...this.parameters(change) },
@@ -305,6 +334,10 @@ export class AgentEmployeeRepository {
             model = $model,
             reasoning_effort = $reasoning_effort,
             access = $access,
+            has_administrator_rights = COALESCE(
+                $has_administrator_rights,
+                has_administrator_rights
+            ),
             disabled_tool_groups = $disabled_tool_groups,
             soul = $soul,
             instructions = $instructions,
@@ -327,6 +360,24 @@ export class AgentEmployeeRepository {
       },
     );
     return rows.length === 1;
+  }
+
+  /** Updates the access level inside the transaction that checked the current value. */
+  public async setAccessLevel(
+    userId: string,
+    access: AgentEmployeeAccess,
+  ): Promise<void> {
+    await this.database.execute(
+      `
+        UPDATE agent_employees
+        SET
+            access = $access,
+            revision = revision + 1,
+            updated_at = utc_now()
+        WHERE user_id = $user_id;
+      `,
+      { user_id: userId, access },
+    );
   }
 
   /**
@@ -421,6 +472,7 @@ export class AgentEmployeeRepository {
       model: change.model,
       reasoning_effort: change.reasoningEffort,
       access: change.access,
+      has_administrator_rights: change.hasAdministratorRights ?? null,
       disabled_tool_groups: (change.disabledToolGroups ?? []).join(","),
       soul: change.soul,
       instructions: change.instructions,

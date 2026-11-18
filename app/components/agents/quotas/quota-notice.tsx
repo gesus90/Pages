@@ -41,14 +41,25 @@ const NOTICE_STYLES: Readonly<Record<QuotaNoticeKind, NoticeStyle>> = {
   },
 };
 
+/** The providers whose cards show notices; OpenRouter cards have their own status line. */
+type NoticeProvider = Exclude<QuotaAccount["provider"], "openrouter">;
+
+/** The translations of the notices of each provider. */
+const NOTICE_SCOPES: Readonly<Record<NoticeProvider, string>> = {
+  claude_code: "agentsPage.notice",
+  codex_cli: "agentsPage.codex.notice",
+  antigravity: "agentsPage.antigravity.notice",
+};
+
 /**
  * The notice a card shows in place of windows.
  * @remarks
  * It stands centred in the window area and never grows beyond it: longer
  * text is cut with an ellipsis and stands in full in the tooltip. After a
  * failed first query the notice of a Claude card adds that the plan stays
- * unknown, but only while the card shows no plan. A card of another provider
- * has no plan and always says what to expect.
+ * unknown, but only while the card shows no plan, and so does the notice of a
+ * Codex card. A card of another provider has no plan and always says what to
+ * expect.
  */
 export function QuotaNotice({
   notice,
@@ -56,16 +67,13 @@ export function QuotaNotice({
   hasPlan,
 }: {
   readonly notice: QuotaNoticeKind;
-  readonly provider: QuotaAccount["provider"];
+  readonly provider: NoticeProvider;
   readonly hasPlan: boolean;
 }): React.ReactElement {
   const { t } = useTranslation();
   const style = NOTICE_STYLES[notice];
   const Icon = style.icon;
-  const scope =
-    provider === "antigravity"
-      ? "agentsPage.antigravity.notice"
-      : "agentsPage.notice";
+  const scope = NOTICE_SCOPES[provider];
   const title = t(`${scope}.${notice}.title`);
   const detail =
     notice === "failed" && hasPlan ? null : t(`${scope}.${notice}.detail`);

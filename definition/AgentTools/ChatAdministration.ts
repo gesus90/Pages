@@ -70,13 +70,13 @@ const WRITE =
 const DESCRIPTIONS: Readonly<
   Record<ChatAdministrationTool["operation"], string>
 > = {
-  "admin.users.list": `Lists all accounts with their normal role, admin and active state, departments, groups and management scope. ${READ}`,
+  "admin.users.list": `Lists accounts with their role, administrator and active state, memberships, management scope and access level for agent accounts. ${READ}`,
   "admin.departments.list": `Lists the departments with their member IDs. ${READ}`,
   "admin.groups.list": `Lists the groups with their member IDs. ${READ}`,
   "admin.roles.list": `Lists the normal roles with rank, department binding and permissions. ${READ}`,
   "admin.permissions.list": `Reads the catalog of configurable permissions; reading is always on. ${READ}`,
   "admin.projectMembers.read": `Reads the members and departments of a project. ${READ}`,
-  "admin.activity.read": `Reads the administration audit trail with actor, target, time and source (mcp or ai). ${READ}`,
+  "admin.activity.read": `Reads the administration audit trail with actor, target, time and source. ${READ}`,
   "admin.connections.list": `Lists the agent connections with provider, state and whether a key exists; never the key. ${READ}`,
   "admin.settings.read":
     "Reads the company name of the instance and whether a logo exists.",
@@ -89,6 +89,7 @@ const DESCRIPTIONS: Readonly<
   "admin.departments.rename": `Renames an existing department. ${WRITE}`,
   "admin.users.setAdministrator": `Grants or withdraws the administrator property of a person. Always needs the person's confirmation. ${WRITE}`,
   "admin.users.setActive": `Locks or unlocks an account. Always needs the person's confirmation. ${WRITE}`,
+  "admin.agents.setAccessLevel": `Changes the access level of another agent. Read the current level first and ask the person to confirm the change. ${WRITE}`,
   "admin.groups.create": `Creates a group with at least one active member. ${WRITE}`,
   "admin.groups.delete": `Deletes a group; existing uses block it. Always needs the person's confirmation. ${WRITE}`,
   "admin.departments.create": `Creates a department. ${WRITE}`,
@@ -158,6 +159,19 @@ const CHAT_ONLY_WRITES: readonly ChatOnlyWrite[] = [
       userId: IDENTIFIER_SCHEMA,
       isActive: BOOLEAN,
       expectedIsActive: BOOLEAN,
+    },
+  },
+  {
+    operation: "admin.agents.setAccessLevel",
+    name: "set_admin_agent_access_level",
+    title: "Set agent access level",
+    properties: {
+      agentId: IDENTIFIER_SCHEMA,
+      access: { type: "string", enum: ["read_only", "yolo"] },
+      expectedAccess: {
+        type: "string",
+        enum: ["read_only", "yolo", "workspace"],
+      },
     },
   },
   {

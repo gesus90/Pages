@@ -102,6 +102,9 @@ export class AgentConversationAnswers implements ConversationAgentRunner {
       consumeAnswer: request.consumeAnswer,
       conversationLabel: conversationLabel(request),
       text: request.prompt,
+      ...(request.person.isAgent === true
+        ? {}
+        : { confirmationText: request.lastMessage }),
       prepareTurn: conversationTurnPreparation(request),
       clientMessageId: null,
       signal,
@@ -157,6 +160,7 @@ export class AgentConversationAnswers implements ConversationAgentRunner {
       request.agent,
       { purpose: "conversation", conversationId: request.conversation.id },
       request.prompt,
+      request.person.isAgent === true ? undefined : request.lastMessage,
     );
     if (steered) await this.advanceByConversation(request);
     return steered;

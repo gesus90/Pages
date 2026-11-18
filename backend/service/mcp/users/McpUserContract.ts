@@ -122,7 +122,7 @@ export interface McpUserActivity {
   readonly id: string;
   readonly actorId: string;
   readonly operation: string;
-  readonly source: "mcp" | "ai";
+  readonly source: "ui" | "mcp" | "ai";
   readonly targetType: string;
   readonly targetId: string;
   readonly affectedUserIds: readonly string[];

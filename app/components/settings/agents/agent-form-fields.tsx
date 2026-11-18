@@ -197,6 +197,9 @@ export function AgentFormFields({
           isExisting={isExisting}
         />
       ) : null}
+      {form.fields.provider === "openrouter" ? (
+        <OpenRouterManagementKeyField form={form} isExisting={isExisting} />
+      ) : null}
       <AgentZaiAccountField form={form} />
       <AgentManualModelField form={form} />
       <CodexPriceMappingFields form={form} />
@@ -274,6 +277,60 @@ function AgentManualModelField({
         {t("settings.agents.modelState.manualOnly")}{" "}
         {t("settings.agents.reasoning.manual")}
       </p>
+    </section>
+  );
+}
+
+function OpenRouterManagementKeyField({
+  form,
+  isExisting,
+}: {
+  readonly form: AgentForm;
+  readonly isExisting: boolean;
+}): React.ReactElement {
+  const { t } = useTranslation();
+  return (
+    <section className="space-y-2">
+      <label
+        htmlFor="agent-openrouter-management-key"
+        className="text-sm font-medium"
+      >
+        {t("agentsPage.openRouter.managementKey")}
+      </label>
+      <Input
+        id="agent-openrouter-management-key"
+        type="password"
+        autoComplete="new-password"
+        spellCheck={false}
+        maxLength={512}
+        aria-describedby="agent-openrouter-management-hint"
+        value={form.fields.openRouterManagementKey}
+        disabled={form.fields.removeOpenRouterManagementKey}
+        onChange={(event) =>
+          form.setField("openRouterManagementKey", event.target.value)
+        }
+      />
+      <p
+        id="agent-openrouter-management-hint"
+        className="text-xs text-muted-foreground"
+      >
+        {t("agentsPage.openRouter.managementHint")}
+      </p>
+      {isExisting ? (
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={form.fields.removeOpenRouterManagementKey}
+            onChange={(event) =>
+              form.setField(
+                "removeOpenRouterManagementKey",
+                event.target.checked,
+              )
+            }
+          />
+          {t("agentsPage.openRouter.removeManagementKey")}
+        </label>
+      ) : null}
     </section>
   );
 }

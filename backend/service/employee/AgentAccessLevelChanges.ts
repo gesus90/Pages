@@ -10,6 +10,14 @@ import type { AgentToolGroup } from "@/definition/AgentToolGroups";
 import type { EmployeeStore } from "@/backend/database/repositories/employee/EmployeeStore";
 import type { AgentAccessEnvironmentService } from "./AgentAccessEnvironmentService";
 import type { AgentActivityService } from "./AgentActivityService";
+import type { AgentEmployeeModels } from "./AgentEmployeeModels";
+
+/** A change of another agent's access level, based on the value last read. */
+export interface AgentAccessLevelUpdate {
+  readonly agentId: string;
+  readonly access: AgentEmployeeAccess;
+  readonly expectedAccess: AgentEmployeeAccess;
+}
 
 function actorName(actor: AccountAccess): string {
   return `${actor.firstName} ${actor.lastName}`.trim();
@@ -20,16 +28,19 @@ export class AgentAccessLevelChanges {
   private readonly policy: UserPolicyService;
   private readonly activity: AgentActivityService;
   private readonly accessEnvironment: AgentAccessEnvironmentService | undefined;
+  private readonly models: AgentEmployeeModels;
 
   /** Binds the access-level rules to the channel's policy and the host's environment. */
   public constructor(
     policy: UserPolicyService,
     activity: AgentActivityService,
     accessEnvironment: AgentAccessEnvironmentService | undefined,
+    models: AgentEmployeeModels,
   ) {
     this.policy = policy;
     this.activity = activity;
     this.accessEnvironment = accessEnvironment;
+    this.models = models;
   }
 
   /**
@@ -106,5 +117,32 @@ export class AgentAccessLevelChanges {
         to: change.to,
       },
     });
+  }
+
+  /** Updates another agent within an authorized administration transaction. */
+  public async update(
+    store: EmployeeStore,
+    actor: AccountAccess,
+    change: AgentAccessLevelUpdate,
+  ): Promise<boolean> {
+    const { agentId, access, expectedAccess } = change;
+    if (actor.userId === agentId || !this.policy.isAdministrator(actor))
+      throw new AgentOperationError("FORBIDDEN");
+    const employees = store.employees();
+    const current = await employees.find(agentId);
+    if (!current) throw new AgentOperationError("NOT_FOUND");
+    if (current.access !== expectedAccess)
+      throw new AgentOperationError("CONFLICT");
+    if (current.access === access) return false;
+    await this.requireChange(actor, current.access, access);
+    await this.models.requireAllowed(actor.userId, { ...current, access });
+    await employees.setAccessLevel(agentId, access);
+    await this.record(store, {
+      agentId,
+      actor,
+      from: current.access,
+      to: access,
+    });
+    return true;
   }
 }

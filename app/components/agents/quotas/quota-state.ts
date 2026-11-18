@@ -1,6 +1,7 @@
 import { lastClaudeAnswerAt } from "./quota-card-state";
 
 import type { QuotaAccount, QuotaSnapshot } from "@/definition/AgentQuota";
+import type { OpenRouterQuotaAccount } from "@/definition/OpenRouterQuota";
 
 /** One card of the quota page and what the page knows about it. */
 export interface QuotaCard {
@@ -100,6 +101,20 @@ function settledCard(card: QuotaCard): QuotaCard {
   return { ...card, pendingQueries: Math.max(0, card.pendingQueries - 1) };
 }
 
+function failedOpenRouterAccount(
+  account: OpenRouterQuotaAccount,
+): OpenRouterQuotaAccount {
+  const { key, credits } = account;
+  return {
+    ...account,
+    key: key.status === "invalid_key" ? key : { ...key, status: "failed" },
+    credits:
+      credits?.status === "reported" || credits?.status === "stored"
+        ? { ...credits, status: "failed" }
+        : credits,
+  };
+}
+
 /**
  * The card after a query or push brought nothing.
  * @remarks
@@ -109,6 +124,12 @@ function settledCard(card: QuotaCard): QuotaCard {
  */
 function failedCard(card: QuotaCard, requestNumber: number): QuotaCard {
   if (requestNumber < card.answeredRequest) return card;
+  if (card.account.provider === "openrouter")
+    return {
+      ...card,
+      account: failedOpenRouterAccount(card.account),
+      answeredRequest: requestNumber,
+    };
   return {
     ...card,
     account: {
@@ -176,9 +197,9 @@ function cardsNewerThanList(
  * @remarks
  * The list decides which cards exist and brings the figures of a new card.
  * A card the page already shows keeps its status, because a query of it
- * follows and its figures must not flip to "stored" and back; only its name
- * follows the list. An answer older than one the page applied already
- * changes nothing.
+ * follows and its figures must not flip to "stored" and back. OpenRouter's
+ * stored reading carries the current credit visibility and credential state.
+ * An answer older than one the page applied already changes nothing.
  */
 function applyList(
   state: ClaudeQuotaState,
@@ -192,6 +213,15 @@ function applyList(
   const listed = snapshot.accounts.map((account): QuotaCard => {
     const card = known.get(account.connectionId);
     if (!card) return newCard(account, readAt, requestNumber);
+    if (account.provider === "openrouter") {
+      if (readAt < card.readAt) return card;
+      return {
+        ...card,
+        account,
+        readAt,
+        answeredRequest: Math.max(card.answeredRequest, requestNumber),
+      };
+    }
     return { ...card, account: { ...card.account, name: account.name } };
   });
   return {

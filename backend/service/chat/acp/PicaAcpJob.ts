@@ -449,6 +449,8 @@ export class PicaAcpJob {
     try {
       const result = await pending;
       logPicaRunnerResult(this.specification.agent.connection, result);
+      if (result.failure === null && result.errorCode === null)
+        this.dependencies.liveAnswer?.confirmModel?.(result.effective);
       return result;
     } finally {
       this.isTurnRunning = false;

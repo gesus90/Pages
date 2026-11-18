@@ -12,8 +12,8 @@ import type { AgentToolGroup } from "./AgentToolGroups";
  * Contracts of agents that Pages keeps like employees.
  * @remarks
  * An agent is an account of its own: it has a username, a role, departments
- * and project memberships like a person, but no password, no sign-in and
- * never the administrator right. Beside the account it has a model, an
+ * and project memberships like a person. It can receive administrator
+ * rights explicitly and has no password or sign-in. It has a model, an
  * access mode and four documents: `SOUL.md`
  * (who it is), `AGENT.md` (what it does), `MEMORY.md` (its current topics,
  * with a searchable archive behind it) and `DREAM.md` (its lessons).
@@ -195,6 +195,8 @@ export interface AgentEmployeeIdentity {
 
 /** One row of the agents tab. */
 export interface AgentEmployeeListItem extends AgentEmployeeIdentity {
+  readonly access: AgentEmployeeAccess;
+  readonly hasAdministratorRights: boolean;
   readonly modelName: string;
   readonly provider: string | null;
   readonly roleId: string | null;
@@ -254,6 +256,8 @@ export type AgentActivityKind =
   | "ticket"
   | "wiki"
   | "access"
+  | "administrator_granted"
+  | "administrator_revoked"
   | "image"
   | "video"
   | "audio";

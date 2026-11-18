@@ -14,6 +14,7 @@ import type {
 interface HumanMessage {
   readonly id: string;
   readonly text: string;
+  readonly confirmationText?: string | undefined;
 }
 
 /** Owns ACP tool budgets and the human message bound to each turn. */
@@ -41,6 +42,7 @@ export class PicaAcpToolTurns {
   private readonly controller = new AbortController();
   private turn = 0;
   private state: PicaToolState | null = null;
+  private hasPagesAdministratorAccess = false;
   private readonly answerRunId: (turn: number) => string;
 
   public constructor(
@@ -87,6 +89,7 @@ export class PicaAcpToolTurns {
   public async catalog(
     userId: string,
   ): Promise<readonly RuntimeToolDescription[]> {
+    this.hasPagesAdministratorAccess = await this.isAdministrator(userId);
     return createPicaTools({
       tools: this.dependencies.tools,
       sessions: this.dependencies.sessions,
@@ -94,6 +97,7 @@ export class PicaAcpToolTurns {
       answerFiles: this.dependencies.answerFiles,
       agentBrowsers: this.dependencies.agentBrowsers,
       adminTools: this.dependencies.adminTools,
+      hasPagesAdministratorAccess: this.hasPagesAdministratorAccess,
       agentDeletions: this.dependencies.agentDeletions,
       searchMemory: this.dependencies.searchMemory,
       readConversationContext: this.dependencies.readConversationContext,
@@ -106,7 +110,7 @@ export class PicaAcpToolTurns {
       generateMedia: this.dependencies.generateMedia,
       readAttachments: this.dependencies.readAttachments,
       toolkit: this.dependencies.toolkit,
-    }).describe({ includeAdministrator: await this.isAdministrator(userId) });
+    }).describe({ includeAdministrator: this.hasPagesAdministratorAccess });
   }
 
   /** Binds a new turn with a fresh budget and credential. */
@@ -190,6 +194,9 @@ export class PicaAcpToolTurns {
     const tools = createPicaTools(
       {
         message: message.text,
+        ...(message.confirmationText === undefined
+          ? {}
+          : { confirmationText: message.confirmationText }),
         planTurnId: message.id,
         answerRunId: this.answerRunId(answerTurn),
         tools: this.dependencies.tools,
@@ -197,6 +204,7 @@ export class PicaAcpToolTurns {
         authorize: context.authorize,
         agentBrowsers: this.dependencies.agentBrowsers,
         adminTools: this.dependencies.adminTools,
+        hasPagesAdministratorAccess: this.hasPagesAdministratorAccess,
         agentDeletions: this.dependencies.agentDeletions,
         onLimit: () => this.controller.abort("stepLimit"),
         ...(this.dependencies.answerFiles

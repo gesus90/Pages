@@ -36,6 +36,12 @@ export interface StatusLimit {
   readonly resetsAt: string | null;
 }
 
+/** The limit an account states for itself, without naming a window or group. */
+export interface GeneralStatusLimit {
+  /** ISO time at which the limit ends, `null` when no reset belongs to it for certain. */
+  readonly resetsAt: string | null;
+}
+
 /** What the presentation needs besides the status. */
 export interface StatusFormat {
   readonly t: TFunction;
@@ -49,6 +55,8 @@ export interface StatusFormat {
   readonly isHintShown: boolean;
   /** The limit an Antigravity answer names; `null` or absent without one. */
   readonly limit?: StatusLimit | null;
+  /** The limit a Codex answer states for the account; `null` or absent without one. */
+  readonly generalLimit?: GeneralStatusLimit | null;
 }
 
 /**
@@ -122,21 +130,45 @@ function limitPresentation(
   };
 }
 
+/** The line of an account that states its limit is reached; a reset appears only when one belongs to it. */
+function generalLimitPresentation(
+  limit: GeneralStatusLimit,
+  format: StatusFormat,
+): StatusPresentation {
+  const { t, moment } = format;
+  return {
+    icon: TriangleAlert,
+    tone: "destructive",
+    text:
+      limit.resetsAt === null
+        ? t("agentsPage.state.limitReachedGeneralNoReset")
+        : t("agentsPage.state.limitReachedGeneral", {
+            moment: moment(limit.resetsAt),
+          }),
+    action: "none",
+  };
+}
+
+/** The line of a current answer, which names the provider that gave it. */
+const REPORTED_TEXT: Readonly<Record<QuotaAccount["provider"], string>> = {
+  claude_code: "agentsPage.state.reported",
+  openrouter: "agentsPage.openRouter.reported",
+  codex_cli: "agentsPage.state.reportedCodex",
+  antigravity: "agentsPage.state.reportedAntigravity",
+};
+
 function reportedPresentation(
   at: string,
   format: StatusFormat,
 ): StatusPresentation {
   if (format.isHintShown) return refreshingPresentation(at, format);
   if (format.limit) return limitPresentation(format.limit, format);
+  if (format.generalLimit)
+    return generalLimitPresentation(format.generalLimit, format);
   return {
     icon: CircleCheck,
     tone: "success",
-    text: format.t(
-      format.provider === "antigravity"
-        ? "agentsPage.state.reportedAntigravity"
-        : "agentsPage.state.reported",
-      { time: format.time(at) },
-    ),
+    text: format.t(REPORTED_TEXT[format.provider], { time: format.time(at) }),
     action: "none",
   };
 }
@@ -159,13 +191,17 @@ function failedPresentation(
   format: StatusFormat,
 ): StatusPresentation {
   const { t, time } = format;
+  const sinceText =
+    format.provider === "codex_cli"
+      ? "agentsPage.state.failedSinceCodex"
+      : "agentsPage.state.failedSince";
   return {
     icon: TriangleAlert,
     tone: "warning",
     text:
       lastSuccessAt === null
         ? t("agentsPage.state.failedNever")
-        : t("agentsPage.state.failedSince", { time: time(lastSuccessAt) }),
+        : t(sinceText, { time: time(lastSuccessAt) }),
     action: "retry",
   };
 }

@@ -1,3 +1,4 @@
+import type { AgentAnswerModel } from "./AgentChatControl";
 import type { VirtualToolUse } from "./VirtualChat";
 
 /**
@@ -97,6 +98,8 @@ export interface LiveAnswerSyncComplete {
 
 /** Everything known of an answer, for a client that connects while it is written. */
 export interface LiveAnswerSnapshot extends LiveAnswerHead {
+  /** The model resolved for this answer, once its connection is known. */
+  readonly model?: AgentAnswerModel;
   readonly startedAt: string;
   readonly text: string;
   /** `null` without thoughts or for a reader who may not see them. */

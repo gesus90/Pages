@@ -70,6 +70,7 @@ import type { McpDeviceApplicationServices } from "./mcp-device-services.server"
 import type { AgentPlanStepReportService } from "@/backend/service/agents/AgentPlanStepReportService";
 import type { AgentChannel } from "@/backend/auth/McpActorContext";
 import type { ChatInstanceAdministrationDependencies } from "@/backend/service/agents/ChatInstanceAdministrationService";
+import type { AgentAdministrationContext } from "@/backend/service/agents/AgentAdministrationContext";
 import type { AgentPlanningServices } from "@/backend/service/agents/AgentPlanningServices";
 import type { AgentWikiCreateDependencies } from "@/backend/service/agents/AgentWikiCreateService";
 import type { AgentWriteDependencies } from "@/backend/service/agents/AgentWriteOperationService";
@@ -139,6 +140,7 @@ function createWikiOperations(
 /** What the operation catalogs of both agent channels are built from. */
 interface RouterContext extends Omit<OperationContext, "channel"> {
   readonly management?: () => ManagementService;
+  readonly agentEmployees?: AgentAdministrationContext["employees"];
   readonly externalFiles?: AgentFileDependencies;
   readonly directory: string;
   readonly planRecovery?: AgentPlanRecoveryService;
@@ -264,6 +266,7 @@ function createChatOperationRouter(
       context.database,
       context.cache,
       channel,
+      context.agentEmployees,
     ),
     ...(context.instanceAdministration
       ? {
@@ -503,6 +506,7 @@ function createBinaryAssetServices(input: {
 /** Services and storage context shared by the personal MCP and chat routers. */
 interface McpWorkspace {
   readonly management?: () => ManagementService;
+  readonly agentEmployees?: AgentAdministrationContext["employees"];
   readonly externalFiles?: AgentFileDependencies;
   readonly directory: string;
   readonly wikiService: Pick<WikiService, "getSettings" | "openAttachment">;
@@ -527,6 +531,21 @@ interface McpWorkspace {
   readonly events?: PagesEventPublisher;
   /** The automations shared by the agent tools and the signed-in chat. */
   readonly automations?: AutomationService;
+}
+
+/** The stores and publisher through which wiki pages are created. */
+function createWikiCreation(
+  database: Database,
+  staging: WikiFileStore,
+  directory: string,
+  events: PagesEventPublisher,
+): AgentWikiCreateDependencies {
+  return {
+    database,
+    staging,
+    wikiFiles: new WikiFileStore(path.join(directory, "wiki-attachments")),
+    events,
+  };
 }
 
 /** Wires the API/services/repositories without opening another database or reading credential files. */
@@ -554,16 +573,15 @@ export function createMcpServices(
   });
   const pagesEventPublisher =
     workspace.events ?? new PagesEventPublisher(database);
-  const creation = {
+  const creation = createWikiCreation(
     database,
     staging,
-    wikiFiles: new WikiFileStore(
-      path.join(workspace.directory, "wiki-attachments"),
-    ),
-    events: pagesEventPublisher,
-  };
+    workspace.directory,
+    pagesEventPublisher,
+  );
   const routers: RouterContext = {
     management: workspace.management,
+    agentEmployees: workspace.agentEmployees,
     externalFiles: workspace.externalFiles,
     database,
     directory: workspace.directory,

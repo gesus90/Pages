@@ -21,6 +21,8 @@ interface AgentFormFields {
   readonly provider: AgentProviderId;
   readonly zaiAccountType: string;
   readonly apiKey: string;
+  readonly openRouterManagementKey: string;
+  readonly removeOpenRouterManagementKey: boolean;
   readonly testModel: string;
   /** Empty keeps the provider or CLI default effort. */
   readonly reasoningEffort: string;
@@ -117,6 +119,9 @@ function isSameFields(left: AgentFormFields, right: AgentFormFields): boolean {
     left.name === right.name &&
     left.provider === right.provider &&
     left.apiKey === right.apiKey &&
+    left.openRouterManagementKey === right.openRouterManagementKey &&
+    left.removeOpenRouterManagementKey ===
+      right.removeOpenRouterManagementKey &&
     isSameChoice(left, right)
   );
 }
@@ -143,6 +148,8 @@ function useFormFields(
     provider:
       connection?.provider ?? (kind === "api_key" ? "openrouter" : "codex_cli"),
     apiKey: "",
+    openRouterManagementKey: "",
+    removeOpenRouterManagementKey: false,
     ...storedChoice(connection, kind),
   });
   const [saved, setSaved] = useState(fields);
@@ -196,6 +203,8 @@ function useAgentFormSaved(input: {
     const clean = {
       ...fields,
       apiKey: "",
+      openRouterManagementKey: "",
+      removeOpenRouterManagementKey: false,
       name: fields.name.trim(),
       testModel: fields.testModel.trim(),
     };
@@ -268,6 +277,11 @@ function buildSubmitPayload(
     name: fields.name,
     provider: fields.provider,
     apiKey: fields.apiKey,
+    openRouterManagementKey:
+      fields.provider === "openrouter" ? fields.openRouterManagementKey : "",
+    removeOpenRouterManagementKey: String(
+      fields.provider === "openrouter" && fields.removeOpenRouterManagementKey,
+    ),
     testModel: fields.testModel,
     reasoningEffort: fields.reasoningEffort,
     ...changedProviderFields(fields, saved, connection),

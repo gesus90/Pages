@@ -200,6 +200,8 @@ export interface AgentJobRequest {
     isResumed?: boolean,
   ) => Promise<PicaAcpConversationTurn>;
   readonly text: string;
+  /** Original human text of a conversation whose prompt includes other content. */
+  readonly confirmationText?: string;
   /** The uploaded files of the chat session the message carries; absent for none. */
   readonly attachmentIds?: readonly string[];
   readonly clientMessageId: string | null;

@@ -6,12 +6,15 @@ import {
 } from "@/backend/database/RowValue";
 
 import type { Database, DatabaseValue } from "@/backend/database/Database";
-import type { AgentActivityCost } from "@/definition/AgentEmployee";
+import type {
+  AgentActivityCost,
+  AgentActivityKind,
+} from "@/definition/AgentEmployee";
 
 /** A learning run or a change of the access level, as the activity table stores it. */
 export interface StoredAgentEvent {
   readonly id: string;
-  readonly kind: "learning" | "access" | "image" | "video" | "audio";
+  readonly kind: Exclude<AgentActivityKind, "session" | "ticket" | "wiki">;
   readonly detail: string;
   readonly cost: AgentActivityCost;
   readonly createdAt: string;
@@ -61,6 +64,8 @@ function readCost(
 function readEventKind(kind: string): StoredAgentEvent["kind"] {
   if (
     kind === "access" ||
+    kind === "administrator_granted" ||
+    kind === "administrator_revoked" ||
     kind === "image" ||
     kind === "video" ||
     kind === "audio"

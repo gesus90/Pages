@@ -19,6 +19,7 @@ import { ParticipantAvatar } from "./chat-page-avatar";
 import { participantColors } from "./chat-page-colors";
 import { ChatPageDecision } from "./chat-page-decision";
 import { hideImages, OwnRun, PreviewSentBadge } from "./chat-page-history-own";
+import { groupRuns, knownAnswerModel } from "./chat-page-history-runs";
 import { ChatPageQuestionCard } from "./chat-page-question-card";
 import { ChatPageToolUse } from "./chat-page-tool-uses";
 import { ChatPageVoice } from "./chat-page-voice";
@@ -64,26 +65,6 @@ const NO_LIVE: HistoryLive = {
   deliveries: {},
   nameOf: (agentId) => agentId,
 };
-
-/** Consecutive messages of one author: `null` for the person's own messages. */
-interface MessageRun {
-  readonly authorId: string | null;
-  readonly messages: readonly VirtualChatMessage[];
-}
-
-function groupRuns(messages: readonly VirtualChatMessage[]): MessageRun[] {
-  const runs: MessageRun[] = [];
-  for (const message of messages) {
-    const last = runs.at(-1);
-    if (last && last.authorId === message.authorId)
-      runs[runs.length - 1] = {
-        authorId: last.authorId,
-        messages: [...last.messages, message],
-      };
-    else runs.push({ authorId: message.authorId, messages: [message] });
-  }
-  return runs;
-}
 
 /**
  * The author of a message from what the conversation tells, for one outside
@@ -444,17 +425,19 @@ interface AnswerRunProps {
 
 /**
  * The model the head of a run of answers shows: the one kept with its first
- * answer, or, for an answer that just ended on this page before the kept
- * model arrived, the label of the agent in this chat. An answer stored before
- * Pages kept the model shows none.
+ * answer, or the live snapshot while that metadata is being saved. Older
+ * answers without model metadata and a matching live snapshot show none.
  */
 function runModel(
   first: VirtualChatMessage,
   { ended, modelOf }: Pick<AnswerRunProps, "ended" | "modelOf">,
 ): AgentModelBadgeValues | undefined {
-  if (first.answerModel) return first.answerModel;
-  if (first.authorId === null || !ended.has(first.id)) return undefined;
-  return modelOf?.(first.authorId);
+  const knownModel = knownAnswerModel(first, ended);
+  if (knownModel) return knownModel;
+  const view = ended.get(first.id);
+  if (first.authorId === null || !view) return undefined;
+  const model = modelOf?.(first.authorId);
+  return model?.provider === "openrouter" ? undefined : model;
 }
 
 /**
@@ -516,7 +499,7 @@ function StoredMessages({
       {historySegments(messages).flatMap((segment) =>
         segment.kind === "system"
           ? [<SystemLine key={segment.message.id} message={segment.message} />]
-          : groupRuns(segment.messages).map((run) => {
+          : groupRuns(segment.messages, live.ended).map((run) => {
               const [first] = run.messages;
               if (!first) return null;
               if (run.authorId === null)

@@ -147,24 +147,40 @@ before every first and every later prompt.
 ## Quota query
 
 The Agents page shows one quota card per Antigravity connection a person may
-use. Pages reads it in the connection's own isolated ACP context, never with
-the sign-in of a terminal: it opens a metadata session without tools and runs
-the adapter's `/usage` command, which answers without a model turn. The
-command goes out only after the adapter announced a `usage` command in its
-`available_commands_update`; without that announcement nothing is sent,
-because a plain prompt would reach the model, and the card reads "Query
-failed". A connection with a running session is not queried, so a running
-answer finishes undisturbed, and a connection without a sign-in reads "Not
-signed in".
+use. Pages reads it with the sign-in of the connection, never with the
+sign-in of a terminal. The ACP sessions of the managed CLI announce no `usage`
+command, and an unannounced command would reach the model as a prompt, so
+Pages does not ask through ACP. It runs the CLI's read-only print-mode command
+`agy --print /usage --output-format json`, which answers from the account's
+quota without an agent turn. Print mode has no `--gemini-dir` or
+`--app-data-dir`; it reads `$HOME/.gemini/antigravity-cli`. The command
+therefore runs in the namespace isolation with a private, empty file system
+over the connection's `HOME`, in which the connection's `antigravity-acp`
+folder is mounted as `.gemini/antigravity-cli`. It uses and refreshes exactly
+the sign-in of the ACP sessions; the global `config` folder stays in the
+private file system, so the managed ACP configuration is never written.
+
+Pages accepts only an envelope with `status` `SUCCESS`, `command.name`
+`usage` and `num_turns` `0`, and reads the groups from `command.data`;
+`response` holds only the tab-separated text version. A sign-in prompt of the
+CLI ends the command at once and the card reads "Not signed in", as it does
+for a connection without a sign-in. Any other failure reads "Query failed"
+and is logged as `antigravity.usage.failed` with its step (`configuration`,
+`command` or `answer`) and code, an unexpected envelope also as
+`antigravity.usage.unexpected_answer` with exit code, status, command name and
+turn count; the reported text is never logged, because it can name the
+account. A connection with a running session is not queried, so a running
+answer finishes undisturbed.
 
 The answer lists groups of models in the order of the source, each with
-windows that carry `window`, `remaining_fraction` and `reset_time`; the
-format is that of `agy --print /usage --output-format json`. Pages shows the
-five-hour and the seven-day window of each group, the reported rest unchanged
-and the reset in the viewer's local time. A group with a single window, such
-as one model with a quota of its own, shows only that window. The answer names
-no plan, so the card shows none. The last successful answer is stored per
-connection and stays visible, greyed, after a failed query.
+windows that carry `window`, `remaining_fraction` and `reset_time`. Pages
+shows the five-hour and the seven-day window of each group, the reported rest
+unchanged and the reset in the viewer's local time. A group with a single
+window, such as one model with a quota of its own, shows only that window. An
+answer without groups is a successful empty answer and reads "No windows
+reported". The answer names no plan, so the card shows none. The last
+successful answer is stored per connection and stays visible, greyed, with
+its time after a failed query.
 
 ## Pica
 

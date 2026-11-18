@@ -46,7 +46,8 @@ export function employeeToolDependencies(
  * @remarks
  * Every value that shapes the native session is part of its fingerprint, so
  * a changed connection, model, effort, access, folder or agent starts a new
- * one instead of continuing the resting one.
+ * one instead of continuing the resting one. Administrator assignment also
+ * changes the Pages tool catalog the native session discovered at startup.
  */
 export function keptPicaSession(
   input: PicaAcpStart,
@@ -77,6 +78,7 @@ export function keptPicaSession(
         agent.connection.provider,
         agent.connection.cliLoggedInAt,
         job.run.runner.hostMcpServers,
+        input.employee?.hasAdministratorRights === true,
       ]),
     },
   };

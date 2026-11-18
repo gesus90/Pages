@@ -19,6 +19,7 @@ export interface AgentDraft {
   readonly modelKey: string;
   readonly reasoningEffort: string;
   readonly access: AgentEmployeeAccess;
+  readonly hasAdministratorRights: boolean;
   readonly claudeMonthlyCostLimitUsd?: string;
   /** The tool groups switched off for the agent. */
   readonly disabledToolGroups: readonly AgentToolGroup[];
@@ -62,6 +63,7 @@ export function createAgentDraft(
       modelKey: "",
       reasoningEffort: "",
       access: "read_only",
+      hasAdministratorRights: false,
       claudeMonthlyCostLimitUsd: "",
       disabledToolGroups: [],
       roleId: defaults.roleId,
@@ -84,6 +86,7 @@ export function createAgentDraft(
     modelKey: agentModelKey(agent.settings.connectionId, agent.settings.model),
     reasoningEffort: agent.settings.reasoningEffort ?? "",
     access: agent.settings.access,
+    hasAdministratorRights: agent.hasAdministratorRights,
     claudeMonthlyCostLimitUsd:
       agent.settings.claudeMonthlyCostLimitUsd == null
         ? ""
@@ -141,6 +144,10 @@ export function agentDraftPayload(
     ...selectionOf(draft, models, agent),
     reasoningEffort: draft.reasoningEffort,
     access: draft.access,
+    ...(draft.hasAdministratorRights !==
+    (agent?.hasAdministratorRights ?? false)
+      ? { hasAdministratorRights: draft.hasAdministratorRights }
+      : {}),
     claudeMonthlyCostLimitUsd: draft.claudeMonthlyCostLimitUsd,
     disabledToolGroups: draft.disabledToolGroups,
     soul: draft.soul,

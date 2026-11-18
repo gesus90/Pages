@@ -20,14 +20,12 @@ export type ReasoningBadgeLevel = (typeof REASONING_BADGE_LEVELS)[number];
 /**
  * The vendor or tool a shared model badge names beside its tile.
  * @remarks
- * Antigravity and OpenCode are named as the tool, because they offer models
- * of several vendors: Sonnet over Antigravity must not read like Sonnet over
- * Claude Code, and a Gemini model over OpenCode keeps OpenCode as the way it
- * runs. `zai` is the direct connection to Z.AI with its own API key; a GLM
- * model that runs over OpenCode or OpenRouter shows the badge of that way.
+ * Antigravity, OpenCode and OpenRouter name the connection's execution
+ * route while offering models from several vendors. `zai` is the direct
+ * connection to Z.AI with its own API key.
  */
 export type ModelBadgeVendor =
-  "anthropic" | "openai" | "antigravity" | "opencode" | "zai";
+  "anthropic" | "openai" | "antigravity" | "opencode" | "openrouter" | "zai";
 
 /**
  * The providers whose models carry the shared model badge, with their vendor.
@@ -39,19 +37,20 @@ const MODEL_BADGE_VENDORS: Readonly<Record<string, ModelBadgeVendor>> = {
   codex_cli: "openai",
   antigravity: "antigravity",
   opencode: "opencode",
+  openrouter: "openrouter",
   zai: "zai",
 };
 
 /**
  * The providers that confirm a model only as the exact selector value of
  * their configuration option, never as an alias: Codex, Antigravity,
- * OpenCode, whose selector is the full `provider/model` ID, and Z.AI, whose
- * sessions run over the same runtime.
+ * OpenCode and the linked OpenRouter and Z.AI connections.
  */
 const SELECTOR_CONFIRMING_PROVIDERS: ReadonlySet<string> = new Set([
   "codex_cli",
   "antigravity",
   "opencode",
+  "openrouter",
   "zai",
 ]);
 
@@ -60,6 +59,7 @@ const SELECTOR_CONFIRMING_PROVIDERS: ReadonlySet<string> = new Set([
  * connection, which the connection's catalog does not carry.
  */
 const ZAI_RUNTIME_PREFIX = "zai/";
+const OPENROUTER_RUNTIME_PREFIX = "openrouter/";
 
 /**
  * The vendor of a provider's shared model badge.
@@ -93,6 +93,8 @@ export interface AgentCatalogModelName {
   readonly aliases?: readonly string[];
   /** The reasoning levels the model offers; absent when the catalog states none. */
   readonly reasoningEfforts?: readonly string[];
+  /** Whether the catalog proves a price of zero for the model on this connection. */
+  readonly isFree?: boolean;
 }
 
 /** The model of a session or an agent as structured identity, never as a joined text. */
@@ -104,6 +106,8 @@ export interface AgentModelIdentity {
   /** The catalog name, or the reported value when the catalog does not know it. */
   readonly name: string;
   readonly status: AgentValueStatus;
+  /** Catalog evidence for the resolved OpenRouter model. */
+  readonly isFree?: boolean;
 }
 
 /** The reasoning level of a session, kept apart from its model. */
@@ -139,6 +143,16 @@ function capitalize(word: string): string {
 }
 
 /**
+ * Reads the catalog ID from OpenCode's OpenRouter selector. OpenRouter's own
+ * router IDs already start with `openrouter/` and stay intact.
+ */
+export function openRouterCatalogId(value: string): string {
+  if (!value.startsWith(OPENROUTER_RUNTIME_PREFIX)) return value;
+  const id = value.slice(OPENROUTER_RUNTIME_PREFIX.length);
+  return id.includes("/") || id.startsWith("~") ? id : value;
+}
+
+/**
  * The model value as the catalog of the connection names it.
  * @remarks
  * A Z.AI session runs over a runtime that selects its model as `zai/<model>`,
@@ -148,7 +162,9 @@ function catalogValue(
   provider: AgentProviderId,
   value: string | null,
 ): string | null {
-  if (provider !== "zai" || value === null) return value;
+  if (value === null) return null;
+  if (provider === "openrouter") return openRouterCatalogId(value);
+  if (provider !== "zai") return value;
   return value.startsWith(ZAI_RUNTIME_PREFIX)
     ? value.slice(ZAI_RUNTIME_PREFIX.length)
     : value;
@@ -179,7 +195,8 @@ function byAlias(
  * A versioned Claude ID names its family and version itself, so
  * `claude-haiku-5-5` reads `Haiku 5.5`; any other value stays as reported.
  */
-function uncatalogedName(id: string): string {
+function uncatalogedName(provider: AgentProviderId, id: string): string {
+  if (provider === "openrouter") return id;
   const parts = parseClaudeModelId(id);
   return parts ? `${capitalize(parts.family)} ${parts.version}` : id;
 }
@@ -192,8 +209,8 @@ function uncatalogedName(id: string): string {
  * family runs, not which version, so it stays `requested` until the reported
  * model arrives. Codex and Antigravity confirm the exact selector through
  * their configuration option, so that value is confirmed, with its catalog
- * name or as the raw ID; OpenCode confirms its full model ID the same way,
- * and a direct Z.AI connection its model without the runtime's `zai/` prefix.
+ * name or as the raw ID. OpenCode confirms its full model ID the same way,
+ * while direct OpenRouter and Z.AI connections use their own catalog IDs.
  * The reported model wins over every requested
  * value, so a changed or resumed session never keeps an older name.
  * @returns `null` when nothing names a model.
@@ -214,6 +231,22 @@ export function resolveModelIdentity(
   );
 }
 
+function catalogModelIdentity(
+  provider: AgentProviderId,
+  entry: AgentCatalogModelName,
+  status: AgentValueStatus,
+): AgentModelIdentity {
+  return {
+    provider,
+    modelId: entry.id,
+    name: entry.name,
+    status,
+    ...(provider === "openrouter" && entry.isFree === true
+      ? { isFree: true }
+      : {}),
+  };
+}
+
 /** The model identity an adapter confirmed; `null` while only a request is known. */
 function confirmedModelIdentity(
   reading: AgentModelReading,
@@ -221,23 +254,20 @@ function confirmedModelIdentity(
   const { provider, catalog, reported, configured } = reading;
   if (reported !== null) {
     const entry = byId(catalog, reported);
-    return {
-      provider,
-      modelId: reported,
-      name: entry?.name ?? uncatalogedName(reported),
-      status: "confirmed",
-    };
+    return entry
+      ? catalogModelIdentity(provider, entry, "confirmed")
+      : {
+          provider,
+          modelId: reported,
+          name: uncatalogedName(provider, reported),
+          status: "confirmed",
+        };
   }
   const configuredEntry = byId(catalog, configured);
   if (configuredEntry)
-    return {
-      provider,
-      modelId: configuredEntry.id,
-      name: configuredEntry.name,
-      status: "confirmed",
-    };
+    return catalogModelIdentity(provider, configuredEntry, "confirmed");
   // A concrete Claude ID the adapter confirmed names its version itself;
-  // Codex, Antigravity, OpenCode and Z.AI confirm only exact selector values.
+  // The other runners with selector confirmation report exact model IDs.
   if (
     configured !== null &&
     (SELECTOR_CONFIRMING_PROVIDERS.has(provider) ||
@@ -246,7 +276,7 @@ function confirmedModelIdentity(
     return {
       provider,
       modelId: configured,
-      name: uncatalogedName(configured),
+      name: uncatalogedName(provider, configured),
       status: "confirmed",
     };
   return null;
@@ -263,10 +293,11 @@ function requestedModelIdentity(
     byId(catalog, requested) ??
     byAlias(catalog, configured) ??
     byAlias(catalog, requested);
+  if (entry) return catalogModelIdentity(provider, entry, "requested");
   return {
     provider,
-    modelId: entry?.id ?? null,
-    name: entry?.name ?? requestedValue,
+    modelId: provider === "openrouter" ? requestedValue : null,
+    name: requestedValue,
     status: "requested",
   };
 }

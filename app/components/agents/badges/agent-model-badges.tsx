@@ -2,29 +2,31 @@ import { useTranslation } from "react-i18next";
 
 import { modelBadgeVendor } from "@/definition/AgentModelIdentity";
 
-import {
-  openCodeSourceName,
-  withoutTrailingFree,
-} from "../model-picker/model-catalog";
+import { modelBadgeDisplay } from "../model-picker/model-catalog";
 import { FreeBadge } from "./free-badge";
 import { ModelBadge } from "./model-badge";
 import { ReasoningBadge } from "./reasoning-badge";
 
 import type { AgentChatModelLabel } from "@/definition/AgentChatControl";
+import type { AgentValueStatus } from "@/definition/AgentModelIdentity";
 
 /** What the badges read of a model: the live label of a chat or the model kept with a stored answer. */
 export type AgentModelBadgeValues = Pick<
   AgentChatModelLabel,
   "name" | "provider" | "modelId" | "reasoningEffort" | "isFree"
->;
+> & {
+  readonly modelStatus?: AgentValueStatus;
+  readonly reasoningStatus?: AgentValueStatus;
+  readonly isReasoningOffered?: boolean | null;
+};
 
 /**
  * The model and reasoning of an agent in a chat.
  * @remarks
  * The order is model, "Free", reasoning, 6 px apart. Claude Code, Codex,
- * Antigravity, OpenCode and direct Z.AI models get the shared model badge of
- * their vendor or tool and the reasoning badge; an OpenCode model names its
- * source, such as OpenCode Zen, in the badge's tooltip. Every other provider
+ * Antigravity, OpenCode, OpenRouter and direct Z.AI models get the shared
+ * model and reasoning badges. A known model source appears in the tooltip.
+ * Every other provider
  * keeps the grey pill of model and level until it is moved to badges of its own; its text is joined from the
  * structured values here and never read back. "Free" stands as a badge of its
  * own beside either, only where the catalog of the used connection states it
@@ -44,8 +46,7 @@ export function AgentModelBadges({
   const { t } = useTranslation();
   const vendor = modelBadgeVendor(model.provider);
   const isFree = model.isFree === true;
-  // The catalog stated the price apart from the name, so "Free" stands in its badge alone.
-  const name = isFree ? withoutTrailingFree(model.name) : model.name;
+  const { name, source } = modelBadgeDisplay(model, t);
   const free = isFree ? <FreeBadge size="badge" /> : null;
   if (vendor)
     return (
@@ -53,12 +54,17 @@ export function AgentModelBadges({
         <ModelBadge
           vendor={vendor}
           name={name}
-          source={openCodeSourceName(model.provider, model.modelId, t)}
+          source={source}
+          status={model.modelStatus}
           isVendorHiddenWhenNarrow={isCompactWhenNarrow}
         />
         {free}
         {model.reasoningEffort ? (
-          <ReasoningBadge level={model.reasoningEffort} />
+          <ReasoningBadge
+            level={model.reasoningEffort}
+            status={model.reasoningStatus}
+            isOffered={model.isReasoningOffered}
+          />
         ) : null}
       </span>
     );

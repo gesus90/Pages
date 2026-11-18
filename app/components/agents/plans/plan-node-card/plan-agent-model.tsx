@@ -3,8 +3,8 @@ import { useTranslation } from "react-i18next";
 import { ModelPicker } from "@/app/components/agents/model-picker";
 import {
   findModelChoice,
+  modelChoiceSource,
   modelGroups,
-  openCodeSourceName,
 } from "@/app/components/agents/model-picker/model-catalog";
 import { reasoningOptions } from "@/app/lib/reasoning-options";
 import { modelsOfSameTarget } from "@/definition/AgentReasoningChoice";
@@ -88,6 +88,7 @@ export function PlanAgentModel(props: {
         models={models}
         model={model}
         savedModel={configuration.model}
+        savedProvider={configuration.provider}
         reasoning={configuration.reasoningEffort}
       />
     );
@@ -107,10 +108,13 @@ function ModelValues(props: {
   readonly models: readonly PageAgentModel[];
   readonly model: PageAgentModel | undefined;
   readonly savedModel: string;
+  readonly savedProvider: AgentPlanConfiguration["provider"];
   readonly reasoning: string | null;
 }): React.ReactElement {
   const { t } = useTranslation();
   const { model } = props;
+  const provider = model?.provider ?? props.savedProvider;
+  const levels = model?.reasoningEfforts ?? [];
   const selected = model
     ? findModelChoice(
         modelGroups(props.models, { translate: t, selectedId: model.id }),
@@ -126,19 +130,20 @@ function ModelValues(props: {
                 mark: selected.group.mark,
                 name: selected.choice.label,
                 tool: selected.group.label,
-                source: openCodeSourceName(
-                  selected.choice.model.provider,
-                  selected.choice.model.model,
-                  t,
-                ),
+                source: modelChoiceSource(selected.choice.model, t),
               }
             : null
         }
         savedModel={props.savedModel}
+        savedProvider={provider}
       />
       <PlanReasoningValue
-        reasoning={props.reasoning}
-        levels={model?.reasoningEfforts ?? []}
+        reasoning={
+          provider === "openrouter" && levels.length === 0
+            ? null
+            : props.reasoning
+        }
+        levels={levels}
       />
     </footer>
   );
@@ -188,6 +193,7 @@ function ModelChoice(props: {
   const { step, configuration, model } = props;
   const refusalOf = useGroupRefusal(props);
   const efforts = model?.reasoningEfforts ?? [];
+  const provider = model?.provider ?? configuration.provider;
   const effortOptions = reasoningOptions({
     model,
     modelName: model?.modelName ?? model?.name ?? configuration.model,
@@ -226,6 +232,7 @@ function ModelChoice(props: {
         value={model ? model.id : planConfigurationModelKey(configuration)}
         models={props.models}
         savedModel={configuration.model}
+        savedProvider={provider}
         disabled={false}
         isLabelHidden
         mode="floating"
@@ -234,7 +241,11 @@ function ModelChoice(props: {
         onChange={selectModel}
       />
       <PlanReasoningField
-        value={configuration.reasoningEffort ?? ""}
+        value={
+          provider === "openrouter" && efforts.length === 0
+            ? ""
+            : (configuration.reasoningEffort ?? "")
+        }
         options={effortOptions}
         onChange={selectEffort}
       />

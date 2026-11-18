@@ -466,7 +466,7 @@ export class AdministrationService {
     this.cache.invalidateProjectMembership();
   }
 
-  /** Grants or removes personal admin eligibility without changing the selected role. */
+  /** Changes human admin eligibility through the existing human administrator boundary. */
   public async setAdministrator(
     userId: string,
     targetId: string,
@@ -480,10 +480,11 @@ export class AdministrationService {
         !this.policy.isAdministrator(actor)
       )
         throw new AgentOperationError("FORBIDDEN", { reason: "role_grant" });
-      requireAdministration(this.policy.isAdministrator(actor));
+      requireAdministration(
+        actor.isAgent !== true && this.policy.isAdministrator(actor),
+      );
       const target = findAccount(snapshot, targetId);
-      // An agent never becomes an administrator.
-      if (isAdmin && target.isAgent === true)
+      if (target.isAgent === true)
         throw new AdministrationError("invalidInput");
       if (!isAdmin) {
         this.requireLastAdministrator(snapshot, target);

@@ -18,15 +18,22 @@ export class UserPolicyService {
     this.channel = channel;
   }
 
-  /** Uses active admin mode on the UI path and personal eligibility on the MCP path. */
+  /** Uses the agent's grant or the person's administrator rights for this channel. */
   public isAdministrator(actor: AccountAccess): boolean {
-    const account = accountForChannel(actor, this.channel);
-    // An agent account is never an administrator, whatever is stored.
+    if (actor.isAgent === true)
+      return actor.isActive && actor.hasAgentAdministratorRights === true;
+    return this.isHumanAdministratorInAdminMode(
+      accountForChannel(actor, this.channel),
+    );
+  }
+
+  /** Requires a human account's persisted admin mode, independently of the channel. */
+  public isHumanAdministratorInAdminMode(actor: AccountAccess): boolean {
     return (
-      account.isActive &&
-      account.isAdmin &&
-      account.mode === "admin" &&
-      account.isAgent !== true
+      actor.isActive &&
+      actor.isAgent !== true &&
+      actor.isAdmin &&
+      actor.mode === "admin"
     );
   }
 
@@ -99,23 +106,13 @@ export class UserPolicyService {
     target: AccountAccess,
     capability: Capability,
   ): boolean {
-    if (this.isManagement(actor) && !this.isAdministrator(actor)) {
-      return (
-        !target.isAdmin &&
-        actor.userId !== target.userId &&
-        (capability === CAPABILITY.MANAGE_USERS ||
-          capability === CAPABILITY.MANAGE_ROLES ||
-          capability === CAPABILITY.MANAGE_DEPARTMENTS)
-      );
-    }
-    const allowedRank =
-      this.isAdministrator(actor) ||
-      (actor.userId !== target.userId &&
-        actor.role !== null &&
-        target.role !== null &&
-        actor.role.rank >= target.role.rank);
+    if (this.isProtectedFromChange(actor, target)) return false;
+    if (this.isManagement(actor) && !this.isAdministrator(actor))
+      return this.canManageAsManagement(actor, target, capability);
     return (
-      allowedRank && this.has(actor, capability) && this.canSee(actor, target)
+      this.hasRankForChange(actor, target) &&
+      this.has(actor, capability) &&
+      this.canSee(actor, target)
     );
   }
 
@@ -161,6 +158,7 @@ export class UserPolicyService {
     target: AccountAccess,
     next: readonly string[],
   ): boolean {
+    if (this.isProtectedFromChange(actor, target)) return false;
     if (next.length === 0 && target.hasHadDepartment) {
       return false;
     }
@@ -215,6 +213,47 @@ export class UserPolicyService {
       this.canManageGroups(actor) &&
       (this.hasGlobalAccess(actor) ||
         members.every((member) => this.canSee(actor, member)))
+    );
+  }
+
+  /** Agents never change administrators, and only administrators change agent administrators. */
+  private isProtectedFromChange(
+    actor: AccountAccess,
+    target: AccountAccess,
+  ): boolean {
+    if (actor.isAgent === true && target.isAdmin) return true;
+    return (
+      target.hasAgentAdministratorRights === true &&
+      !this.isAdministrator(actor)
+    );
+  }
+
+  /** Managers change other accounts only within user, role and department management. */
+  private canManageAsManagement(
+    actor: AccountAccess,
+    target: AccountAccess,
+    capability: Capability,
+  ): boolean {
+    return (
+      !target.isAdmin &&
+      actor.userId !== target.userId &&
+      (capability === CAPABILITY.MANAGE_USERS ||
+        capability === CAPABILITY.MANAGE_ROLES ||
+        capability === CAPABILITY.MANAGE_DEPARTMENTS)
+    );
+  }
+
+  /** Administrators may change any account; others only accounts of an equal or lower rank. */
+  private hasRankForChange(
+    actor: AccountAccess,
+    target: AccountAccess,
+  ): boolean {
+    return (
+      this.isAdministrator(actor) ||
+      (actor.userId !== target.userId &&
+        actor.role !== null &&
+        target.role !== null &&
+        actor.role.rank >= target.role.rank)
     );
   }
 }

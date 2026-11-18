@@ -5,6 +5,7 @@ import type {
   UserRole,
 } from "./Authorization.js";
 import type { AgentProjectMembers } from "./AgentExtensions.js";
+import type { AgentEmployeeAccess } from "./AgentEmployee.js";
 import type {
   AgentAdminConnection,
   AgentAdminSettings,
@@ -40,6 +41,7 @@ export const CHAT_ADMIN_WRITE_OPERATIONS = [
   "admin.users.setAdministrator",
   "admin.users.setActive",
   "admin.users.resetPassword",
+  "admin.agents.setAccessLevel",
   "admin.groups.create",
   "admin.groups.delete",
   "admin.departments.create",
@@ -70,6 +72,7 @@ export interface AgentAdminUser extends AccountAccess {
   readonly id: string;
   readonly displayName: string;
   readonly username: string;
+  readonly agentAccessLevel?: AgentEmployeeAccess;
   readonly groups: readonly { readonly id: string; readonly name: string }[];
 }
 
@@ -85,7 +88,7 @@ export interface AdministrationActivity {
   readonly id: string;
   readonly actorId: string;
   readonly operation: string;
-  readonly source: "mcp" | "ai";
+  readonly source: "ui" | "mcp" | "ai";
   readonly targetType: string;
   readonly targetId: string;
   /** JSON of the public result; never a password, token or operation's raw parameters. */

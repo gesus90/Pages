@@ -27,6 +27,7 @@ export interface McpAgentSummary {
   readonly model: McpAgentModel;
   readonly reasoning: string | null;
   readonly access: AgentEmployeeAccess;
+  readonly hasAdministratorRights: boolean;
   /** Known costs of the month; `null` when only sessions without a reported cost exist. */
   readonly costUsdThisMonth: number | null;
   readonly roleId: string | null;

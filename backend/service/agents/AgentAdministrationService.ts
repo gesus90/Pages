@@ -6,6 +6,7 @@ import { ServerCache } from "@/backend/cache/ServerCache";
 import { AdministrationActivityRepository } from "@/backend/database/repositories/AdministrationActivityRepository";
 import { AgentOperationKeyRepository } from "@/backend/database/repositories/agents/AgentOperationKeyRepository";
 import { AdministrationError } from "@/backend/error/AdministrationError";
+import { AgentEmployeeError } from "@/backend/error/AgentEmployeeError";
 import { AgentOperationError } from "@/backend/error/AgentOperationError";
 import {
   EmailTakenError,
@@ -64,15 +65,18 @@ export class AgentAdministrationService {
   private readonly database: Database;
   private readonly cache: ServerCache;
   private readonly channel: AgentChannel;
+  private readonly employees: AgentAdministrationContext["employees"];
 
   public constructor(
     database: Database,
     cache: ServerCache,
     channel: AgentChannel = "mcp",
+    employees?: AgentAdministrationContext["employees"],
   ) {
     this.database = database;
     this.cache = cache;
     this.channel = channel;
+    this.employees = employees;
   }
 
   /** Handles only this channel's catalog; client parameters can neither choose the channel nor supply admin facts. */
@@ -136,6 +140,7 @@ export class AgentAdministrationService {
         policy.actor,
       ),
       groups: new GroupAdministrationService(repository, cache, policy.actor),
+      ...(this.employees ? { employees: this.employees } : {}),
     };
   }
 
@@ -240,6 +245,8 @@ export class AgentAdministrationService {
 }
 
 function translateAdminError(error: unknown): unknown {
+  if (error instanceof AgentEmployeeError)
+    return new AgentOperationError("INVALID_REQUEST", { reason: error.code });
   if (error instanceof AdministrationError) {
     if (error.code === "forbidden") return new AgentOperationError("FORBIDDEN");
     if (error.code === "notFound") return new AgentOperationError("NOT_FOUND");

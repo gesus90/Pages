@@ -10,6 +10,7 @@ import { AgentCatalogRepository } from "./agent/AgentCatalogRepository";
 import { AgentCheckRepository } from "./agent/AgentCheckRepository";
 import { AgentConnectionScopeRepository } from "./agent/AgentConnectionScopeRepository";
 import { AntigravityQuotaRepository } from "./agent/AntigravityQuotaRepository";
+import { CodexQuotaRepository } from "./agent/CodexQuotaRepository";
 import { ClaudeQuotaRepository } from "./agent/ClaudeQuotaRepository";
 import {
   CONNECTION_COLUMNS,
@@ -33,6 +34,7 @@ export interface AgentConnectionWrite {
   readonly provider: AgentProviderId;
   readonly zaiAccountType?: ZaiAccountType;
   readonly secretEncrypted: string | null;
+  readonly openRouterManagementSecret?: string | null;
   readonly testModel: string | null;
   readonly actorId: string;
   /** Absent keeps the system-wide behaviour every connection had before scopes. */
@@ -48,6 +50,7 @@ export interface AgentConnectionChange {
   readonly clearAccess?: boolean;
   /** Null keeps the stored key; replacing a key always clears both checks. */
   readonly secretEncrypted: string | null;
+  readonly openRouterManagementSecret?: string | null;
   readonly testModel: string | null;
   readonly reasoningEffort: string | null;
   readonly clearModel: boolean;
@@ -90,6 +93,11 @@ export class AgentConnectionRepository {
   /** The quota groups Antigravity reports, stored per connection. */
   public antigravityQuotas(): AntigravityQuotaRepository {
     return new AntigravityQuotaRepository(this.database);
+  }
+
+  /** The general Codex quota the app server reports, stored per connection. */
+  public codexQuotas(): CodexQuotaRepository {
+    return new CodexQuotaRepository(this.database);
   }
 
   /** Scope persistence decides who may use the models of a connection. */
@@ -172,7 +180,7 @@ export class AgentConnectionRepository {
     );
   }
 
-  /** Only check execution needs the encrypted API secret. */
+  /** Reads the regular API credential for server-side provider requests. */
   public async findSecretEncrypted(id: string): Promise<string | null> {
     const rows = await this.database.query(
       "SELECT secret_encrypted FROM agent_connections WHERE id = $id;",
@@ -180,6 +188,28 @@ export class AgentConnectionRepository {
     );
     return rows[0]
       ? readNullableTextColumn(rows[0], 0, "secret_encrypted")
+      : null;
+  }
+
+  /** Reads only the dedicated OpenRouter credits credential. */
+  public async findOpenRouterManagementSecret(
+    id: string,
+  ): Promise<string | null> {
+    const rows = await this.database.query(
+      `
+      SELECT openrouter_management_secret_encrypted
+      FROM agent_connections
+      WHERE id = $id
+        AND provider = 'openrouter';
+      `,
+      { id },
+    );
+    return rows[0]
+      ? readNullableTextColumn(
+          rows[0],
+          0,
+          "openrouter_management_secret_encrypted",
+        )
       : null;
   }
 
@@ -196,6 +226,7 @@ export class AgentConnectionRepository {
             zai_account_type,
             codex_price_mappings,
             secret_encrypted,
+            openrouter_management_secret_encrypted,
             test_model,
             openrouter_model_ids,
             created_by,
@@ -208,6 +239,7 @@ export class AgentConnectionRepository {
             $zai_account_type,
             $codex_price_mappings,
             $secret_encrypted,
+            $openrouter_management_secret,
             $test_model,
             $openrouter_model_ids,
             $actor_id,
@@ -226,6 +258,8 @@ export class AgentConnectionRepository {
             connection.codexPriceMappings ?? {},
           ),
           secret_encrypted: connection.secretEncrypted,
+          openrouter_management_secret:
+            connection.openRouterManagementSecret ?? null,
           test_model: connection.testModel,
           openrouter_model_ids: JSON.stringify(
             connection.openRouterModelIds ?? {},
@@ -255,6 +289,10 @@ export class AgentConnectionRepository {
             zai_account_type = COALESCE($zai_account_type, zai_account_type),
             codex_price_mappings = COALESCE($codex_price_mappings, codex_price_mappings),
             secret_encrypted = COALESCE($secret_encrypted, secret_encrypted),
+            openrouter_management_secret_encrypted = CASE
+                WHEN $change_openrouter_management_secret THEN $openrouter_management_secret
+                ELSE openrouter_management_secret_encrypted
+            END,
             test_model = $test_model,
             reasoning_effort = $reasoning_effort,
             openrouter_model_ids = COALESCE($openrouter_model_ids, openrouter_model_ids),
@@ -275,6 +313,10 @@ export class AgentConnectionRepository {
               ? null
               : JSON.stringify(change.codexPriceMappings),
           secret_encrypted: change.secretEncrypted,
+          change_openrouter_management_secret:
+            change.openRouterManagementSecret !== undefined,
+          openrouter_management_secret:
+            change.openRouterManagementSecret ?? null,
           test_model: change.testModel,
           reasoning_effort: change.reasoningEffort,
           openrouter_model_ids:

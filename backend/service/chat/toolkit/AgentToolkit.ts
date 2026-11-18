@@ -165,8 +165,8 @@ export function requireApproval(
 /**
  * Guards one Pages operation of an agent employee's job.
  * @returns `null` to run it, or the refusal: `TOOL_GROUP_DISABLED` without
- * the Pages group, `READ_ONLY_ACCESS` for a write in `read` mode, or the
- * request for the person's approval of a consequential step.
+ * the Pages group, `READ_ONLY_ACCESS` for a write in `read` mode without
+ * administrator rights, or the request for approval of a consequential step.
  */
 export function guardPagesOperation(
   binding: AgentToolkitBinding,
@@ -175,13 +175,15 @@ export function guardPagesOperation(
     readonly parameters: AgentToolkitParameters;
     readonly context: RuntimeExecutionContext;
     readonly turn: AgentToolkitTurn;
+    readonly canWritePages?: boolean;
   },
 ): PicaToolOutcome | null {
   const mode = binding.job.policy.pages;
   if (mode === "off") return toolkitRefusal("TOOL_GROUP_DISABLED");
   const isWrite =
     !isChatOperation(call.operation) || isChatWriteOperation(call.operation);
-  if (mode === "read" && isWrite) return toolkitRefusal("READ_ONLY_ACCESS");
+  if (mode === "read" && isWrite && !call.canWritePages)
+    return toolkitRefusal("READ_ONLY_ACCESS");
   if (!isConsequentialOperation(call.operation, call.parameters)) return null;
   return requireApproval(binding, {
     tool: call.operation,
@@ -314,8 +316,13 @@ export function registerAgentToolkitTools(
 export function applyAgentToolPolicy(
   registry: RuntimeToolRegistry,
   policy: AgentToolPolicy,
+  canWritePages = false,
 ): void {
-  registry.retain((id) => isBridgeToolAllowed(policy, id));
+  const effectivePolicy =
+    canWritePages && policy.pages === "read"
+      ? { ...policy, pages: "full" as const }
+      : policy;
+  registry.retain((id) => isBridgeToolAllowed(effectivePolicy, id));
 }
 
 /** The result of a call as the audit names it: `ok` or the error code. */

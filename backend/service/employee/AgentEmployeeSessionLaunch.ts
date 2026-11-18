@@ -1,6 +1,7 @@
 import { withBackgroundDatabaseWork } from "@/backend/database/executor/DatabaseWorkContext";
 import { ChatError } from "@/backend/error/ChatErrors";
 import { logCaughtError } from "@/backend/logging/Logger";
+import { agentToolPolicy } from "@/definition/AgentToolGroups";
 import { chatInteractionsFor } from "./AgentEmployeeJobRun";
 
 import { employeeAccessRun } from "./AgentEmployeeAccessRun";
@@ -102,6 +103,11 @@ export async function buildEmployeeBrief(
         dream: context.dream,
         related: context.related,
         access: employee.access,
+        hasAdministratorRights: employee.hasAdministratorRights,
+        toolPolicy: agentToolPolicy(
+          employee.access,
+          employee.disabledToolGroups,
+        ),
         personName: context.isChat ? (person?.displayName ?? null) : null,
         hasLogbook:
           context.isChat && (dependencies.logbook?.() ?? null) !== null,

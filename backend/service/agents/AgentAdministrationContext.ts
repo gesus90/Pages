@@ -5,6 +5,7 @@ import type {
   AuthorizationSnapshot,
 } from "@/backend/database/repositories/AuthorizationRepository";
 import type { AdministrationService } from "@/backend/service/AdministrationService";
+import type { AgentEmployeeAdministration } from "@/backend/service/employee/AgentEmployeeAdministration";
 import type { GroupAdministrationService } from "@/backend/service/GroupAdministrationService";
 import type { User } from "@/definition/User";
 
@@ -15,6 +16,10 @@ export interface AgentAdministrationContext {
   readonly snapshot: AuthorizationSnapshot;
   readonly administration: AdministrationService;
   readonly groups: GroupAdministrationService;
+  readonly employees?: () => Pick<
+    AgentEmployeeAdministration,
+    "updateAccessLevel"
+  >;
   readonly actor: User;
   readonly channel: AgentChannel;
 }

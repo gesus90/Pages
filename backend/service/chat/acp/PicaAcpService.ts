@@ -93,6 +93,8 @@ export interface PicaAcpRequest {
   readonly clientMessageId: string | null;
   readonly sessionId: string;
   readonly text: string;
+  /** The original human text for an employee turn that uses a composed prompt. */
+  readonly confirmationText?: string | undefined;
   readonly attachmentIds: unknown;
   /**
    * A message sent during an answer that waits for a turn of its own after
@@ -109,6 +111,8 @@ export interface PicaAcpRequest {
  * again before every turn and tool call. Pica's switch does not admit it.
  */
 export interface PicaAcpEmployeeRun {
+  /** The saved assignment determines whether a kept session's catalog can be reused. */
+  readonly hasAdministratorRights?: boolean;
   /** Stages conversation file attachments while the workspace still exists. */
   readonly consumeAnswer?: (answer: string) => Promise<void>;
   readonly runner: PicaAcpRunner;
@@ -697,7 +701,13 @@ export class PicaAcpService {
       clientMessageId: request.clientMessageId,
     });
     await attachments.link(sessionId, message.id, sent);
-    return { id: message.id, text: request.text, attachments: sent };
+    return {
+      id: message.id,
+      text: request.text,
+      attachments: sent,
+      confirmationText:
+        actor.isAgent === true ? (request.confirmationText ?? "") : undefined,
+    };
   }
 
   /**

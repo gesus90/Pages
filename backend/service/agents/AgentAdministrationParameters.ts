@@ -65,6 +65,7 @@ const WRITE_KEYS: Readonly<
   "admin.users.setAdministrator": ["userId", "isAdmin", "expectedIsAdmin"],
   "admin.users.setActive": ["userId", "isActive", "expectedIsActive"],
   "admin.users.resetPassword": ["userId"],
+  "admin.agents.setAccessLevel": ["agentId", "access", "expectedAccess"],
   "admin.groups.create": ["name", "memberIds"],
   "admin.groups.delete": ["groupId", "expectedName", "expectedMemberIds"],
   "admin.departments.create": ["name"],

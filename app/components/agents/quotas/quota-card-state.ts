@@ -3,6 +3,10 @@ import {
   visibleAntigravityQuotaGroups,
 } from "@/definition/AntigravityQuota";
 import { visibleClaudeQuotaWindows } from "@/definition/ClaudeQuota";
+import {
+  codexLimitResetsAt,
+  visibleCodexQuotaWindows,
+} from "@/definition/CodexQuota";
 
 import type {
   AntigravityQuotaAccount,
@@ -14,6 +18,11 @@ import type {
   ClaudeQuotaStatus,
   ClaudeQuotaWindow,
 } from "@/definition/ClaudeQuota";
+
+import type {
+  CodexQuotaAccount,
+  CodexQuotaWindow,
+} from "@/definition/CodexQuota";
 
 /** The notices a card shows in place of windows. */
 export type QuotaNoticeKind = "noWindows" | "skipped" | "failed" | "signedOut";
@@ -103,6 +112,78 @@ export function quotaCardView(
       isStale: status.kind === "failed",
       staleSince: status.kind === "failed" ? status.lastSuccessAt : null,
     },
+  };
+}
+
+/** What the window area of a Codex card holds. */
+export type CodexCardBody =
+  | {
+      readonly kind: "windows";
+      readonly windows: readonly CodexQuotaWindow[];
+      /** After a failed query the figures stay, greyed. */
+      readonly isStale: boolean;
+      readonly staleSince: string | null;
+    }
+  | { readonly kind: "notice"; readonly notice: QuotaNoticeKind };
+
+/** The limit a current Codex answer states for the account. */
+export interface CodexCardLimit {
+  /**
+   * ISO time at which the limit ends; `null` unless exactly one window is
+   * used up and names its reset.
+   */
+  readonly resetsAt: string | null;
+}
+
+/** What a Codex card shows at a moment. */
+export interface CodexCardView {
+  readonly status: ClaudeQuotaStatus;
+  readonly body: CodexCardBody;
+  /** `null` unless the answer is current and states that the limit is reached. */
+  readonly limit: CodexCardLimit | null;
+}
+
+/**
+ * What a Codex card shows at a moment.
+ * @param account - The card as the server answered it.
+ * @param now - The moment of display.
+ * @returns The status line, the window area and the limit the status line names.
+ * @remarks
+ * A window leaves the card once its reset passed. When the last window of a
+ * reported card leaves, Codex has no window to report any more, so the card
+ * reads "Keine Fenster gemeldet" at the time of the answer. After a failed
+ * query the windows stay greyed with the time of the last answer. The limit
+ * statement of the account adds "Limit erreicht" to the status line of a
+ * current answer; it never changes a window's figures, and the reset it
+ * names is that of the one used-up window, if there is exactly one.
+ */
+export function codexCardView(
+  account: CodexQuotaAccount,
+  now: Date,
+): CodexCardView {
+  const windows = visibleCodexQuotaWindows(account.windows, now);
+  const status: ClaudeQuotaStatus =
+    account.status.kind === "reported" && windows.length === 0
+      ? { kind: "no_windows", at: account.status.at }
+      : account.status;
+  if (status.kind === "signed_out" || windows.length === 0)
+    return {
+      status,
+      body: { kind: "notice", notice: NOTICE_BY_STATUS[status.kind] },
+      limit: null,
+    };
+  return {
+    status,
+    body: {
+      kind: "windows",
+      windows,
+      isStale: status.kind === "failed",
+      staleSince: status.kind === "failed" ? status.lastSuccessAt : null,
+    },
+    limit:
+      status.kind === "reported" && account.isLimitReached
+        ? { resetsAt: codexLimitResetsAt(windows) }
+        : null,
   };
 }
 

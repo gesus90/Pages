@@ -311,10 +311,22 @@ export function PlanModelValue(props: {
     readonly source: string | null;
   } | null;
   readonly savedModel: string;
+  readonly savedProvider?: string | null;
 }): React.ReactElement {
   const { t } = useTranslation();
   const label = t("pageAgents.model");
-  if (!props.choice) {
+  const fallback =
+    props.savedProvider === "openrouter" && props.savedModel
+      ? {
+          mark: "openrouter",
+          name: props.savedModel,
+          tool: "OpenRouter",
+          source: null,
+          unavailableHint: t("pageAgents.missingModel"),
+        }
+      : null;
+  const choice = props.choice ?? fallback;
+  if (!choice) {
     const saved = props.savedModel ? `: ${props.savedModel}` : "";
     return (
       <p
@@ -332,15 +344,13 @@ export function PlanModelValue(props: {
     <p
       className={cn(
         MODEL_BADGE_FIELD_CLASS,
-        modelChoiceFieldClass(props.choice.mark),
+        modelChoiceFieldClass(choice.mark),
       )}
     >
       <span className="sr-only">{label}: </span>
       <ModelChoiceBadge
-        mark={props.choice.mark}
-        name={props.choice.name}
-        tool={props.choice.tool}
-        source={props.choice.source}
+        {...choice}
+        isFocusable={choice.mark === "openrouter"}
       />
     </p>
   );

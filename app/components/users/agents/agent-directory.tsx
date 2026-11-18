@@ -18,6 +18,7 @@ import { VerticalScrollArea } from "@/app/components/ui/vertical-scroll-area";
 import { ManagementTable } from "@/app/components/users/management-table";
 
 import { AgentPanel } from "./agent-panel";
+import { AgentAccessBadges } from "./agent-access-badges";
 import { AgentDeleteDialog } from "./agent-delete-dialog";
 import { AgentDeletedList } from "./agent-deleted-list";
 
@@ -97,6 +98,7 @@ function AgentIdentity({
             {agent.position ?? ""}
           </span>
         </div>
+        <AgentAccessBadges agent={agent} />
       </div>
     </td>
   );
@@ -385,6 +387,7 @@ export function AgentDirectory({
           models={agents.models}
           templates={agents.templates}
           voice={agents.voice}
+          canAssignAdministratorRights={agents.canAssignAdministratorRights}
           roles={directory.assignableRoles}
           departments={directory.departments.filter((department) =>
             directory.adoptableDepartmentIds.includes(department.id),

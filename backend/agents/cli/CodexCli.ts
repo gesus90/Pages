@@ -5,6 +5,12 @@ import { AgentError } from "@/backend/error/AgentErrors";
 import { readCodexChallenge } from "./CliLoginParser";
 import { readCodexModels } from "./CliModelCatalog";
 import { readCodexTest } from "./CliResultParser";
+import {
+  CODEX_INITIALIZE_REQUEST_ID,
+  CODEX_USAGE_REQUEST_ID,
+  isCodexUsageAnswer,
+  readCodexUsage,
+} from "./CodexUsageResult";
 
 import type { AgentErrorCode } from "@/backend/error/AgentErrors";
 import type { ProviderCheckOutcome } from "@/backend/agents/providers/ProviderContracts";
@@ -19,6 +25,7 @@ import type {
   CliLoginAdapter,
 } from "./CliContracts";
 import type { CliToolExecution } from "./CliToolExecution";
+import type { CodexUsageReading } from "./CodexUsageResult";
 
 const CODEX_AUTH_ARGUMENTS = [
   "-c",
@@ -150,6 +157,52 @@ export class CodexCli implements CliLoginAdapter {
     if (result.errorCode) throw new AgentError(result.errorCode);
     if (result.exitCode !== 0) throw new AgentError("cli_unexpected_output");
     return readCodexModels(result.stdout);
+  }
+
+  /**
+   * Reads the general Codex quota through `account/rateLimits/read` of the app server.
+   * @param home - The Codex home with the connection's ChatGPT login.
+   * @param signal - Deadline of the query.
+   * @returns The plan, the windows and the limit statement of the account.
+   * @throws {AgentError} The CLI failure code, the sign-in failure the app
+   * server names, or `cli_unexpected_output`.
+   * @remarks
+   * The app server is started on standard input and output and receives only
+   * the handshake and the usage request, never a thread or a turn, so no
+   * model is called and the sign-in is not changed. Reset credit details are
+   * not asked for. The input stays open until the answer arrived.
+   */
+  public async readUsage(
+    home: CliHome,
+    signal: AbortSignal,
+  ): Promise<CodexUsageReading> {
+    const requests = [
+      {
+        id: CODEX_INITIALIZE_REQUEST_ID,
+        method: "initialize",
+        params: {
+          clientInfo: { name: "pages_quota", title: "Pages", version: "1.0.0" },
+        },
+      },
+      { method: "initialized" },
+      {
+        id: CODEX_USAGE_REQUEST_ID,
+        method: "account/rateLimits/read",
+        params: { excludeResetCreditDetails: true },
+      },
+    ];
+    const result = await this.execution.exchange(
+      home,
+      {
+        arguments: ["app-server", ...CODEX_AUTH_ARGUMENTS],
+        requests: requests.map((request) => JSON.stringify(request)),
+        environment: {},
+        isAnswer: isCodexUsageAnswer,
+      },
+      signal,
+    );
+    if (result.errorCode) throw new AgentError(result.errorCode);
+    return readCodexUsage(result.stdout);
   }
 
   /** Logs out only this connection's file-backed login. */

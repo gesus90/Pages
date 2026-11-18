@@ -9,7 +9,8 @@ import antigravityUrl from "@/assets/providers/logo-antigravity.png?no-inline";
 
 import { AntigravityGroupArea } from "./antigravity-group-area";
 import { antigravityGroupLabel } from "./antigravity-group-label";
-import { QUOTA_CARD_CLASS, VISIBLE_GROUPS } from "./quota-card-layout";
+import { QuotaCardFrame } from "./quota-card-frame";
+import { VISIBLE_GROUPS } from "./quota-card-layout";
 import { antigravityCardView } from "./quota-card-state";
 import { QuotaGroupsPlaceholder } from "./quota-placeholders";
 import { QuotaStatusLine } from "./quota-status-line";
@@ -65,12 +66,11 @@ export function AntigravityQuotaCard({
   }
 
   return (
-    <article
-      data-quota-card={account.connectionId}
-      data-quota-provider="antigravity"
-      data-quota-loading={isLoading ? "true" : "false"}
-      aria-busy={isQuerying}
-      className={QUOTA_CARD_CLASS}
+    <QuotaCardFrame
+      connectionId={account.connectionId}
+      provider="antigravity"
+      isLoading={isLoading}
+      isQuerying={isQuerying}
     >
       <header className="flex h-11 shrink-0 items-center gap-3">
         <img
@@ -108,6 +108,6 @@ export function AntigravityQuotaCard({
         progress={{ isQuerying, isHintShown }}
         onRetry={handleRetry}
       />
-    </article>
+    </QuotaCardFrame>
   );
 }

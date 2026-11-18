@@ -23,6 +23,7 @@ const BROWSER_GRANTS: Readonly<Record<AgentToolGroupMode, string>> = {
 };
 
 interface AgentAccessSectionProps {
+  readonly children?: React.ReactNode;
   readonly value: AgentEmployeeAccess;
   readonly savedValue: AgentEmployeeAccess | null;
   readonly onChange: (access: AgentEmployeeAccess) => void;
@@ -232,6 +233,7 @@ function AccessLevelFieldset({
  * is chosen and runs no session until then.
  */
 export function AgentAccessSection({
+  children,
   value,
   savedValue,
   onChange,
@@ -280,6 +282,7 @@ export function AgentAccessSection({
           {t("agentEmployees.accessTab.pending")}
         </p>
       ) : null}
+      {children}
       {environment ? <DetectedMcpServers environment={environment} /> : null}
       {isConfirming ? (
         <AgentTemplateConfirm

@@ -1,5 +1,6 @@
 import { logCaughtError } from "@/backend/logging/Logger";
 import { redactCredentials } from "@/backend/security/AgentTextSafety";
+import { openRouterCatalogId } from "@/definition/AgentModelIdentity";
 
 import type { AgentAnswerModel } from "@/definition/AgentChatControl";
 import type { ChatJobEvent, ChatSteerStatus } from "@/definition/ChatJob";
@@ -56,6 +57,8 @@ export interface LiveAnswerSink {
   cancelTools(): void;
   /** The model the run answers with, from the catalog of the connection it uses. */
   useModel(model: AgentAnswerModel): void;
+  /** The adapter's confirmed model selector and effort after a completed turn. */
+  confirmModel?(reported: Readonly<Record<string, string>>): void;
   /** Ends the open answers of the job. */
   finish(end: LiveAnswerEnd): void;
 }
@@ -76,6 +79,7 @@ interface AnswerState {
   readonly startedAt: string;
   seq: number;
   lastAt: string;
+  model: AgentAnswerModel | null;
   turn: number;
   text: string;
   thought: { text: string; startedAt: string; endedAt: string } | null;
@@ -231,6 +235,28 @@ export class ConversationLiveAnswer implements LiveAnswerSink {
   /** Takes the model of the run, which every stored answer of it keeps. */
   public useModel(model: AgentAnswerModel): void {
     this.model = model;
+    for (const state of this.states.values()) {
+      if (state.end !== null) continue;
+      state.model = model;
+      this.publishModelSnapshot(state);
+    }
+  }
+
+  /** Keeps a confirmation only for the OpenRouter model the assignment resolved. */
+  public confirmModel(reported: Readonly<Record<string, string>>): void {
+    const model = this.model;
+    if (model?.provider !== "openrouter" || reported.model === undefined)
+      return;
+    if (openRouterCatalogId(reported.model) !== model.modelId) return;
+    this.useModel({
+      ...model,
+      modelStatus: "confirmed",
+      reasoningStatus:
+        model.reasoningEffort !== null &&
+        reported.reasoningEffort === model.reasoningEffort
+          ? "confirmed"
+          : "requested",
+    });
   }
 
   /** Ends the open answers of the job. */
@@ -266,12 +292,31 @@ export class ConversationLiveAnswer implements LiveAnswerSink {
   ): LiveAnswerSnapshot {
     return {
       ...this.partHead(state),
+      ...(state.model === null ? {} : { model: state.model }),
       startedAt: state.startedAt,
       text: state.text,
       thought: isThoughtReader ? state.thought : null,
       tools: [...state.tools.values()],
       end: state.end,
     };
+  }
+
+  private publishModelSnapshot(state: AnswerState): void {
+    const { recipientIds, thoughtRecipientIds } = this.target;
+    this.next(state);
+    for (const isThoughtReader of [false, true]) {
+      const recipients = recipientIds.filter(
+        (id) => thoughtRecipientIds.includes(id) === isThoughtReader,
+      );
+      if (recipients.length > 0)
+        this.publish(
+          {
+            type: "answer_snapshot",
+            data: this.snapshot(state, isThoughtReader),
+          },
+          recipients,
+        );
+    }
   }
 
   private completeState(state: AnswerState): string {
@@ -295,7 +340,7 @@ export class ConversationLiveAnswer implements LiveAnswerSink {
     const result = { ...end, endedAt };
     state.end = result;
     this.lastActiveAt = this.host.now().getTime();
-    this.keepModel(end.messageId);
+    this.keepModel(end.messageId, state.model);
     this.publish(
       { type: "answer_end", data: { ...this.next(state), ...result } },
       this.target.recipientIds,
@@ -303,9 +348,11 @@ export class ConversationLiveAnswer implements LiveAnswerSink {
   }
 
   /** Stores the model of the run with the answer; a failed write only loses the badge. */
-  private keepModel(messageId: string | null): void {
+  private keepModel(
+    messageId: string | null,
+    model: AgentAnswerModel | null,
+  ): void {
     const { recordModel } = this.target;
-    const model = this.model;
     if (messageId === null || model === null || !recordModel) return;
     void Promise.resolve()
       .then(() => recordModel(messageId, model))
@@ -441,6 +488,7 @@ export class ConversationLiveAnswer implements LiveAnswerSink {
       startedAt,
       seq: 1,
       lastAt: startedAt,
+      model: this.model,
       turn,
       text: "",
       thought: null,

@@ -33,6 +33,9 @@ const LOCAL_TARGET = "local";
 // badge says it instead.
 const TRAILING_FREE = /(?:[\s:_-]+\(?|\()free\)?$/iu;
 
+// OpenRouter's catalog names explicitly separate the manufacturer and model.
+const OPENROUTER_CATALOG_NAME = /^([^:/]+):\s+(.+)$/u;
+
 /** One model a consumer can choose, named for the choice. */
 export interface ModelChoice {
   readonly model: PageAgentModel;
@@ -109,6 +112,13 @@ export function withoutTrailingFree(name: string): string {
 }
 
 function shortName(model: PageAgentModel): string {
+  if (model.provider === "openrouter")
+    return modelBadgeDisplay({
+      provider: model.provider,
+      name: catalogName(model),
+      modelId: model.model,
+      isFree: model.isFree,
+    }).name;
   return withoutTrailingFree(catalogName(model));
 }
 
@@ -156,6 +166,51 @@ export function openCodeSourceName(
   if (provider !== "opencode" || modelId === null || !modelId.includes("/"))
     return null;
   return openCodeSourceLabel(openCodeModelProvider(modelId), translate);
+}
+
+/**
+ * Names a badge from the connection and its catalog entry. OpenRouter's
+ * manufacturer prefix is a separate source, and an unlisted ID stays intact.
+ */
+export function modelBadgeDisplay(
+  model: {
+    readonly provider: string | null;
+    readonly name: string;
+    readonly modelId: string | null;
+    readonly isFree?: boolean;
+  },
+  translate?: TFunction,
+): { readonly name: string; readonly source: string | null } {
+  const { name, modelId, provider, isFree } = model;
+  if (provider === "openrouter") {
+    if (name === modelId) return { name, source: null };
+    const [, manufacturer = "", catalogLabel = name] =
+      OPENROUTER_CATALOG_NAME.exec(name) ?? [];
+    const source = manufacturer.trim();
+    return {
+      name: isFree === true ? withoutTrailingFree(catalogLabel) : catalogLabel,
+      source: source === "" ? null : source,
+    };
+  }
+  return {
+    name: isFree === true ? withoutTrailingFree(name) : name,
+    source: translate ? openCodeSourceName(provider, modelId, translate) : null,
+  };
+}
+
+/** The source of a listed model in the plan's closed model field. */
+export function modelChoiceSource(
+  model: PageAgentModel,
+  translate: TFunction,
+): string | null {
+  return modelBadgeDisplay(
+    {
+      name: catalogName(model),
+      modelId: model.model,
+      provider: model.provider,
+    },
+    translate,
+  ).source;
 }
 
 // OpenCode models name their upstream provider; other providers name the connection.

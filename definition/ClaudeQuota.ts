@@ -47,8 +47,10 @@ export type ClaudeQuotaStatusKind = (typeof CLAUDE_QUOTA_STATUS_KINDS)[number];
  * has a value; `at` is the time of that answer. `no_windows`: Claude answered without a window;
  * `at` is the time of the query. `failed`: Pages got no answer;
  * `lastSuccessAt` is the time of the last answer, `null` if there never was
- * one. `skipped`: a running Claude session holds the sign-in, so Pages did
- * not ask. `signed_out`: the connection has no sign-in, so Pages cannot ask.
+ * one. `skipped`: a running session holds the sign-in exclusively, so Pages
+ * did not ask; only Antigravity cards have it, because Claude and Codex are
+ * asked beside a running session. `signed_out`: the connection has no
+ * sign-in, so Pages cannot ask.
  */
 export type ClaudeQuotaStatus =
   | { readonly kind: "stored"; readonly at: string | null }

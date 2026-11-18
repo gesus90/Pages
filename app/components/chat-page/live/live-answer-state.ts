@@ -1,3 +1,4 @@
+import type { AgentAnswerModel } from "@/definition/AgentChatControl";
 import type {
   LiveAnswerChatKind,
   LiveAnswerDelivery,
@@ -24,6 +25,7 @@ export interface LiveAnswerView {
   readonly thought: LiveAnswerThought | null;
   readonly tools: readonly LiveAnswerTool[];
   readonly end: LiveAnswerEnd | null;
+  readonly model?: AgentAnswerModel;
   /** The message that replaced this answer has already appeared in history. */
   readonly hasAppearedInHistory?: boolean;
 }

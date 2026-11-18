@@ -1,6 +1,7 @@
 import { ArrowLeft, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
+import { AgentModelBadges } from "@/app/components/agents/badges/agent-model-badges";
 import { Button } from "@/app/components/ui/button";
 
 import {
@@ -12,6 +13,7 @@ import {
 import { ConsoleRunPicker } from "./console-run-picker";
 import { ConsoleStopRun } from "./console-stop-run";
 
+import type { AgentModelBadgeValues } from "@/app/components/agents/badges/agent-model-badges";
 import type { AgentPlanRun, AgentPlanRunSummary } from "@/definition/AgentPlan";
 import type { HeaderState } from "./console-header-badges";
 
@@ -21,6 +23,7 @@ interface ConsoleHeaderProps {
   readonly runs: readonly AgentPlanRunSummary[];
   readonly run: AgentPlanRun | null;
   readonly provider: string | null;
+  readonly model?: AgentModelBadgeValues;
   /** The state of the node, such as „Turn läuft“; absent before a session. */
   readonly state: HeaderState | null;
   readonly headingRef: React.RefObject<HTMLHeadingElement | null>;
@@ -32,10 +35,35 @@ interface ConsoleHeaderProps {
   readonly onStopRun?: () => Promise<void>;
 }
 
+function ConsoleSessionBadges({
+  provider,
+  model,
+  state,
+}: Pick<
+  ConsoleHeaderProps,
+  "provider" | "model" | "state"
+>): React.ReactElement {
+  if (model)
+    return (
+      <div className="@container min-w-0 basis-full">
+        <div className="flex min-w-0 items-center gap-1.5">
+          <AgentModelBadges model={model} isCompactWhenNarrow />
+          {state ? <StateBadge state={state} /> : null}
+        </div>
+      </div>
+    );
+  return (
+    <>
+      {provider ? <ProviderLabel provider={provider} /> : null}
+      {state ? <StateBadge state={state} /> : null}
+    </>
+  );
+}
+
 /** Every control of the header: 40 px high with a 12 px radius. */
 const CONTROL_CLASS = "min-h-10 xl:min-h-10";
 
-/** The provider of the node: the badge of Claude Code or Codex, a plain label for any other runner. */
+/** The provider of the node: its provider badge, a plain label for a runner without one. */
 function ProviderLabel({
   provider,
 }: {
@@ -81,8 +109,11 @@ export function ConsoleHeader(props: ConsoleHeaderProps): React.ReactElement {
           {props.title}
         </h2>
         <div role="status" className="mt-1 flex flex-wrap items-center gap-1.5">
-          {props.provider ? <ProviderLabel provider={props.provider} /> : null}
-          {props.state ? <StateBadge state={props.state} /> : null}
+          <ConsoleSessionBadges
+            provider={props.provider}
+            model={props.model}
+            state={props.state}
+          />
           {props.run?.manualInputAt ? (
             <NoteBadge>{t("plans.console.manualInput")}</NoteBadge>
           ) : null}

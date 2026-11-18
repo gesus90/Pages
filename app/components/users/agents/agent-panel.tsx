@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useSubmit } from "react-router";
 
+import { UserAvatar } from "@/app/components/common/user-avatar";
 import { Button } from "@/app/components/ui/button";
 import { Dialog } from "@/app/components/ui/dialog";
 import { SidePanelContent } from "@/app/components/ui/side-panel";
@@ -15,7 +16,9 @@ import {
   useUsersError,
 } from "@/app/components/users/use-users-action";
 
+import { AgentAccessBadges } from "./agent-access-badges";
 import { AgentAccessSection } from "./agent-access-section";
+import { AgentAdministratorRights } from "./agent-administrator-rights";
 import { AgentToolGroupsSection } from "./agent-tool-groups-section";
 import { AgentActivitySection } from "./agent-activity-section";
 import {
@@ -43,6 +46,7 @@ interface AgentPanelProps {
   readonly onOpenChange: (isOpen: boolean) => void;
   /** The agent to edit; `null` creates a new one. */
   readonly agentId: string | null;
+  readonly canAssignAdministratorRights: boolean;
   readonly models: readonly PageAgentModel[];
   readonly roles: readonly UserRole[];
   readonly departments: readonly Department[];
@@ -120,6 +124,7 @@ interface AgentPanelState {
   readonly agent: AgentEmployee | null;
   readonly isSubmitting: boolean;
   readonly isDisabled: boolean;
+  readonly canAssignAdministratorRights: boolean;
   readonly error: UsersErrorCode | null;
   readonly restoreError: UsersErrorCode | null;
   readonly resetError: UsersErrorCode | null;
@@ -164,6 +169,9 @@ function useAgentPanel(props: AgentPanelProps): AgentPanelState {
     agent,
     isSubmitting,
     isDisabled: isSubmitting || !canEdit,
+    canAssignAdministratorRights:
+      props.canAssignAdministratorRights &&
+      (!isEditing || loaded.detail?.canAssignAdministratorRights === true),
     error: useUsersError(intent),
     restoreError: useUsersError("restore-agent-memory"),
     resetError: useUsersError("reset-agent-memory"),
@@ -210,9 +218,20 @@ function AgentAccessTab({
         canChange={!isDisabled && loaded.detail?.canChangeAccess === true}
         canAssignYolo={loaded.detail?.canAssignYolo ?? false}
         environment={loaded.detail?.accessEnvironment ?? null}
-      />
+      >
+        <AgentAdministratorRights
+          isChecked={panel.draft.hasAdministratorRights}
+          isSaved={agent?.hasAdministratorRights ?? false}
+          canChange={state.canAssignAdministratorRights}
+          isDisabled={isDisabled}
+          onChange={(checked) => {
+            panel.change("hasAdministratorRights", checked);
+          }}
+        />
+      </AgentAccessSection>
       <AgentToolGroupsSection
         access={panel.draft.access}
+        hasAdministratorRights={panel.draft.hasAdministratorRights}
         disabled={panel.draft.disabledToolGroups}
         savedDisabled={agent?.settings.disabledToolGroups ?? null}
         onChange={(groups) => panel.change("disabledToolGroups", groups)}
@@ -321,6 +340,32 @@ function AgentPanelTabs({
   );
 }
 
+function AgentPanelIdentity({
+  agent,
+}: {
+  readonly agent: AgentEmployee;
+}): React.ReactElement {
+  return (
+    <div className="flex shrink-0 flex-wrap items-center gap-3 px-6 pb-3">
+      <UserAvatar
+        name={agent.displayName}
+        avatarColor={agent.avatarColor}
+        avatarType={agent.avatarImageUrl ? "image" : "initials"}
+        avatarImageUrl={agent.avatarImageUrl}
+      />
+      <div className="min-w-0">
+        <p className="break-words text-sm font-semibold">{agent.displayName}</p>
+        {agent.position ? (
+          <p className="break-words text-xs text-muted-foreground">
+            {agent.position}
+          </p>
+        ) : null}
+      </div>
+      <AgentAccessBadges agent={agent} />
+    </div>
+  );
+}
+
 /**
  * The panel "Agent erstellen" and "Agent bearbeiten": the tabs
  * Allgemein, Persönlichkeit, Aufgabe, Stimme, Gedächtnis,
@@ -329,7 +374,7 @@ function AgentPanelTabs({
  *
  * @remarks
  * Every tab edits one draft, which is saved together; the server checks
- * role, departments, the administrator exclusion and the model again.
+ * role, departments, the administrator assignment and the model again.
  */
 export function AgentPanel(props: AgentPanelProps): React.ReactElement {
   const { t } = useTranslation();
@@ -344,6 +389,7 @@ export function AgentPanel(props: AgentPanelProps): React.ReactElement {
         }
         closeLabel={t("users.reset.close")}
       >
+        {state.agent ? <AgentPanelIdentity agent={state.agent} /> : null}
         <AgentPanelTabs props={props} state={state} />
         <footer className="flex flex-wrap items-center justify-end gap-2 border-t border-border/60 px-6 py-4">
           <div className="mr-auto">

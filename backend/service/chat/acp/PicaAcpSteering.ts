@@ -10,6 +10,7 @@ import type { ChatSteerStatus } from "@/definition/ChatJob";
 export interface PicaAcpMessage {
   readonly id: string;
   readonly text: string;
+  readonly confirmationText?: string | undefined;
   readonly attachments: readonly StoredChatAttachment[];
   readonly attachmentReader?: PicaAttachmentReader;
 }

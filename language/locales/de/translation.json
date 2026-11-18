@@ -5908,6 +5908,15 @@
         "codex_cli": {
           "name": "Codex",
           "account": "ChatGPT-Abo"
+        },
+        "antigravity": {
+          "name": "Antigravity CLI"
+        },
+        "opencode": {
+          "name": "OpenCode"
+        },
+        "zai": {
+          "name": "Z.AI"
         }
       },
       "manualInput": "Manuell eingegriffen",
@@ -9008,6 +9017,8 @@
         "ticket": "Ticket: {{message}}",
         "wiki": "Wiki: {{message}}",
         "access": "Zugriffsstufe: {{from}} → {{to}} (geändert von {{person}})",
+        "administrator_granted": "{{person}} hat Administratorrechte erteilt.",
+        "administrator_revoked": "{{person}} hat Administratorrechte entzogen.",
         "image": "Bilder erzeugt: {{count}} · {{model}}",
         "video": "Video erzeugt · {{model}}",
         "audio": "Sound erzeugt · {{model}}"
@@ -9053,6 +9064,22 @@
         "description": "AGENT.md enthält bereits Text. Die Vorlage „{{name}}“ ersetzt ihn vollständig.",
         "confirm": "Ersetzen"
       }
+    },
+    "administratorRights": {
+      "title": "Administratorrechte",
+      "label": "Dieser Agent hat Administratorrechte",
+      "description": "Der Agent kann mit dieser Zuweisung ändern, was ein Administrator ändert: Nutzer, Rollen, Rechte, Verbindungen und die Zugriffsstufen anderer Agents. Jede Aktion erscheint unter seinem Namen. Ohne Häkchen bleibt er ein normaler Nutzer.",
+      "adminOnly": "Nur menschliche Administratoren im aktiven Admin-Modus können das Häkchen ändern.",
+      "pending": "Das Häkchen wird mit „Speichern“ übernommen.",
+      "pendingRevocation": "Der Entzug wird mit „Speichern“ übernommen.",
+      "confirmTitle": "Administratorrechte erteilen?",
+      "confirmIntro": "Mit dieser Zuweisung kann der Agent in Pages Folgendes ändern.",
+      "confirmUsers": "Nutzer, Rollen und Abteilungen",
+      "confirmConnections": "Verbindungen und Zugriffsstufen anderer Agents",
+      "confirmProjects": "Pläne, Tickets und Wiki in allen Projekten",
+      "confirmAudit": "Jede Aktion erscheint unter dem Namen des Agents im Protokoll. Ein Entzug gilt ab der nächsten Berechtigungsprüfung, auch für laufende Sitzungen.",
+      "confirm": "Administratorrechte erteilen",
+      "badge": "Admin"
     },
     "accessTab": {
       "intro": "Die Zugriffsstufe gilt für Chats und eigene Läufe dieses Agents und bedeutet dasselbe wie in Agent-Plänen und Swarms: „Lesend“ oder „YOLO“. Die Pages-Werkzeuge stehen in jeder Stufe bereit, mit den Rechten des Agent-Kontos.",
@@ -9504,7 +9531,7 @@
     "quotas": {
       "title": "Kontingente und Guthaben",
       "shortTitle": "Kontingente",
-      "noConnections": "Keine Claude- oder Antigravity-Verbindung, die du nutzen darfst.",
+      "noConnections": "Keine Verbindung mit Kontingentanzeige, die du nutzen darfst.",
       "loadFailed": "Die Karten konnten nicht geladen werden. Mit „Kontingente aktualisieren“ erneut versuchen."
     },
     "status": {
@@ -9514,7 +9541,40 @@
     },
     "card": {
       "subscription": "claude.ai-Abo",
-      "antigravity": "Antigravity CLI"
+      "antigravity": "Antigravity CLI",
+      "codex": "ChatGPT-Abo"
+    },
+    "openRouter": {
+      "subtitle": "OpenRouter · API-Schlüssel",
+      "refresh": "Aktualisieren",
+      "balance": "Guthaben übrig",
+      "creditTotals": "Gekauft {{purchased}} · Verbraucht {{used}}",
+      "usage": "Verbrauch gesamt",
+      "remaining": "Restbudget des Schlüssels",
+      "limit": "Schlüssellimit {{amount}}",
+      "daily": "Täglich",
+      "weekly": "Wöchentlich",
+      "monthly": "Monatlich",
+      "unknown": "Unbekannt",
+      "noLimit": "Kein Schlüssellimit gesetzt",
+      "noLimitReported": "Kein Schlüssellimit gesetzt · Abfrage {{time}}",
+      "reported": "Von OpenRouter gemeldet · {{time}}",
+      "creditsExhausted": "Guthaben aufgebraucht · {{amount}} übrig",
+      "limitReached": "Schlüssellimit erreicht",
+      "exhausted": "Schlüssellimit erreicht · {{amount}} Restbudget",
+      "nearlyExhausted": "Schlüssellimit fast erreicht · Restbudget {{amount}}",
+      "creditsUnavailable": "Guthaben nicht abrufbar",
+      "creditsNeedsManagement": "Dafür braucht OpenRouter einen Management-Key.",
+      "managementMissing": "Guthaben unbekannt · Management-Key fehlt",
+      "managementInvalid": "Guthaben unbekannt · Management-Key abgewiesen",
+      "creditsUnknown": "Guthaben unbekannt · Keine gültigen Guthabendaten gemeldet",
+      "invalidKey": "Schlüssel fehlt oder ungültig",
+      "keyNotice": "Für diese Verbindung fehlt ein gültiger OpenRouter-Schlüssel.",
+      "keyUnknown": "Das Schlüsselbudget konnte nicht abgerufen werden.",
+      "noReading": "Pages konnte noch keine Werte abrufen.",
+      "managementKey": "OpenRouter-Management-Key (optional)",
+      "managementHint": "Für das Kontoguthaben einen organisationsweiten Management-Key mit Lesezugriff verwenden. Leer lassen, um den vorhandenen Schlüssel zu behalten.",
+      "removeManagementKey": "Gespeicherten Management-Key entfernen"
     },
     "state": {
       "loading": "Wird geladen …",
@@ -9530,7 +9590,11 @@
       "openConnection": "Verbindung öffnen",
       "reportedAntigravity": "Von Antigravity gemeldet · {{time}}",
       "limitReached": "{{group}} · {{limit}} erreicht · zurück {{moment}}",
-      "limitReachedNoReset": "{{group}} · {{limit}} erreicht"
+      "limitReachedNoReset": "{{group}} · {{limit}} erreicht",
+      "reportedCodex": "Von Codex gemeldet · {{time}}",
+      "failedSinceCodex": "Abfrage fehlgeschlagen · letzter Erfolg {{time}}",
+      "limitReachedGeneral": "Limit erreicht · zurück {{moment}}",
+      "limitReachedGeneralNoReset": "Limit erreicht"
     },
     "notice": {
       "noWindows": {
@@ -9620,6 +9684,43 @@
         "signedOut": {
           "title": "Für diese Verbindung fehlt die Anmeldung bei Antigravity.",
           "detail": "Ohne Anmeldung kann Pages keine Kontingentwerte abrufen."
+        }
+      }
+    },
+    "codex": {
+      "plan": {
+        "free": "Free",
+        "go": "Go",
+        "plus": "Plus",
+        "pro": "Pro",
+        "prolite": "Pro Lite",
+        "promax": "Pro Max",
+        "team": "Team",
+        "business": "Business",
+        "enterprise": "Enterprise",
+        "edu": "Edu"
+      },
+      "window": {
+        "unknown": "Kontingentfenster",
+        "days_one": "{{count}} Tag",
+        "days_other": "{{count}} Tage",
+        "hours_one": "{{count}} Std.",
+        "hours_other": "{{count}} Std.",
+        "minutes_one": "{{count}} Min.",
+        "minutes_other": "{{count}} Min."
+      },
+      "notice": {
+        "noWindows": {
+          "title": "Codex hat für diese Verbindung keine Kontingentfenster gemeldet.",
+          "detail": "Pages hat erfolgreich abgefragt."
+        },
+        "failed": {
+          "title": "Pages konnte noch keine Werte abrufen.",
+          "detail": "Der Tarif ist unbekannt, bis Codex ihn meldet."
+        },
+        "signedOut": {
+          "title": "Für diese Verbindung fehlt die Anmeldung bei ChatGPT.",
+          "detail": "Ohne Anmeldung kann Pages weder Tarif noch Werte abrufen."
         }
       }
     }

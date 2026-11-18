@@ -17,6 +17,8 @@ import { AgentOperationRegistry } from "@/backend/service/agents/AgentOperationR
 import { currentAgentSimulationMode } from "@/backend/agents/simulation/AgentSimulationMode";
 import { simulationGuardedFetch } from "@/backend/agents/simulation/SimulatedPlanExecution";
 import { CatalogHttpClient } from "@/backend/agents/catalog/CatalogHttpClient";
+import { OpenRouterProvider } from "@/backend/agents/providers/OpenRouterProvider";
+import { ProviderHttpClient } from "@/backend/agents/providers/ProviderHttpClient";
 import { AuthorizationRepository } from "@/backend/database/repositories/AuthorizationRepository";
 import { UserGroupRepository } from "@/backend/database/repositories/UserGroupRepository";
 import { AgentConnectionAccess } from "@/backend/service/agents/AgentConnectionAccess";
@@ -25,6 +27,10 @@ import { AntigravityQuotaProbe } from "@/backend/service/agents/AntigravityQuota
 import { AntigravityQuotaService } from "@/backend/service/agents/AntigravityQuotaService";
 import { ClaudeQuotaProbe } from "@/backend/service/agents/ClaudeQuotaProbe";
 import { ClaudeQuotaService } from "@/backend/service/agents/ClaudeQuotaService";
+import { CodexQuotaProbe } from "@/backend/service/agents/CodexQuotaProbe";
+import { CodexQuotaService } from "@/backend/service/agents/CodexQuotaService";
+import { OpenRouterQuotaProbe } from "@/backend/service/agents/OpenRouterQuotaProbe";
+import { OpenRouterQuotaService } from "@/backend/service/agents/OpenRouterQuotaService";
 import { LocalSessions } from "@/backend/agents/local/LocalSessions";
 import { CHAT_REQUEST_TIMEOUT_MS } from "@/backend/service/chat/ChatExecutionLimits";
 import { ChatRequestRegistry } from "@/backend/service/chat/ChatRequestRegistry";
@@ -88,7 +94,7 @@ export interface AgentApplicationServices
   /** Text runs of the chat; parallel chats share a verified connection. */
   /** The scope of every connection, checked again before each Pica bridge call. */
   readonly agentConnectionAccess: AgentConnectionAccess;
-  /** The Agents page: the quota cards of the Claude and Antigravity connections a person may use. */
+  /** Quota cards of the provider connections a person may use. */
   readonly quotaService: AgentQuotaService;
   /**
    * Running chat answers may use several model calls within one deadline.
@@ -111,8 +117,8 @@ export interface AgentApplicationServices
 
 /**
  * The connection scope check, the quota page and the decision model, which
- * share one reading of the groups; the quota page asks Claude and Antigravity
- * through the CLI runtime.
+ * share one reading of the groups; the quota page asks Claude, Codex and
+ * Antigravity through the CLI runtime.
  */
 function createAccessServices(
   database: Database,
@@ -144,6 +150,15 @@ function createAccessServices(
           repository: repository.quotas(),
         }),
       }),
+      codex: new CodexQuotaService({
+        connections: repository,
+        authorization,
+        groups,
+        probe: new CodexQuotaProbe({
+          reader: runtime,
+          repository: repository.codexQuotas(),
+        }),
+      }),
       antigravity: new AntigravityQuotaService({
         connections: repository,
         authorization,
@@ -151,6 +166,20 @@ function createAccessServices(
         probe: new AntigravityQuotaProbe({
           reader: runtime,
           repository: repository.antigravityQuotas(),
+        }),
+      }),
+      openRouter: new OpenRouterQuotaService({
+        connections: repository,
+        authorization,
+        groups,
+        probe: new OpenRouterQuotaProbe({
+          connections: repository,
+          cipher,
+          provider: new OpenRouterProvider(
+            new ProviderHttpClient(
+              simulationGuardedFetch(currentAgentSimulationMode()),
+            ),
+          ),
         }),
       }),
     }),

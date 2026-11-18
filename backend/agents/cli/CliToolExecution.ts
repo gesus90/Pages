@@ -1,4 +1,10 @@
-import { antigravityAcpArguments } from "@/backend/agents/acp/AntigravityAcpLaunch";
+import path from "node:path";
+
+import {
+  ANTIGRAVITY_APP_DATA_DIRECTORY,
+  ANTIGRAVITY_PRINT_DATA_DIRECTORY,
+  antigravityAcpArguments,
+} from "@/backend/agents/acp/AntigravityAcpLaunch";
 
 import type { CliProviderId } from "@/definition/AgentConnection";
 import type { ProviderCheckOutcome } from "@/backend/agents/providers/ProviderContracts";
@@ -82,6 +88,74 @@ export class CliToolExecution {
       timeoutMs: 600_000,
       onLine: options.onLine,
       onStderr: options.onStderr,
+    });
+  }
+
+  /**
+   * Runs one `agy --print` command inside the connection's own sign-in context.
+   * @param home - The connection's isolated context.
+   * @param request - The arguments after the tool, the output observer and the
+   * stage timeout.
+   * @param signal - Deadline of the command.
+   * @returns The running command; its result carries the bounded output.
+   * @remarks
+   * Print mode knows no `--gemini-dir` or `--app-data-dir`: it reads
+   * `$HOME/.gemini/antigravity-cli`. The isolation therefore puts a private,
+   * empty file system over the connection's `HOME` and mounts the connection's
+   * ACP application folder there, so the command uses exactly the sign-in of
+   * the ACP sessions, refreshes it in place and never reads a personal
+   * `~/.gemini`. The global `config` folder stays in that private file system,
+   * so the command never writes beside the managed ACP configuration.
+   */
+  public printAntigravity(
+    home: CliHome,
+    request: {
+      readonly arguments: readonly string[];
+      readonly onOutput: (stdout: string, stderr: string) => void;
+      readonly timeoutMs: number;
+    },
+    signal: AbortSignal,
+  ): CliRunningProcess {
+    const geminiDirectory = path.join(home.home, ".gemini");
+    return this.runner.start({
+      file: "/usr/bin/bwrap",
+      toolFile: this.file,
+      arguments: [
+        "--die-with-parent",
+        "--unshare-pid",
+        "--ro-bind",
+        "/",
+        "/",
+        "--proc",
+        "/proc",
+        "--dev",
+        "/dev",
+        "--bind",
+        home.root,
+        home.root,
+        "--bind",
+        home.work,
+        home.work,
+        "--tmpfs",
+        home.home,
+        "--dir",
+        geminiDirectory,
+        "--bind",
+        path.join(home.config, ANTIGRAVITY_APP_DATA_DIRECTORY),
+        path.join(geminiDirectory, ANTIGRAVITY_PRINT_DATA_DIRECTORY),
+        "--chdir",
+        home.work,
+        "--",
+        this.file,
+        ...request.arguments,
+      ],
+      provider: this.provider,
+      home,
+      workingDirectory: home.work,
+      signal,
+      timeoutMs: request.timeoutMs,
+      stdin: "ignore",
+      onOutput: request.onOutput,
     });
   }
 

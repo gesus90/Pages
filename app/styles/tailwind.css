@@ -199,6 +199,7 @@
   --color-chatgpt: #74aa9c;
   --color-antigravity: #4285f4;
   --color-opencode: #52525b;
+  --color-openrouter: #657f00;
   --color-zai: #1f1f1f;
   --color-reasoning-none: #4b5563;
   --color-reasoning-minimal: #1d4ed8;
@@ -704,6 +705,7 @@
     --color-chatgpt: #74aa9c;
     --color-antigravity: #4285f4;
     --color-opencode: #a1a1aa;
+    --color-openrouter: #c0f000;
     --color-zai: #f4f4f5;
     --color-reasoning-none: #c3c9d2;
     --color-reasoning-minimal: #93c5fd;

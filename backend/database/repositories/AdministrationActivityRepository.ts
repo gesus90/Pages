@@ -10,9 +10,9 @@ import type {
 
 /** Persists instance-wide administration activity without credentials or request bodies. */
 export class AdministrationActivityRepository {
-  private readonly database: DatabaseTransaction;
+  private readonly database: Pick<DatabaseTransaction, "execute" | "query">;
 
-  public constructor(database: DatabaseTransaction) {
+  public constructor(database: Pick<DatabaseTransaction, "execute" | "query">) {
     this.database = database;
   }
 
@@ -20,7 +20,7 @@ export class AdministrationActivityRepository {
   public async insert(input: {
     readonly actorId: string;
     readonly operation: string;
-    readonly source: "mcp" | "ai";
+    readonly source: AdministrationActivity["source"];
     readonly result: AgentAdminChanged;
   }): Promise<void> {
     await this.database.execute(
@@ -72,7 +72,7 @@ export class AdministrationActivityRepository {
     `);
     return rows.map((row) => {
       const source = readTextColumn(row, 3, "source");
-      if (source !== "mcp" && source !== "ai")
+      if (source !== "ui" && source !== "mcp" && source !== "ai")
         throw new Error("Invalid administration activity source.");
       return {
         id: readTextColumn(row, 0, "id"),
