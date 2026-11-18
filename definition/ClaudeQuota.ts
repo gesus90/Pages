@@ -4,8 +4,11 @@ import { z } from "zod";
 export const CLAUDE_QUOTA_WINDOWS = ["five_hour", "seven_day"] as const;
 export type ClaudeQuotaWindowKind = (typeof CLAUDE_QUOTA_WINDOWS)[number];
 
-/** The subscriptions a card names; any other or missing value is unknown. */
-export const CLAUDE_PLANS = ["pro", "max", "ultra"] as const;
+/**
+ * The subscriptions a card names, in the order of their tier; any other or
+ * missing value is unknown.
+ */
+export const CLAUDE_PLANS = ["free", "pro", "max", "ultra"] as const;
 export type ClaudePlan = (typeof CLAUDE_PLANS)[number];
 
 /** How a remaining share is coloured: from 25 % on, from 10 % on, below 10 %. */
@@ -23,18 +26,48 @@ export interface ClaudeQuotaWindow {
   readonly resetsAt: string;
 }
 
+/** What happened when Pages last asked Claude about a connection. */
+export const CLAUDE_QUOTA_STATUS_KINDS = [
+  "reported",
+  "no_windows",
+  "failed",
+  "skipped",
+  "signed_out",
+] as const;
+export type ClaudeQuotaStatusKind = (typeof CLAUDE_QUOTA_STATUS_KINDS)[number];
+
+/**
+ * The outcome of the last query of a connection, as its status line says it.
+ * @remarks
+ * `reported`: Claude answered and at least one window has a value; `at` is
+ * the time of that answer. `no_windows`: Claude answered without a window;
+ * `at` is the time of the query. `failed`: Pages got no answer;
+ * `lastSuccessAt` is the time of the last answer, `null` if there never was
+ * one. `skipped`: a running Claude session holds the sign-in, so Pages did
+ * not ask. `signed_out`: the connection has no sign-in, so Pages cannot ask.
+ */
+export type ClaudeQuotaStatus =
+  | { readonly kind: "reported"; readonly at: string }
+  | { readonly kind: "no_windows"; readonly at: string }
+  | { readonly kind: "failed"; readonly lastSuccessAt: string | null }
+  | { readonly kind: "skipped" }
+  | { readonly kind: "signed_out" };
+
 /**
  * The card of one Claude connection.
  * @remarks
  * `plan` is `null` while the subscription is not known for certain. `windows`
  * holds only the windows Claude reported whose reset is still ahead; a
- * missing window is absent, never a window with 0 %.
+ * missing window is absent, never a window with 0 %. `status` tells what the
+ * last query found, so "no window reported" and "query failed" never look
+ * alike.
  */
 export interface ClaudeQuotaAccount {
   readonly connectionId: string;
   readonly name: string;
   readonly plan: ClaudePlan | null;
   readonly windows: readonly ClaudeQuotaWindow[];
+  readonly status: ClaudeQuotaStatus;
 }
 
 /** What one query of the quota page answers. */
@@ -50,6 +83,19 @@ const windowSchema = z.object({
   resetsAt: z.string().min(1).max(40),
 });
 
+const isoTimeSchema = z.string().min(1).max(40);
+
+const statusSchema = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("reported"), at: isoTimeSchema }),
+  z.object({ kind: z.literal("no_windows"), at: isoTimeSchema }),
+  z.object({
+    kind: z.literal("failed"),
+    lastSuccessAt: isoTimeSchema.nullable(),
+  }),
+  z.object({ kind: z.literal("skipped") }),
+  z.object({ kind: z.literal("signed_out") }),
+]);
+
 /** Validates a quota answer before the browser shows it. */
 export const claudeQuotaSnapshotSchema = z.object({
   accounts: z
@@ -59,10 +105,11 @@ export const claudeQuotaSnapshotSchema = z.object({
         name: z.string().max(400),
         plan: z.enum(CLAUDE_PLANS).nullable(),
         windows: z.array(windowSchema).max(CLAUDE_QUOTA_WINDOWS.length),
+        status: statusSchema,
       }),
     )
     .max(500),
-  readAt: z.string().min(1).max(40),
+  readAt: isoTimeSchema,
 });
 
 /** Narrows stored and reported window names. */
@@ -76,6 +123,9 @@ export function isClaudeQuotaWindowKind(
  * Reads the subscription from what Claude Code reports, such as `max` or `Claude Max`.
  * @param reported - The reported subscription type.
  * @returns The plan, or `null` for a missing, ambiguous or other plan such as `team`.
+ * @remarks
+ * `free` counts only when Claude names it explicitly, such as `free` or
+ * `claude_free`; a missing value never reads as the free plan.
  */
 export function readClaudePlan(reported: unknown): ClaudePlan | null {
   if (typeof reported !== "string") return null;
@@ -88,6 +138,15 @@ export function readClaudePlan(reported: unknown): ClaudePlan | null {
     );
   if (words.length !== 1) return null;
   return CLAUDE_PLANS.find((plan) => plan === words[0]) ?? null;
+}
+
+/**
+ * The tier of a plan, 1 for Free to 4 for Ultra; the plan badge fills as many bars.
+ * @param plan - The known plan, or `null`.
+ * @returns 0 for an unknown plan.
+ */
+export function claudePlanTier(plan: ClaudePlan | null): number {
+  return plan === null ? 0 : CLAUDE_PLANS.indexOf(plan) + 1;
 }
 
 /**

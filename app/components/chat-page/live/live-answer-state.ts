@@ -188,6 +188,34 @@ export function applyLiveAnswerEvent(
   };
 }
 
+/** What changes the live state: a part of the stream, or a connection that opened again. */
+export type LiveAnswerAction =
+  LiveAnswerEventPayload | { readonly type: "connection_restored" };
+
+/**
+ * Applies one change to the live state.
+ * @remarks
+ * Right after the sign-in of a connection the server sends a snapshot of
+ * every answer it still holds, running or ended a short while ago. When the
+ * connection opens again, the answers that were running before are dropped
+ * and the snapshot brings back those that still run; one that is not in it
+ * ended or was lost while the connection was down, and the stored message
+ * takes its place, so no block of an answer that is long over stays.
+ * @param state - What the page knows so far.
+ * @param action - A part of the stream, or the restored connection.
+ */
+export function applyLiveAnswerAction(
+  state: LiveAnswerState,
+  action: LiveAnswerAction,
+): LiveAnswerState {
+  if (action.type !== "connection_restored")
+    return applyLiveAnswerEvent(state, action);
+  const ended = Object.entries(state.answers).filter(
+    ([, view]) => view.end !== null,
+  );
+  return { ...state, answers: Object.fromEntries(ended) };
+}
+
 /**
  * The answers of one chat, oldest first.
  * @param state - What the page knows.

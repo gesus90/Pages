@@ -148,6 +148,12 @@ export interface ConversationLink {
 /** Whether a person collapsed or expanded a content card. */
 export type ChatCardState = "collapsed" | "expanded";
 
+/** The group or participant a person opened last on the chat page. */
+export interface ChatLastChat {
+  readonly kind: "group" | "participant";
+  readonly id: string;
+}
+
 /** What a person chose for the content cards and the split view. */
 export interface ChatViewPreferences {
   /** The last chosen state by card key; cards without an entry keep their default. */
@@ -156,6 +162,13 @@ export interface ChatViewPreferences {
   readonly splitWidth: number | null;
   /** Whether the list of the chat page is collapsed to its bar. */
   readonly isListCollapsed?: boolean;
+  /** The chat the person used last; `null` before the first one. */
+  readonly lastChat?: ChatLastChat | null;
+  /**
+   * The message at the top of the history of each chat the person left
+   * scrolled up, by chat key; a chat read to its end has no entry.
+   */
+  readonly readingPositions?: Readonly<Record<string, string>>;
 }
 
 /** The domains that may be embedded, as the chat page reads them. */
@@ -210,6 +223,24 @@ export const chatSplitWidthSchema = z.coerce
 export const chatListCollapsedSchema = z
   .enum(["true", "false"])
   .transform((choice) => choice === "true");
+
+/** The chat a person opened on the chat page. */
+export const chatLastChatSchema = z.object({
+  kind: z.enum(["group", "participant"]),
+  id: z.string().regex(/^[^\s:]{1,200}$/u),
+});
+
+/**
+ * Where a person stopped reading in one chat: the message at the top of the
+ * history, or `null` when the history was read to its end.
+ */
+export const chatReadingPositionSchema = z.object({
+  chatKey: z.string().regex(/^(?:group|participant):[^\s:]{1,200}$/u),
+  messageId: z
+    .string()
+    .regex(/^\S{1,200}$/u)
+    .nullable(),
+});
 
 /**
  * Decides how the chat shows a file from its MIME type.

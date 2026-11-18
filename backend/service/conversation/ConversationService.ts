@@ -30,7 +30,10 @@ import {
   transcribeConversationVoice,
 } from "./ConversationServiceHelpers";
 
-import type { StoredConversationMessage } from "@/backend/database/repositories/conversation/ConversationMessageRepository";
+import type {
+  StoredConversationMessage,
+  StoredMessageOutcome,
+} from "@/backend/database/repositories/conversation/ConversationMessageRepository";
 import type {
   ConversationKind,
   ConversationMessage,
@@ -545,6 +548,30 @@ export class ConversationService {
       },
       conversationChangedEvent(summary.id),
     );
+    // The message is committed and accepted. Binding its files and announcing
+    // it to the agents must not depend on the browser that sent it: a person
+    // who leaves the page or closes the tab right now ends the request, and
+    // the database refuses the jobs of an ended request.
+    return withBackgroundDatabaseWork("conversation_message_stored", () =>
+      this.completeInsert(outcome, message),
+    );
+  }
+
+  /** Binds the files of a committed message, then tells the members and the agents about it. */
+  private async completeInsert(
+    outcome: StoredMessageOutcome,
+    message: {
+      readonly context: {
+        readonly summary: ConversationSummary;
+        readonly accounts: ConversationAccounts;
+      };
+      readonly voice: StoredConversationVoiceFile | null;
+      readonly attachmentIds: readonly string[];
+      readonly options: ConversationChangeOptions;
+    },
+  ): Promise<ConversationMessage> {
+    const { summary, accounts } = message.context;
+    const memberIds = summary.members.map((member) => member.id);
     if (!outcome.isNew && message.voice)
       await this.dependencies.voices.discard(message.voice);
     if (outcome.isNew)

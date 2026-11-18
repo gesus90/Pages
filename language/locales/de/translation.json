@@ -9498,22 +9498,42 @@
     },
     "status": {
       "refreshing": "wird aktualisiert …",
-      "failed": "Abfrage fehlgeschlagen",
-      "failedSince": "Abfrage fehlgeschlagen · Stand {{time}}",
       "live": "live",
-      "refresh": "Kontingente aktualisieren",
-      "updatedSeconds_one": "aktualisiert vor {{count}} Sek.",
-      "updatedSeconds_other": "aktualisiert vor {{count}} Sek.",
-      "updatedMinutes_one": "aktualisiert vor {{count}} Min.",
-      "updatedMinutes_other": "aktualisiert vor {{count}} Min.",
-      "updatedHours_one": "aktualisiert vor {{count}} Std.",
-      "updatedHours_other": "aktualisiert vor {{count}} Std."
+      "refresh": "Kontingente aktualisieren"
     },
     "card": {
-      "subscription": "claude.ai-Abo",
-      "noValues": "Noch keine Werte. Sie erscheinen nach der ersten Antwort einer Claude-Sitzung."
+      "subscription": "claude.ai-Abo"
+    },
+    "state": {
+      "reported": "Von Claude gemeldet · {{time}}",
+      "noWindows": "Keine Fenster gemeldet · Abfrage {{time}}",
+      "failedSince": "Abfrage fehlgeschlagen · letzter Erfolg {{time}}",
+      "failedNever": "Abfrage fehlgeschlagen · noch kein Erfolg",
+      "skipped": "Abfrage übersprungen · Sitzung aktiv",
+      "signedOut": "Nicht angemeldet · Anmeldung fehlt",
+      "retry": "Erneut versuchen",
+      "openConnection": "Verbindung öffnen"
+    },
+    "notice": {
+      "noWindows": {
+        "title": "Claude hat für diese Verbindung keine Kontingentfenster gemeldet.",
+        "detail": "Pages hat erfolgreich abgefragt."
+      },
+      "skipped": {
+        "title": "Pages fragt nicht ab, solange eine Claude-Sitzung dieselbe Anmeldung nutzt.",
+        "detail": "Die Werte erscheinen, sobald die Sitzung endet."
+      },
+      "failed": {
+        "title": "Pages konnte noch keine Werte abrufen.",
+        "detail": "Der Tarif ist unbekannt, bis Claude ihn meldet."
+      },
+      "signedOut": {
+        "title": "Für diese Verbindung fehlt die Anmeldung bei Claude.",
+        "detail": "Ohne Anmeldung kann Pages weder Tarif noch Werte abrufen."
+      }
     },
     "plan": {
+      "free": "Free",
       "pro": "Pro",
       "max": "Max",
       "ultra": "Ultra",
@@ -9526,6 +9546,7 @@
     "quota": {
       "remaining": "{{percent}} % übrig",
       "used": "{{percent}} % genutzt",
+      "staleUsed": "Stand {{time}} · {{used}}",
       "remainingLabel": "{{window}}: übrig",
       "resets": "zurück {{moment}} · {{countdown}}",
       "countdown": "in {{duration}}"

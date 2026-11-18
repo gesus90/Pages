@@ -7,7 +7,7 @@ import { useChatBrowserFrame } from "./use-chat-browser-frame";
 import type { PicaBrowserView } from "@/definition/PicaBrowser";
 
 /** The height of the picture in the preview row; a desktop page is 16:10, a phone page stands upright. */
-const THUMBNAIL_HEIGHT = 80;
+const THUMBNAIL_HEIGHT = 70;
 
 interface ChatBrowserThumbnailProps {
   readonly browser: PicaBrowserView;
@@ -16,7 +16,7 @@ interface ChatBrowserThumbnailProps {
 }
 
 /**
- * The live picture of a browser, shrunk to 128 × 80 px, or 80 px high for a phone page.
+ * The live picture of a browser, shrunk to 112 × 70 px, or 70 px high for a phone page.
  * @remarks
  * It follows the same picture as the enlarged view, so only one of them
  * reads from the server at a time.
@@ -43,8 +43,8 @@ export function ChatBrowserThumbnail({
           : undefined
       }
       className={cn(
-        "h-20 shrink-0 overflow-hidden rounded-lg border border-border bg-muted",
-        !isUpright && "w-32",
+        "h-17.5 shrink-0 overflow-hidden rounded-md border border-border bg-muted",
+        !isUpright && "w-28",
       )}
     >
       {source ? (

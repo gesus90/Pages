@@ -9491,22 +9491,42 @@
     },
     "status": {
       "refreshing": "refreshing …",
-      "failed": "Query failed",
-      "failedSince": "Query failed · as of {{time}}",
       "live": "live",
-      "refresh": "Refresh quotas",
-      "updatedSeconds_one": "updated {{count}} s ago",
-      "updatedSeconds_other": "updated {{count}} s ago",
-      "updatedMinutes_one": "updated {{count}} min ago",
-      "updatedMinutes_other": "updated {{count}} min ago",
-      "updatedHours_one": "updated {{count}} h ago",
-      "updatedHours_other": "updated {{count}} h ago"
+      "refresh": "Refresh quotas"
     },
     "card": {
-      "subscription": "claude.ai subscription",
-      "noValues": "No values yet. They appear after the first answer of a Claude session."
+      "subscription": "claude.ai subscription"
+    },
+    "state": {
+      "reported": "Reported by Claude · {{time}}",
+      "noWindows": "No windows reported · queried {{time}}",
+      "failedSince": "Query failed · last success {{time}}",
+      "failedNever": "Query failed · no success yet",
+      "skipped": "Query skipped · session active",
+      "signedOut": "Not signed in · sign-in missing",
+      "retry": "Try again",
+      "openConnection": "Open connection"
+    },
+    "notice": {
+      "noWindows": {
+        "title": "Claude reported no quota windows for this connection.",
+        "detail": "Pages queried successfully."
+      },
+      "skipped": {
+        "title": "Pages does not query while a Claude session uses the same sign-in.",
+        "detail": "The values appear as soon as the session ends."
+      },
+      "failed": {
+        "title": "Pages could not retrieve any values yet.",
+        "detail": "The plan stays unknown until Claude reports it."
+      },
+      "signedOut": {
+        "title": "This connection is not signed in to Claude.",
+        "detail": "Without a sign-in Pages can retrieve neither the plan nor values."
+      }
     },
     "plan": {
+      "free": "Free",
       "pro": "Pro",
       "max": "Max",
       "ultra": "Ultra",
@@ -9519,6 +9539,7 @@
     "quota": {
       "remaining": "{{percent}} % left",
       "used": "{{percent}} % used",
+      "staleUsed": "as of {{time}} · {{used}}",
       "remainingLabel": "{{window}}: left",
       "resets": "resets {{moment}} · {{countdown}}",
       "countdown": "in {{duration}}"

@@ -6,7 +6,7 @@ import {
   LIVE_ANSWER_EVENT_TYPES,
 } from "@/definition/ConversationLiveAnswer";
 
-import { applyLiveAnswerEvent, EMPTY_LIVE_STATE } from "./live-answer-state";
+import { applyLiveAnswerAction, EMPTY_LIVE_STATE } from "./live-answer-state";
 
 import type { LiveAnswerEventPayload } from "@/definition/ConversationLiveAnswer";
 import type { LiveAnswerState } from "./live-answer-state";
@@ -109,14 +109,15 @@ function useGatheredRevalidate(): () => void {
  * checks; it receives only the parts of chats its account belongs to, and
  * thoughts only where it may read them. A lost connection is opened again
  * with a growing wait, and the page then reads its state once; the snapshot
- * the server sends after the sign-in continues every running answer. The end
+ * the server sends after the sign-in continues every running answer, and an
+ * answer the snapshot does not hold any more is dropped. The end
  * of an answer reads the page once, so the stored message takes its place.
  * There is no reading at fixed intervals.
  */
 export function useConversationStream(
   options: ConversationStreamOptions = {},
 ): ConversationStream {
-  const [state, dispatch] = useReducer(applyLiveAnswerEvent, EMPTY_LIVE_STATE);
+  const [state, dispatch] = useReducer(applyLiveAnswerAction, EMPTY_LIVE_STATE);
   const [isConnected, setConnected] = useState(false);
   const revalidate = useGatheredRevalidate();
   const createSocket = useRef(
@@ -134,8 +135,12 @@ export function useConversationStream(
       if (isRecord(frame) && frame.type === "connected") {
         wait = FIRST_RETRY_MILLISECONDS;
         setConnected(true);
-        // After a gap the page reads what it may have missed, once.
-        if (hasConnected) revalidate();
+        // After a gap the snapshot that follows tells what still runs, and the
+        // page reads what it may have missed, once.
+        if (hasConnected) {
+          dispatch({ type: "connection_restored" });
+          revalidate();
+        }
         hasConnected = true;
         return;
       }

@@ -12,13 +12,31 @@ import {
 import type { DatabaseTransaction } from "@/backend/database/Database";
 import type { ClaudePlan, ClaudeQuotaWindow } from "@/definition/ClaudeQuota";
 
-/** The stored subscription figures of one connection. */
+/**
+ * The stored subscription figures of one connection.
+ * @remarks
+ * `reportedAt` is the ISO time of the newest stored reading of the plan or a
+ * window, the last time Claude answered about the connection; `null` when
+ * nothing is stored.
+ */
 export interface ClaudeQuotaRecord {
   readonly plan: ClaudePlan | null;
   readonly windows: readonly ClaudeQuotaWindow[];
+  readonly reportedAt: string | null;
 }
 
-const EMPTY_RECORD: ClaudeQuotaRecord = { plan: null, windows: [] };
+const EMPTY_RECORD: ClaudeQuotaRecord = {
+  plan: null,
+  windows: [],
+  reportedAt: null,
+};
+
+/** The later of two ISO times; the first may be missing. */
+function laterTime(first: string | null, second: string): string {
+  return first !== null && Date.parse(first) > Date.parse(second)
+    ? first
+    : second;
+}
 
 /** Stores what Claude Code reports about the subscription of each connection. */
 export class ClaudeQuotaRepository {
@@ -147,7 +165,8 @@ export class ClaudeQuotaRepository {
       `
       SELECT
           connection_id,
-          plan
+          plan,
+          observed_at
       FROM claude_connection_plans;
     `,
     );
@@ -157,7 +176,8 @@ export class ClaudeQuotaRepository {
           connection_id,
           window_kind,
           used_percentage,
-          resets_at
+          resets_at,
+          observed_at
       FROM claude_connection_quota_windows
       ORDER BY connection_id;
     `,
@@ -168,6 +188,7 @@ export class ClaudeQuotaRepository {
       records.set(connectionId, {
         ...EMPTY_RECORD,
         plan: readClaudePlan(readNullableTextColumn(row, 1, "plan")),
+        reportedAt: readTextColumn(row, 2, "observed_at"),
       });
     }
     for (const row of windowRows) {
@@ -177,6 +198,10 @@ export class ClaudeQuotaRepository {
       const record = records.get(connectionId) ?? EMPTY_RECORD;
       records.set(connectionId, {
         ...record,
+        reportedAt: laterTime(
+          record.reportedAt,
+          readTextColumn(row, 4, "observed_at"),
+        ),
         windows: [
           ...record.windows,
           {

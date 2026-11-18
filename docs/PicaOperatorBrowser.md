@@ -68,12 +68,18 @@ chat that owns an open browser carries a globe in the color of its state, also
 while another chat is open.
 
 In its chat a browser is a preview row of 88 px between the history and the
-input: the live picture shrunk to 128 × 80 px (one stream: the row, the side
-panel and the enlarge dialog never read frames together), the address with the
-state badge, the last action, the number of tools with the running time, and
-the buttons pause, stop, open beside, enlarge and fold. A folded browser is a
-row of 40 px without a picture and reads no frames; the choice holds until the
-browser ends. "Open beside" shows the browser in the split view of the chat page
+input: the live picture shrunk to 112 × 70 px (one stream: the row, the side
+panel and the enlarge dialog never read frames together), the address, the
+last action, the number of tools with the running time, the state badge, and
+two groups of buttons: control (pause or resume, stop) and view (open beside,
+enlarge, fold). The row has 8 px of padding on all four sides, 12 px between
+its parts, and every part stands on its centre line, 44 px from the top; a
+divider of 10 px on each side separates the badge and the two groups. A
+stopped browser keeps its row with pause and stop disabled. The state badge
+is 24 px high and the same everywhere it appears: in the row, in the folded
+row and in the head of the side panel, where it ends the address line. A
+folded browser is a row of 40 px without a picture and reads no frames; the
+choice holds until the browser ends. "Open beside" shows the browser in the split view of the chat page
 (`SplitPanel`, shared with cards and "Medien & Dateien") and hides the row; the
 Pica panel and screens below 1100 px have no split view. Enlarge opens the
 dialog. When a browser ends (stop, `browser_close`, revoked session) its row,

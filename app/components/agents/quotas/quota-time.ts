@@ -30,20 +30,21 @@ export function formatQuotaClock(time: Date, language: string): string {
 }
 
 /**
- * When a window resets: the time today, otherwise the weekday and the time.
- * @param resetsAt - The reset of the window.
+ * A moment of a card, such as a reset or the last answer: the time today,
+ * otherwise the weekday and the time.
+ * @param moment - The moment.
  * @param now - The moment of display.
  * @param context - Translation and language of the interface.
  * @returns For example `23:40` or `Do 09:00`.
  */
-export function formatQuotaResetMoment(
-  resetsAt: Date,
+export function formatQuotaMoment(
+  moment: Date,
   now: Date,
   context: { readonly t: TFunction; readonly language: string },
 ): string {
-  const clock = formatQuotaClock(resetsAt, context.language);
-  if (isSameLocalDay(resetsAt, now)) return clock;
-  const weekday = context.t(`agentsPage.weekday.${resetsAt.getDay()}`);
+  const clock = formatQuotaClock(moment, context.language);
+  if (isSameLocalDay(moment, now)) return clock;
+  const weekday = context.t(`agentsPage.weekday.${moment.getDay()}`);
   return `${weekday} ${clock}`;
 }
 
@@ -73,21 +74,4 @@ export function formatQuotaCountdown(
     parts.push(t("agentsPage.duration.minutes", { count: restMinutes }));
   }
   return t("agentsPage.quota.countdown", { duration: parts.join(" ") });
-}
-
-/**
- * How long ago the figures arrived, such as `aktualisiert vor 12 Sek.`.
- * @param milliseconds - The time since the figures arrived.
- * @param t - Translation of the interface.
- */
-export function formatQuotaAge(milliseconds: number, t: TFunction): string {
-  const seconds = Math.max(0, Math.floor(milliseconds / 1000));
-  if (seconds < 60)
-    return t("agentsPage.status.updatedSeconds", { count: seconds });
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < HOUR_MINUTES)
-    return t("agentsPage.status.updatedMinutes", { count: minutes });
-  return t("agentsPage.status.updatedHours", {
-    count: Math.floor(minutes / HOUR_MINUTES),
-  });
 }

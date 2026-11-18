@@ -104,7 +104,8 @@ See `backend/service/agents/sessions/PageAgentCliSessions.md`.
 `_claude/rateLimit` event (`utilization` as a fraction of 1, `resetsAt` in epoch
 seconds; one window per event; events arrive only after the first answer of a
 session) and the plan of the `_auth/status_update` notification
-(`authStatus.account.plan`: `pro`, `max` or `ultra`; any other plan is unknown).
+(`authStatus.account.plan`: `free`, `pro`, `max` or `ultra`; any other or
+missing plan is unknown, and `free` counts only when Claude names it).
 Every Claude session hands them to `ClaudeQuotaRecorder`, which stores them per
 connection; a newer reading replaces an older one, and a window Claude never
 reported has no row. The Agents page shows one card per active Claude
@@ -137,5 +138,15 @@ window, and the output held no assistant message.
 A connection has at most one such query at a time; requests during it and up
 to ten seconds after it share its result. A connection that is not signed in,
 or whose home a native session holds (it may refresh the sign-in), is not
-asked and keeps its stored figures. The page reports a failure only when no
-asked connection answered.
+asked and keeps its stored figures.
+
+Every card carries the outcome of its own query, which its status line shows:
+`reported` (Claude answered and at least one window has a value; the time is
+that of the answer), `no_windows` (Claude answered without a window),
+`failed` (no answer; with the time of the last answer, and earlier windows
+stay greyed), `skipped` (a native session holds the sign-in; windows stored
+from sessions stay visible) and `signed_out` (no confirmed sign-in, or Claude
+rejected it with `cli_auth_failed`; the card shows neither plan nor windows
+and offers the connection settings instead of another attempt). A query or
+push that brings no answer at all marks every card as failed in the browser
+while keeping its figures.

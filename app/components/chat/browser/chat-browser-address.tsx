@@ -5,12 +5,17 @@ import { ChatBrowserStateBadge } from "./chat-browser-state-badge";
 
 import type { PicaBrowserView } from "@/definition/PicaBrowser";
 
-/** The globe, the address of the page and the state badge of a browser, cut off with an ellipsis. */
+interface ChatBrowserAddressProps {
+  readonly browser: PicaBrowserView;
+  /** Whether the state badge ends the line; the preview row shows it in a place of its own. */
+  readonly showState?: boolean;
+}
+
+/** The globe and the address of the page, cut off with an ellipsis, and by default the state badge of a browser. */
 export function ChatBrowserAddress({
   browser,
-}: {
-  readonly browser: PicaBrowserView;
-}): React.ReactElement {
+  showState = true,
+}: ChatBrowserAddressProps): React.ReactElement {
   const { t } = useTranslation();
   return (
     <div className="flex min-w-0 flex-1 items-center gap-2 whitespace-nowrap">
@@ -25,7 +30,7 @@ export function ChatBrowserAddress({
       >
         {browser.url || t("chat.browser.blank")}
       </p>
-      <ChatBrowserStateBadge state={browser.state} />
+      {showState ? <ChatBrowserStateBadge state={browser.state} /> : null}
     </div>
   );
 }

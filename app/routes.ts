@@ -254,6 +254,7 @@ function workspaceResources(routes: RouteBuilder): RouteConfigEntry[] {
     ),
     resource("chat-page-api/page", "routes/chat-page-data.ts"),
     resource("chat-page-api/presence", "routes/chat-page-presence.ts"),
+    resource("chat-page-api/view", "routes/chat-page-view.ts"),
     resource(
       "chat-page-api/agent-sessions",
       "routes/chat-page-agent-sessions.ts",

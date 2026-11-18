@@ -1,5 +1,5 @@
 import { CircleAlert, Wrench } from "lucide-react";
-import { Fragment, useEffect, useRef } from "react";
+import { Fragment, useRef } from "react";
 import { useTranslation } from "react-i18next";
 
 import { Button } from "@/app/components/ui/button";
@@ -23,6 +23,7 @@ import {
   ChatPageThoughts,
 } from "./live/chat-page-live-answer";
 import { formatSeconds } from "./live/live-answer-state";
+import { useHistoryPosition } from "./use-history-position";
 import { useMessageFocus } from "./use-message-focus";
 
 import type {
@@ -460,6 +461,43 @@ function AnswerRun({
   );
 }
 
+/** The stored messages in runs of one author, with a system line between them. */
+function StoredMessages({
+  messages,
+  findParticipant,
+  live,
+}: {
+  readonly messages: readonly VirtualChatMessage[];
+  readonly findParticipant: (id: string) => VirtualParticipant | undefined;
+  readonly live: HistoryLive;
+}): React.ReactElement {
+  return (
+    <>
+      {historySegments(messages).flatMap((segment) =>
+        segment.kind === "system"
+          ? [<SystemLine key={segment.message.id} message={segment.message} />]
+          : groupRuns(segment.messages).map((run) => {
+              const [first] = run.messages;
+              if (!first) return null;
+              if (run.authorId === null)
+                return (
+                  <OwnRun key={first.id} messages={run.messages} live={live} />
+                );
+              const author = findParticipant(run.authorId) ?? authorOf(first);
+              return author ? (
+                <AnswerRun
+                  key={first.id}
+                  messages={run.messages}
+                  author={author}
+                  ended={live.ended}
+                />
+              ) : null;
+            }),
+      )}
+    </>
+  );
+}
+
 /** The older pages of a stored history, loaded on request. */
 interface OlderMessages {
   readonly hasMore: boolean;
@@ -510,12 +548,17 @@ interface ChatPageHistoryProps {
   readonly live?: HistoryLive;
   /** The message a "Zur Nachricht" link points to; shown and marked once. */
   readonly focusMessageId?: string;
+  /** The key of the opened chat, which its reading position is kept under. */
+  readonly chatKey: string;
+  /** Where the person stopped reading in each chat, by chat key. */
+  readonly readingPositions: Readonly<Record<string, string>> | undefined;
 }
 
 /**
  * The scrollable history of the opened group or participant: own messages
  * at the right, answers at the left in bubbles in the participant's color.
- * A stored history loads older pages from its head.
+ * A stored history loads older pages from its head, and opens where the
+ * person stopped reading.
  */
 export function ChatPageHistory({
   messages: allMessages,
@@ -526,6 +569,8 @@ export function ChatPageHistory({
   answeringNames = [],
   live = NO_LIVE,
   focusMessageId,
+  chatKey,
+  readingPositions,
 }: ChatPageHistoryProps): React.ReactElement {
   const { t } = useTranslation();
   const viewport = useRef<HTMLElement>(null);
@@ -540,15 +585,25 @@ export function ChatPageHistory({
     0,
   );
 
-  // Keeps the newest message in view, as the Pica panel does; a loaded older
-  // page leaves the position alone.
-  useEffect(() => {
-    const element = viewport.current;
-    if (element) element.scrollTop = element.scrollHeight;
-  }, [newestId, name, isAnswering, liveLength]);
+  const messageIds = messages.map((message) => message.id);
+  // Opens where the person stopped reading and keeps the newest message in
+  // view while they read at the foot; a loaded older page leaves the position
+  // alone.
+  useHistoryPosition(viewport, {
+    chatKey,
+    stored: readingPositions,
+    messageIds,
+    hasFocusRequest: focusMessageId !== undefined,
+    older,
+    foot: {
+      newestId,
+      isOwn: messages.at(-1)?.authorId === null,
+      growth: `${name}:${String(isAnswering)}:${String(liveLength)}`,
+    },
+  });
   useMessageFocus(viewport, {
     messageId: focusMessageId,
-    messageIds: messages.map((message) => message.id),
+    messageIds,
     older,
   });
 
@@ -568,27 +623,11 @@ export function ChatPageHistory({
       role="log"
     >
       <OlderButton older={older} />
-      {historySegments(messages).flatMap((segment) =>
-        segment.kind === "system"
-          ? [<SystemLine key={segment.message.id} message={segment.message} />]
-          : groupRuns(segment.messages).map((run) => {
-              const [first] = run.messages;
-              if (!first) return null;
-              if (run.authorId === null)
-                return (
-                  <OwnRun key={first.id} messages={run.messages} live={live} />
-                );
-              const author = findParticipant(run.authorId) ?? authorOf(first);
-              return author ? (
-                <AnswerRun
-                  key={first.id}
-                  messages={run.messages}
-                  author={author}
-                  ended={live.ended}
-                />
-              ) : null;
-            }),
-      )}
+      <StoredMessages
+        messages={messages}
+        findParticipant={findParticipant}
+        live={live}
+      />
       {live.answers.map((view) => {
         const author = findParticipant(view.agentId) ?? liveAuthor(view, live);
         const { onCancelTool } = live;

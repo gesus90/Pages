@@ -5,6 +5,7 @@ import { access, readFile, realpath } from "node:fs/promises";
 import path from "node:path";
 
 import { probeBubblewrap } from "@/backend/agents/cli/CliPlanIsolation";
+import { logEvent } from "@/backend/logging/Logger";
 
 import { isAgentToolVersionSupported } from "./AgentToolRegistry";
 import { AgentToolProtocolProbe } from "./AgentToolProtocolProbe";
@@ -161,8 +162,21 @@ export class AgentToolHealthService implements AgentToolHealthChecks {
     });
     const version =
       result.stdout.match(/\bv?(\d+\.\d+\.\d+(?:-[\w.-]+)?)\b/u)?.[1] ?? null;
-    if (result.errorCode || result.exitCode !== 0 || version === null)
+    if (result.errorCode || result.exitCode !== 0 || version === null) {
+      // The diagnostic alone cannot tell a refused start from a failing binary.
+      logEvent({
+        level: "warn",
+        event: "agent.tool.probe_failed",
+        component: "AgentToolHealthService",
+        message: "The version probe of an agent tool did not report a version",
+        metadata: {
+          tool: tool.id,
+          code: result.errorCode,
+          exitCode: result.exitCode,
+        },
+      });
       return { status: "failed", diagnostic: "execution_failed", version };
+    }
     return isAgentToolVersionSupported(tool, version)
       ? { ...READY, version }
       : { status: "unsupported", diagnostic: "version_unsupported", version };

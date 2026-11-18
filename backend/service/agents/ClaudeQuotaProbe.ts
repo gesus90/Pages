@@ -17,20 +17,28 @@ const PROBE_TIMEOUT_MILLISECONDS = 30_000;
  */
 const REUSE_MILLISECONDS = 10_000;
 
-/** Failures that mean "not queryable now", not "the query failed". */
-const SKIPPED_CODES: ReadonlySet<AgentErrorCode> = new Set<AgentErrorCode>([
+/**
+ * Failures that mean "no sign-in to ask with", not "the query failed": the
+ * connection was never signed in, or Claude rejected its sign-in. Another
+ * attempt cannot help until someone signs in again.
+ */
+const SIGNED_OUT_CODES: ReadonlySet<AgentErrorCode> = new Set<AgentErrorCode>([
   "cli_not_logged_in",
-  "check_in_progress",
+  "cli_auth_failed",
 ]);
 
+/** A native session holds the connection's sign-in, so Pages does not ask. */
+const BUSY_CODE: AgentErrorCode = "check_in_progress";
+
 /**
- * The result of one usage query of a connection: read and stored, not
- * queryable now (not signed in, or a native session holds the sign-in), or
- * failed with a code.
+ * The result of one usage query of a connection: read and stored, not asked
+ * because a running session holds the sign-in (`busy`), not askable without
+ * a sign-in (`signed_out`), or failed with a code.
  */
 export type ClaudeQuotaProbeOutcome =
   | { readonly status: "read" }
-  | { readonly status: "skipped" }
+  | { readonly status: "busy" }
+  | { readonly status: "signed_out" }
   | { readonly status: "failed"; readonly errorCode: AgentErrorCode };
 
 interface ClaudeQuotaProbeDependencies {
@@ -114,8 +122,10 @@ export class ClaudeQuotaProbe {
         );
       return { status: "read" };
     } catch (error: unknown) {
-      if (error instanceof AgentError && SKIPPED_CODES.has(error.code))
-        return { status: "skipped" };
+      if (error instanceof AgentError && error.code === BUSY_CODE)
+        return { status: "busy" };
+      if (error instanceof AgentError && SIGNED_OUT_CODES.has(error.code))
+        return { status: "signed_out" };
       logCaughtError("ClaudeQuotaProbe", error);
       return {
         status: "failed",

@@ -4,6 +4,7 @@ import { spawn } from "node:child_process";
 
 import { AgentError } from "@/backend/error/AgentErrors";
 import { logCaughtError, logEvent } from "@/backend/logging/Logger";
+import { MAX_ACP_SESSIONS } from "@/definition/AcpResource";
 
 import { CliChildProcess } from "./CliChildProcess";
 import { createCliRequestEnvironment } from "./CliEnvironment";
@@ -26,7 +27,18 @@ interface RunnerDependencies {
   readonly signalGroup?: CliGroupSignal;
 }
 
-/** Runs at most four CLI children with isolated environments and no shell. */
+/** How many short checks and logins run at the same time at most. */
+const CHECK_PROCESS_LIMIT = 4;
+
+/**
+ * Runs at most four checks or logins at once and the long sessions up to the
+ * admission ceiling, with isolated environments and no shell.
+ * @remarks
+ * A session lives as long as a conversation, so it never counts against the
+ * short checks: with four agents answering, the check of the Node.js runtime
+ * that every further start needs would otherwise be refused. How many
+ * sessions run at once is decided by the admission of the ACP resources.
+ */
 export class CliProcessRunner {
   private readonly spawnProcess: CliSpawn;
   private readonly signalGroup: CliGroupSignal;
@@ -44,7 +56,7 @@ export class CliProcessRunner {
 
   /** Login callers keep the process handle only while its session is active. */
   public start(request: CliRunRequest): CliRunningProcess {
-    if (this.isShuttingDown || this.active.size >= 4)
+    if (this.isShuttingDown || this.countActive(false) >= CHECK_PROCESS_LIMIT)
       throw new AgentError("login_limit_reached");
     if (request.signal?.aborted) throw new AgentError("check_timeout");
     // spawn is synchronous: the child inherits 0077 before another JS task can run.
@@ -96,12 +108,12 @@ export class CliProcessRunner {
   /**
    * Starts a streaming session whose input stays open until the caller ends it.
    * @param request - Tool, arguments, isolated home, authorized working directory and callbacks.
-   * @returns The running session; it counts against the same process limit.
-   * @throws {AgentError} `login_limit_reached` at the limit or during shutdown,
+   * @returns The running session; it counts against the session ceiling, not against the checks.
+   * @throws {AgentError} `login_limit_reached` at the ceiling or during shutdown,
    * `check_timeout` for an aborted request, `cli_not_executable` when spawning fails.
    */
   public startSession(request: CliSessionRequest): CliSessionProcess {
-    if (this.isShuttingDown || this.active.size >= 4)
+    if (this.isShuttingDown || this.countActive(true) >= MAX_ACP_SESSIONS)
       throw new AgentError("login_limit_reached");
     if (request.signal.aborted) throw new AgentError("check_timeout");
     // spawn is synchronous: the child inherits 0077 before another JS task can run.
@@ -182,5 +194,12 @@ export class CliProcessRunner {
     const running = [...this.active];
     for (const child of running) child.cancel("login_cancelled");
     await Promise.all(running.map((child) => child.completed));
+  }
+
+  private countActive(isSession: boolean): number {
+    let count = 0;
+    for (const child of this.active)
+      if (child instanceof CliSessionProcess === isSession) count += 1;
+    return count;
   }
 }

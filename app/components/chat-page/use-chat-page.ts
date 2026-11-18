@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useFetcher } from "react-router";
 
@@ -7,12 +7,14 @@ import {
   CONVERSATION_VOICE_DEFAULT_DURATION_SECONDS,
 } from "@/definition/Conversation";
 
+import { saveLastChat } from "./chat-view-requests";
 import { useChatActivity } from "./use-chat-activity";
 import { useConversationRead } from "./use-conversation-read";
 import { useOlderHistory } from "./use-older-history";
 import { useLiveChat } from "./live/use-live-chat";
 import { useConversationStream } from "./live/use-conversation-stream";
 
+import type { ChatLastChat } from "@/definition/ConversationContent";
 import type { ConversationDelivery } from "@/definition/ConversationLiveAnswer";
 import type { HistoryLive } from "./chat-page-history";
 import type { AgentActivity } from "./live/chat-page-activity-row";
@@ -261,6 +263,46 @@ function firstSelection(lists: ChatLists): VirtualChatSelection | null {
   return participant ? { kind: "participant", id: participant.id } : null;
 }
 
+/**
+ * The chat the person used last, while it is still in their lists; a chat
+ * they can no longer reach is never opened.
+ */
+function lastSelection(
+  lists: ChatLists,
+  lastChat: ChatLastChat | null | undefined,
+): VirtualChatSelection | null {
+  if (!lastChat) return null;
+  const isListed =
+    lastChat.kind === "group"
+      ? lists.groups.some((group) => group.id === lastChat.id)
+      : lists.participants.some(
+          (participant) => participant.id === lastChat.id,
+        );
+  return isListed ? { kind: lastChat.kind, id: lastChat.id } : null;
+}
+
+/**
+ * Stores the opened chat as the one the page opens next time.
+ * @param openedSelection - The selection of the chat that is shown; `null`
+ * when nothing opens, such as for a link to a chat the person cannot reach,
+ * which is never stored.
+ * @param stored - The chat stored when the page was read.
+ */
+function useRememberedChat(
+  openedSelection: VirtualChatSelection | null,
+  stored: ChatLastChat | null | undefined,
+): void {
+  const saved = useRef(stored ? `${stored.kind}:${stored.id}` : null);
+  const kind = openedSelection?.kind;
+  const id = openedSelection?.id;
+  useEffect(() => {
+    if (kind === undefined || id === undefined) return;
+    if (saved.current === `${kind}:${id}`) return;
+    saved.current = `${kind}:${id}`;
+    saveLastChat({ kind, id });
+  }, [kind, id]);
+}
+
 function openConversation(
   lists: ChatLists,
   selection: VirtualChatSelection | null,
@@ -501,9 +543,10 @@ function createSendActions(context: {
  * page.
  *
  * @remarks
- * Both lists come newest activity first; the first group opens at first,
- * else the first agent of the list. A sent message goes over the page's
- * action and shows at once: to an agent, which answers over ACP, or into the
+ * Both lists come newest activity first. A link to a chat opens that chat;
+ * else the chat the person used last opens while it is still in their lists,
+ * else the first group, else the first agent of the list. A sent message
+ * goes over the page's action and shows at once: to an agent, which answers over ACP, or into the
  * stored conversation with a person or of a group, whose other
  * members see it live. Answers arrive over `conversations.v1` while they are
  * written; the page reads its data again when an answer ended,
@@ -518,14 +561,22 @@ export function useChatPage(
   const activity = useChatActivity(directory);
   const { t } = useTranslation();
   const lists = withMemberPlaceholders(activity, t("chatPage.unknownMember"));
+  // A link to a chat comes first, then the chat used last, else the first one.
   const [selection, setSelection] = useState(
-    () => requestedSelection ?? firstSelection(lists),
+    () =>
+      requestedSelection ??
+      lastSelection(lists, directory.viewPreferences?.lastChat) ??
+      firstSelection(lists),
   );
   const sender = useFetcher();
   const stream = useConversationStream();
 
   const found = searchLists(lists, query);
   const opened = openConversation(lists, selection);
+  useRememberedChat(
+    opened ? selection : null,
+    directory.viewPreferences?.lastChat,
+  );
   const controls = useAgentControls(opened);
   const historyId = selection?.id ?? "";
   const pending = pendingMessage(sender.formData, selection);

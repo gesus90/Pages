@@ -2,7 +2,12 @@ import { useEffect, useReducer, useRef } from "react";
 
 import { claudeQuotaSnapshotSchema } from "@/definition/ClaudeQuota";
 
-import type { ClaudeQuotaSnapshot } from "@/definition/ClaudeQuota";
+import { lastClaudeAnswerAt } from "./quota-card-state";
+
+import type {
+  ClaudeQuotaAccount,
+  ClaudeQuotaSnapshot,
+} from "@/definition/ClaudeQuota";
 
 /** One query of the quota page. */
 export const CLAUDE_QUOTA_ENDPOINT = "/agent-api/quotas";
@@ -15,7 +20,10 @@ const REOPEN_MILLISECONDS = 60_000;
 
 /** What the quota page knows about its figures. */
 export interface ClaudeQuotaState {
-  /** The last figures that arrived; they stay while a query runs or fails. */
+  /**
+   * The last figures that arrived; they stay while a query runs or fails,
+   * and a failure marks every card as failed.
+   */
   readonly snapshot: ClaudeQuotaSnapshot | null;
   /** Browser time at which the last figures arrived. */
   readonly receivedAt: number | null;
@@ -69,6 +77,28 @@ function receive(
   };
 }
 
+/**
+ * The figures after a query or push that brought nothing.
+ * @remarks
+ * Pages got no answer for any card, so every card keeps its figures and
+ * reads "Abfrage fehlgeschlagen" with the time of Claude's last answer.
+ */
+function failSnapshot(
+  snapshot: ClaudeQuotaSnapshot | null,
+): ClaudeQuotaSnapshot | null {
+  if (snapshot === null) return null;
+  return {
+    ...snapshot,
+    accounts: snapshot.accounts.map((account): ClaudeQuotaAccount => ({
+      ...account,
+      status: {
+        kind: "failed",
+        lastSuccessAt: lastClaudeAnswerAt(account.status),
+      },
+    })),
+  };
+}
+
 function reduceQuotas(
   state: ClaudeQuotaState,
   action: QuotaAction,
@@ -81,6 +111,7 @@ function reduceQuotas(
     case "failed":
       return {
         ...state,
+        snapshot: failSnapshot(state.snapshot),
         failedAt: action.at,
         pendingQueries: settle(state, action.isQuery),
       };

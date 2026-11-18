@@ -207,11 +207,14 @@ function ChatPageConversation({
   page,
   status,
   focusMessageId,
+  readingPositions,
 }: {
   readonly page: ChatPageState;
   readonly status?: ChatDecisionStatus;
   /** The message a "Zur Nachricht" link points to. */
   readonly focusMessageId?: string;
+  /** Where the person stopped reading in each chat, by chat key. */
+  readonly readingPositions: Readonly<Record<string, string>> | undefined;
 }): React.ReactElement {
   const { t } = useTranslation();
   const { opened } = page;
@@ -265,6 +268,8 @@ function ChatPageConversation({
         }}
         answeringNames={page.answeringNames}
         live={page.live}
+        chatKey={conversationKey(opened)}
+        readingPositions={readingPositions}
         {...(focusMessageId === undefined ? {} : { focusMessageId })}
       />
       {page.live.answers.length === 0 ? (
@@ -377,6 +382,7 @@ function ChatPageLayout({
               <ChatPageConversation
                 page={page}
                 status={directory.chatDecisionStatus}
+                readingPositions={directory.viewPreferences?.readingPositions}
                 {...focusOf(
                   page.selection,
                   requestedSelection,
