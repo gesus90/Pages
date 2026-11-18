@@ -1,11 +1,17 @@
-import { Check, RefreshCw, X } from "lucide-react";
+import { Check, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import { cn } from "@/app/lib/cn";
 
 import type { AgentPlanProgressItem } from "@/definition/AgentPlanProgress";
 
-/** A read-only status mark with a spoken label and centered, contrasting symbols. */
+/**
+ * A read-only status mark of a todo: a 14 px circle with a spoken label.
+ * @remarks
+ * Done is a check on the success color, the current entry a primary dot
+ * inside a primary ring, an open entry a ring in the muted color. A failed
+ * entry keeps a cross on the destructive color.
+ */
 export function ConsoleTodoStatus({
   status,
 }: {
@@ -20,30 +26,21 @@ export function ConsoleTodoStatus({
       aria-label={t(`plans.console.terminal.sidebar.todoStatus.${status}`)}
       data-todo-mark={status}
       className={cn(
-        "flex size-4 shrink-0 items-center justify-center rounded-[4px] text-plan-todo-label",
-        status === "done" && "bg-plan-todo-done",
-        status === "active" && "bg-plan-todo-active",
-        status === "failed" && "bg-plan-todo-failed",
-        isNeutral && "border border-agent-console-muted",
+        "flex size-3.5 shrink-0 items-center justify-center rounded-full",
+        status === "done" && "bg-success text-agent-console-surface",
+        status === "active" && "border-[1.5px] border-primary",
+        status === "failed" && "bg-destructive text-agent-console-surface",
+        isNeutral && "border-[1.5px] border-agent-console-muted",
       )}
     >
       {status === "done" ? (
-        <Check
-          aria-hidden="true"
-          className="size-3"
-          viewBox="0 -0.5 24 24"
-          strokeWidth={3}
-        />
+        <Check aria-hidden="true" className="size-2.5" strokeWidth={3.5} />
       ) : null}
       {status === "active" ? (
-        <RefreshCw
-          aria-hidden="true"
-          className="size-3 origin-center motion-safe:animate-spin"
-          strokeWidth={2.5}
-        />
+        <span aria-hidden="true" className="size-1.5 rounded-full bg-primary" />
       ) : null}
       {status === "failed" ? (
-        <X aria-hidden="true" className="size-3.5" strokeWidth={3} />
+        <X aria-hidden="true" className="size-2.5" strokeWidth={3.5} />
       ) : null}
     </span>
   );

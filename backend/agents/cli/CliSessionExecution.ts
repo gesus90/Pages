@@ -79,6 +79,7 @@ import type {
 } from "@/backend/agents/AgentPlanExecution";
 import type { AcpResourceScheduler } from "@/backend/service/agents/AcpResourceScheduler";
 import type { AcpDriver } from "@/backend/agents/acp/AcpDriver";
+import type { ClaudeQuotaRecorder } from "@/backend/service/agents/ClaudeQuotaRecorder";
 import type { AgentCliRuntime } from "./AgentCliRuntime";
 import type { AgentCredentialStore } from "./AgentCredentialStore";
 import type {
@@ -143,6 +144,8 @@ interface SessionDependencies {
    * plan node receives them like a YOLO chat, absent passes none.
    */
   readonly hostMcp?: HostMcpDiscovery;
+  /** Stores the subscription figures Claude sessions report; absent stores none. */
+  readonly claudeQuota?: Pick<ClaudeQuotaRecorder, "sinkFor">;
 }
 
 /**
@@ -538,7 +541,7 @@ export class CliSessionExecution implements PlanSessionRunner {
   }
 
   private async attachAcpSession(
-    context: Omit<OpenCliAcpSessionContext, "secure">,
+    context: Omit<OpenCliAcpSessionContext, "secure" | "claudeQuota">,
   ): Promise<PlanSession> {
     const namespace = await registerAcpNamespace({
       resources: this.dependencies.resources,
@@ -557,6 +560,12 @@ export class CliSessionExecution implements PlanSessionRunner {
     });
     return openCliAcpSession({
       ...context,
+      claudeQuota:
+        context.driver.provider === "claude_code"
+          ? this.dependencies.claudeQuota?.sinkFor(
+              context.input.agent.connection.id,
+            )
+          : undefined,
       secure: () =>
         secureCliAcpAccess(
           this.dependencies.store,

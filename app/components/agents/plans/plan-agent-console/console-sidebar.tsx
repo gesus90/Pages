@@ -6,8 +6,10 @@ import { PLAN_BLOCKER_RETRIES } from "@/definition/AgentPlanRetry";
 import { hasSessionEnded, infrastructureRestarts } from "./console-step-state";
 import { AntigravityUsageSection } from "./antigravity-usage-section";
 import { formatClock } from "./console-time";
+import { ConsoleContextSection } from "./console-context-section";
 import { ConsoleTodoList } from "./console-todo-list";
-import { BadgeSessionFacts } from "./console-session-badges";
+import { BadgeSessionFacts, workspaceName } from "./console-session-badges";
+import { Fact, SidebarRow, SidebarSection } from "./console-sidebar-parts";
 import { OpenCodeUsageSection } from "./open-code-usage-section";
 import { useNow } from "./use-terminal-surface";
 
@@ -33,26 +35,13 @@ interface ConsoleSidebarProps {
   readonly view: AgentSessionView;
 }
 
-function SidebarSection(props: {
-  readonly title: string;
-  readonly children: React.ReactNode;
-}): React.ReactElement {
-  return (
-    <section className="space-y-1.5">
-      <h3 className="text-sm font-semibold text-agent-console-foreground">
-        {props.title}
-      </h3>
-      {props.children}
-    </section>
-  );
-}
-
-function Fact(props: {
+/** One compact usage fact of a provider with token and cost reports. */
+function UsageFact(props: {
   readonly label: string;
   readonly value: string;
 }): React.ReactElement {
   return (
-    <div className="flex items-baseline justify-between gap-3 text-sm">
+    <div className="flex items-baseline justify-between gap-3 text-[13px]">
       <dt className="text-agent-console-muted">{props.label}</dt>
       <dd className="min-w-0 truncate text-right text-agent-console-foreground">
         {props.value}
@@ -61,29 +50,20 @@ function Fact(props: {
   );
 }
 
-/** What the agent does now: its own report, its ACP plan, or where the node stands. */
+/**
+ * What the agent does now while the step runs: its own report, its ACP plan,
+ * or a wait for a restart; `null` for a step that ended or names nothing.
+ */
 function activityText(
   step: AgentPlanStepResult,
   t: ReturnType<typeof useTranslation>["t"],
-): string {
-  const key = "plans.console.terminal.sidebar";
-  if (step.status === "succeeded") return t(`${key}.activityDone`);
-  if (step.status === "failed" || step.status === "cancelled")
-    return t(`${key}.activityStopped`);
+): string | null {
+  if (step.status !== "running") return null;
   if (step.session?.retry?.state === "waiting")
-    return t(`${key}.activityWaiting`);
+    return t("plans.console.terminal.sidebar.activityWaiting");
   return (
-    step.progress?.activity?.text ??
-    step.session?.activity?.titles[0] ??
-    t(`${key}.noActivity`)
+    step.progress?.activity?.text ?? step.session?.activity?.titles[0] ?? null
   );
-}
-
-function contextShare(context: AgentSessionContextUsage): number | null {
-  const { contextUsed, contextLimit } = context;
-  if (contextUsed === null || contextLimit === null || contextLimit <= 0)
-    return null;
-  return Math.min(100, (contextUsed / contextLimit) * 100);
 }
 
 function openRouterCost(
@@ -179,51 +159,51 @@ function OpenRouterUsageFacts({
   const runTotal = view.openRouterRunTotal ?? null;
   return (
     <>
-      <Fact
+      <UsageFact
         label={t(`${key}.inputTokens`)}
         value={usageCount(openRouterTotal?.inputTokens, numbers, missing)}
       />
-      <Fact
+      <UsageFact
         label={t(`${key}.outputTokens`)}
         value={usageCount(openRouterTotal?.outputTokens, numbers, missing)}
       />
-      <Fact
+      <UsageFact
         label={t(`${key}.reasoningTokens`)}
         value={usageCount(openRouterTotal?.reasoningTokens, numbers, missing)}
       />
-      <Fact
+      <UsageFact
         label={t(`${key}.cacheReadTokens`)}
         value={usageCount(openRouterTotal?.cacheReadTokens, numbers, missing)}
       />
-      <Fact
+      <UsageFact
         label={t(`${key}.cacheWriteTokens`)}
         value={usageCount(openRouterTotal?.cacheWriteTokens, numbers, missing)}
       />
-      <Fact
+      <UsageFact
         label={t(`${key}.runTokens`)}
         value={usageCount(runTotal?.totalTokens, numbers, missing)}
       />
-      <Fact
+      <UsageFact
         label={t(`${key}.runCost`)}
         value={openRouterCost(runTotal, language, costLabels)}
       />
-      <Fact
+      <UsageFact
         label={t(`${key}.runInputTokens`)}
         value={usageCount(runTotal?.inputTokens, numbers, missing)}
       />
-      <Fact
+      <UsageFact
         label={t(`${key}.runOutputTokens`)}
         value={usageCount(runTotal?.outputTokens, numbers, missing)}
       />
-      <Fact
+      <UsageFact
         label={t(`${key}.runReasoningTokens`)}
         value={usageCount(runTotal?.reasoningTokens, numbers, missing)}
       />
-      <Fact
+      <UsageFact
         label={t(`${key}.runCacheReadTokens`)}
         value={usageCount(runTotal?.cacheReadTokens, numbers, missing)}
       />
-      <Fact
+      <UsageFact
         label={t(`${key}.runCacheWriteTokens`)}
         value={usageCount(runTotal?.cacheWriteTokens, numbers, missing)}
       />
@@ -243,45 +223,6 @@ function isOpenRouterView(view: AgentSessionView): boolean {
   );
 }
 
-function ContextMeter({
-  context,
-  label,
-  unknown,
-  numbers,
-}: {
-  readonly context: AgentSessionContextUsage;
-  readonly label: string;
-  readonly unknown: string;
-  readonly numbers: Intl.NumberFormat;
-}): React.ReactElement {
-  const share = contextShare(context);
-  const used = context.contextUsed;
-  const contextLimit =
-    context.contextLimit === null
-      ? unknown
-      : numbers.format(context.contextLimit);
-  const contextValue =
-    used === null ? unknown : `${numbers.format(used)} / ${contextLimit}`;
-  return (
-    <>
-      <Fact label={label} value={contextValue} />
-      <div
-        role="meter"
-        aria-label={label}
-        aria-valuemin={0}
-        aria-valuemax={100}
-        aria-valuenow={share === null ? undefined : Math.round(share)}
-        className="h-1 overflow-hidden rounded-full bg-agent-console-track"
-      >
-        <div
-          className="h-full rounded-full bg-agent-terminal-accent"
-          style={{ width: `${share ?? 0}%` }}
-        />
-      </div>
-    </>
-  );
-}
-
 interface UsageSectionProps {
   readonly view: AgentSessionView;
   /** A turn runs now: its tokens arrive with its end. */
@@ -289,37 +230,12 @@ interface UsageSectionProps {
 }
 
 /**
- * The usage of a Claude Code or Codex session: only the context occupancy.
- * @remarks
- * The values come from the newest `usage_update` and stay after the step
- * ended; a missing occupancy, also after a compaction, stays unknown. Costs,
- * token sums, cache and subscription details are not part of this console.
+ * The token and cost reports of a provider that has them; the context
+ * occupancy is the block of its own above.
  */
-function ContextSection({
-  view,
-}: {
-  readonly view: AgentSessionView;
-}): React.ReactElement {
-  const { t, i18n } = useTranslation();
-  const key = "plans.console.terminal.sidebar";
-  return (
-    <SidebarSection title={t(`${key}.usage`)}>
-      <dl className="space-y-1.5">
-        <ContextMeter
-          context={view.context}
-          label={t(`${key}.context`)}
-          unknown={t(`${key}.unknown`)}
-          numbers={new Intl.NumberFormat(i18n.language)}
-        />
-      </dl>
-    </SidebarSection>
-  );
-}
-
-function UsageSection(props: UsageSectionProps): React.ReactElement {
+function UsageSection(props: UsageSectionProps): React.ReactElement | null {
   const { t } = useTranslation();
-  if (CONTEXT_ONLY_USAGE_PROVIDERS.has(props.view.provider))
-    return <ContextSection view={props.view} />;
+  if (CONTEXT_ONLY_USAGE_PROVIDERS.has(props.view.provider)) return null;
   if (props.view.openCode)
     return <OpenCodeUsageSection {...props.view.openCode} />;
   return (
@@ -362,15 +278,9 @@ function UsageFacts(props: UsageSectionProps): React.ReactElement {
       ? `${key}.antigravity.providerCost`
       : `${key}.cost`;
   return (
-    <dl className="space-y-1.5">
-      <ContextMeter
-        context={props.view.context}
-        label={t(`${key}.context`)}
-        unknown={unknown}
-        numbers={numbers}
-      />
-      <Fact label={t(`${key}.tokens`)} value={tokens} />
-      <Fact label={t(costLabelKey)} value={cost} />
+    <dl className="mt-1.5 space-y-1.5">
+      <UsageFact label={t(`${key}.tokens`)} value={tokens} />
+      <UsageFact label={t(costLabelKey)} value={cost} />
       {isOpenRouter ? (
         <OpenRouterUsageFacts
           openRouterTotal={openRouterTotal}
@@ -405,14 +315,13 @@ function RuntimeFact({
   const now = useNow(isRunning);
   const end = isRunning ? now : endedAt;
   return (
-    <div className="flex items-baseline justify-between gap-3 text-sm">
-      <dt className="text-agent-console-muted">{label}</dt>
-      <dd className="text-right text-agent-console-foreground tabular-nums">
+    <SidebarRow label={label}>
+      <span className="tabular-nums">
         {Number.isFinite(startedAt) && Number.isFinite(end)
           ? formatClock(end - startedAt)
           : unknown}
-      </dd>
-    </div>
+      </span>
+    </SidebarRow>
   );
 }
 
@@ -423,7 +332,7 @@ function SessionSection(props: ConsoleSidebarProps): React.ReactElement {
   const vendor = modelBadgeVendor(props.view.provider);
   return (
     <SidebarSection title={t(`${key}.session`)}>
-      <dl className="space-y-1.5">
+      <dl className="mt-1">
         <RuntimeFact
           step={props.step}
           label={t(`${key}.runtime`)}
@@ -438,6 +347,10 @@ function SessionSection(props: ConsoleSidebarProps): React.ReactElement {
         ) : (
           <GenericSessionFacts step={props.step} view={props.view} />
         )}
+        <Fact
+          label={t(`${key}.workspace`)}
+          value={workspaceName(props.view) ?? unknown}
+        />
         <Fact
           label={t(`${key}.restarts`)}
           value={`${infrastructureRestarts(props.step)} / ${PLAN_BLOCKER_RETRIES.infrastructure}`}
@@ -483,27 +396,27 @@ function GenericSessionFacts(props: ConsoleSidebarProps): React.ReactElement {
 }
 
 /**
- * The sidebar of the Pages terminal: todos, activity, usage and session.
- *
+ * The sidebar of the Pages terminal: the blocks To Do, Kontext and Session.
  * @remarks
  * It follows the run while it runs: the todos and the activity come from the
- * progress projection of the plan, the usage from the session. A value a
- * provider does not report reads as unknown, never as 0. Its bottom padding
- * keeps the last line above Pica's symbol, also in a low window.
+ * progress projection of the plan, the context from the session. A value a
+ * provider does not report reads as unknown, never as 0. Providers with
+ * token and cost reports add them after the context. Blocks stand 14 px
+ * apart with a 1 px divider. Its bottom padding keeps the last line above
+ * Pica's symbol, also in a low window.
  */
 export function ConsoleSidebar(props: ConsoleSidebarProps): React.ReactElement {
   const { t } = useTranslation();
   return (
     <aside
       aria-label={t("plans.console.details")}
-      className="min-w-0 shrink-0 space-y-5 overflow-y-auto border-t border-agent-console-border bg-agent-console-surface px-5 pt-5 pb-8 min-[680px]:w-[300px] min-[680px]:border-t-0 min-[680px]:border-l min-[680px]:pb-28"
+      className="min-w-0 shrink-0 overflow-y-auto border-t border-agent-console-border bg-agent-console-surface px-5 pt-5 [&>*+*]:mt-3.5 [&>*+*]:border-t [&>*+*]:border-agent-console-border [&>*+*]:pt-3.5 pb-8 min-[680px]:w-[300px] min-[680px]:border-t-0 min-[680px]:border-l min-[680px]:pb-28"
     >
-      <ConsoleTodoList step={props.step} />
-      <SidebarSection title={t("plans.console.terminal.sidebar.activity")}>
-        <p className="text-sm text-agent-console-muted">
-          {activityText(props.step, t)}
-        </p>
-      </SidebarSection>
+      <ConsoleTodoList
+        step={props.step}
+        activity={activityText(props.step, t)}
+      />
+      <ConsoleContextSection view={props.view} />
       <UsageSection
         view={props.view}
         isTurnRunning={

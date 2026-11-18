@@ -8,6 +8,7 @@ import { cn } from "@/app/lib/cn";
 import { AGENT_CHAT_SESSION_RESTART_DEFAULT_PERCENT } from "@/definition/AgentChatSession";
 
 import { effortLabel } from "./chat-page-model-dialog";
+import { PRIMARY_CHIP_CLASS } from "./chat-page-primary-chip";
 
 import type { AgentChatModelLabel } from "@/definition/AgentChatControl";
 import type { AgentChatSessionBrief } from "@/definition/AgentChatSession";
@@ -44,7 +45,7 @@ function RingModelLine({
     <span className="mt-1 flex items-center gap-1.5">
       {label}
       {model.isOverride ? (
-        <span className="rounded-full bg-primary-subtle px-1.5 text-[11px] text-primary">
+        <span className={PRIMARY_CHIP_CLASS}>
           {t("chatPage.contextRing.onlyHere")}
         </span>
       ) : null}

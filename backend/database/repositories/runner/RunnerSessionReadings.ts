@@ -62,32 +62,66 @@ async function readStored(
 }
 
 /**
+ * The window the CLI last reported for a model in any Claude Code attempt.
+ * @remarks
+ * The CLI names a window only in the result at the end of a turn, and a plan
+ * step is one turn. A window is a property of the model, so the one an
+ * earlier attempt of the same model stored lets a running step show its
+ * occupancy against the window before its own result arrives.
+ */
+async function knownModelWindow(
+  transaction: DatabaseTransaction,
+  model: string,
+): Promise<number | null> {
+  const [row] = await transaction.query(
+    `
+    SELECT context_limit
+    FROM agent_session_attempts
+    WHERE provider = $provider
+        AND confirmed_model = $model
+        AND context_limit IS NOT NULL
+    ORDER BY context_at DESC NULLS LAST
+    LIMIT 1;
+  `,
+    { provider: "claude_code", model },
+  );
+  return row ? readNullableCountColumn(row, 0, "context_limit") : null;
+}
+
+/**
  * The context to store after a reading.
  * @remarks
- * A reading without a measurement keeps the last valid one of the same
- * model, also into the next turn, and drops it for another model. A window
- * is a property of the model, so a measurement without one keeps the known
- * window of the same model; a compaction therefore resets the occupancy and
- * keeps the window.
+ * The last reported value stays until a new one comes: a reading without a
+ * measurement, also a compaction that kept no count, keeps the last valid
+ * occupancy of the same model, also into the next turn, and another model
+ * drops it. A window is a property of the model, so a measurement without
+ * one keeps the known window of the same model, else the window an earlier
+ * attempt of that model stored.
  */
-function nextContext(
+async function nextContext(
+  transaction: DatabaseTransaction,
   stored: StoredSession,
   input: SessionReadingInput,
-): NextContext {
+): Promise<NextContext> {
   const { reading } = input;
   const isSameModel = stored.model === reading.model;
-  if (reading.context === null)
-    return isSameModel
-      ? {
-          used: stored.used,
-          limit: stored.limit,
-          source: stored.source,
-          at: stored.contextAt,
-        }
-      : { used: null, limit: null, source: null, at: null };
+  const kept: NextContext = isSameModel
+    ? {
+        used: stored.used,
+        limit: stored.limit,
+        source: stored.source,
+        at: stored.contextAt,
+      }
+    : { used: null, limit: null, source: null, at: null };
+  const limit =
+    reading.context?.limit ??
+    kept.limit ??
+    (await knownModelWindow(transaction, reading.model));
+  if (reading.context?.used === null || reading.context?.used === undefined)
+    return { ...kept, limit };
   return {
     used: reading.context.used,
-    limit: reading.context.limit ?? (isSameModel ? stored.limit : null),
+    limit,
     source: reading.context.source,
     at: input.reportedAt,
   };
@@ -115,7 +149,7 @@ export async function persistRunnerSessionReading(
 ): Promise<void> {
   const stored = await readStored(transaction, input.attemptId);
   if (stored === null || isLate(stored, input.reportedAt)) return;
-  const context = nextContext(stored, input);
+  const context = await nextContext(transaction, stored, input);
   const isSameModel = stored.model === input.reading.model;
   await transaction.execute(
     `

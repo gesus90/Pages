@@ -6,7 +6,7 @@ import { cn } from "@/app/lib/cn";
 import type { AgentRunAccess } from "@/definition/AgentConfiguration";
 
 const BADGE_CLASS =
-  "inline-flex h-6 max-w-full shrink-0 items-center gap-1 rounded-[7px] border px-2 text-[11px] leading-none font-semibold";
+  "inline-flex h-6 max-w-full shrink-0 items-center gap-1.5 rounded-[7px] border px-2 text-[11px] leading-none font-semibold";
 
 /**
  * The access of a session as a badge with a symbol and a word.

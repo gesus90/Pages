@@ -9,6 +9,7 @@ import { AgentModelBadges } from "@/app/components/agents/badges/agent-model-bad
 import { MentionMarkdown } from "../mentions/mention-markdown";
 import { ParticipantAvatar } from "../chat-page-avatar";
 import { participantColors } from "../chat-page-colors";
+import { PRIMARY_CHIP_CLASS } from "../chat-page-primary-chip";
 import { ChatPageToolStrip } from "../chat-page-tool-strip";
 import { GALLERY_TILES, GalleryPlaceholder } from "../content/image-gallery";
 import {
@@ -257,29 +258,16 @@ function LiveText({
 /**
  * The "live" hint of a running answer.
  * @remarks
- * Beside the Claude badges it takes their shape: 24 px high, a 7 px radius and
- * a 1 px solid border in the primary orange. Every other provider keeps its
- * round pill until it is moved to the shared badges.
+ * It has the same shape beside every provider's badges: the orange chip of
+ * the chat with a pulsing dot, still while reduced motion is preferred.
  */
-function LiveBadge({
-  isClaude,
-}: {
-  readonly isClaude: boolean;
-}): React.ReactElement {
+function LiveBadge(): React.ReactElement {
   const { t } = useTranslation();
   return (
-    <span
-      data-live-badge={isClaude ? "claude" : "default"}
-      className={cn(
-        "inline-flex shrink-0 items-center gap-1 px-2 text-[11px] text-primary",
-        isClaude
-          ? "h-6 rounded-[7px] border border-primary bg-primary-subtle leading-none font-semibold"
-          : "h-5 rounded-full bg-primary/10 leading-5 font-medium",
-      )}
-    >
+    <span data-live-badge="" className={cn(PRIMARY_CHIP_CLASS, "gap-1.5")}>
       <span
         aria-hidden="true"
-        className="size-1.5 animate-pulse rounded-full bg-primary motion-reduce:animate-none"
+        className="size-1.5 shrink-0 animate-pulse rounded-full bg-primary motion-reduce:animate-none"
       />
       {t("chatPage.liveAnswer.live")}
     </span>
@@ -297,7 +285,6 @@ function LiveAnswerHead({
   readonly isRunning: boolean;
 }): React.ReactElement {
   const colors = participantColors(author.color);
-  const isClaude = model?.provider === "claude_code";
   return (
     <p
       className="flex h-6 max-w-full min-w-0 items-center gap-1.5 overflow-hidden text-[13px] whitespace-nowrap"
@@ -313,16 +300,11 @@ function LiveAnswerHead({
         {author.name}
       </span>
       {model ? (
-        <span
-          className={cn(
-            "inline-flex min-w-0 shrink-0 items-center",
-            isClaude ? "h-6" : "h-5",
-          )}
-        >
+        <span className="inline-flex h-6 min-w-0 shrink-0 items-center">
           <AgentModelBadges model={model} />
         </span>
       ) : null}
-      {isRunning ? <LiveBadge isClaude={isClaude} /> : null}
+      {isRunning ? <LiveBadge /> : null}
     </p>
   );
 }

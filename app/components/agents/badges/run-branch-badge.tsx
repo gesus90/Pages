@@ -7,13 +7,14 @@ import type { AgentSessionRunBranch } from "@/definition/AgentPlanRunBranch";
 import type { AgentSessionGitState } from "@/definition/AgentSessionJournal";
 
 const PILL_CLASS =
-  "inline-flex h-6 max-w-full min-w-0 items-center gap-1 rounded-[7px] border px-2 font-mono text-xs leading-none font-semibold";
+  "inline-flex h-6 max-w-full min-w-0 items-center gap-1.5 rounded-[7px] border px-2 text-[11px] leading-none font-semibold";
 
 function WarningBadge({ text }: { readonly text: string }): React.ReactElement {
   return (
     <span
       data-run-branch-warning
-      className="inline-flex h-6 max-w-full min-w-0 items-center gap-1 rounded-[7px] border border-warning bg-warning-subtle px-2 text-[11px] leading-none font-semibold text-warning"
+      title={text}
+      className="inline-flex h-6 max-w-full min-w-0 items-center gap-1.5 rounded-[7px] border border-warning bg-warning-subtle px-2 text-[11px] leading-none font-semibold text-warning"
     >
       <TriangleAlert aria-hidden="true" className="size-3 shrink-0" />
       <span className="min-w-0 truncate">{text}</span>
@@ -54,87 +55,101 @@ function gitStateText(
   return t("agentBadges.branch.unreadable");
 }
 
-/** The preparation declared another branch than it left checked out; its own target stays. */
-function PreparationNote({
-  branch,
+/** A Git state of the workspace that differs from its run branch, as one line. */
+export interface RunBranchNote {
+  readonly text: string;
+  /** A state that contradicts the run branch, shown as a warning. */
+  readonly isWarning: boolean;
+}
+
+/**
+ * What the run branch badge itself cannot say about the Git state.
+ * @param branch - The run branch and the Git state Pages read.
+ * @param t - The translation function.
+ * @returns A differing checkout, detached HEAD, a missing repository, an
+ * unreadable state or a preparation that left another branch as a warning;
+ * the checked out branch of a run without a run branch as a plain note;
+ * `null` when the badge says everything.
+ */
+export function runBranchNote(
+  branch: AgentSessionRunBranch,
+  t: ReturnType<typeof useTranslation>["t"],
+): RunBranchNote | null {
+  const { expected, actual } = branch;
+  const difference = actualText(branch, t);
+  if (expected && difference) return { text: difference, isWarning: true };
+  if (expected?.state === "mismatch")
+    return {
+      text: t("agentBadges.branch.preparationMismatch", {
+        observed: gitStateText(expected.observed, t),
+      }),
+      isWarning: true,
+    };
+  if (expected) return null;
+  if (actual.state === "branch")
+    return { text: gitStateText(actual, t), isWarning: false };
+  return difference ? { text: difference, isWarning: true } : null;
+}
+
+/**
+ * A Git state that differs from the run branch, as a warning badge or a note.
+ */
+export function RunBranchNoteValue({
+  note,
 }: {
-  readonly branch: NonNullable<AgentSessionRunBranch["expected"]>;
-}): React.ReactElement | null {
-  const { t } = useTranslation();
-  if (branch.state !== "mismatch") return null;
+  readonly note: RunBranchNote;
+}): React.ReactElement {
+  if (note.isWarning) return <WarningBadge text={note.text} />;
   return (
-    <span className="text-[11px] text-muted-foreground">
-      {t("agentBadges.branch.preparationMismatch", {
-        observed: gitStateText(branch.observed, t),
-      })}
+    <span title={note.text} className="min-w-0 truncate">
+      {note.text}
     </span>
   );
 }
 
 /**
- * The run branch of a session's workspace and how its Git state stands now.
+ * The run branch of a session's workspace as one badge.
  * @remarks
  * The branch is a value of the run, so it uses the violet of plan parameters,
- * with a 1 px solid border in the same color like every agent badge.
- * The workspace stands below it. A Git state that differs adds a warning badge
- * with text and never replaces the target; detached HEAD, a missing
- * repository and an unreadable state are named apart. Without a run branch
- * the badge says so and only names the state Pages read. Showing the badge
- * never checks anything out.
+ * with a 1 px solid border in the same color and the type of every agent
+ * badge, no monospace. It is never wider than its column: a long name ends
+ * with "…" and stands whole in the tooltip. A Git state that differs is
+ * {@link runBranchNote}, shown apart and never instead of the target.
+ * Without a run branch the badge says so. Showing the badge never checks
+ * anything out.
  */
 export function RunBranchBadge({
   branch,
-  workspaceName,
 }: {
   readonly branch: AgentSessionRunBranch;
-  /** The name of the workspace when the run branch does not carry one. */
-  readonly workspaceName: string | null;
 }): React.ReactElement {
   const { t } = useTranslation();
   const { expected } = branch;
-  const workspace = expected?.workspaceName ?? workspaceName;
-  const difference = actualText(branch, t);
-  return (
-    <div
-      data-run-branch={branch.check}
-      className="flex min-w-0 flex-col items-end gap-1 text-right"
-    >
-      {expected ? (
-        <span
-          title={expected.branch}
-          className={cn(
-            PILL_CLASS,
-            "border-plan-parameter bg-plan-parameter-subtle text-plan-parameter",
-          )}
-        >
-          <GitBranch aria-hidden="true" className="size-3 shrink-0" />
-          <span className="min-w-0 truncate">{expected.branch}</span>
-        </span>
-      ) : (
-        <span
-          className={cn(
-            PILL_CLASS,
-            "border-border bg-muted font-normal text-muted-foreground",
-          )}
-        >
+  if (!expected)
+    return (
+      <span
+        data-run-branch={branch.check}
+        className={cn(
+          PILL_CLASS,
+          "border-border bg-muted font-normal text-muted-foreground",
+        )}
+      >
+        <span className="min-w-0 truncate">
           {t("agentBadges.branch.missing")}
         </span>
+      </span>
+    );
+  return (
+    <span
+      data-run-branch={branch.check}
+      title={expected.branch}
+      className={cn(
+        PILL_CLASS,
+        "border-plan-parameter bg-plan-parameter-subtle text-plan-parameter",
       )}
-      {expected && difference ? <WarningBadge text={difference} /> : null}
-      {!expected && branch.actual.state !== "branch" && difference ? (
-        <WarningBadge text={difference} />
-      ) : null}
-      {!expected && branch.actual.state === "branch" ? (
-        <span className="text-[11px] text-muted-foreground">
-          {gitStateText(branch.actual, t)}
-        </span>
-      ) : null}
-      {expected ? <PreparationNote branch={expected} /> : null}
-      {workspace ? (
-        <span className="max-w-full truncate text-[11px] text-muted-foreground">
-          {t("agentBadges.branch.workspace", { name: workspace })}
-        </span>
-      ) : null}
-    </div>
+    >
+      <GitBranch aria-hidden="true" className="size-3 shrink-0" />
+      <span className="min-w-0 truncate">{expected.branch}</span>
+    </span>
   );
 }

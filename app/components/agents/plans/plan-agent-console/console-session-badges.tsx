@@ -1,49 +1,71 @@
 import { useTranslation } from "react-i18next";
 
-import { cn } from "@/app/lib/cn";
 import { AccessBadge } from "@/app/components/agents/badges/access-badge";
 import { ModelBadge } from "@/app/components/agents/badges/model-badge";
 import { ReasoningBadge } from "@/app/components/agents/badges/reasoning-badge";
-import { RunBranchBadge } from "@/app/components/agents/badges/run-branch-badge";
+import {
+  RunBranchBadge,
+  RunBranchNoteValue,
+  runBranchNote,
+} from "@/app/components/agents/badges/run-branch-badge";
+
+import { SidebarRow } from "./console-sidebar-parts";
 
 import type { AgentPlanStepResult } from "@/definition/AgentPlan";
 import type { ModelBadgeVendor } from "@/definition/AgentModelIdentity";
 import type { AgentSessionView } from "@/definition/AgentSessionJournal";
 
-/** One row of the session facts whose value is a badge, right aligned. */
-function BadgeFact(props: {
-  readonly label: string;
-  readonly children: React.ReactNode;
-  /** Keeps the label at the top for a value of several lines, such as the branch. */
-  readonly isTall?: boolean;
-}): React.ReactElement {
-  return (
-    <div
-      className={cn(
-        "flex justify-between gap-3 text-sm",
-        props.isTall ? "items-start" : "items-center",
-      )}
-    >
-      <dt className="shrink-0 text-agent-console-muted">{props.label}</dt>
-      <dd className="flex min-w-0 justify-end">{props.children}</dd>
-    </div>
-  );
-}
-
 function UnknownValue({ text }: { readonly text: string }): React.ReactElement {
-  return <span className="text-agent-console-foreground">{text}</span>;
+  return <span className="min-w-0 truncate">{text}</span>;
 }
 
-/** The last folder of the workspace path, which names it where the run branch does not. */
-function workspaceFolder(view: AgentSessionView): string | null {
+/**
+ * The name of the workspace: the one the run branch carries, else the last
+ * folder of the workspace path.
+ * @param view - The session view.
+ * @returns The name, or `null` when the session names no workspace.
+ */
+export function workspaceName(view: AgentSessionView): string | null {
+  const named = view.runBranch?.expected?.workspaceName;
+  if (named) return named;
   const directory = view.workspace?.directory;
   if (!directory) return null;
   return directory.split("/").filter(Boolean).at(-1) ?? null;
 }
 
+/** The branch row and, only when the Git state differs, a row that says how. */
+function BranchFacts({
+  view,
+  unknown,
+}: {
+  readonly view: AgentSessionView;
+  readonly unknown: string;
+}): React.ReactElement {
+  const { t } = useTranslation();
+  const key = "plans.console.terminal.sidebar";
+  const { runBranch } = view;
+  const note = runBranch ? runBranchNote(runBranch, t) : null;
+  return (
+    <>
+      <SidebarRow label={t(`${key}.branch`)}>
+        {runBranch ? (
+          <RunBranchBadge branch={runBranch} />
+        ) : (
+          <UnknownValue text={unknown} />
+        )}
+      </SidebarRow>
+      {note ? (
+        <SidebarRow label={t(`${key}.gitState`)}>
+          <RunBranchNoteValue note={note} />
+        </SidebarRow>
+      ) : null}
+    </>
+  );
+}
+
 /**
  * Model, reasoning, access and branch of a Claude Code, Codex or Antigravity
- * session as the shared badges.
+ * session as the shared badges, one 36 px row each.
  * @remarks
  * The model and the reasoning are the structured values of the session view:
  * confirmed ones as confirmed, requested ones as requested. A reasoning level
@@ -64,10 +86,10 @@ export function BadgeSessionFacts({
   const key = "plans.console.terminal.sidebar";
   const unknown = t(`${key}.unknown`);
   const access = step.session?.requested.options?.access;
-  const { modelIdentity, reasoning, runBranch } = view;
+  const { modelIdentity, reasoning } = view;
   return (
     <>
-      <BadgeFact label={t(`${key}.model`)}>
+      <SidebarRow label={t(`${key}.model`)}>
         {modelIdentity ? (
           <ModelBadge
             vendor={vendor}
@@ -77,8 +99,8 @@ export function BadgeSessionFacts({
         ) : (
           <UnknownValue text={unknown} />
         )}
-      </BadgeFact>
-      <BadgeFact label={t(`${key}.reasoning`)}>
+      </SidebarRow>
+      <SidebarRow label={t(`${key}.reasoning`)}>
         {reasoning?.value && reasoning.status !== "unknown" ? (
           <ReasoningBadge
             level={reasoning.value}
@@ -88,24 +110,15 @@ export function BadgeSessionFacts({
         ) : (
           <UnknownValue text={t("agentBadges.reasoning.default")} />
         )}
-      </BadgeFact>
-      <BadgeFact label={t(`${key}.access`)}>
+      </SidebarRow>
+      <SidebarRow label={t(`${key}.access`)}>
         {access ? (
           <AccessBadge access={access} />
         ) : (
           <UnknownValue text={unknown} />
         )}
-      </BadgeFact>
-      <BadgeFact label={t(`${key}.branch`)} isTall>
-        {runBranch ? (
-          <RunBranchBadge
-            branch={runBranch}
-            workspaceName={workspaceFolder(view)}
-          />
-        ) : (
-          <UnknownValue text={unknown} />
-        )}
-      </BadgeFact>
+      </SidebarRow>
+      <BranchFacts view={view} unknown={unknown} />
     </>
   );
 }

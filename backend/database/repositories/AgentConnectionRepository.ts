@@ -9,6 +9,7 @@ import { AgentProfileRepository } from "./agent/AgentProfileRepository";
 import { AgentCatalogRepository } from "./agent/AgentCatalogRepository";
 import { AgentCheckRepository } from "./agent/AgentCheckRepository";
 import { AgentConnectionScopeRepository } from "./agent/AgentConnectionScopeRepository";
+import { ClaudeQuotaRepository } from "./agent/ClaudeQuotaRepository";
 import {
   CONNECTION_COLUMNS,
   readAgentConnection,
@@ -78,6 +79,11 @@ export class AgentConnectionRepository {
   /** Check persistence shares the same database connection. */
   public checks(): AgentCheckRepository {
     return this.checkRepository;
+  }
+
+  /** The subscription figures Claude Code reports, stored per connection. */
+  public quotas(): ClaudeQuotaRepository {
+    return new ClaudeQuotaRepository(this.database);
   }
 
   /** Scope persistence decides who may use the models of a connection. */
@@ -354,6 +360,7 @@ export class AgentConnectionRepository {
       await new AgentCheckRepository(transaction).clear(id);
       await new AgentCatalogRepository(transaction).remove(id);
       await new AgentConnectionScopeRepository(transaction).remove(id);
+      await new ClaudeQuotaRepository(transaction).remove(id);
       await transaction.execute(
         "DELETE FROM agent_connections WHERE id = $id;",
         { id },

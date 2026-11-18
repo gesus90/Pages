@@ -216,20 +216,3 @@ export function progressText(raw: unknown): string | null {
     typeof input.activity === "string" ? input.activity.slice(0, 200) : null;
   return JSON.stringify({ todos, activity });
 }
-
-/**
- * Whether an update starts or reports Claude Code's compaction of the conversation.
- * @remarks
- * claude-agent-acp reports a compaction as a tool call whose
- * `_meta.claudeCode.toolName` is `compact`; afterwards the occupancy of the
- * context is unknown until the next usage report.
- */
-export function isClaudeCompaction(update: SessionUpdate): boolean {
-  if (
-    update.sessionUpdate !== "tool_call" &&
-    update.sessionUpdate !== "tool_call_update"
-  )
-    return false;
-  const claudeCode = readRecord(readRecord(update._meta)?.claudeCode);
-  return claudeCode?.toolName === "compact";
-}

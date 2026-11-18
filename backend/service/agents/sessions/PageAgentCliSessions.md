@@ -169,18 +169,23 @@ Context occupancy and token counts are separate values:
 
 - `contextUsed` and `contextLimit` come only from `usage_update.used` and
   `.size` with source and time; the newest report replaces the one before. A
-  zero `used` reads as unknown (Claude reports 0 after an unmeasured
-  compaction). Without a limit there is no percentage.
+  zero `used` names no value (Claude reports 0 after an unmeasured
+  compaction): the last reported value stays until a new one comes, also
+  after a compaction. Without a limit there is no percentage.
 - A Claude Code CLI job of a runner sends its own session readings instead of
   `usage_update`, kept apart from its token counters: `cli_assistant_usage` is
   input, output, cache read and cache write of the latest top-level answer
   (no subagent, no `<synthetic>` banner; a missing counter leaves it unknown),
   the limit is `contextWindow` of exactly that model in the CLI's `result`.
-  After `compact_boundary` the occupancy is the count the compaction kept, or
-  unknown, and the window stays (`cli_compact_boundary`). Another model drops
-  both values. A reading without a measurement keeps the last valid one of
-  the same model, also after the end, on reopening and into the next turn; a
-  reading older than the stored one changes nothing.
+  After `compact_boundary` the occupancy is the count the compaction kept,
+  and the window stays (`cli_compact_boundary`). Another model drops both
+  values. A reading without a measurement, also a compaction without a kept
+  count, keeps the last valid one of the same model, also after the end, on
+  reopening and into the next turn; a reading older than the stored one
+  changes nothing. The CLI names the window only in the `result` at the end
+  of a turn, and a plan step is one turn: until then the window is the one an
+  earlier Claude Code attempt of the same model stored, so a running step
+  shows its occupancy against the window.
 - Except for the Codex plan path described below, token counts come from `PromptResponse.usage`, per turn. A missing
   count is `null`, never 0; nothing is derived from text length or from
   `used/size`.

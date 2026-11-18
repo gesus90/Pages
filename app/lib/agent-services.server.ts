@@ -20,6 +20,7 @@ import { CatalogHttpClient } from "@/backend/agents/catalog/CatalogHttpClient";
 import { AuthorizationRepository } from "@/backend/database/repositories/AuthorizationRepository";
 import { UserGroupRepository } from "@/backend/database/repositories/UserGroupRepository";
 import { AgentConnectionAccess } from "@/backend/service/agents/AgentConnectionAccess";
+import { ClaudeQuotaService } from "@/backend/service/agents/ClaudeQuotaService";
 import { LocalSessions } from "@/backend/agents/local/LocalSessions";
 import { CHAT_REQUEST_TIMEOUT_MS } from "@/backend/service/chat/ChatExecutionLimits";
 import { ChatRequestRegistry } from "@/backend/service/chat/ChatRequestRegistry";
@@ -83,6 +84,8 @@ export interface AgentApplicationServices
   /** Text runs of the chat; parallel chats share a verified connection. */
   /** The scope of every connection, checked again before each Pica bridge call. */
   readonly agentConnectionAccess: AgentConnectionAccess;
+  /** The quota page: the Claude subscription figures of the connections a person may use. */
+  readonly claudeQuotaService: ClaudeQuotaService;
   /**
    * Running chat answers may use several model calls within one deadline.
    * Shutdown cancels them before the database closes.
@@ -109,15 +112,22 @@ function createAccessServices(
   cipher: InstanceSecretCipher,
 ): {
   readonly access: AgentConnectionAccess;
+  readonly claudeQuotaService: ClaudeQuotaService;
 } & ChatDecisionApplicationServices {
   const groups = new UserGroupRepository(database);
+  const authorization = new AuthorizationRepository(database);
   return {
     access: new AgentConnectionAccess({
       connections: repository,
       claudeBudget: new ClaudeMonthlyBudget(
         new ClaudeMonthlyBudgetRepository(database),
       ),
-      authorization: new AuthorizationRepository(database),
+      authorization,
+      groups,
+    }),
+    claudeQuotaService: new ClaudeQuotaService({
+      connections: repository,
+      authorization,
       groups,
     }),
     ...createChatDecisionServices({

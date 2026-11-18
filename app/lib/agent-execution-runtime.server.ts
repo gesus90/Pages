@@ -38,6 +38,7 @@ import {
 import { ProjectRepository } from "@/backend/database/repositories/ProjectRepository";
 import { AgentPlanGitHubCredentials } from "@/backend/service/agents/AgentPlanGitHubCredentials";
 import { CliGitHubCredentials } from "@/backend/agents/cli/CliGitHubCredentials";
+import { ClaudeQuotaRecorder } from "@/backend/service/agents/ClaudeQuotaRecorder";
 
 import type { AgentCatalogRefresh } from "@/backend/service/agents/AgentCatalogRefresh";
 import type { AgentConnectionRepository } from "@/backend/database/repositories/AgentConnectionRepository";
@@ -278,6 +279,7 @@ export function createDirectCliExecution(
     resources: isLocalSessionOwner() ? undefined : input.resources,
     github: input.github,
     hostMcp: new CliHostMcpServers(),
+    claudeQuota: new ClaudeQuotaRecorder(input.repository.quotas()),
     units: new CliWorkerUnits(
       localSessionOwnerDirectory()
         ? path.join(

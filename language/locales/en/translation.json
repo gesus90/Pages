@@ -5938,7 +5938,6 @@
           "todos": "To Do",
           "todoCount": "{{done}} / {{total}}",
           "agentTodos": "Agent TODO {{done}} / {{total}}",
-          "noTodos": "No todos",
           "todoStatus": {
             "failed": "failed",
             "done": "done",
@@ -5947,12 +5946,10 @@
             "missing": "unreadable",
             "unreported": "not reported yet"
           },
-          "activity": "Activity",
-          "noActivity": "–",
-          "activityDone": "Finished",
           "activityWaiting": "Waiting for the restart",
           "usage": "Usage",
           "context": "Context",
+          "contextNotReported": "Context not reported yet",
           "tokens": "Total tokens",
           "afterTurn": "after the turn",
           "antigravity": {
@@ -6010,8 +6007,9 @@
             "full_environment": "Full environment (earlier, now YOLO)"
           },
           "branch": "Branch",
-          "restarts": "Restarts",
-          "activityStopped": "Stopped"
+          "gitState": "Git state",
+          "workspace": "Workspace",
+          "restarts": "Restarts"
         },
         "toolKind": {
           "read": "Read file",
@@ -9479,6 +9477,67 @@
     "taskLimit": "Scheduled tasks per chat",
     "taskLimitHint": "From {{minimum}} to {{maximum}}. This many reminders and recurring tasks agents may plan in one chat."
   },
+  "agentsPage": {
+    "title": "Agents",
+    "subtitle": "What is left of your AI accounts.",
+    "links": "Agent areas",
+    "quotas": {
+      "title": "Quotas and credits",
+      "shortTitle": "Quotas",
+      "noConnections": "No Claude connection you may use."
+    },
+    "status": {
+      "refreshing": "refreshing …",
+      "failed": "Query failed",
+      "failedSince": "Query failed · as of {{time}}",
+      "live": "live",
+      "refresh": "Refresh quotas",
+      "updatedSeconds_one": "updated {{count}} s ago",
+      "updatedSeconds_other": "updated {{count}} s ago",
+      "updatedMinutes_one": "updated {{count}} min ago",
+      "updatedMinutes_other": "updated {{count}} min ago",
+      "updatedHours_one": "updated {{count}} h ago",
+      "updatedHours_other": "updated {{count}} h ago"
+    },
+    "card": {
+      "subscription": "claude.ai subscription",
+      "noValues": "No values yet. They appear after the first answer of a Claude session."
+    },
+    "plan": {
+      "pro": "Pro",
+      "max": "Max",
+      "ultra": "Ultra",
+      "unknown": "Plan unknown"
+    },
+    "window": {
+      "five_hour": "5 hours",
+      "seven_day": "7 days"
+    },
+    "quota": {
+      "remaining": "{{percent}} % left",
+      "used": "{{percent}} % used",
+      "remainingLabel": "{{window}}: left",
+      "resets": "resets {{moment}} · {{countdown}}",
+      "countdown": "in {{duration}}"
+    },
+    "duration": {
+      "days_one": "{{count}} day",
+      "days_other": "{{count}} days",
+      "hours_one": "{{count}} h",
+      "hours_other": "{{count}} h",
+      "minutes_one": "{{count}} min",
+      "minutes_other": "{{count}} min"
+    },
+    "weekday": {
+      "0": "Sun",
+      "1": "Mon",
+      "2": "Tue",
+      "3": "Wed",
+      "4": "Thu",
+      "5": "Fri",
+      "6": "Sat"
+    }
+  },
   "runDiagnosis": {
     "title": "Runs",
     "subtitle": "Every run of the plans you may see, whoever started it. See which runs fail, why, in which step and with which logs.",
@@ -10327,7 +10386,6 @@
     },
     "branch": {
       "missing": "not known yet",
-      "workspace": "Workspace {{name}}",
       "checkedOut": "Checked out: {{branch}}",
       "detached": "Detached HEAD {{commit}}",
       "noRepository": "No Git repository",

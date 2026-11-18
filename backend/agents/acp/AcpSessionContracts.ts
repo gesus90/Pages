@@ -5,6 +5,7 @@ import type { McpServer, SessionConfigOption } from "@agentclientprotocol/sdk";
 import type { PlanSessionObserver } from "@/backend/agents/AgentPlanExecution";
 import type { AcpPromptContent, AcpSessionListener } from "./AcpChat";
 import type { AcpDriver, AcpSessionProfile } from "./AcpDriver";
+import type { ClaudeQuotaSink } from "./ClaudeAcpQuota";
 
 /** What the session runs: exactly the stored model, effort and prompt of the node. */
 export interface AcpSessionRequest extends Pick<
@@ -89,4 +90,6 @@ export interface AcpSessionContext {
   readonly notificationHandled?: () => void;
   /** A person may type into and interrupt the running turn of this plan node. */
   readonly acceptsTurnInput?: boolean;
+  /** Stores the subscription windows and plan a Claude session reports for its connection. */
+  readonly claudeQuota?: ClaudeQuotaSink;
 }

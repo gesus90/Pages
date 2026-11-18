@@ -5938,7 +5938,6 @@
           "todos": "To Do",
           "todoCount": "{{done}} / {{total}}",
           "agentTodos": "Agent-TODO {{done}} / {{total}}",
-          "noTodos": "Keine To-dos",
           "todoStatus": {
             "failed": "fehlgeschlagen",
             "done": "erledigt",
@@ -5947,12 +5946,10 @@
             "missing": "nicht lesbar",
             "unreported": "noch nicht gemeldet"
           },
-          "activity": "Tätigkeit",
-          "noActivity": "–",
-          "activityDone": "Abgeschlossen",
           "activityWaiting": "Wartet auf Neustart",
           "usage": "Verbrauch",
           "context": "Kontext",
+          "contextNotReported": "Kontext noch nicht gemeldet",
           "tokens": "Tokens gesamt",
           "afterTurn": "nach Turn-Ende",
           "antigravity": {
@@ -6010,8 +6007,9 @@
             "full_environment": "Volle Umgebung (früher, jetzt YOLO)"
           },
           "branch": "Branch",
-          "restarts": "Neustarts",
-          "activityStopped": "Angehalten"
+          "gitState": "Git-Stand",
+          "workspace": "Arbeitsplatz",
+          "restarts": "Neustarts"
         },
         "toolKind": {
           "read": "Datei lesen",
@@ -9486,6 +9484,67 @@
     "taskLimit": "Geplante Aufgaben je Chat",
     "taskLimitHint": "Von {{minimum}} bis {{maximum}}. So viele Erinnerungen und wiederkehrende Aufgaben dürfen Agenten in einem Chat planen."
   },
+  "agentsPage": {
+    "title": "Agents",
+    "subtitle": "Was von deinen KI-Konten noch übrig ist.",
+    "links": "Bereiche der Agents",
+    "quotas": {
+      "title": "Kontingente und Guthaben",
+      "shortTitle": "Kontingente",
+      "noConnections": "Keine Claude-Verbindung, die du nutzen darfst."
+    },
+    "status": {
+      "refreshing": "wird aktualisiert …",
+      "failed": "Abfrage fehlgeschlagen",
+      "failedSince": "Abfrage fehlgeschlagen · Stand {{time}}",
+      "live": "live",
+      "refresh": "Kontingente aktualisieren",
+      "updatedSeconds_one": "aktualisiert vor {{count}} Sek.",
+      "updatedSeconds_other": "aktualisiert vor {{count}} Sek.",
+      "updatedMinutes_one": "aktualisiert vor {{count}} Min.",
+      "updatedMinutes_other": "aktualisiert vor {{count}} Min.",
+      "updatedHours_one": "aktualisiert vor {{count}} Std.",
+      "updatedHours_other": "aktualisiert vor {{count}} Std."
+    },
+    "card": {
+      "subscription": "claude.ai-Abo",
+      "noValues": "Noch keine Werte. Sie erscheinen nach der ersten Antwort einer Claude-Sitzung."
+    },
+    "plan": {
+      "pro": "Pro",
+      "max": "Max",
+      "ultra": "Ultra",
+      "unknown": "Tarif unbekannt"
+    },
+    "window": {
+      "five_hour": "5 Stunden",
+      "seven_day": "7 Tage"
+    },
+    "quota": {
+      "remaining": "{{percent}} % übrig",
+      "used": "{{percent}} % genutzt",
+      "remainingLabel": "{{window}}: übrig",
+      "resets": "zurück {{moment}} · {{countdown}}",
+      "countdown": "in {{duration}}"
+    },
+    "duration": {
+      "days_one": "{{count}} Tag",
+      "days_other": "{{count}} Tagen",
+      "hours_one": "{{count}} Std.",
+      "hours_other": "{{count}} Std.",
+      "minutes_one": "{{count}} Min.",
+      "minutes_other": "{{count}} Min."
+    },
+    "weekday": {
+      "0": "So",
+      "1": "Mo",
+      "2": "Di",
+      "3": "Mi",
+      "4": "Do",
+      "5": "Fr",
+      "6": "Sa"
+    }
+  },
   "runDiagnosis": {
     "title": "Läufe",
     "subtitle": "Alle Läufe der Pläne, die Sie sehen dürfen – egal, wer sie gestartet hat. Hier sehen Sie, welche fehlschlagen, warum, in welchem Schritt und mit welchen Logs.",
@@ -10334,7 +10393,6 @@
     },
     "branch": {
       "missing": "noch nicht bekannt",
-      "workspace": "Arbeitsplatz {{name}}",
       "checkedOut": "Ausgecheckt: {{branch}}",
       "detached": "Detached HEAD {{commit}}",
       "noRepository": "Kein Git-Repository",

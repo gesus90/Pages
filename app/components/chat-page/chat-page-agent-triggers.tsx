@@ -12,6 +12,7 @@ import { ParticipantAvatar } from "./chat-page-avatar";
 import { AgentSessionStatus } from "./chat-page-agent-status";
 import { ChatPageAgentMenu, useAgentMenuState } from "./chat-page-agent-menu";
 import { ChatPageContextRing } from "./chat-page-context-rings";
+import { PRIMARY_CHIP_CLASS } from "./chat-page-primary-chip";
 
 import type { AgentChatModelLabel } from "@/definition/AgentChatControl";
 import type { AgentChatSessionBrief } from "@/definition/AgentChatSession";
@@ -53,10 +54,7 @@ export function ChatModelBadge({
     );
   return (
     <span
-      className={cn(
-        "shrink-0 rounded-full border border-primary/40 bg-primary-subtle px-1.5 text-[11px] whitespace-nowrap text-primary",
-        className,
-      )}
+      className={cn(PRIMARY_CHIP_CLASS, className)}
       title={t("chatPage.modelChoice.badgeHint", { model: model.name })}
     >
       {shortModelName(model.name)}

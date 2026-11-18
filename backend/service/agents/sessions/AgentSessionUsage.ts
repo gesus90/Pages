@@ -76,6 +76,39 @@ export function readContextUsage(
   };
 }
 
+/**
+ * The occupancy to store after a report: the last reported value stays until
+ * a new one comes.
+ * @param stored - The occupancy stored so far.
+ * @param reported - The occupancy of the new report.
+ * @returns The new report with every value it left out taken from the stored
+ * one; the stored one when the report named nothing.
+ * @remarks
+ * A report without an occupancy, such as the 0 claude-agent-acp sends after
+ * a compaction it could not measure, never empties a known value.
+ */
+export function keepReportedContext(
+  stored: AgentSessionContextUsage,
+  reported: AgentSessionContextUsage,
+): AgentSessionContextUsage {
+  if (reported.source === null) return stored;
+  if (reported.contextUsed !== null && reported.contextLimit !== null)
+    return reported;
+  const contextUsed = reported.contextUsed ?? stored.contextUsed;
+  const contextLimit = reported.contextLimit ?? stored.contextLimit;
+  return {
+    ...reported,
+    contextUsed,
+    contextLimit,
+    percent:
+      contextUsed === null || contextLimit === null
+        ? null
+        : Math.round((contextUsed / contextLimit) * 1_000) / 10,
+    reportedAt:
+      reported.contextUsed === null ? stored.reportedAt : reported.reportedAt,
+  };
+}
+
 function readCounts(usage: Usage): TokenCounts {
   return {
     inputTokens: count(usage.inputTokens),

@@ -38,6 +38,7 @@ import type { CliLocator } from "./CliLocator";
 import type { CliSessionContainment } from "./CliSessionCloseout";
 import type { CliSessionProcess } from "./CliSessionProcess";
 import type { acpPicaSupport } from "../acp/AcpPicaSupport";
+import type { ClaudeQuotaSink } from "../acp/ClaudeAcpQuota";
 import type { PicaCodexBundle } from "./PicaCodexBundle";
 import type { PicaNativeArtifact } from "./PicaNativeArtifact";
 
@@ -75,6 +76,8 @@ export interface OpenCliAcpSessionContext {
   readonly github: CliGitHubAccess | null;
   readonly redact: (text: string) => string;
   readonly secure: () => Promise<void>;
+  /** Stores the subscription figures of a Claude session under its connection. */
+  readonly claudeQuota?: ClaudeQuotaSink;
 }
 
 /** Builds an {@link AcpSession} over an already connected CLI worker channel. */
@@ -99,6 +102,7 @@ export function openCliAcpSession(
     github,
     redact,
     secure,
+    claudeQuota,
   } = context;
   return new AcpSession(child, channel.stream, {
     instanceId: input.instanceId,
@@ -129,6 +133,7 @@ export function openCliAcpSession(
         : undefined,
     notificationHandled: () => channel.acknowledge(),
     acceptsTurnInput: input.chat === undefined,
+    claudeQuota,
   });
 }
 

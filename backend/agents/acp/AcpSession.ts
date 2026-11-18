@@ -16,6 +16,7 @@ import { reportAcpPlanActivity } from "./AcpPlanActivity";
 import { CodexThreadUsage } from "./CodexThreadUsage";
 import { AcpTurnControl, PROGRESS_INTERVAL_MS } from "./AcpTurnControl";
 import { registerClaudeUsage } from "./ClaudeAcpUsage";
+import { readClaudeQuotaWindow, registerClaudeQuota } from "./ClaudeAcpQuota";
 import { AcpMcpReadiness } from "./AcpMcpReadiness";
 import { cancelAcpTurn, closeAcpProtocol } from "./AcpProtocolClose";
 import { readAntigravityTurnFailure } from "./AntigravityTurnFailure";
@@ -169,6 +170,7 @@ export class AcpSession implements PlanSession {
     );
     if (this.picaCodex)
       context.picaSupport?.registerRequests(client, this.picaCodex);
+    registerClaudeQuota(client, context);
     registerClaudeUsage(client, context, {
       session: () => this.state.sessionId,
       failed: () => {
@@ -555,6 +557,7 @@ export class AcpSession implements PlanSession {
     if (update.sessionUpdate === "config_option_update")
       this.configurationOptions = update.configOptions;
     readAcpUpdate(this.state, update, this.context.profile.reportedOptions);
+    this.recordClaudeQuota(update);
     if (this.context.driver.provider === "opencode") {
       const failure = openCodeToolFailure(
         update,
@@ -599,6 +602,14 @@ export class AcpSession implements PlanSession {
       this.state.sessionId,
       this.state.events,
     );
+  }
+
+  /** Hands a subscription window a Claude update reports to its connection. */
+  private recordClaudeQuota(update: SessionNotification["update"]): void {
+    const sink = this.context.claudeQuota;
+    if (this.context.driver.provider !== "claude_code" || !sink) return;
+    const reported = readClaudeQuotaWindow(update._meta);
+    if (reported) sink.recordWindow(reported);
   }
 
   private reportProgress(): void {

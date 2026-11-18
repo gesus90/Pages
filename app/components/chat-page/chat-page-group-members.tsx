@@ -14,6 +14,7 @@ import { ChatModelBadge } from "./chat-page-agent-triggers";
 import { ParticipantAvatar } from "./chat-page-avatar";
 import { ChatPageOpenedEmbedDomains } from "./chat-page-embed-domains";
 import { CandidateList, matchesParticipant } from "./chat-page-member-dialog";
+import { PRIMARY_CHIP_CLASS } from "./chat-page-primary-chip";
 import { sendAgentControl } from "./agent-control-api";
 import { useAgentControl } from "./use-agent-control";
 
@@ -95,7 +96,7 @@ function MemberRow({
         <span className="flex items-center gap-1.5 text-sm font-semibold">
           {member.name}
           {member.isOwner ? (
-            <span className="rounded-full bg-primary-subtle px-1.5 text-[11px] font-normal text-primary">
+            <span className={PRIMARY_CHIP_CLASS}>
               {t("chatPage.groupMembers.owner")}
             </span>
           ) : null}
