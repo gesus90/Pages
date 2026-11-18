@@ -4118,6 +4118,7 @@
     "personInactive": "{{name}} ist deaktiviert und nimmt keine Nachrichten an.",
     "answering": "{{name}} antwortet …",
     "answeringMany": "{{names}} antworten …",
+    "unknownMember": "Unbekanntes Mitglied",
     "notice": {
       "agent_inactive": "{{name}} ist deaktiviert und antwortet nicht auf diese Nachricht.",
       "agent_cost_limit": "{{name}} antwortet nicht: Das Kostenlimit des Agents ist erreicht.",

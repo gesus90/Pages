@@ -89,6 +89,14 @@ export interface VirtualGroup {
   readonly description: string;
   /** Participant ids in display order. */
   readonly memberIds: readonly string[];
+  /**
+   * The members of {@link VirtualGroup.memberIds} with the name, kind and
+   * avatar the head, the live answers and the typing line show, read from
+   * the checked membership of the group. They never join the person's own
+   * list and grant no direct chat; an empty name marks an account that no
+   * longer exists.
+   */
+  readonly memberProfiles?: readonly VirtualParticipant[];
   readonly unreadCount: number;
   /** Whether the person muted the group for themselves alone. */
   readonly isMuted?: boolean;

@@ -1,3 +1,5 @@
+import { useTranslation } from "react-i18next";
+
 import {
   activityOf,
   answersOfChat,
@@ -33,6 +35,7 @@ interface LiveChatInput {
   readonly opened: OpenedConversation | null;
   readonly state: LiveAnswerState;
   readonly messages: readonly VirtualChatMessage[];
+  /** A participant of the person's list, else a member of the opened group. */
   readonly findParticipant: (id: string) => VirtualParticipant | undefined;
   readonly onCancelTool: (agentId: string) => void;
 }
@@ -115,6 +118,7 @@ export function useLiveChat({
   findParticipant,
   onCancelTool,
 }: LiveChatInput): LiveChatView {
+  const { t } = useTranslation();
   const views = answersOfChat(state, liveChatOf(opened));
   const storedIds = new Set(messages.map((message) => message.id));
   const running = runningByAgent(views);
@@ -123,14 +127,13 @@ export function useLiveChat({
     ...new Set([...running.keys(), ...loaded.map((agent) => agent.id)]),
   ];
 
+  // The members of an opened group come with their profiles, so an agent
+  // outside the person's list is named; an internal ID is never shown.
   function nameOf(agentId: string): string {
     return (
       findParticipant(agentId)?.name ??
-      (opened?.kind === "group"
-        ? opened.members.find((member) => member.id === agentId)?.name
-        : undefined) ??
       loaded.find((agent) => agent.id === agentId)?.name ??
-      agentId
+      t("chatPage.unknownMember")
     );
   }
 

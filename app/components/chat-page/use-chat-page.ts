@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useFetcher } from "react-router";
 
 import {
@@ -163,6 +164,7 @@ export interface ChatPageState {
   cancelTool(): void;
   /** Lets the agents of the opened paused conversation go on. */
   resumeAgents(): void;
+  /** A participant of the person's list, else a member of the opened group, who wrote or writes there. */
   findParticipant(id: string): VirtualParticipant | undefined;
   /** The known members of a group, in its order. */
   findMembers(group: VirtualGroup): VirtualParticipant[];
@@ -194,13 +196,19 @@ function matches(texts: readonly string[], query: string): boolean {
   return texts.some((text) => text.toLocaleLowerCase().includes(needle));
 }
 
+/**
+ * The members of a group in its order: from the person's own list where it
+ * holds them, else from the profiles the group's membership names.
+ */
 function membersOf(
   group: VirtualGroup,
   participants: readonly VirtualParticipant[],
 ): VirtualParticipant[] {
   if (group.agentMembers) return [...group.agentMembers];
   return group.memberIds.flatMap((id) => {
-    const member = participants.find((participant) => participant.id === id);
+    const member =
+      participants.find((participant) => participant.id === id) ??
+      group.memberProfiles?.find((profile) => profile.id === id);
     return member ? [member] : [];
   });
 }
@@ -209,6 +217,40 @@ function membersOf(
 interface ChatLists {
   readonly groups: readonly VirtualGroup[];
   readonly participants: readonly VirtualParticipant[];
+}
+
+/** The groups with a placeholder name for each member whose account no longer exists. */
+function withMemberPlaceholders(
+  lists: ChatLists,
+  unknownName: string,
+): ChatLists {
+  return {
+    participants: lists.participants,
+    groups: lists.groups.map((group) =>
+      group.memberProfiles
+        ? {
+            ...group,
+            memberProfiles: group.memberProfiles.map((profile) =>
+              profile.name === "" ? { ...profile, name: unknownName } : profile,
+            ),
+          }
+        : group,
+    ),
+  };
+}
+
+/** The participant of the person's list, else the member of the opened group, with the id. */
+function shownParticipant(
+  lists: ChatLists,
+  opened: OpenedConversation | null,
+  id: string,
+): VirtualParticipant | undefined {
+  return (
+    lists.participants.find((participant) => participant.id === id) ??
+    (opened?.kind === "group"
+      ? opened.members.find((member) => member.id === id)
+      : undefined)
+  );
 }
 
 function firstSelection(lists: ChatLists): VirtualChatSelection | null {
@@ -474,7 +516,8 @@ export function useChatPage(
 ): ChatPageState {
   const [query, setQuery] = useState("");
   const activity = useChatActivity(directory);
-  const lists: ChatLists = activity;
+  const { t } = useTranslation();
+  const lists = withMemberPlaceholders(activity, t("chatPage.unknownMember"));
   const [selection, setSelection] = useState(
     () => requestedSelection ?? firstSelection(lists),
   );
@@ -500,8 +543,7 @@ export function useChatPage(
     opened,
     state: stream.state,
     messages,
-    findParticipant: (id) =>
-      lists.participants.find((participant) => participant.id === id),
+    findParticipant: (id) => shownParticipant(lists, opened, id),
     onCancelTool: controls.cancelAgentTool,
   });
   const isAnswering = answering.isAnswering || liveChat.isWriting;
@@ -548,8 +590,7 @@ export function useChatPage(
     liveTools: isAnswering ? (directory.liveToolUses?.[historyId] ?? []) : [],
     cancelTool: controls.cancelTool,
     resumeAgents: controls.resumeAgents,
-    findParticipant: (id) =>
-      lists.participants.find((participant) => participant.id === id),
+    findParticipant: (id) => shownParticipant(lists, opened, id),
     findMembers: (group) => membersOf(group, lists.participants),
   };
 }

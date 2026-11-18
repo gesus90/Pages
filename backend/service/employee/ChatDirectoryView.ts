@@ -85,11 +85,18 @@ function groupView(
   shownIds: ReadonlySet<string>,
   view: ConversationView | undefined,
 ): VirtualGroup {
+  // A member of the stored conversation stays a member of the group's head
+  // even when the person keeps it out of their own list.
+  const conversationMemberIds = new Set(
+    view?.summary.members.map((member) => member.id) ?? [],
+  );
   return {
     id: record.id,
     name: record.name,
     description: record.description,
-    memberIds: record.memberIds.filter((id) => shownIds.has(id)),
+    memberIds: record.memberIds.filter(
+      (id) => shownIds.has(id) || conversationMemberIds.has(id),
+    ),
     unreadCount: view?.summary.unreadCount ?? 0,
     isMuted: view?.summary.isMuted ?? false,
     lastActivityAt: latestActivityTime(
@@ -99,15 +106,31 @@ function groupView(
   };
 }
 
-/** The groups of the page: the person's own and the shared ones they belong to. */
+/** What the groups of the page are read from besides the person's own records. */
+export interface GroupDirectoryContext {
+  /** The participants of the person's own list. */
+  readonly shownIds: ReadonlySet<string>;
+  /** The stored conversations of the person, which only their members read. */
+  readonly conversations: ChatConversations;
+  readonly person: User;
+  /** Every account but the person's own. */
+  readonly accounts: ReadonlyMap<string, AccountFacts>;
+}
+
+/**
+ * The groups of the page: the person's own and the shared ones they belong to.
+ * @param records - The groups the person created.
+ * @param context - The list, conversations and accounts of the person.
+ * @returns Each group with the profiles of its members, so a member outside
+ * the person's list is still named and shown.
+ */
 export function groupsOfDirectory(
   records: readonly ChatGroupRecord[],
-  shownIds: ReadonlySet<string>,
-  conversations: ChatConversations,
-  person: User,
+  context: GroupDirectoryContext,
 ): VirtualGroup[] {
+  const { shownIds, conversations, person, accounts } = context;
   const ownIds = new Set(records.map((record) => record.id));
-  return [
+  const groups = [
     ...records.map((record) =>
       groupView(record, shownIds, conversations.groups.get(record.id)),
     ),
@@ -115,6 +138,14 @@ export function groupsOfDirectory(
       .filter((view) => !ownIds.has(view.summary.id))
       .map((view) => sharedGroup(view, person)),
   ];
+  return groups.map((group) => ({
+    ...group,
+    memberProfiles: groupMemberProfiles(
+      group.memberIds,
+      accounts,
+      conversations.groups.get(group.id),
+    ),
+  }));
 }
 
 /** What a participant shows of the stored direct conversation with them, if any. */
@@ -263,6 +294,47 @@ export function directoryParticipant(
     ...(state.accessLevel ? { accessLevel: state.accessLevel } : {}),
     ...(state.session ? { session: state.session } : {}),
   };
+}
+
+/**
+ * The members of a group as its head, its live answers and its typing line
+ * name and show them.
+ * @param memberIds - The members the group shows, from its checked membership.
+ * @param accounts - Every account but the person's own.
+ * @param view - The stored conversation of the group, if any.
+ * @returns One entry per member, independent of the person's own list. An
+ * account that no longer exists keeps an empty name, which the page shows as
+ * a placeholder.
+ */
+export function groupMemberProfiles(
+  memberIds: readonly string[],
+  accounts: ReadonlyMap<string, AccountFacts>,
+  view: ConversationView | undefined,
+): VirtualParticipant[] {
+  const lastActivityAt = view?.summary.lastActivityAt ?? "";
+  return memberIds.map((id): VirtualParticipant => {
+    const facts = accounts.get(id);
+    if (facts)
+      return directoryParticipant(
+        facts,
+        { contactId: id, lastActivityAt },
+        { isWorking: false, view: undefined },
+      );
+    const member = view?.summary.members.find((entry) => entry.id === id);
+    return {
+      id,
+      name: "",
+      kind: member?.kind ?? "human",
+      role: "",
+      username: "",
+      color: null,
+      avatarImageUrl: null,
+      status: "off",
+      unreadCount: 0,
+      canChat: false,
+      lastActivityAt,
+    };
+  });
 }
 
 /** Adds the card of each question of an agent to the message that carries it. */

@@ -385,13 +385,13 @@ export class ChatDirectoryService {
       this.dependencies.replyModes?.([...input.conversations.groups.keys()]),
       this.dependencies.store.chats().confidentialConversations(person.id),
     ]);
+    const entries = groupsOfDirectory(input.groups, {
+      ...input,
+      person,
+      accounts,
+    });
     return Promise.all(
-      groupsOfDirectory(
-        input.groups,
-        input.shownIds,
-        input.conversations,
-        person,
-      ).map(async (entry) => {
+      entries.map(async (entry) => {
         const working = this.workingAgents(entry.id, accounts);
         const agentSessions = await this.groupSessions(
           entry.id,
