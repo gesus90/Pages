@@ -45,10 +45,23 @@ const todoSchema = z.strictObject({
   id: identifier,
   status: z.enum(AGENT_STEP_PROGRESS_STATUSES),
 });
-const callSchema = z.strictObject({
-  todos: z.array(todoSchema).min(1).max(1000),
-  activity: z.string().trim().min(1).max(AGENT_STEP_ACTIVITY_LENGTH).optional(),
-});
+const callSchema = z
+  .strictObject({
+    todos: z.array(todoSchema).max(1000),
+    activity: z
+      .string()
+      .trim()
+      .min(1)
+      .max(AGENT_STEP_ACTIVITY_LENGTH)
+      .optional(),
+  })
+  .refine(
+    (report) => report.todos.length > 0 || report.activity !== undefined,
+    {
+      path: ["activity"],
+      message: "Provide an activity line when todos is empty.",
+    },
+  );
 
 function rejection(
   code: "INVALID_REQUEST" | "FORBIDDEN" | "CONFLICT",
@@ -238,7 +251,7 @@ export class AgentPlanStepProgressService {
       stepId: scope.stepId,
       attemptId: scope.attemptId,
       activity: keepsPreviousState ? (stored?.activity ?? null) : null,
-      updatedAt: this.clock(),
+      updatedAt: keepsPreviousState && stored ? stored.updatedAt : this.clock(),
       todosJson: JSON.stringify({
         scope: scope.iteration,
         contract: current,

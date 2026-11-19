@@ -9789,6 +9789,20 @@
           "title": "This connection has no valid Z.AI key.",
           "detail": "Without a valid key Pages can retrieve neither the plan nor values."
         }
+      },
+      "absence": {
+        "none_reported": {
+          "title": "Z.AI reported no allowances for this key.",
+          "detail": "The query succeeded and the list of allowances was empty."
+        },
+        "unusable": {
+          "title": "Z.AI reported entries that Pages cannot show.",
+          "detail": "They have an unknown type or no usable usage. Pages shows no value that Z.AI does not back."
+        },
+        "elapsed": {
+          "title": "Z.AI reported only allowances whose period has already ended.",
+          "detail": "The reported reset time lies in the past, so the values no longer apply."
+        }
       }
     }
   },

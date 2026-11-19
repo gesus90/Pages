@@ -31,16 +31,19 @@ interface ContinuationDependencies {
   readonly close: () => Promise<PlanSessionCloseout>;
 }
 
+interface ContinuationInput {
+  readonly node: NodeRun;
+  readonly session: PlanSession;
+  readonly terms: AgentPlanSessionTerms;
+  readonly usesMcp: boolean;
+}
+
 /**
  * Gives incomplete work back to the same native session, with at most three corrective turns.
  * @returns The final assessment, or `null` when Stop or a timeout ended a turn and its cleanup was recorded.
  */
 export async function runPlanTodoTurns(
-  input: {
-    readonly node: NodeRun;
-    readonly session: PlanSession;
-    readonly terms: AgentPlanSessionTerms;
-  },
+  input: ContinuationInput,
   dependencies: ContinuationDependencies,
 ): Promise<(PlanTurnAssessment & { readonly turn: PlanSessionTurn }) | null> {
   const { node, session } = input;
@@ -91,7 +94,7 @@ export async function runPlanTodoTurns(
     turn = await controlledTurn(
       node,
       nextTodoTurn(
-        { node, session, terms },
+        { ...input, terms },
         dependencies,
         open.map((todo) => todo.id),
       ),
@@ -133,22 +136,18 @@ function canContinueTodos(
 }
 
 async function nextTodoTurn(
-  input: {
-    readonly node: NodeRun;
-    readonly session: PlanSession;
-    readonly terms: AgentPlanSessionTerms;
-  },
+  input: ContinuationInput,
   dependencies: ContinuationDependencies,
   open: readonly string[],
 ): Promise<PlanSessionTurn> {
-  const { node, session, terms } = input;
+  const { node, session, terms, usesMcp } = input;
   if (!session.next) throw new Error("Session continuation unavailable");
   const prepared = await dependencies.start.prepare(
     node.run,
     node.snapshot,
     node.step,
   );
-  await dependencies.reports.open(node, prepared, terms);
+  if (usesMcp) await dependencies.reports.open(node, prepared, terms);
   const assignment = renderPlanAssignment({
     contract: {
       ...terms.contract,
@@ -157,7 +156,8 @@ async function nextTodoTurn(
         checked: !open.includes(todo.id),
       })),
     },
-    usesMcp: true,
+    usesMcp,
+    provider: prepared.input.agent.connection.provider,
     isReadOnly: terms.reach === "read",
     runnerLabel: node.record?.runner ?? "",
     instanceId: node.record?.instanceId ?? "",
@@ -166,7 +166,7 @@ async function nextTodoTurn(
   });
   const nextInput = {
     ...prepared.input,
-    prompt: `Der Schritt ist noch nicht fertig. Arbeite die offenen TODOs ab und hake sie über update_step_progress ab. Bereits erledigte TODOs bleiben erledigt.\n${open.map((id) => `- ${id}: ${terms.contract.todos.find((todo) => todo.id === id)?.text ?? ""}`).join("\n")}\n\n${assignment}`,
+    prompt: `Der Schritt ist noch nicht fertig. Arbeite die offenen TODOs ab. Bereits erledigte TODOs bleiben erledigt.\n${open.map((id) => `- ${id}: ${terms.contract.todos.find((todo) => todo.id === id)?.text ?? ""}`).join("\n")}\n\n${assignment}`,
     recording: node.record
       ? (sessionStart(node, node.record.instanceId) ?? undefined)
       : undefined,

@@ -9796,6 +9796,20 @@
           "title": "Für diese Verbindung fehlt ein gültiger Z.AI-Schlüssel.",
           "detail": "Ohne gültigen Schlüssel kann Pages weder Tarif noch Werte abrufen."
         }
+      },
+      "absence": {
+        "none_reported": {
+          "title": "Z.AI hat für diesen Schlüssel keine Kontingente gemeldet.",
+          "detail": "Die Abfrage war erfolgreich, die Liste der Kontingente war leer."
+        },
+        "unusable": {
+          "title": "Z.AI hat Einträge gemeldet, die Pages nicht anzeigen kann.",
+          "detail": "Sie haben einen unbekannten Typ oder keinen auswertbaren Verbrauch. Pages zeigt keine Werte, die Z.AI nicht belegt."
+        },
+        "elapsed": {
+          "title": "Z.AI hat nur Kontingente gemeldet, deren Zeitraum schon zu Ende ist.",
+          "detail": "Der gemeldete Reset-Zeitpunkt liegt in der Vergangenheit, die Werte gelten nicht mehr."
+        }
       }
     }
   },

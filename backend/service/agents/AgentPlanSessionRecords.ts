@@ -93,6 +93,11 @@ export function createSessionRecord(
   };
 }
 
+/** Whether a saved node record was started with MCP tools. */
+export function recordUsesMcp(record: AgentPlanSessionRecord | null): boolean {
+  return record?.requested.mcp ?? false;
+}
+
 /** The runner as people read it, such as "Claude Code". */
 export function runnerLabel(record: AgentPlanSessionRecord): string {
   return record.runner === "api" ? "API request" : RUNNER_LABELS[record.runner];

@@ -18,13 +18,12 @@ export const STEP_PROGRESS_TOOL = {
   name: "update_step_progress",
   title: "Update the step progress",
   description:
-    "Reports the live state of the todos of the plan step this session runs, and optionally what you do now. Set a todo to active right before you start it and to done right after you finished it. Only the named todos change; the others keep their last state. It ends nothing and is no result: report_step_result stays the binding report of the step. Pages refuses unknown todo IDs and names them in details.problems. Available only to plan sessions.",
+    "Reports live todo states or a short activity line for the current plan step. Use todos: [] with activity to report progress without changing todo states. Set a todo to active when starting it and to done when finishing it. Only the named todos change. Pages refuses unknown todo IDs and names them in details.problems. The binding result comes from report_step_result. Available only to plan sessions.",
   inputSchema: {
     type: "object",
     properties: {
       todos: {
         type: "array",
-        minItems: 1,
         maxItems: 1000,
         items: {
           type: "object",

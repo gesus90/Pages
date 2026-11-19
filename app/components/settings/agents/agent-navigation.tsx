@@ -9,12 +9,10 @@ import type { NavLinkRenderProps } from "react-router";
 interface AgentSubEntry {
   readonly to: string;
   readonly labelKey: string;
-  readonly className: string;
-  readonly showOutsideAgentArea: boolean;
 }
 
 const SUB_ENTRY_CLASS =
-  "flex min-h-11 items-center rounded-xl px-3 text-sm font-medium text-muted-foreground hover:bg-sidebar-hover hover:text-foreground";
+  "flex min-h-11 items-center rounded-xl px-3 text-sm font-medium text-muted-foreground hover:bg-sidebar-hover hover:text-foreground xl:min-h-9";
 
 const SUB_ENTRY_ACTIVE_CLASS =
   "bg-sidebar-active text-foreground inset-shadow-navigation-selection shadow-xs";
@@ -23,20 +21,14 @@ const AGENT_SUB_ENTRIES: readonly AgentSubEntry[] = [
   {
     to: "/agents/plans",
     labelKey: "navigation.executionPlan",
-    className: SUB_ENTRY_CLASS,
-    showOutsideAgentArea: false,
   },
   {
     to: "/agents/runs",
     labelKey: "navigation.runs",
-    className: `${SUB_ENTRY_CLASS} xl:min-h-9`,
-    showOutsideAgentArea: true,
   },
   {
     to: "/agents/workspaces",
     labelKey: "navigation.workspace",
-    className: `${SUB_ENTRY_CLASS} xl:min-h-9`,
-    showOutsideAgentArea: false,
   },
 ];
 
@@ -53,8 +45,8 @@ export function isAgentAreaPath(pathname: string): boolean {
 /**
  * The entry "Agents" of the main navigation with its sub-entries.
  * @remarks
- * Agent Plan and the working directory appear only on Agents pages. Runs
- * stays visible in every area. Selecting a link in the mobile menu closes it.
+ * The sub-entries appear only on Agents pages. Selecting a link in the
+ * mobile menu closes it.
  */
 export function AgentNavigation(props: {
   readonly canManage?: boolean;
@@ -64,9 +56,6 @@ export function AgentNavigation(props: {
   const { pathname } = useLocation();
   const isActive = isAgentAreaPath(pathname);
   const isInAgentArea = matchPath("/agents/*", pathname) !== null;
-  const visibleEntries = AGENT_SUB_ENTRIES.filter(
-    (entry) => isInAgentArea || entry.showOutsideAgentArea,
-  );
   return (
     <div>
       <NavLink
@@ -83,20 +72,22 @@ export function AgentNavigation(props: {
         <Bot className="size-6 text-primary xl:size-5" aria-hidden="true" />
         {t("navigation.agents")}
       </NavLink>
-      <div className="ml-5 border-l border-border pl-2">
-        {visibleEntries.map((entry) => (
-          <NavLink
-            key={entry.to}
-            to={entry.to}
-            onClick={props.onNavigate}
-            className={({ isActive: isEntryActive }: NavLinkRenderProps) =>
-              cn(entry.className, isEntryActive && SUB_ENTRY_ACTIVE_CLASS)
-            }
-          >
-            {t(entry.labelKey)}
-          </NavLink>
-        ))}
-      </div>
+      {isInAgentArea ? (
+        <div className="ml-8 border-l border-border pl-[15px] xl:ml-[22px] xl:pl-[9px]">
+          {AGENT_SUB_ENTRIES.map((entry) => (
+            <NavLink
+              key={entry.to}
+              to={entry.to}
+              onClick={props.onNavigate}
+              className={({ isActive: isEntryActive }: NavLinkRenderProps) =>
+                cn(SUB_ENTRY_CLASS, isEntryActive && SUB_ENTRY_ACTIVE_CLASS)
+              }
+            >
+              {t(entry.labelKey)}
+            </NavLink>
+          ))}
+        </div>
+      ) : null}
     </div>
   );
 }

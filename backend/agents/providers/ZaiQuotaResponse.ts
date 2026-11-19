@@ -9,8 +9,12 @@ import type {
   ZaiQuotaCounts,
   ZaiQuotaKind,
   ZaiQuotaReading,
+  ZaiQuotaTally,
   ZaiQuotaWindow,
 } from "@/definition/ZaiQuota";
+
+/** Why an entry of the answer leaves no entry on the card. */
+type DroppedEntry = "unsupportedType" | "withoutUsage";
 
 /** The entry types of the usage monitor that a card names; any other type is ignored. */
 const KIND_BY_TYPE: ReadonlyMap<string, ZaiQuotaKind> = new Map([
@@ -51,14 +55,14 @@ function readUsedPercent(
   return Math.min(100, (counts.used / counts.total) * 100);
 }
 
-function readWindow(entry: unknown): ZaiQuotaWindow | null {
+function readWindow(entry: unknown): ZaiQuotaWindow | DroppedEntry {
   const fields = readAgentObject(entry);
   const kind =
     typeof fields.type === "string" ? KIND_BY_TYPE.get(fields.type) : undefined;
-  if (kind === undefined) return null;
+  if (kind === undefined) return "unsupportedType";
   const counts = kind === "mcp" ? readCounts(fields) : null;
   const usedPercent = readUsedPercent(fields, counts);
-  if (usedPercent === null) return null;
+  if (usedPercent === null) return "withoutUsage";
   return {
     kind,
     usedPercent,
@@ -68,17 +72,49 @@ function readWindow(entry: unknown): ZaiQuotaWindow | null {
   };
 }
 
+function isWindow(
+  reading: ZaiQuotaWindow | DroppedEntry,
+): reading is ZaiQuotaWindow {
+  return typeof reading !== "string";
+}
+
+/** A missing list is an answer without entries; a list of another shape is no answer of the monitor. */
+function readLimits(value: unknown): unknown[] | null {
+  if (value === undefined || value === null) return [];
+  return Array.isArray(value) ? value : null;
+}
+
+function countDropped(
+  readings: readonly (ZaiQuotaWindow | DroppedEntry)[],
+  reason: DroppedEntry,
+): number {
+  return readings.filter((entry) => entry === reason).length;
+}
+
+function tallyEntries(
+  readings: readonly (ZaiQuotaWindow | DroppedEntry)[],
+): ZaiQuotaTally {
+  return {
+    delivered: readings.length,
+    unsupportedType: countDropped(readings, "unsupportedType"),
+    withoutUsage: countDropped(readings, "withoutUsage"),
+    evaluated: readings.filter(isWindow).length,
+  };
+}
+
 /**
  * Reads the answer of the usage monitor of Z.AI.
  * @param payload - The parsed JSON body of `GET /api/monitor/usage/quota/limit`.
- * @returns The tier and the entries it reports, or `null` when the body is no
- * successful answer of the monitor.
+ * @returns The tier, the entries it reports and how many entries it delivered
+ * and dropped, or `null` when the body is no successful answer of the monitor.
  * @remarks
  * The body is `{ code, msg, success, data: { limits, level } }`. An answer
- * with `success: false` or another `code` than 200 is a failure. A successful
- * answer without any entry is valid: it says the key has no allowance to
- * report. Entries of an unknown type and entries without a usable share are
- * dropped, so the card never shows a value Z.AI did not report.
+ * with `success: false` or another `code` than 200 is a failure, and so is a
+ * `limits` that is no list. A successful answer without any entry is valid: it
+ * says the key has no allowance to report. Entries of an unknown type and
+ * entries without a usable share are dropped, so the card never shows a value
+ * Z.AI did not report; the tally names how many were dropped for which reason,
+ * so an empty card can tell an empty answer from dropped entries.
  */
 export function readZaiQuota(payload: unknown): ZaiQuotaReading | null {
   const envelope = readAgentObject(payload);
@@ -86,10 +122,12 @@ export function readZaiQuota(payload: unknown): ZaiQuotaReading | null {
   if (typeof envelope.code === "number" && envelope.code !== 200) return null;
   if (typeof envelope.data !== "object" || envelope.data === null) return null;
   const quota = readAgentObject(envelope.data);
-  const limits: unknown[] = Array.isArray(quota.limits) ? quota.limits : [];
-  const windows = limits
-    .map(readWindow)
-    .filter((window): window is ZaiQuotaWindow => window !== null)
-    .slice(0, ZAI_MAX_WINDOWS);
-  return { plan: readZaiPlan(quota.level), windows };
+  const limits = readLimits(quota.limits);
+  if (limits === null) return null;
+  const readings = limits.map(readWindow);
+  return {
+    plan: readZaiPlan(quota.level),
+    windows: readings.filter(isWindow).slice(0, ZAI_MAX_WINDOWS),
+    tally: tallyEntries(readings),
+  };
 }

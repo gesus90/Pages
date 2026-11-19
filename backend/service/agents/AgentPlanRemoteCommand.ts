@@ -91,10 +91,8 @@ export function remoteModelCommand(
   if (!configuration?.runnerRoute) throw new AgentError("plan_context_changed");
   const route = configuration.runnerRoute;
   if (route.tool) {
-    const options = agentRunOptionsFor(
-      RUNNER_TOOL_PROVIDERS[route.tool],
-      configuration.template.run,
-    );
+    const provider = RUNNER_TOOL_PROVIDERS[route.tool];
+    const options = agentRunOptionsFor(provider, configuration.template.run);
     if (options.access === "workspace_write")
       throw new AgentError("plan_context_changed");
     const isReadOnly = options.access === "read_only";
@@ -103,6 +101,7 @@ export function remoteModelCommand(
       contract,
       isReadOnly,
       usesMcp: basis.pagesAccess === 1,
+      provider,
       runnerLabel: route.tool,
       instanceId: step.id,
       directory: basis.workspace,

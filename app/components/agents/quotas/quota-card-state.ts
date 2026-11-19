@@ -24,7 +24,11 @@ import type {
   CodexQuotaAccount,
   CodexQuotaWindow,
 } from "@/definition/CodexQuota";
-import type { ZaiQuotaAccount, ZaiQuotaWindow } from "@/definition/ZaiQuota";
+import type {
+  ZaiAbsence,
+  ZaiQuotaAccount,
+  ZaiQuotaWindow,
+} from "@/definition/ZaiQuota";
 
 /** The notices a card shows in place of windows. */
 export type QuotaNoticeKind = "noWindows" | "skipped" | "failed" | "signedOut";
@@ -256,7 +260,28 @@ export type ZaiCardBody =
       readonly isStale: boolean;
       readonly staleSince: string | null;
     }
-  | { readonly kind: "notice"; readonly notice: QuotaNoticeKind };
+  | {
+      readonly kind: "notice";
+      readonly notice: QuotaNoticeKind;
+      /** Why an answered card has no entry; `null` for a notice without an answer. */
+      readonly absence: ZaiAbsence | null;
+    };
+
+/**
+ * Why a Z.AI card without entries has none.
+ * @remarks
+ * The server names the reason at the moment of its answer; entries that were
+ * still ahead of their reset then and have run out since leave the card in the
+ * browser, which makes the reason "elapsed".
+ */
+function zaiCardAbsence(
+  account: ZaiQuotaAccount,
+  shownCount: number,
+): ZaiAbsence | null {
+  if (shownCount > 0 || account.status.kind === "signed_out") return null;
+  if (account.absence !== null) return account.absence;
+  return account.windows.length > 0 ? "elapsed" : null;
+}
 
 /** What a Z.AI card shows at a moment. */
 export interface ZaiCardView {
@@ -271,10 +296,11 @@ export interface ZaiCardView {
  * @returns The status line and the window area.
  * @remarks
  * An entry leaves the card once its reset passed. When the last entry of a
- * reported card leaves, Z.AI has none to report any more, so the card reads
- * "Keine Fenster gemeldet" at the time of the answer. After a failed query
- * the entries stay greyed with the time of the last answer. A connection
- * without a usable key shows no entries.
+ * reported card leaves, the card reads "Keine Fenster gemeldet" at the time of
+ * the answer and its notice says that the entries Z.AI reported have run out;
+ * an answer without any entry or without a readable one says that instead.
+ * After a failed query the entries stay greyed with the time of the last
+ * answer. A connection without a usable key shows no entries.
  */
 export function zaiCardView(account: ZaiQuotaAccount, now: Date): ZaiCardView {
   const windows = visibleZaiQuotaWindows(account.windows, now);
@@ -285,7 +311,11 @@ export function zaiCardView(account: ZaiQuotaAccount, now: Date): ZaiCardView {
   if (status.kind === "signed_out" || windows.length === 0)
     return {
       status,
-      body: { kind: "notice", notice: NOTICE_BY_STATUS[status.kind] },
+      body: {
+        kind: "notice",
+        notice: NOTICE_BY_STATUS[status.kind],
+        absence: zaiCardAbsence(account, windows.length),
+      },
     };
   return {
     status,

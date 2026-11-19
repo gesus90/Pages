@@ -6,6 +6,7 @@ import { cn } from "@/app/lib/cn";
 import { sessionAttemptId } from "@/definition/AgentSessionJournal";
 
 import { SIDEBAR_TITLE_CLASS } from "./console-sidebar-parts";
+import { formatSecondTime } from "./console-time";
 import { ConsoleTodoStatus } from "./console-todo-status";
 
 import type { AgentPlanStepResult } from "@/definition/AgentPlan";
@@ -21,11 +22,21 @@ function currentAgentTodos(
   step: AgentPlanStepResult,
 ): AgentPlanStepResult["agentTodos"] | null {
   const list = step.agentTodos;
-  if (!list || list.todos.length === 0) return null;
+  if (!list) return null;
   const session = step.session;
   if (session && sessionAttemptId(session, step.id) !== list.attemptId)
     return null;
   return list;
+}
+
+function latestTodoReport(step: AgentPlanStepResult): string | null {
+  const times = [
+    step.progress?.activity?.reportedAt,
+    currentAgentTodos(step)?.updatedAt,
+    step.session?.activity?.reportedAt,
+  ].filter((time): time is string => Number.isFinite(Date.parse(time ?? "")));
+  times.sort((first, second) => Date.parse(second) - Date.parse(first));
+  return times[0] ?? null;
 }
 
 /** The contract entries as console entries, with their kept completion. */
@@ -63,7 +74,7 @@ function displayedTodos(
   step: AgentPlanStepResult,
 ): readonly AgentPlanProgressItem[] {
   const native = currentAgentTodos(step);
-  if (native) return native.todos;
+  if (native && native.todos.length > 0) return native.todos;
   const progress = currentProgressTodos(step);
   if (progress.length > 0) return progress;
   const contract = step.session?.contract;
@@ -151,11 +162,12 @@ export function ConsoleTodoList({
   /** What the agent does now; `null` when nothing is known. */
   readonly activity: string | null;
 }): React.ReactElement {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const todos = displayedTodos(step);
-  const isNative = currentAgentTodos(step) !== null;
+  const isNative = (currentAgentTodos(step)?.todos.length ?? 0) > 0;
   const done = todos.filter((todo) => todo.status === "done").length;
   const heading = t("plans.console.terminal.sidebar.todos");
+  const reportedAt = latestTodoReport(step);
   return (
     <section
       aria-label={heading}
@@ -195,6 +207,16 @@ export function ConsoleTodoList({
         >
           {activity}
         </p>
+      ) : null}
+      {reportedAt ? (
+        <time
+          dateTime={reportedAt}
+          className="mt-1 shrink-0 text-xs text-agent-console-muted"
+        >
+          {t("plans.progress.activitySource", {
+            time: formatSecondTime(reportedAt, i18n.language),
+          })}
+        </time>
       ) : null}
     </section>
   );

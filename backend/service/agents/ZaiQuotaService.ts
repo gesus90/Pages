@@ -1,4 +1,4 @@
-import { visibleZaiQuotaWindows } from "@/definition/ZaiQuota";
+import { visibleZaiQuotaWindows, zaiQuotaAbsence } from "@/definition/ZaiQuota";
 
 import { quotaCardStatus } from "./QuotaCardStatus";
 import { QuotaConnectionAccess } from "./QuotaConnectionAccess";
@@ -133,7 +133,9 @@ export class ZaiQuotaService {
    * The card of a connection.
    * @remarks
    * A connection without a usable key has no allowance Z.AI could vouch for,
-   * so its card shows neither a plan nor figures.
+   * so its card shows neither a plan nor figures. A card whose answer leaves
+   * no entry to show names why: Z.AI delivered none, delivered none the card
+   * can read, or delivered only entries whose reset has passed.
    */
   private account(
     connection: AgentConnectionRecord,
@@ -157,6 +159,9 @@ export class ZaiQuotaService {
       accountType: connection.zaiAccountType ?? "api",
       plan: isSignedOut ? null : (reading?.plan ?? null),
       windows: isSignedOut ? [] : windows,
+      absence: isSignedOut
+        ? null
+        : zaiQuotaAbsence(reading?.tally ?? null, windows.length),
       status,
     };
   }

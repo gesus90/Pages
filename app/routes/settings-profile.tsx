@@ -194,13 +194,13 @@ export default function SettingsProfileRoute(): React.ReactElement {
 
   return (
     <>
-      <AccountModeCard account={account} />
-      <div className="w-full max-w-6xl">
-        <SettingsSectionHeader
-          icon={<UserRound className="size-4" aria-hidden="true" />}
-          title={t("settings.personal.title")}
-        />
+      <SettingsSectionHeader
+        icon={<UserRound className="size-4" aria-hidden="true" />}
+        title={t("settings.personal.title")}
+      />
 
+      <div className="flex w-full max-w-6xl flex-col gap-4">
+        <AccountModeCard account={account} />
         <div className="grid gap-4 lg:grid-cols-2 lg:items-start">
           <div className="flex flex-col gap-4">
             <ProfileCard

@@ -13,6 +13,7 @@ import { agentModelKey } from "@/definition/AgentPlanConfiguration";
 import { PLAN_SWARM_START_TIMEOUT_MS } from "@/definition/AgentPlanSwarm";
 import { agentSwarmWorkerStep } from "@/definition/AgentPlanSwarmOperations";
 
+import { nativePlanProgressInstructions } from "../AgentPlanProgressInstructions";
 import { turnFailureCode } from "../AgentPlanSessionRecords";
 import { SwarmStartError } from "./SwarmPorts";
 
@@ -235,10 +236,14 @@ export class SwarmSessions {
       directory: this.scope.directory,
       beforeStart: this.scope.beforeStart,
     };
+    const progressInstructions = nativePlanProgressInstructions({
+      provider: assignment.connection.provider,
+      isReadOnly: mode === "read_only",
+    });
     const session = await this.dependencies.execution.open(
       {
         ...base,
-        prompt: request.prompt,
+        prompt: [request.prompt, ...progressInstructions].join("\n"),
         options:
           configuration.template.run ?? acpRunOptions("read_only", minutes),
         instanceId,
@@ -257,7 +262,7 @@ export class SwarmSessions {
       request.signal,
       OBSERVER,
     );
-    return this.opened(session, { base, stepId });
+    return this.opened(session, { base, stepId, progressInstructions });
   }
 
   private opened(
@@ -272,6 +277,7 @@ export class SwarmSessions {
         readonly beforeStart: () => Promise<void>;
       };
       readonly stepId: string;
+      readonly progressInstructions: readonly string[];
     },
   ): SwarmOpenedSession {
     return {
@@ -280,7 +286,14 @@ export class SwarmSessions {
       next: async (prompt, signal) => {
         if (!session.next) throw new AgentError("plan_session_unavailable");
         return swarmTurnOf(
-          await session.next({ ...context.base, prompt }, signal, OBSERVER),
+          await session.next(
+            {
+              ...context.base,
+              prompt: [prompt, ...context.progressInstructions].join("\n"),
+            },
+            signal,
+            OBSERVER,
+          ),
         );
       },
       close: async () => {

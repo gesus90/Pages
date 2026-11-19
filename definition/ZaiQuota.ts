@@ -74,21 +74,54 @@ export interface ZaiQuotaWindow {
   readonly counts: ZaiQuotaCounts | null;
 }
 
-/** What one answer of the usage monitor holds: the tier and the reported entries. */
+/**
+ * What became of the entries of one answer of the usage monitor.
+ * @remarks
+ * `delivered` is the number of entries in `limits`. Each of them is an entry
+ * of a type no card names (`unsupportedType`), an entry of a named type
+ * without a usable share (`withoutUsage`) or an `evaluated` one, so
+ * `delivered` is the sum of the three. Only numbers: no entry and no field of
+ * it is kept here.
+ */
+export interface ZaiQuotaTally {
+  readonly delivered: number;
+  readonly unsupportedType: number;
+  readonly withoutUsage: number;
+  readonly evaluated: number;
+}
+
+/**
+ * What one answer of the usage monitor holds: the tier, the reported entries
+ * and how many entries it delivered and dropped.
+ */
 export interface ZaiQuotaReading {
   readonly plan: ZaiPlan | null;
   readonly windows: readonly ZaiQuotaWindow[];
+  readonly tally: ZaiQuotaTally;
 }
+
+/**
+ * Why a card without entries has none after an answer of Z.AI.
+ * @remarks
+ * `none_reported`: the answer held no entry. `unusable`: it held entries, but
+ * none of a type a card names or with a usable share. `elapsed`: it held
+ * usable entries, but the reset of every one has passed. The three look the
+ * same on a card that only says "no entries", yet only the first says that
+ * Z.AI reports no allowance for the key.
+ */
+export const ZAI_ABSENCES = ["none_reported", "unusable", "elapsed"] as const;
+export type ZaiAbsence = (typeof ZAI_ABSENCES)[number];
 
 /**
  * The card of one Z.AI connection.
  * @remarks
  * `accountType` is the account type saved with the connection. `plan` is
  * `null` while Z.AI names no known tier. `windows` holds only the entries Z.AI
- * reported, a missing entry is absent and never a window with 0 %. The status
- * kinds are those of the Claude card; a Z.AI card never has the status
- * `skipped`, because a running session does not keep Pages from asking, and
- * `signed_out` says that the key is missing or Z.AI rejected it.
+ * reported, a missing entry is absent and never a window with 0 %. `absence`
+ * says why `windows` is empty after an answer of Z.AI and is `null` otherwise.
+ * The status kinds are those of the Claude card; a Z.AI card never has the
+ * status `skipped`, because a running session does not keep Pages from
+ * asking, and `signed_out` says that the key is missing or Z.AI rejected it.
  */
 export interface ZaiQuotaAccount {
   readonly provider: "zai";
@@ -97,6 +130,7 @@ export interface ZaiQuotaAccount {
   readonly accountType: ZaiAccountType;
   readonly plan: ZaiPlan | null;
   readonly windows: readonly ZaiQuotaWindow[];
+  readonly absence: ZaiAbsence | null;
   readonly status: ClaudeQuotaStatus;
 }
 
@@ -135,6 +169,7 @@ export const zaiQuotaAccountSchema = z.object({
   accountType: z.enum(["api", "coding-plan"]),
   plan: z.enum(ZAI_PLANS).nullable(),
   windows: z.array(windowSchema).max(ZAI_MAX_WINDOWS),
+  absence: z.enum(ZAI_ABSENCES).nullable(),
   status: quotaStatusSchema,
 });
 
@@ -203,4 +238,19 @@ export function visibleZaiQuotaWindows(
           ZAI_QUOTA_KINDS.indexOf(second.kind) ||
         lengthRank(first.length) - lengthRank(second.length),
     );
+}
+
+/**
+ * Names why an answer of Z.AI leaves a card without entries.
+ * @param tally - What became of the entries of the answer, `null` when there is no answer.
+ * @param shownCount - How many entries the card shows.
+ * @returns The reason, or `null` when the card shows entries or has no answer.
+ */
+export function zaiQuotaAbsence(
+  tally: ZaiQuotaTally | null,
+  shownCount: number,
+): ZaiAbsence | null {
+  if (tally === null || shownCount > 0) return null;
+  if (tally.delivered === 0) return "none_reported";
+  return tally.evaluated === 0 ? "unusable" : "elapsed";
 }

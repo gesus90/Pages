@@ -69,7 +69,7 @@ function progressLines(
   if (progress.length === 0) return [COMMITS];
   return [
     COMMITS,
-    "The earlier attempt reported these todos last; continue from there and keep reporting them with `update_step_progress`:",
+    "Reconcile your list with the last progress reported by the earlier attempt:",
     ...progress.map((todo) => `- ${todo.id}: ${todo.status}`),
   ];
 }

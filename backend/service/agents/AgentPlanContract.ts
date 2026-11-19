@@ -1,5 +1,9 @@
 import { readMarkdownTasks } from "@/backend/service/task/TicketChecklist";
+import { AGENT_STEP_ACTIVITY_LENGTH } from "@/definition/AgentPlanStepProgress";
 
+import { nativePlanProgressInstructions } from "./AgentPlanProgressInstructions";
+
+import type { AgentProviderId } from "@/definition/AgentConnection";
 import type {
   AgentPlanCompletion,
   AgentPlanContract,
@@ -41,6 +45,7 @@ export interface AgentPlanAssignment extends AgentPlanContractOptions {
   readonly contract: AgentPlanContract;
   /** Whether the session reaches Pages through the Pages MCP tools. */
   readonly usesMcp: boolean;
+  readonly provider: AgentProviderId;
   readonly runnerLabel: string;
   readonly instanceId: string;
   readonly directory: string;
@@ -115,12 +120,24 @@ const PROJECT_GITHUB_LINES = [
 const STEP_REPORT_LINE =
   "Report your result by calling the Pages MCP tool `report_step_result`: `status` (`done`, or `blocked` when a person has to decide), `message`, `todos` and `criteria` with the IDs above, `decisions` and `summary`. This is the intended way. Pages checks the call at once; when it refuses, correct what `details.problems` names and call again. A valid call is the result of this step, a later call of this attempt replaces it, and it takes precedence over any text in your closing message.";
 
-/** The live progress every provider reports while it works. */
-const STEP_PROGRESS_LINE =
-  "- Mark each TODO done with `update_step_progress` as soon as it is complete; Pages also checks its ticket checkbox. TODOs requiring lint, check, typecheck, formatting, coverage or full test suites may be marked done with activity `an die Abschluss-QA übergeben`; this counts as completed. Report your progress live with the Pages MCP tool `update_step_progress`: set a todo to `active` right before you start it and to `done` right after you finished it, each time at once, and give `activity` as one short line of what you do now. It ends nothing and is no result; `report_step_result` stays the binding report.";
+const MCP_PROGRESS_LINES = [
+  "- Use `update_step_progress` at the start of the step to report a list of concrete, verifiable tasks. Reuse the list when continuing the same step. Keep exactly one task `active` while working.",
+  `- Use the tool's own-task list field when its schema offers one. Otherwise summarize your own tasks and their state in \`activity\` (up to ${AGENT_STEP_ACTIVITY_LENGTH} characters). Use \`todos\` for the assigned IDs shown above. Send \`todos: []\` when only reporting activity.`,
+  "- Report progress, changes and blockers immediately. Mark finished tasks `done`. Keep the affected task `active` during a blockage and name the blocker in `activity`.",
+  "- During long work, send a short `activity` update at least every 5 minutes, even if nothing changed.",
+  "- Before your final report, update the list one last time. Mark unfinished tasks `open` and name each one with its reason in the final report.",
+] as const;
 
 function progressLines(assignment: AgentPlanAssignment): readonly string[] {
-  return assignment.usesMcp ? [STEP_PROGRESS_LINE] : [];
+  if (!assignment.usesMcp) return nativePlanProgressInstructions(assignment);
+  return [
+    ...MCP_PROGRESS_LINES,
+    ...(!assignment.isReadOnly && assignment.contract.todos.length > 0
+      ? [
+          "- When you mark an assigned ticket TODO `done` through `update_step_progress`, Pages also checks its ticket checkbox. TODOs requiring lint, check, typecheck, formatting, coverage or full test suites may be marked done with activity `an die Abschluss-QA übergeben` when handed to the final QA step.",
+        ]
+      : []),
+  ];
 }
 
 function gitHubLines(assignment: AgentPlanAssignment): readonly string[] {
@@ -149,7 +166,7 @@ function itemLine(item: AgentPlanContractItem): string {
 function readOnlyMcpSection(contract: AgentPlanContract): string {
   const keys = contract.tickets.map((ticket) => `\`${ticket.key}\``).join(", ");
   return [
-    "- The Pages MCP server is connected read-only: you may read Pages content and report your result with `report_step_result`, every other change is refused.",
+    "- The Pages MCP server lets you read Pages content and report live progress and the final result for this step.",
     ...(keys
       ? [
           `- Read ticket ${keys} with \`read_ticket\` and \`read_ticket_checklist\`. Do not try to change tickets or their checklists; report your progress and leave open entries open.`,
@@ -259,7 +276,7 @@ function todoMcpLines(assignment: AgentPlanAssignment): readonly string[] {
   const keys = contract.tickets.map((ticket) => `\`${ticket.key}\``).join(", ");
   if (assignment.isReadOnly)
     return [
-      "- The Pages MCP server is connected read-only: you may read Pages content and report your result with `report_step_result`, every other change is refused.",
+      "- The Pages MCP server lets you read Pages content and report live progress and the final result for this step.",
       ...(keys
         ? [
             `- Read ticket ${keys} with \`read_ticket\` and \`read_ticket_checklist\`. You cannot change its status or checklist in this mode; name the todos you finished in your closing message.`,
@@ -322,7 +339,7 @@ function renderTodoAssignment(assignment: AgentPlanAssignment): string {
     "### Todo list",
     ...(contract.todos.some((todo) => !todo.checked)
       ? contract.todos.filter((todo) => !todo.checked).map(itemLine)
-      : ["- The ticket lists no todo; the instruction above is the work."]),
+      : ["- No assigned TODOs are open. Work on the instruction above."]),
     "",
     "### How to work",
     completionInstruction(assignment),

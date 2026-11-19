@@ -68,6 +68,7 @@ import {
   initialStepAttemptId,
   closedSessionChanges,
   isConfirmedPlanCancellation,
+  recordUsesMcp,
 } from "./AgentPlanSessionRecords";
 import { planStackNodeInput } from "./stack/AgentPlanStackInputs";
 
@@ -160,7 +161,7 @@ export class AgentPlanStepRunner {
                   observer: (restored) => this.observer(restored),
                 },
                 (restored, session, terms) =>
-                  this.finish(restored, session, terms),
+                  this.finishRestored(restored, session, terms),
               )
             : null;
           const reattached =
@@ -172,7 +173,7 @@ export class AgentPlanStepRunner {
                   access: this.dependencies.access,
                   observer: (restored) => this.observer(restored),
                   finish: (restored, session, terms) =>
-                    this.finish(restored, session, terms),
+                    this.finishRestored(restored, session, terms),
                 })
               : null);
           shouldReattach = false;
@@ -473,7 +474,7 @@ export class AgentPlanStepRunner {
     this.offerInstructions(node, groupKey, input, session);
     node.hasStarted = true;
     return finishStartedPlanSession(session, () =>
-      this.finish(node, session, terms),
+      this.finish(node, session, terms, mcp !== null),
     );
   }
 
@@ -496,13 +497,23 @@ export class AgentPlanStepRunner {
     offerGroupInstructions({ sessions, groups: this.groups, node, key, input });
   }
 
-  private async finish(
+  /** Finishes a reattached node with the MCP use its saved record was started with. */
+  private finishRestored(
     node: NodeRun,
     session: PlanSession,
     terms: AgentPlanSessionTerms,
   ): Promise<Partial<AgentPlanStepResult>> {
+    return this.finish(node, session, terms, recordUsesMcp(node.record));
+  }
+
+  private async finish(
+    node: NodeRun,
+    session: PlanSession,
+    terms: AgentPlanSessionTerms,
+    usesMcp: boolean,
+  ): Promise<Partial<AgentPlanStepResult>> {
     const reportedTurns = await runPlanTodoTurns(
-      { node, session, terms },
+      { node, session, terms, usesMcp },
       {
         reports: this.turnReports,
         start: this.dependencies.start,

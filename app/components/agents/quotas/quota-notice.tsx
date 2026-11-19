@@ -60,24 +60,27 @@ const NOTICE_SCOPES: Readonly<Record<NoticeProvider, string>> = {
  * failed first query the notice of a Claude card adds that the plan stays
  * unknown, but only while the card shows no plan, and so does the notice of a
  * Codex card. A Z.AI card names the plan the same way. A card of another
- * provider has no plan and always says what to expect.
+ * provider has no plan and always says what to expect. A card that knows more
+ * about why it has nothing to show names the group of its own title and detail
+ * in `reasonKey`, which replaces those of the notice.
  */
 export function QuotaNotice({
   notice,
   provider,
   hasPlan,
+  reasonKey,
 }: {
   readonly notice: QuotaNoticeKind;
   readonly provider: NoticeProvider;
   readonly hasPlan: boolean;
+  readonly reasonKey?: string;
 }): React.ReactElement {
   const { t } = useTranslation();
   const style = NOTICE_STYLES[notice];
   const Icon = style.icon;
-  const scope = NOTICE_SCOPES[provider];
-  const title = t(`${scope}.${notice}.title`);
-  const detail =
-    notice === "failed" && hasPlan ? null : t(`${scope}.${notice}.detail`);
+  const scope = reasonKey ?? `${NOTICE_SCOPES[provider]}.${notice}`;
+  const title = t(`${scope}.title`);
+  const detail = notice === "failed" && hasPlan ? null : t(`${scope}.detail`);
   return (
     <div
       role="status"

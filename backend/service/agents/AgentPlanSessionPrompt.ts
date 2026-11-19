@@ -84,6 +84,7 @@ function buildAssignmentPrompt(
   return renderPlanAssignment({
     contract: terms.contract,
     usesMcp: terms.mcp !== null,
+    provider: prepared.input.agent.connection.provider,
     isReadOnly:
       planSessionReach(
         prepared.input.agent.connection.provider,

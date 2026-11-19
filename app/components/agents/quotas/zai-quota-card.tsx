@@ -29,13 +29,23 @@ import type { ZaiCardBody } from "./quota-card-state";
 /** More windows than two stand in the compact slots, so the area keeps its height. */
 const REGULAR_WINDOW_LIMIT = 2;
 
+/** The texts that say why an answered card has no entry; other notices keep their own. */
+function absenceReasonKey(
+  body: Extract<ZaiCardBody, { readonly kind: "notice" }>,
+): string | undefined {
+  if (body.notice !== "noWindows" || body.absence === null) return undefined;
+  return `agentsPage.zai.absence.${body.absence}`;
+}
+
 /**
  * The window area of a Z.AI card: the entries, or the notice in their place.
  * @remarks
  * It is the area of the Claude card: it takes the height between head and
  * status line, and one entry or a notice stands centred in it, so nothing
  * greyed holds the place of a missing entry. Three entries, the usual answer
- * of a Coding Plan key, stand in the compact slots.
+ * of a Coding Plan key, stand in the compact slots. A notice for a card that
+ * answered without an entry says whether Z.AI delivered none, none the card can
+ * read, or only entries whose reset has passed.
  */
 function ZaiCardWindows({
   body,
@@ -49,7 +59,12 @@ function ZaiCardWindows({
   if (body.kind === "notice")
     return (
       <div data-quota-windows="notice" className={QUOTA_WINDOWS_AREA_CLASS}>
-        <QuotaNotice notice={body.notice} provider="zai" hasPlan={hasPlan} />
+        <QuotaNotice
+          notice={body.notice}
+          provider="zai"
+          hasPlan={hasPlan}
+          reasonKey={absenceReasonKey(body)}
+        />
       </div>
     );
   const isCompact = body.windows.length > REGULAR_WINDOW_LIMIT;

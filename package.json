@@ -13,7 +13,7 @@
     "format:check": "prettier --check .",
     "lint": "PAGES_ROUTES=all react-router typegen && node scripts/run-lint.mjs",
     "typecheck": "PAGES_ROUTES=all react-router typegen && NODE_OPTIONS=--max-old-space-size=4096 tsc --noEmit",
-    "check": "pnpm run typecheck && pnpm run format:check",
+    "check": "corepack pnpm run typecheck && corepack pnpm run format:check",
     "test:backend": "vitest run --config vitest.backend.config.ts --coverage && tsx scripts/backend-coverage-report.ts",
     "postgres:restore-check": "tsx scripts/postgres-restore-check.ts",
     "db:transfer": "tsx scripts/db-transfer.ts",

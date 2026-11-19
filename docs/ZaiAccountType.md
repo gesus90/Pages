@@ -41,6 +41,21 @@ source of the z.ai usage plugin and from published captures of the answer.
 Pages has not compared them with the answer to a live key; the parser reads
 only the fields above and treats everything else as unknown, so a changed
 answer shows as "Query failed" or as missing values, never as an invented one.
+A `limits` that is not a list is a changed answer and fails the query; a
+missing or empty list is an answer without entries.
+
+**What an answer delivered.** Every successful answer is counted, and only the
+counts are logged, as the event `integration.zai.quota.answer` of the component
+`ZaiQuotaProbe` with the connection id and these numbers: `deliveredEntries`
+(entries in `limits`), `unsupportedEntries` (entries of a type no card names),
+`withoutUsageEntries` (entries of a named type without a usable share),
+`evaluatedEntries` (entries the card can read) and `hiddenEntries` (evaluated
+entries whose reset had passed when the answer came). Delivered is the sum of
+the unsupported, without-usage and evaluated entries. The log holds neither the
+key nor any entry or field of the answer. An answer with the same numbers as the
+last one of the connection is logged at `debug`, so the notice level shows each
+change once. Comparing a card with the answer of a live key therefore needs no
+raw response: the numbers say which of the cases below applies.
 
 **Required permission.** Only the key of the connection. The monitor has no
 separate management credential. A key the monitor rejects (HTTP 401, 403 or a
@@ -73,10 +88,22 @@ every seven days and the MCP allowance monthly, as the plan documentation of
 z.ai states; the card shows the reset time z.ai reports and never computes one.
 
 **Unknown values.** A value z.ai does not report stays unknown: no window with
-0 %, no tier ("Plan unknown"), no reset line. A successful answer without any
-entry reads "No windows reported" with the time of the query. The standard
-prepaid API has no plan tier; whether z.ai reports entries for such a key is
-not documented, so its card shows exactly what the answer holds.
+0 %, no tier ("Plan unknown"), no reset line. A successful answer that leaves
+no entry on the card reads "No windows reported" with the time of the query,
+and the notice names which of three cases applies, because they say different
+things about the key:
+
+- `none_reported`: the answer held no entry, so z.ai reports no allowance for
+  the key.
+- `unusable`: the answer held entries, but none of a type a card names or with a
+  usable share; the card shows no value z.ai does not back.
+- `elapsed`: the answer held usable entries, but the reset of every one has
+  passed, so their period is over and the figures no longer apply. An entry
+  leaves the card in the browser too once its reset passes, which also gives
+  this case.
+
+The standard prepaid API has no plan tier; whether z.ai reports entries for
+such a key is not documented, so its card shows exactly what the answer holds.
 
 **Refresh.** The page asks once when it opens, on every manual refresh of the
 page, on every retry of a failed card and every minute through the open push

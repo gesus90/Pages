@@ -1,5 +1,6 @@
 import { AgentError } from "@/backend/error/AgentErrors";
-import { logCaughtError } from "@/backend/logging/Logger";
+import { logCaughtError, logEvent } from "@/backend/logging/Logger";
+import { visibleZaiQuotaWindows } from "@/definition/ZaiQuota";
 
 import { ProviderQuotaProbe } from "./ProviderQuotaProbe";
 import { credentialRevision } from "./QuotaCredentialRevision";
@@ -37,11 +38,16 @@ export interface ZaiStoredReading extends ZaiQuotaReading {
  * answer, and a replaced key never shows the figures of the old one. A key
  * the monitor rejects drops its answer, because nothing it said holds any
  * more. The scheduling of the queries is that of {@link ProviderQuotaProbe}.
+ * Every answer is logged as numbers only: how many entries Z.AI delivered, how
+ * many were dropped for an unsupported type or a missing usable share, how many
+ * were evaluated and how many of those had passed their reset. Neither the key
+ * nor any entry or field of the answer enters the log.
  */
 export class ZaiQuotaProbe {
   private readonly dependencies: ZaiQuotaProbeDependencies;
   private readonly probe: ProviderQuotaProbe;
   private readonly readings = new Map<string, ZaiStoredReading>();
+  private readonly lastCounts = new Map<string, string>();
 
   public constructor(dependencies: ZaiQuotaProbeDependencies) {
     this.dependencies = dependencies;
@@ -91,6 +97,7 @@ export class ZaiQuotaProbe {
     );
     if (result.ok) {
       this.keep(revision, { ...result.value, at: this.now().toISOString() });
+      this.logAnswer(connection.id, result.value);
       return;
     }
     if (
@@ -111,6 +118,29 @@ export class ZaiQuotaProbe {
       throw new AgentError("provider_auth_failed");
     }
     throw new AgentError("api_key_required");
+  }
+
+  /** An answer that differs from the last logged one is an operator notice; a repeat is a trace. */
+  private logAnswer(connectionId: string, reading: ZaiQuotaReading): void {
+    const { tally, windows } = reading;
+    const counts = {
+      deliveredEntries: tally.delivered,
+      unsupportedEntries: tally.unsupportedType,
+      withoutUsageEntries: tally.withoutUsage,
+      evaluatedEntries: tally.evaluated,
+      hiddenEntries:
+        windows.length - visibleZaiQuotaWindows(windows, this.now()).length,
+    };
+    const signature = JSON.stringify(counts);
+    const isRepeat = this.lastCounts.get(connectionId) === signature;
+    this.lastCounts.set(connectionId, signature);
+    logEvent({
+      level: isRepeat ? "debug" : "info",
+      event: "integration.zai.quota.answer",
+      component: "ZaiQuotaProbe",
+      message: "Z.AI usage monitor answered",
+      metadata: { connectionId, ...counts },
+    });
   }
 
   private keep(revision: string, reading: ZaiStoredReading): void {
