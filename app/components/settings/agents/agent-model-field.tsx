@@ -9,9 +9,9 @@ import type { AssignmentChoices } from "./use-agent-assignment";
  * @remarks
  * Connection and model are one choice: every connection's catalog lists its
  * models under their tool, and choosing one keeps the model's own
- * connection. Models of a connection that is off or not verified stay listed
- * as disabled rows with the reason. A saved value outside the catalogs stays
- * visible as unavailable and is never replaced on its own.
+ * connection. Models of a connection that is off or not verified are not
+ * listed. A saved value that the list no longer offers stays visible at the
+ * field as unavailable, with its reason, and is never replaced on its own.
  */
 export function AgentModelField({
   selection,

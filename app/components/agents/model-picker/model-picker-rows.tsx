@@ -35,13 +35,11 @@ function ModelRow({
   const { t } = useTranslation();
   const key = modelRowKey(choice.model.id);
   const isActive = state.active?.key === key;
-  const isRefused = choice.refusal !== null;
   const name = [
     choice.label,
     choice.detail,
     choice.isFree ? t("plans.modelPicker.free") : null,
     choice.source,
-    choice.refusal,
   ]
     .filter((part) => part !== null)
     .join(", ");
@@ -52,7 +50,6 @@ function ModelRow({
       role="treeitem"
       aria-level={2}
       aria-selected={isSelected}
-      aria-disabled={isRefused || undefined}
       aria-label={name}
       className={cn(
         ROW_CLASS,
@@ -60,7 +57,6 @@ function ModelRow({
         "text-foreground",
         isSelected && "bg-primary-subtle",
         isActive && "bg-muted",
-        isRefused && "cursor-not-allowed py-1 text-muted-foreground",
       )}
       onClick={() => state.choose(choice)}
       onMouseEnter={() => state.highlight(key)}
@@ -72,11 +68,6 @@ function ModelRow({
             {choice.detail}
           </span>
         )}
-        {isRefused ? (
-          <span className="basis-full text-xs text-warning">
-            {choice.refusal}
-          </span>
-        ) : null}
       </span>
       {choice.isFree ? <FreeBadge /> : null}
       <Check

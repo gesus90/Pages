@@ -347,20 +347,32 @@ export async function antigravityInventory(base, context = {}) {
     )
       throw new Error("Selectors unavailable");
     for (const model of models) {
-      const selected = await chooseAntigravity(
-        client,
-        session.sessionId,
-        session.configOptions,
-        { id: "model", value: model.value, error: "plan_model_unavailable" },
-      );
-      entry.models.push({
-        id: model.value,
-        name: model.name,
-        reasoningEfforts: choices(selected, EFFORT_OPTION).map(
-          (effort) => effort.value,
-        ),
-      });
+      try {
+        const selected = await chooseAntigravity(
+          client,
+          session.sessionId,
+          session.configOptions,
+          { id: "model", value: model.value, error: "plan_model_unavailable" },
+        );
+        entry.models.push({
+          id: model.value,
+          name: model.name,
+          reasoningEfforts: choices(selected, EFFORT_OPTION).map(
+            (effort) => effort.value,
+          ),
+        });
+      } catch (error) {
+        if (
+          error.pagesCode !== "plan_model_unavailable" &&
+          error.acpCode === undefined
+        )
+          throw error;
+      }
     }
+    if (entry.models.length === 0)
+      throw Object.assign(new Error("Models unavailable"), {
+        pagesCode: "plan_model_unavailable",
+      });
     entry.authentication = "authenticated";
   } catch (error) {
     entry.models = [];
@@ -370,6 +382,7 @@ export async function antigravityInventory(base, context = {}) {
       error.acpCode === -32000
     )
       entry.authentication = "not_logged_in";
+    context.onError?.(error);
   } finally {
     clearTimeout(timer);
     context.signal?.removeEventListener("abort", cancel);

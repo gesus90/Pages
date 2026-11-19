@@ -558,6 +558,27 @@ const NO_OLDER: OlderMessages = {
   onLoad: () => undefined,
 };
 
+/** The place of a history without messages: empty, or still on its way. */
+function EmptyHistory({
+  name,
+  isLoading,
+}: {
+  readonly name: string;
+  readonly isLoading: boolean;
+}): React.ReactElement {
+  const { t } = useTranslation();
+  return (
+    <p
+      className="flex min-h-40 flex-1 items-center justify-center px-4 text-center text-sm text-muted-foreground"
+      role={isLoading ? "status" : undefined}
+    >
+      {isLoading
+        ? t("chatPage.historyLoading", { name })
+        : t("chatPage.emptyHistory", { name })}
+    </p>
+  );
+}
+
 interface ChatPageHistoryProps {
   readonly messages: readonly VirtualChatMessage[];
   readonly name: string;
@@ -572,6 +593,8 @@ interface ChatPageHistoryProps {
   readonly live?: HistoryLive;
   /** The message a "Zur Nachricht" link points to; shown and marked once. */
   readonly focusMessageId?: string;
+  /** Whether the history is on its way, so its absence says nothing yet. */
+  readonly isLoading?: boolean;
   /** The key of the opened chat, which its reading position is kept under. */
   readonly chatKey: string;
   /** Where the person stopped reading in each chat, by chat key. */
@@ -593,6 +616,7 @@ export function ChatPageHistory({
   answeringNames = [],
   live = NO_LIVE,
   focusMessageId,
+  isLoading,
   chatKey,
   readingPositions,
 }: ChatPageHistoryProps): React.ReactElement {
@@ -632,11 +656,7 @@ export function ChatPageHistory({
   });
 
   if (messages.length === 0 && !isAnswering && live.answers.length === 0)
-    return (
-      <p className="flex min-h-40 flex-1 items-center justify-center px-4 text-center text-sm text-muted-foreground">
-        {t("chatPage.emptyHistory", { name })}
-      </p>
-    );
+    return <EmptyHistory name={name} isLoading={isLoading === true} />;
 
   return (
     <ScrollViewport

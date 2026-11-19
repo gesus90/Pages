@@ -4,7 +4,6 @@ import { useTranslation } from "react-i18next";
 
 import { Tooltip } from "@/app/components/ui/tooltip";
 import { cn } from "@/app/lib/cn";
-import { modelConsumerRefusal } from "@/definition/AgentModelConsumers";
 
 import { FreeBadge } from "./badges/free-badge";
 import {
@@ -25,6 +24,7 @@ import {
   MODEL_FIELD_LABEL_CLASS,
 } from "./model-picker/model-field";
 import { ModelPickerPanel } from "./model-picker/model-picker-panel";
+import { modelRefusalText, usableModels } from "./model-picker/model-usability";
 import { ToolMark } from "./model-picker/tool-mark";
 import { useModelPicker } from "./model-picker/use-model-picker";
 
@@ -42,13 +42,17 @@ import type {
 interface ModelPickerProps {
   /** The selection key of the chosen model; empty while none is chosen. */
   readonly value: string;
-  /** The models this place may offer, limited only to its execution target and access scope. */
+  /**
+   * The models this place may offer, limited only to its execution target and
+   * access scope. The choice lists and searches only those of them that
+   * `consumer` and `refusalOf` accept.
+   */
   readonly models: readonly PageAgentModel[];
   /** Central capability rule; plans are the default consumer. */
   readonly consumer?: AgentModelConsumer;
   /** Current draft access level when choosing a model for an employee. */
   readonly employeeAccess?: AgentEmployeeAccess;
-  /** The saved model ID, named while no listed model matches it. */
+  /** The saved model ID, named while no listed model matches it, with the reason it cannot be used. */
   readonly savedModel?: string;
   /** The saved connection's provider when no catalog entry is available. */
   readonly savedProvider?: PageAgentModel["provider"] | null;
@@ -60,7 +64,11 @@ interface ModelPickerProps {
   readonly isLabelHidden?: boolean;
   /** The text of the trigger while no model is chosen. */
   readonly placeholder?: string;
-  /** Why a listed model cannot be chosen here; such a model stays listed, disabled, with the reason. */
+  /**
+   * Why this place cannot use a model beyond the central rule, such as a
+   * connection that is off. Such a model is neither listed nor found by the
+   * search; the reason names it only while it is the saved choice.
+   */
   readonly refusalOf?: (model: PageAgentModel) => string | null;
   /** What the open panel says when the place offers no model; a general note by default. */
   readonly emptyLabel?: string;
@@ -89,6 +97,7 @@ function TriggerValue(props: {
   readonly value: string;
   readonly savedModel: string | undefined;
   readonly placeholder: string | undefined;
+  readonly unusableReason: string | null;
 }): React.ReactElement {
   const { t } = useTranslation();
   if (props.value === "" && props.placeholder !== undefined)
@@ -98,13 +107,18 @@ function TriggerValue(props: {
       </span>
     );
   const selected = findModelChoice(props.groups, props.value);
-  if (!selected)
+  if (!selected) {
+    const reason = props.unusableReason ?? t("pageAgents.missingModel");
     return (
-      <span className="min-w-0 flex-1 truncate text-warning">
+      <span
+        className="min-w-0 flex-1 truncate text-warning"
+        title={props.savedModel ? `${props.savedModel} · ${reason}` : reason}
+      >
         {props.savedModel ? `${props.savedModel} · ` : ""}
-        {t("pageAgents.missingModel")}
+        {reason}
       </span>
     );
+  }
   const { choice, group } = selected;
   // A source named like its tool adds nothing.
   const source = choice.source === group.label ? null : choice.source;
@@ -128,8 +142,9 @@ function TriggerValue(props: {
 function badgeChoice(
   selected: ReturnType<typeof findModelChoice>,
   props: ModelPickerProps,
-  t: TFunction,
+  context: { readonly t: TFunction; readonly unusableReason: string | null },
 ): ModelChoiceBadgeProps | null {
+  const { t } = context;
   if (selected)
     return {
       mark: selected.group.mark,
@@ -146,7 +161,7 @@ function badgeChoice(
       mark: "openrouter",
       name: props.savedModel,
       tool: "OpenRouter",
-      unavailableHint: t("pageAgents.missingModel"),
+      unavailableHint: context.unusableReason ?? t("pageAgents.missingModel"),
     };
   return null;
 }
@@ -157,6 +172,7 @@ function BadgeTriggerValue(props: {
   readonly value: string;
   readonly savedModel: string | undefined;
   readonly placeholder: string | undefined;
+  readonly unusableReason: string | null;
 }): React.ReactElement {
   const { t } = useTranslation();
   if (props.value === "" && props.placeholder !== undefined)
@@ -168,13 +184,15 @@ function BadgeTriggerValue(props: {
       </span>
     );
   if (props.choice) return <ModelChoiceBadge {...props.choice} />;
-  const reason = t("pageAgents.missingModel");
+  const reason = props.unusableReason ?? t("pageAgents.missingModel");
   return (
     <span
       className={cn(MODEL_BADGE_FIELD_TEXT_CLASS, "text-warning")}
       title={props.savedModel ? `${props.savedModel} · ${reason}` : reason}
     >
-      {t("pageAgents.modelMissingShort")}
+      {props.unusableReason === null
+        ? t("pageAgents.modelMissingShort")
+        : t("pageAgents.modelUnusableShort")}
     </span>
   );
 }
@@ -266,20 +284,15 @@ function PickerTrigger(props: {
  */
 export function ModelPicker(props: ModelPickerProps): React.ReactElement {
   const { t } = useTranslation();
-  const groups = modelGroups(props.models, {
+  const { listed, refusals } = usableModels(props.models, (model) =>
+    modelRefusalText(props, model, t),
+  );
+  const groups = modelGroups(listed, {
     translate: t,
-    refusalOf: (model) => {
-      const refusal = modelConsumerRefusal(props.consumer ?? "plan", model, {
-        employeeAccess: props.employeeAccess,
-      });
-      if (refusal === "zenToolsMissing")
-        return t("settings.agents.error.picaZenUnsupported");
-      return refusal === null
-        ? (props.refusalOf?.(model) ?? null)
-        : t(`settings.agents.modelSelection.refusal.${refusal}`);
-    },
     selectedId: props.value,
   });
+  // A saved model the place can no longer use is named at the field, never listed.
+  const unusableReason = refusals.get(props.value) ?? null;
   const state = useModelPicker({
     value: props.value,
     groups,
@@ -291,13 +304,17 @@ export function ModelPicker(props: ModelPickerProps): React.ReactElement {
   const valueStyle = props.valueStyle ?? "detail";
   const choice =
     valueStyle === "badge"
-      ? badgeChoice(findModelChoice(groups, props.value), props, t)
+      ? badgeChoice(findModelChoice(groups, props.value), props, {
+          t,
+          unusableReason,
+        })
       : null;
   const triggerValue = {
     groups,
     value: props.value,
     savedModel: props.savedModel,
     placeholder: props.placeholder,
+    unusableReason,
   };
   return (
     <div className="relative min-w-0" onBlur={state.handleBlur}>

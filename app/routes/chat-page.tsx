@@ -1,6 +1,6 @@
 import { useLoaderData, useSearchParams } from "react-router";
 
-import { CHAT_PAGE_ENDPOINT, isChatDirectory } from "@/app/lib/chat-directory";
+import { chatPageEndpoint, isChatDirectory } from "@/app/lib/chat-directory";
 import { ChatPage } from "@/app/components/chat-page/chat-page";
 import { sendToBackend } from "@/app/lib/backend-request";
 import { readRouteData } from "@/app/lib/local-state/route-data";
@@ -23,14 +23,15 @@ const QUIET_INTENTS: readonly string[] = [
 ];
 
 /**
- * Reads the participants, the dialog choices and the histories of the chat
- * page from its endpoint.
+ * Reads the participants, the dialog choices and the history of the chat
+ * that opens from the page's endpoint; another chat reads its history when
+ * it opens.
  */
 export function clientLoader({
   request,
 }: Route.ClientLoaderArgs): Promise<VirtualChatDirectory> {
   return readRouteData({
-    endpoint: CHAT_PAGE_ENDPOINT,
+    endpoint: chatPageEndpoint(request.url),
     signal: request.signal,
     isPayload: isChatDirectory,
   });

@@ -64,9 +64,9 @@ export function PlanSwarmAccessSelect(props: {
  * Connection, model, reasoning and access of the main model or of helpers.
  *
  * @remarks
- * The model picker lists every model Pages offers; a model without an ACP
- * connection stays listed, disabled with the reason, because each swarm
- * session is an ACP session of its own.
+ * The model picker lists the models of the shared catalog that can run here;
+ * a model without an ACP connection is left out, because each swarm session
+ * is an ACP session of its own.
  */
 export function PlanSwarmModelRow(props: {
   readonly label: string;

@@ -66,6 +66,20 @@ const CLAUDE_EXACT_MODEL = {
   CLAUDE_CODE_DISABLE_LEGACY_MODEL_REMAP: "1",
 };
 
+// A job is exactly one `claude -p` turn with exactly one terminal `result`. A
+// background command lets the turn end while it still runs; its completion then
+// starts a second turn with a second `result`, which the runner must refuse as
+// contradictory and stops the job. Long project checks therefore run in the
+// foreground, within a Bash timeout that fits them.
+const CLAUDE_SINGLE_TURN = {
+  CLAUDE_CODE_DISABLE_BACKGROUND_TASKS: "1",
+  BASH_DEFAULT_TIMEOUT_MS: String(30 * 60_000),
+  BASH_MAX_TIMEOUT_MS: String(2 * 60 * 60_000),
+};
+
+// Tools that wake a finished turn later stay off for the same reason.
+const CLAUDE_DEFERRED_TOOLS = "Monitor,ScheduleWakeup,CronCreate";
+
 function inspect(tool, args, input, context = {}) {
   return new Promise((resolve) => {
     const child = execFile(
@@ -381,6 +395,8 @@ function claudeArguments(command, pagesArgs) {
       ? ["--resume", command.continuation.resumeSessionId]
       : []),
     ...claudeSettingArguments(command),
+    "--disallowedTools",
+    CLAUDE_DEFERRED_TOOLS,
     "--model",
     program.model,
   ];
@@ -461,27 +477,87 @@ async function spawnOpenCode(command, jobId, signal, folder) {
   });
 }
 
+const ANTIGRAVITY_FAILURE_CODES = new Set([
+  "antigravity_acp_unsupported",
+  "antigravity_configuration_unmanaged",
+  "provider_auth_failed",
+  "plan_model_unavailable",
+  "plan_reasoning_unsupported",
+]);
+
+function antigravitySelectionFailure(message, failureCode) {
+  return Object.assign(new Error(message), { failureCode });
+}
+
+function requireAntigravitySelection(command, inventory, inventoryError) {
+  const program = command.program;
+  if (
+    inventory?.authentication === "not_logged_in" ||
+    inventoryError?.pagesCode === "provider_auth_failed"
+  )
+    throw antigravitySelectionFailure(
+      "Runner Antigravity account login required",
+      "provider_auth_failed",
+    );
+  if (ANTIGRAVITY_FAILURE_CODES.has(inventoryError?.pagesCode))
+    throw antigravitySelectionFailure(
+      "Antigravity selection unavailable; update the runner or reconnect this execution context",
+      inventoryError.pagesCode,
+    );
+  if (inventory?.acp?.status !== "verified")
+    throw antigravitySelectionFailure(
+      "Antigravity ACP adapter unsupported or unavailable",
+      "antigravity_acp_unsupported",
+    );
+  if (inventory.authentication !== "authenticated")
+    throw antigravitySelectionFailure(
+      "Runner could not verify the Antigravity status check",
+      "cli_check_failed",
+    );
+  if (
+    !command.managed?.connectionId &&
+    !command.managed?.ownerId &&
+    inventory.catalogRevision !== program.route.catalogRevision
+  )
+    throw antigravitySelectionFailure(
+      "Antigravity catalog changed before start",
+      "plan_context_changed",
+    );
+  const model = inventory.models.find((entry) => entry.id === program.model);
+  if (!model)
+    throw antigravitySelectionFailure(
+      `Antigravity model ${program.model} unavailable`,
+      "plan_model_unavailable",
+    );
+  if (
+    program.reasoningEffort !== null &&
+    !model.reasoningEfforts.includes(program.reasoningEffort)
+  )
+    throw antigravitySelectionFailure(
+      `Antigravity reasoning effort ${program.reasoningEffort} unsupported`,
+      "plan_reasoning_unsupported",
+    );
+  if (!["read_only", "yolo", "full_environment"].includes(program.access))
+    throw antigravitySelectionFailure(
+      "Antigravity execution access unsupported",
+      "plan_context_changed",
+    );
+}
+
 async function spawnAntigravity(command, jobId, signal, folder) {
   const program = command.program;
   const environment = {
     ...cliEnvironment(),
     ...command.runtimeContext?.environment,
   };
-  const inventory = await antigravityInventory(environment, { signal });
-  const model = inventory?.models.find((entry) => entry.id === program.model);
-  if (
-    inventory?.acp?.status !== "verified" ||
-    inventory.authentication !== "authenticated" ||
-    (!command.managed?.ownerId &&
-      inventory.catalogRevision !== program.route.catalogRevision) ||
-    !model ||
-    (program.reasoningEffort !== null &&
-      !model.reasoningEfforts.includes(program.reasoningEffort)) ||
-    !["read_only", "yolo", "full_environment"].includes(program.access)
-  )
-    throw new Error(
-      "Antigravity selection unavailable; update the runner or reconnect this execution context",
-    );
+  let inventoryError = null;
+  const inventory = await antigravityInventory(environment, {
+    signal,
+    onError: (error) => {
+      inventoryError = error;
+    },
+  });
+  requireAntigravitySelection(command, inventory, inventoryError);
   signal.throwIfAborted();
   const servers = await cliMcpServers(command, folder, jobId);
   return spawn(process.execPath, antigravityCommand(), {
@@ -570,7 +646,9 @@ export async function spawnCli(command, jobId, signal, folder) {
       env: {
         ...cliEnvironment(),
         ...command.runtimeContext?.environment,
-        ...(tool === "claude" ? CLAUDE_EXACT_MODEL : {}),
+        ...(tool === "claude"
+          ? { ...CLAUDE_EXACT_MODEL, ...CLAUDE_SINGLE_TURN }
+          : {}),
         ...(tool === "claude" && command.pagesAccess === 1
           ? { CLAUDE_CODE_DISABLE_AUTO_MEMORY: "1" }
           : {}),

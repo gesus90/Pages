@@ -12,12 +12,26 @@ export const DropdownMenuTrigger = DropdownMenuPrimitive.Trigger;
 export const DropdownMenuSub = DropdownMenuPrimitive.Sub;
 export const DropdownMenuRadioGroup = DropdownMenuPrimitive.RadioGroup;
 
+// The shell carries radius, fill and shadow; the scrolling viewport inside it
+// carries none of them, so a scrollbar never paints over a rounded corner.
+const MENU_SHELL_CLASS = "rounded-xl bg-surface shadow-panel";
+const MENU_VIEWPORT_CLASS =
+  "z-50 max-h-(--radix-dropdown-menu-content-available-height) min-w-44 p-1 outline-none";
+
+interface DropdownMenuContentProps extends ComponentProps<
+  typeof DropdownMenuPrimitive.Content
+> {
+  /** Classes of the shell, such as a ring; the viewport takes `className`. */
+  readonly containerClassName?: string;
+}
+
 /** Renders a positioned Radix dropdown surface with Pages styling. */
 export function DropdownMenuContent({
   className,
+  containerClassName,
   sideOffset = 8,
   ...properties
-}: ComponentProps<typeof DropdownMenuPrimitive.Content>): React.ReactElement {
+}: DropdownMenuContentProps): React.ReactElement {
   return (
     <DropdownMenuPrimitive.Portal>
       <DropdownMenuPrimitive.Content
@@ -26,10 +40,9 @@ export function DropdownMenuContent({
         {...properties}
       >
         <ScrollViewport
-          className={cn(
-            "z-50 max-h-(--radix-dropdown-menu-content-available-height) min-w-44 rounded-xl bg-surface p-1 shadow-panel outline-none",
-            className,
-          )}
+          isShell
+          containerClassName={cn(MENU_SHELL_CLASS, containerClassName)}
+          className={cn(MENU_VIEWPORT_CLASS, className)}
         >
           {properties.children}
         </ScrollViewport>
@@ -163,10 +176,9 @@ export function DropdownMenuSubContent({
     <DropdownMenuPrimitive.Portal>
       <DropdownMenuPrimitive.SubContent asChild sideOffset={4} {...properties}>
         <ScrollViewport
-          className={cn(
-            "z-50 max-h-(--radix-dropdown-menu-content-available-height) min-w-44 rounded-xl bg-surface p-1 shadow-panel outline-none",
-            className,
-          )}
+          isShell
+          containerClassName={MENU_SHELL_CLASS}
+          className={cn(MENU_VIEWPORT_CLASS, className)}
         >
           {properties.children}
         </ScrollViewport>

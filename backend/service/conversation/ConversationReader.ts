@@ -27,6 +27,7 @@ import type {
   ConversationSummary,
   ConversationVoice,
 } from "@/definition/Conversation";
+import type { StoredAgentAnswer } from "@/definition/ConversationLiveAnswer";
 import type { User } from "@/definition/User";
 import type {
   ConversationMessageContentReader,
@@ -183,6 +184,16 @@ export interface ConversationHistoryOptions {
   readonly withAgentAnswers?: boolean;
 }
 
+/** Which conversations of a list read carry their newest messages. */
+export interface ConversationViewOptions {
+  /**
+   * Whether a conversation carries its newest page; absent reads every one.
+   * A conversation without it comes with no messages and `hasMore` false,
+   * so a list does not read the histories it does not show.
+   */
+  readonly withMessages?: (summary: ConversationSummary) => boolean;
+}
+
 /**
  * The reads of conversations for one member: the list, a
  * history, the people and agents to write to, and the audio of a voice
@@ -281,12 +292,45 @@ export class ConversationReader {
   public async inspect(
     viewer: User,
     records: readonly AgentConversationRecord[],
+    options: ConversationViewOptions = {},
   ): Promise<ConversationView[]> {
     const summaries = await this.summaries(
       viewer,
       records.map((record) => ({ ...record, isMuted: false, unreadCount: 0 })),
     );
-    return this.withMessages(summaries);
+    return this.withMessages(summaries, options);
+  }
+
+  /**
+   * Reads the stored answer details of a message of a conversation of agents
+   * only for an overseer who is no member; the caller has checked the right.
+   * @returns The details, or `null` for a message without them.
+   * @throws {ConversationError} `invalid` for a malformed message ID.
+   */
+  public inspectAgentAnswer(
+    conversationId: string,
+    messageId: unknown,
+  ): Promise<StoredAgentAnswer | null> {
+    return this.storedAgentAnswer(conversationId, messageId);
+  }
+
+  /**
+   * Reads the stored answer details of a message for a member of its
+   * conversation, such as the input and result of each tool call.
+   * @returns The details, or `null` for a message without them.
+   * @throws {ConversationError} `not_found` for a conversation of which the
+   * person is no member, `invalid` for a malformed ID.
+   */
+  public async agentAnswer(
+    person: User,
+    conversationId: unknown,
+    messageId: unknown,
+  ): Promise<StoredAgentAnswer | null> {
+    const record = await this.requireMember(
+      person,
+      readConversationIdentifier(conversationId),
+    );
+    return this.storedAgentAnswer(record.id, messageId);
   }
 
   /** Lists the people and agents the person can start a conversation with. */
@@ -366,13 +410,16 @@ export class ConversationReader {
    * Reads every conversation of the person with its newest messages, for
    * the web chat page.
    */
-  public async views(person: User): Promise<ConversationView[]> {
+  public async views(
+    person: User,
+    options: ConversationViewOptions = {},
+  ): Promise<ConversationView[]> {
     const records = await this.dependencies.conversations.listForMember(
       person.id,
       null,
       500,
     );
-    return this.withMessages(await this.summaries(person, records));
+    return this.withMessages(await this.summaries(person, records), options);
   }
 
   /** Returns the member IDs of a conversation. */
@@ -441,12 +488,28 @@ export class ConversationReader {
     };
   }
 
+  private async storedAgentAnswer(
+    conversationId: string,
+    messageId: unknown,
+  ): Promise<StoredAgentAnswer | null> {
+    const stored = await this.dependencies.messages.find(
+      conversationId,
+      readConversationIdentifier(messageId),
+    );
+    return stored?.agentAnswer ?? null;
+  }
+
   private async withMessages(
     summaries: readonly ConversationSummary[],
+    options: ConversationViewOptions = {},
   ): Promise<ConversationView[]> {
     const accounts = await this.dependencies.directory.read();
     const views: ConversationView[] = [];
     for (const summary of summaries) {
+      if (options.withMessages?.(summary) === false) {
+        views.push({ summary, messages: [], hasMore: false });
+        continue;
+      }
       const stored = await this.dependencies.messages.history(
         summary.id,
         null,

@@ -162,28 +162,54 @@ function readIntent(value: FormDataEntryValue | null): ChatPageIntent | null {
   return INTENTS.find((intent) => intent === value) ?? null;
 }
 
+/** Chats one reading of the page holds the history of at most. */
+const MAXIMUM_HISTORY_CHATS = 4;
+/** The longest ID of a participant or group a request names. */
+const CHAT_ID_LENGTH = 200;
+
+/**
+ * The chats whose history one reading holds: those the request names with
+ * `chat`, such as the one a link or the page opens, else the chat the person
+ * used last.
+ */
+function requestedHistoryIds(
+  request: Request,
+  lastChatId: string | undefined,
+): string[] {
+  const named = new URL(request.url).searchParams
+    .getAll("chat")
+    .filter((id) => id !== "" && id.length <= CHAT_ID_LENGTH);
+  const ids = [...new Set(named)].slice(0, MAXIMUM_HISTORY_CHATS);
+  if (ids.length > 0) return ids;
+  return lastChatId === undefined ? [] : [lastChatId];
+}
+
 /**
  * Loads the chat page of the signed-in person: their own
- * participants and groups, the choices of the participant dialog and the histories
- * with agents; the workspace frame applies the authentication.
+ * participants and groups, the choices of the participant dialog and the
+ * history of the chats the request names with `chat`, else of the chat used
+ * last; the workspace frame applies the authentication.
  */
 export async function loader({
+  request,
   context,
 }: Route.LoaderArgs): Promise<VirtualChatDirectory> {
   const person = context.get(authenticatedUserContext);
   if (!person) throw new Response("Forbidden", { status: 403 });
   const services = await getApplicationServices();
-  const directory = await services.chatDirectoryService.directory(person);
+  const viewPreferences = await services.chatViewPreferences.read(person);
+  const directory = await services.chatDirectoryService.directory(person, {
+    historyIds: requestedHistoryIds(request, viewPreferences.lastChat?.id),
+  });
   const conversationIds = [
     ...directory.groups.map((group) => group.id),
     ...directory.participants.flatMap((participant) =>
       participant.conversationId ? [participant.conversationId] : [],
     ),
   ];
-  const [embedDomains, viewPreferences, accounts, chatDecisionStatus, groups] =
+  const [embedDomains, accounts, chatDecisionStatus, groups] =
     await Promise.all([
       services.conversationLinks.embedDomains(conversationIds),
-      services.chatViewPreferences.read(person),
       services.conversationDirectory.read(),
       services.chatDecisionSettingsService.currentStatus(),
       Promise.all(

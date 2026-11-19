@@ -2,6 +2,7 @@ import { ChevronRight, LoaderCircle, Wrench } from "lucide-react";
 import { useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 
+import { ScrollViewport } from "@/app/components/ui/scroll-viewport";
 import { cn } from "@/app/lib/cn";
 
 import { ChatPageToolUse } from "./chat-page-tool-uses";
@@ -102,10 +103,17 @@ export function ChatPageToolStrip({
           )}
         />
       </button>
-      <ul
+      <ScrollViewport
+        as="ul"
+        axis="vertical"
         id={listId}
         hidden={!isOpen}
-        className="flex max-h-[168px] min-w-0 flex-col overflow-y-auto rounded-lg bg-surface ring-1 ring-border"
+        isShell
+        containerClassName={cn(
+          "max-h-[168px] rounded-lg bg-surface ring-1 ring-border",
+          !isOpen && "hidden",
+        )}
+        className="flex min-w-0 flex-col"
         data-tool-strip-list=""
       >
         {uses.map((use, index) => (
@@ -117,7 +125,7 @@ export function ChatPageToolStrip({
             onCancel={onCancel}
           />
         ))}
-      </ul>
+      </ScrollViewport>
     </section>
   );
 }

@@ -1031,7 +1031,10 @@
     scroll-padding-inline: var(--scroll-fade-horizontal);
   }
 
-  .pages-scroll-horizontal {
+  /* A surface with a radius has fixed content: no column for a scrollbar that
+     is not there, so its padding is the same on both sides until it scrolls. */
+  .pages-scroll-horizontal,
+  .pages-scroll-shelled {
     scrollbar-gutter: auto;
   }
 

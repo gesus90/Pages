@@ -134,10 +134,10 @@ export class PicaSettingsService {
   /**
    * Supplies the protected form with the saved choice and all accessible models.
    * @remarks
-   * The form lists all models of the administrator's connections and marks
-   * refusals with Pica's central rule. A saved invalid choice keeps its
-   * value and is reported through `error`; saving and starting check the
-   * choice here again, whatever a client sends.
+   * The form receives all models of the administrator's connections; its
+   * choice lists only those Pica's central rule accepts. A saved invalid
+   * choice keeps its value and is reported through `error`; saving and
+   * starting check the choice here again, whatever a client sends.
    */
   public async administration(userId: string): Promise<{
     readonly settings: PicaAdministration;

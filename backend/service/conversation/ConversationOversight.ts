@@ -11,9 +11,11 @@ import type {
 import type { AccountAccess } from "@/definition/Authorization";
 import type { ConversationHistoryPage } from "@/definition/Conversation";
 import type { User } from "@/definition/User";
+import type { StoredAgentAnswer } from "@/definition/ConversationLiveAnswer";
 import type {
   ConversationReader,
   ConversationView,
+  ConversationViewOptions,
 } from "./ConversationReader";
 
 /** Conversations of agents one overseer lists at most. */
@@ -28,7 +30,7 @@ export interface ConversationOversightDependencies {
   >;
   readonly reader: Pick<
     ConversationReader,
-    "inspect" | "inspectHistory" | "memberIds"
+    "inspect" | "inspectHistory" | "inspectAgentAnswer" | "memberIds"
   >;
 }
 
@@ -50,14 +52,17 @@ export class ConversationOversight {
   }
 
   /** Reads the conversations of agents only the person oversees, with their newest messages. */
-  public async views(viewer: User): Promise<ConversationView[]> {
+  public async views(
+    viewer: User,
+    options: ConversationViewOptions = {},
+  ): Promise<ConversationView[]> {
     const scope = await this.scope(viewer);
     if (scope === null) return [];
     const records = await this.dependencies.chat.listAgentOnly(
       scope === "all" ? null : scope,
       OVERSIGHT_LIMIT,
     );
-    return this.dependencies.reader.inspect(viewer, records);
+    return this.dependencies.reader.inspect(viewer, records, options);
   }
 
   /**
@@ -84,6 +89,22 @@ export class ConversationOversight {
     const record = await this.find(viewer, conversationId);
     if (!record) throw new ConversationError("not_found");
     return this.dependencies.reader.inspectHistory(record.id, beforeId);
+  }
+
+  /**
+   * Reads the stored answer details of a message of an overseen conversation.
+   * @returns The details, or `null` for a message without them.
+   * @throws {ConversationError} `not_found` for a conversation the person
+   * does not oversee, `invalid` for a malformed message ID.
+   */
+  public async agentAnswer(
+    viewer: User,
+    conversationId: string,
+    messageId: unknown,
+  ): Promise<StoredAgentAnswer | null> {
+    const record = await this.find(viewer, conversationId);
+    if (!record) throw new ConversationError("not_found");
+    return this.dependencies.reader.inspectAgentAnswer(record.id, messageId);
   }
 
   private async find(

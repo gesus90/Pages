@@ -238,6 +238,63 @@ export class ChatSessionRepository {
   }
 
   /**
+   * Returns the newest messages of a session in display order, after
+   * ownership was checked, so a chat opens without reading its whole session.
+   * @param sessionId - The session.
+   * @param limit - How many of the newest messages to return at most.
+   */
+  public async newestMessages(
+    sessionId: string,
+    limit: number,
+  ): Promise<StoredChatMessage[]> {
+    const rows = await this.database.query(
+      `
+      SELECT
+          id,
+          role,
+          content,
+          created_at,
+          is_stopped,
+          client_message_id,
+          agent_answer
+      FROM chat_messages
+      WHERE session_id = $session_id
+      ORDER BY position DESC, id DESC
+      LIMIT $limit;
+    `,
+      { session_id: sessionId, limit },
+    );
+    return rows.map(readMessage).reverse();
+  }
+
+  /**
+   * Returns one message of a session, after ownership was checked.
+   * @returns The message, or `null` when the session holds no message with the ID.
+   */
+  public async findMessage(
+    sessionId: string,
+    messageId: string,
+  ): Promise<StoredChatMessage | null> {
+    const rows = await this.database.query(
+      `
+      SELECT
+          id,
+          role,
+          content,
+          created_at,
+          is_stopped,
+          client_message_id,
+          agent_answer
+      FROM chat_messages
+      WHERE session_id = $session_id
+          AND id = $id;
+    `,
+      { session_id: sessionId, id: messageId },
+    );
+    return rows.length === 0 ? null : readMessage(rows[0]);
+  }
+
+  /**
    * Returns the message the browser gave this ID in a session, after ownership was checked.
    *
    * @returns The message, or `null` when none of the session carries the ID.

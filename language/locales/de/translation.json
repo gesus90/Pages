@@ -1708,7 +1708,9 @@
           "noSpeech": "Dieses Modell kann keine Sprache erkennen.",
           "noSpeechOutput": "Dieses Modell kann keinen Text vorlesen.",
           "speechOutputOnly": "Dieses Modell erzeugt ausschließlich Sprachausgabe.",
-          "transcriptionOnly": "Dieses Modell transkribiert ausschließlich Sprache."
+          "transcriptionOnly": "Dieses Modell transkribiert ausschließlich Sprache.",
+          "noDecision": "Dieses Modell gibt keine Entscheidungen aus.",
+          "decisionOnly": "Dieses Modell gibt ausschließlich Entscheidungen aus."
         }
       },
       "runner": {
@@ -4064,6 +4066,7 @@
     "addMember": "Teilnehmer hinzufügen",
     "history": "Verlauf mit {{name}}",
     "emptyHistory": "Noch keine Nachrichten mit {{name}}.",
+    "historyLoading": "Verlauf mit {{name}} wird geladen …",
     "you": "Deine Nachricht",
     "toolUses": "Benutzte Werkzeuge",
     "inputLabel": "Nachricht an {{name}}",
@@ -4313,6 +4316,8 @@
     "toolOutput": "Ergebnis",
     "toolError": "Fehler",
     "toolNoDetails": "Keine weiteren Angaben.",
+    "toolDetailsLoading": "Angaben werden geladen …",
+    "toolDetailsFailed": "Die Angaben konnten nicht geladen werden.",
     "liveTools": "Laufende Werkzeugnutzung",
     "queue": {
       "chat": "In Warteschlange – wird direkt nach der laufenden Antwort beantwortet",
@@ -8026,6 +8031,7 @@
     "retry": "Erneut versuchen",
     "missingModel": "Modell oder Zugang nicht verfügbar/freigegeben",
     "modelMissingShort": "Modell fehlt",
+    "modelUnusableShort": "Modell nicht nutzbar",
     "modelWithdrawn": "Die gespeicherte Modell-/Zugangsauswahl ist nicht mehr verfügbar oder freigegeben. Wählen Sie ausdrücklich ein nutzbares Modell, um zu speichern.",
     "deletedTargets": "Eine Gruppe oder Abteilung dieser Freigabe gibt es nicht mehr. Sie fehlt in der Liste unten; beim Speichern wird die Freigabe ohne sie gespeichert.",
     "deleteTitle": "Agent „{{name}}“ entfernen?",

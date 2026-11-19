@@ -15,7 +15,10 @@ export interface AntigravityInventory {
 /** Queries only metadata from the execution host's isolated Antigravity context. */
 export function antigravityInventory(
   base: Readonly<Record<string, string>>,
-  context?: { readonly signal?: AbortSignal },
+  context?: {
+    readonly signal?: AbortSignal;
+    readonly onError?: (error: unknown) => void;
+  },
 ): Promise<AntigravityInventory>;
 /** The error code of a failure the adapter reported as agent text, or `null`. */
 export function antigravityTurnFailure(

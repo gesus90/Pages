@@ -47,8 +47,6 @@ export interface ModelChoice {
   readonly source: string | null;
   /** Whether the catalog states a price of zero for exactly this access. */
   readonly isFree: boolean;
-  /** Why this place cannot use the model; the row stays listed but cannot be chosen. */
-  readonly refusal: string | null;
   /** Lower-case words the search matches: name, ID, tool, access, source, target and "free". */
   readonly searchText: string;
 }
@@ -76,8 +74,6 @@ export interface ModelGroup {
 /** How a place names and limits the shared catalog. */
 export interface ModelGroupOptions {
   readonly translate: TFunction;
-  /** The reason a listed model cannot be chosen here, such as a group of another runner. */
-  readonly refusalOf?: (model: PageAgentModel) => string | null;
   /** The chosen model, which stays the listed entry where one model has several accesses. */
   readonly selectedId?: string;
 }
@@ -285,7 +281,7 @@ function choicesOf(
     readonly options: ModelGroupOptions;
   },
 ): ModelChoice[] {
-  const { translate, refusalOf } = input.options;
+  const { translate } = input.options;
   const names = new Map<string, number>();
   for (const model of source.models)
     names.set(shortName(model), (names.get(shortName(model)) ?? 0) + 1);
@@ -295,7 +291,6 @@ function choicesOf(
     detail: (names.get(shortName(model)) ?? 0) > 1 ? model.model : null,
     source: input.badge,
     isFree: model.isFree === true,
-    refusal: refusalOf?.(model) ?? null,
     searchText: [
       catalogName(model),
       model.model,
@@ -378,12 +373,12 @@ function compareGroups(
  * tools the catalog lists, never from a fixed list, and take their names and
  * marks from the provider registry: Claude Code, Codex, Antigravity,
  * OpenCode, OpenRouter and Z.AI first, in this order. Each provider keeps its
- * own models, including another access to the same upstream model. Refused
- * entries remain visible with their reason. Models of a remote target never
- * share a group with this host's.
+ * own models, including another access to the same upstream model. The place
+ * passes only the models it can use, so the list and its search hold no
+ * other. Models of a remote target never share a group with this host's.
  *
  * @param models - The models the place may offer.
- * @param options - Translation, the place's reason a model cannot be chosen and the chosen model.
+ * @param options - Translation and the chosen model.
  * @returns One group per target and tool that offers at least one model.
  */
 export function modelGroups(

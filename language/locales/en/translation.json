@@ -1708,7 +1708,9 @@
           "noSpeech": "This model cannot transcribe speech.",
           "noSpeechOutput": "This model cannot speak text aloud.",
           "speechOutputOnly": "This model only generates speech.",
-          "transcriptionOnly": "This model only transcribes speech."
+          "transcriptionOnly": "This model only transcribes speech.",
+          "noDecision": "This model does not give decisions.",
+          "decisionOnly": "This model only gives decisions."
         }
       },
       "runner": {
@@ -4064,6 +4066,7 @@
     "addMember": "Add participant",
     "history": "History with {{name}}",
     "emptyHistory": "No messages with {{name}} yet.",
+    "historyLoading": "Loading the history with {{name}} …",
     "you": "Your message",
     "toolUses": "Tools used",
     "inputLabel": "Message to {{name}}",
@@ -4313,6 +4316,8 @@
     "toolOutput": "Result",
     "toolError": "Error",
     "toolNoDetails": "No further details.",
+    "toolDetailsLoading": "Loading details …",
+    "toolDetailsFailed": "The details could not be loaded.",
     "liveTools": "Tools in use",
     "queue": {
       "chat": "Queued – answered right after the current answer",
@@ -8026,6 +8031,7 @@
     "retry": "Try again",
     "missingModel": "Model or connection unavailable/not shared",
     "modelMissingShort": "Model missing",
+    "modelUnusableShort": "Model not usable",
     "modelWithdrawn": "The saved model/connection selection is unavailable or no longer shared. Explicitly choose a usable model before saving.",
     "deletedTargets": "A group or department of this share no longer exists. It is left out of the list below; saving stores the share without it.",
     "deleteTitle": "Remove agent “{{name}}”?",

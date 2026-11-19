@@ -12,6 +12,7 @@ import { SettingsCard } from "@/app/components/settings/settings-layout";
 import { Button } from "@/app/components/ui/button";
 import { Select } from "@/app/components/ui/select";
 import { reasoningOptions } from "@/app/lib/reasoning-options";
+import { modelConsumerRefusal } from "@/definition/AgentModelConsumers";
 import {
   findSavedModel,
   isClaudeModelAlias,
@@ -34,9 +35,9 @@ interface PicaSettingsCardProps {
 /**
  * The fixed chat identity alongside the independently managed agent connections.
  * @remarks
- * The shared choice lists every accessible model. Pica's central rule marks
- * unsupported models disabled with a reason. A saved invalid choice keeps
- * its value; saving and starting validate it again on the server.
+ * The shared choice lists the accessible models Pica can run, by its central
+ * rule. A saved choice Pica cannot run keeps its value and is named at the
+ * field with the reason; saving and starting validate it again on the server.
  */
 export function PicaSettingsCard({
   settings,
@@ -270,6 +271,11 @@ interface PicaDraft {
   readonly unlistedModel: string | null;
 }
 
+// The choice lists only models Pica can run, so a saved one it cannot run counts as unlisted.
+function isUnlistedModel(model: PageAgentModel | undefined): boolean {
+  return !model || modelConsumerRefusal("pica", model) !== null;
+}
+
 function usePicaDraft(
   settings: PicaAdministration,
   models: readonly PageAgentModel[],
@@ -303,7 +309,9 @@ function usePicaDraft(
     hasResetEffort,
     aliasNotice: modelKey === saved.key ? saved.notice : null,
     unlistedModel:
-      modelKey !== "" && !model ? (settings.selection?.model ?? null) : null,
+      modelKey !== "" && isUnlistedModel(model)
+        ? (settings.selection?.model ?? null)
+        : null,
   };
 }
 

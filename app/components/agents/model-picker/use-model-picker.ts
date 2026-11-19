@@ -311,7 +311,7 @@ export interface ModelPickerInput {
  * Up and Down move over tool headers and the models of open tools, Enter
  * opens or closes a tool or chooses a model, Arrow Right and Left open and
  * close a tool while the search is empty, and Escape closes only the panel.
- * A model the place refuses can be highlighted, to read its reason, but not
+ * The groups hold only models the place can use, so every listed model can be
  * chosen.
  */
 export function useModelPicker(input: ModelPickerInput): ModelPickerState {
@@ -366,7 +366,6 @@ export function useModelPicker(input: ModelPickerInput): ModelPickerState {
   }
 
   function choose(choice: ModelChoice): void {
-    if (choice.refusal !== null) return;
     input.onChange(choice.model.id);
     closeRef.current();
   }

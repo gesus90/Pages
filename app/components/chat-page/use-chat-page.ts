@@ -11,6 +11,7 @@ import { saveLastChat } from "./chat-view-requests";
 import { useChatActivity } from "./use-chat-activity";
 import { useConversationRead } from "./use-conversation-read";
 import { useOlderHistory } from "./use-older-history";
+import { useOpenedHistory } from "./use-opened-history";
 import { useLiveChat } from "./live/use-live-chat";
 import { useConversationStream } from "./live/use-conversation-stream";
 
@@ -110,6 +111,8 @@ export interface ChatPageState {
   readonly opened: OpenedConversation | null;
   /** The history of the opened conversation, with a message still on its way. */
   readonly messages: readonly VirtualChatMessage[];
+  /** Whether the history of the opened chat is on its way and nothing of it shows yet. */
+  readonly isHistoryLoading: boolean;
   /** Whether older messages of the opened stored conversation can be loaded. */
   readonly hasOlder: boolean;
   readonly isLoadingOlder: boolean;
@@ -538,6 +541,23 @@ function createSendActions(context: {
   return { send, sendFromPreview, stopAll };
 }
 
+/** The longest voice message in milliseconds: the directory's, else the default. */
+function voiceMaximumDurationMs(directory: VirtualChatDirectory): number {
+  return (
+    directory.voiceMaximumMs ??
+    CONVERSATION_VOICE_DEFAULT_DURATION_SECONDS * 1000
+  );
+}
+
+/** Whether the directory stores older messages of the opened chat. */
+function hasStoredOlderHistory(
+  directory: VirtualChatDirectory,
+  historyId: string,
+  isLoaded: boolean,
+): boolean {
+  return isLoaded && directory.olderHistoryIds?.includes(historyId) === true;
+}
+
 /**
  * Selection, search and the conversation with agents and groups on the chat
  * page.
@@ -579,12 +599,12 @@ export function useChatPage(
   const controls = useAgentControls(opened);
   const historyId = selection?.id ?? "";
   const pending = pendingMessage(sender.formData, selection);
-  const stored = directory.histories[historyId] ?? [];
+  const history = useOpenedHistory(directory, historyId);
   const conversation = storedConversation(opened);
   const older = useOlderHistory(
     conversation?.id ?? null,
-    stored,
-    directory.olderHistoryIds?.includes(historyId) === true,
+    history.messages,
+    hasStoredOlderHistory(directory, historyId, history.isLoaded),
   );
   const stream = useConversationStream({ storedMessages: older.messages });
   const mute = useMute(conversation);
@@ -598,7 +618,8 @@ export function useChatPage(
     onCancelTool: controls.cancelAgentTool,
   });
   const isAnswering = answering.isAnswering || liveChat.isWriting;
-  useConversationRead(opened, stored);
+  // Only the chat's own reading marks it read, never a history shown meanwhile.
+  useConversationRead(history.isLoaded ? opened : null, history.loadedMessages);
   const actions = createSendActions({
     opened,
     selection,
@@ -620,6 +641,7 @@ export function useChatPage(
     allParticipants: lists.participants,
     opened,
     messages,
+    isHistoryLoading: history.isLoading,
     hasOlder: older.hasMore,
     isLoadingOlder: older.isLoading,
     loadOlder: older.loadOlder,
@@ -627,9 +649,7 @@ export function useChatPage(
     toggleMute: mute.toggle,
     isAnswering,
     answeringNames: answering.answeringNames,
-    voiceMaximumMs:
-      directory.voiceMaximumMs ??
-      CONVERSATION_VOICE_DEFAULT_DURATION_SECONDS * 1000,
+    voiceMaximumMs: voiceMaximumDurationMs(directory),
     sendFailure: readSendFailure(sender),
     ...actions,
     live: liveChat.history,

@@ -44,7 +44,7 @@ export interface AssignmentChoices {
     | "reasoningUnsupported"
     | null;
   readonly effortOptions: ReasoningSelectOptions;
-  /** Why a listed model cannot be chosen, such as one of an inactive connection. */
+  /** Why a model cannot be chosen, such as one of an inactive connection; such a model is not listed. */
   readonly refusalOf: (model: PageAgentModel) => string | null;
   /** Chooses connection and model together by the selection key of a listed model. */
   readonly chooseModel: (key: string) => void;
@@ -199,8 +199,8 @@ function hasSupportedEffort(
   return Boolean(model?.reasoningEfforts.includes(effort));
 }
 
-// A connection that is off or whose access is not verified offers its
-// models only as disabled rows; saving checks the same on the server.
+// A connection that is off or whose access is not verified offers no model;
+// saving checks the same on the server.
 function connectionRefusal(
   connection: AgentConnectionSummary | undefined,
 ): "connectionUnavailable" | "accessUnverified" | null {

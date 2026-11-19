@@ -268,6 +268,7 @@ function ChatPageConversation({
         }}
         answeringNames={page.answeringNames}
         live={page.live}
+        isLoading={page.isHistoryLoading}
         chatKey={conversationKey(opened)}
         readingPositions={readingPositions}
         {...(focusMessageId === undefined ? {} : { focusMessageId })}

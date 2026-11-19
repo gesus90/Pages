@@ -4,23 +4,28 @@ import { useNavigate } from "react-router";
 
 import { showToast } from "@/app/components/ui/toast";
 import { toastChatKey } from "@/app/components/ui/toast/toast-types";
-import { CHAT_PAGE_ENDPOINT, isChatDirectory } from "@/app/lib/chat-directory";
+import { CHAT_NOTIFICATIONS_ENDPOINT } from "@/app/lib/chat-directory";
 import { backendRequestHeaders } from "@/app/lib/backend-request";
 import { readRouteData } from "@/app/lib/local-state/route-data";
 
 import { isPicaAuthor } from "@/definition/PicaMobileNotifications";
 
 import {
-  chatMessageAuthor,
-  chatNotificationSnapshots,
-  newChatMessages,
+  chatNotificationMarks,
+  newChatArrival,
 } from "./chat-notification-snapshot";
 
-import type { NotificationChoices } from "@/definition/PicaMobileNotifications";
 import type {
-  VirtualChatDirectory,
-  VirtualChatMessage,
-} from "@/definition/VirtualChat";
+  ChatNotificationDigest,
+  ChatNotificationEntry,
+  ChatNotificationMessage,
+} from "@/definition/ChatNotificationDigest";
+import type { NotificationChoices } from "@/definition/PicaMobileNotifications";
+import type { TFunction } from "i18next";
+import type {
+  ChatNotificationArrival,
+  ChatNotificationMark,
+} from "./chat-notification-snapshot";
 
 interface ChatNotificationActivity {
   readonly chatKeys: readonly string[];
@@ -59,40 +64,84 @@ async function readActivity(
   return payload;
 }
 
-function shouldSuppressChatToast(
-  snapshot: ReturnType<typeof chatNotificationSnapshots>[number],
-  activity: ChatNotificationActivity,
-): boolean {
-  if (snapshot.isMuted || !activity.choices.receiveNotifications) {
-    return true;
-  }
-  if (activity.chatKeys.includes(toastChatKey(snapshot.chat))) {
-    return true;
-  }
+/** Recognizes the digest returned by the notification endpoint. */
+function isChatNotificationDigest(
+  value: unknown,
+): value is ChatNotificationDigest {
   return (
-    snapshot.conversationId !== null &&
-    activity.conversationIds.includes(snapshot.conversationId)
+    typeof value === "object" &&
+    value !== null &&
+    "entries" in value &&
+    Array.isArray(value.entries)
   );
 }
 
-/** Keeps the messages whose kind is chosen: Pica's follow `pica`, all others `chats`. */
-function chosenChatMessages(
-  directory: Pick<VirtualChatDirectory, "participants">,
-  messages: readonly VirtualChatMessage[],
+function shouldSuppressChatToast(
+  entry: ChatNotificationEntry,
+  activity: ChatNotificationActivity,
+): boolean {
+  if (entry.isMuted || !activity.choices.receiveNotifications) {
+    return true;
+  }
+  if (activity.chatKeys.includes(toastChatKey(entry.chat))) {
+    return true;
+  }
+  return (
+    entry.conversationId !== null &&
+    activity.conversationIds.includes(entry.conversationId)
+  );
+}
+
+/** Whether the message's kind is chosen: Pica's follow `pica`, all others `chats`. */
+function isChosenChatMessage(
+  message: ChatNotificationMessage,
   choices: NotificationChoices,
-): readonly VirtualChatMessage[] {
-  return messages.filter((message) => {
-    const author = chatMessageAuthor(directory, message);
-    return author !== null && isPicaAuthor(author)
-      ? choices.pica
-      : choices.chats;
+): boolean {
+  return message.author !== null && isPicaAuthor(message.author)
+    ? choices.pica
+    : choices.chats;
+}
+
+/** Shows the pop-up of a chat with its newest arrived message. */
+function showChatArrival(
+  entry: ChatNotificationEntry,
+  arrival: ChatNotificationArrival,
+  page: {
+    readonly t: TFunction;
+    readonly navigate: (address: string) => Promise<void> | void;
+  },
+): void {
+  const { message } = arrival;
+  const query = new URLSearchParams({
+    kind: entry.chat.kind,
+    id: entry.chat.id,
+  });
+  showToast({
+    type: "chat",
+    chat: entry.chat,
+    message: entry.name,
+    avatarImageUrl: entry.avatarImageUrl,
+    count: arrival.count,
+    description:
+      message.preview ||
+      page.t(message.isVoice ? "toast.voice" : "toast.attachment"),
+    action: {
+      label: page.t("toast.open"),
+      onClick: () => {
+        void page.navigate(`/chat?${query.toString()}`);
+      },
+    },
   });
 }
 
-/** Agent session answers have no conversation event, so also read the directory at a slow interval. */
+/** Agent session answers have no conversation event, so also read the digest at a slow interval. */
 const CHAT_REFRESH_MILLISECONDS = 15_000;
 
-/** Follows incoming chat messages across all pages, sharing the existing authorized directory endpoint. */
+/**
+ * Follows incoming chat messages across all pages over the lean,
+ * rights-checked notification endpoint, which reads the newest message of
+ * each chat and no history.
+ */
 export function useChatNotifications(userId: string): () => void {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -100,7 +149,7 @@ export function useChatNotifications(userId: string): () => void {
   const refresh = useCallback(() => requestRef.current(), []);
   useEffect(() => {
     const controller = new AbortController();
-    let previous: Map<string, ReadonlySet<string>> | null = null;
+    let previous: Map<string, ChatNotificationMark> | null = null;
     let isReading = false;
     let isDue = false;
     async function read(): Promise<void> {
@@ -110,53 +159,26 @@ export function useChatNotifications(userId: string): () => void {
       }
       isReading = true;
       try {
-        const [directory, activity] = await Promise.all([
+        const [digest, activity] = await Promise.all([
           readRouteData({
-            endpoint: CHAT_PAGE_ENDPOINT,
+            endpoint: CHAT_NOTIFICATIONS_ENDPOINT,
             signal: controller.signal,
-            isPayload: isChatDirectory,
+            isPayload: isChatNotificationDigest,
           }),
           readActivity(controller.signal),
         ]);
         if (controller.signal.aborted) return;
-        const snapshots = chatNotificationSnapshots(directory);
-        for (const snapshot of snapshots) {
-          if (shouldSuppressChatToast(snapshot, activity)) continue;
-          const incoming = chosenChatMessages(
-            directory,
-            previous ? newChatMessages(snapshot, previous) : [],
-            activity.choices,
-          );
-          const latest = incoming.at(-1);
-          if (!latest) continue;
-          const query = new URLSearchParams({
-            kind: snapshot.chat.kind,
-            id: snapshot.chat.id,
-          });
-          const description =
-            latest.content ||
-            t(latest.voice ? "toast.voice" : "toast.attachment");
-          showToast({
-            type: "chat",
-            chat: snapshot.chat,
-            message: snapshot.name,
-            avatarImageUrl: snapshot.avatarImageUrl,
-            count: incoming.length,
-            description: description.replace(/\s+/gu, " ").slice(0, 240),
-            action: {
-              label: t("toast.open"),
-              onClick: () => {
-                void navigate(`/chat?${query.toString()}`);
-              },
-            },
-          });
+        for (const entry of digest.entries) {
+          if (!previous || shouldSuppressChatToast(entry, activity)) continue;
+          const arrival = newChatArrival(entry, previous);
+          if (
+            !arrival ||
+            !isChosenChatMessage(arrival.message, activity.choices)
+          )
+            continue;
+          showChatArrival(entry, arrival, { t, navigate });
         }
-        previous = new Map(
-          snapshots.map((snapshot) => [
-            toastChatKey(snapshot.chat),
-            new Set(snapshot.messages.map((message) => message.id)),
-          ]),
-        );
+        previous = chatNotificationMarks(digest);
       } catch (error: unknown) {
         // Background reads can fail offline; the next live event or interval retries.
         if (!controller.signal.aborted)

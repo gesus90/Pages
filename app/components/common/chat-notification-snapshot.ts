@@ -1,83 +1,79 @@
 import { toastChatKey } from "@/app/components/ui/toast/toast-types";
 
 import type {
-  VirtualChatDirectory,
-  VirtualChatMessage,
-  VirtualChatSelection,
-} from "@/definition/VirtualChat";
+  ChatNotificationDigest,
+  ChatNotificationEntry,
+  ChatNotificationMessage,
+} from "@/definition/ChatNotificationDigest";
 
-/** One rights-checked chat and the incoming messages the current directory contains. */
-export interface ChatNotificationSnapshot {
-  readonly chat: VirtualChatSelection;
-  readonly name: string;
-  readonly avatarImageUrl: string | null;
-  readonly isMuted: boolean;
-  readonly conversationId: string | null;
+/** What a notification remembers of a chat between two readings. */
+export interface ChatNotificationMark {
+  /** The newest message of the chat at the last reading; `null` before the first one. */
+  readonly latestId: string | null;
+  /** Its time in milliseconds, so an older message that moves up after a deletion announces nothing. */
+  readonly latestAt: number;
   readonly unreadCount: number;
-  readonly messages: readonly VirtualChatMessage[];
 }
 
-/** Keeps the directory's chat identity, including agent histories and direct conversations. */
-export function chatNotificationSnapshots(
-  directory: VirtualChatDirectory,
-): ChatNotificationSnapshot[] {
-  return [
-    ...directory.participants.map((participant) => ({
-      chat: { kind: "participant", id: participant.id } as const,
-      name: participant.name,
-      avatarImageUrl: participant.avatarImageUrl,
-      isMuted: participant.isMuted === true,
-      conversationId: participant.conversationId ?? null,
-      unreadCount: participant.unreadCount,
-      messages: directory.histories[participant.id] ?? [],
-    })),
-    ...directory.groups
-      .filter((group) => !group.isAgentConversation)
-      .map((group) => ({
-        chat: { kind: "group", id: group.id } as const,
-        name: group.name,
-        avatarImageUrl: null,
-        isMuted: group.isMuted === true,
-        conversationId: group.id,
-        unreadCount: group.unreadCount,
-        messages: directory.histories[group.id] ?? [],
-      })),
-  ];
+/** What one chat announces now. */
+export interface ChatNotificationArrival {
+  readonly message: ChatNotificationMessage;
+  /** How many messages arrived, at least one. */
+  readonly count: number;
 }
 
-/** Finds genuinely new incoming messages; reads, edits, own messages and tool updates announce nothing. */
-export function newChatMessages(
-  snapshot: ChatNotificationSnapshot,
-  previous: ReadonlyMap<string, ReadonlySet<string>>,
-): readonly VirtualChatMessage[] {
-  const known = previous.get(toastChatKey(snapshot.chat));
-  const incoming = snapshot.messages.filter(
-    (message) => message.authorId !== null && !message.notice,
+function instant(message: ChatNotificationMessage | null): number {
+  if (!message) return Number.NEGATIVE_INFINITY;
+  const time = Date.parse(message.createdAt);
+  return Number.isNaN(time) ? Number.NEGATIVE_INFINITY : time;
+}
+
+/** Whether a message is one somebody else wrote, which a notification may announce. */
+function isIncoming(
+  message: ChatNotificationMessage | null,
+): message is ChatNotificationMessage {
+  return message !== null && message.authorId !== null && !message.isNotice;
+}
+
+/** Remembers the newest message and unread count of each chat of a reading. */
+export function chatNotificationMarks(
+  digest: ChatNotificationDigest,
+): Map<string, ChatNotificationMark> {
+  return new Map(
+    digest.entries.map((entry) => [
+      toastChatKey(entry.chat),
+      {
+        latestId: entry.latest?.id ?? null,
+        latestAt: instant(entry.latest),
+        unreadCount: entry.unreadCount,
+      },
+    ]),
   );
+}
+
+/**
+ * Finds a genuinely new incoming message of a chat since the last reading;
+ * reads, own messages, notices and an older message that becomes the newest
+ * after a deletion announce nothing.
+ * @param entry - The chat in the current reading.
+ * @param previous - What the last reading remembered of every chat.
+ * @returns The newest arrived message with the number of arrivals, or `null`.
+ */
+export function newChatArrival(
+  entry: ChatNotificationEntry,
+  previous: ReadonlyMap<string, ChatNotificationMark>,
+): ChatNotificationArrival | null {
+  const { latest } = entry;
+  if (!isIncoming(latest)) return null;
+  const known = previous.get(toastChatKey(entry.chat));
   if (!known)
-    return snapshot.unreadCount > 0
-      ? incoming.slice(-snapshot.unreadCount)
-      : [];
-  // A deletion can fill the oldest edge with an older message. Only the
-  // suffix after the last known message represents new arrivals.
-  const lastKnown = snapshot.messages.findLastIndex((message) =>
-    known.has(message.id),
-  );
-  return snapshot.messages
-    .slice(lastKnown + 1)
-    .filter((message) => message.authorId !== null && !message.notice);
-}
-
-/** Kind and name of a message's author, from the message itself or the person's list. */
-export function chatMessageAuthor(
-  directory: Pick<VirtualChatDirectory, "participants">,
-  message: VirtualChatMessage,
-): { readonly kind: string; readonly name: string } | null {
-  if (message.author) return message.author;
-  const participant = directory.participants.find(
-    (entry) => entry.id === message.authorId,
-  );
-  return participant
-    ? { kind: participant.kind, name: participant.name }
-    : null;
+    return entry.unreadCount > 0
+      ? { message: latest, count: entry.unreadCount }
+      : null;
+  if (latest.id === known.latestId || instant(latest) <= known.latestAt)
+    return null;
+  return {
+    message: latest,
+    count: Math.max(1, entry.unreadCount - known.unreadCount),
+  };
 }

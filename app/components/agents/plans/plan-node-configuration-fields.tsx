@@ -8,6 +8,7 @@ import { ModelPicker } from "@/app/components/agents/model-picker";
 import { ModelFieldRow } from "@/app/components/agents/model-picker/model-field";
 import { Select } from "@/app/components/ui/select";
 import { emptyAgentConfiguration } from "@/definition/AgentConfiguration";
+import { consumerModels } from "@/definition/AgentModelConsumers";
 import {
   planTargetModels,
   copyPlanConfiguration,
@@ -162,7 +163,9 @@ function PlanNodeModelFields(props: {
       <PageAgentModelNotices
         model={saved?.model}
         savedAlias={saved?.alias ?? null}
-        isModelWithdrawn={!models.some((model) => model.id === modelKey)}
+        isModelWithdrawn={
+          !consumerModels("plan", models).some((model) => model.id === modelKey)
+        }
       />
     </div>
   );

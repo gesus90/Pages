@@ -1,4 +1,5 @@
 import { sharedGroup, toVirtualMessage } from "./ChatConversationView";
+import { deferToolDetails } from "./ChatToolDetails";
 
 import type { ChatContactEntry } from "@/backend/database/repositories/employee/ChatContactRepository";
 import type { ChatGroupRecord } from "@/backend/database/repositories/employee/ChatGroupRepository";
@@ -247,12 +248,18 @@ export function withConversationPartners(
   return [...contacts, ...partners];
 }
 
-/** Converts one stored conversation view into chronological chat messages for the person. */
+/**
+ * Converts one stored conversation view into chronological chat messages for
+ * the person, with the details of finished tool calls left for reading on demand.
+ */
 export function conversationHistory(
   view: ConversationView,
   person: User,
 ): VirtualChatMessage[] {
-  return view.messages.map((message) => toVirtualMessage(message, person));
+  return deferToolDetails(
+    view.messages.map((message) => toVirtualMessage(message, person)),
+    { conversationId: view.summary.id },
+  );
 }
 
 /** Builds one virtual chat participant entry from account facts, contact entry, and live state. */

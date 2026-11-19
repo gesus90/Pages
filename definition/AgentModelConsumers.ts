@@ -13,9 +13,11 @@ import type { PageAgentModel } from "./PageAgent";
 /**
  * The places that choose a model from the shared catalog.
  * @remarks
- * Every consumer reads the same models of the same connections; it only
- * shows what it cannot run disabled, for one of the reasons below. Only
- * speech consumers leave out models outside their domain.
+ * Every consumer reads the same models of the same connections, and its
+ * choice lists only what the consumer can run: it leaves out every model
+ * refused for one of the reasons below, in the list and in the search alike.
+ * The reason is worded only where a saved model has become unusable. The
+ * server applies the same rules when it saves or runs a model.
  */
 export type AgentModelConsumer =
   "pica" | "plan" | "employee" | "stt" | "tts" | "decision";
@@ -126,9 +128,10 @@ function picaRefusal(model: ConsumerModel): ModelConsumerRefusal | null {
   return isZenToolModel(model) ? "zenToolsMissing" : null;
 }
 
-// Simulated plan models keep their separate execution path. The previous
-// picker-wide non-chat exclusion is a refusal here so such models stay visible.
-// A model whose catalog does not say whether it calls tools stays usable.
+// Simulated plan models keep their separate execution path.
+// A model whose catalog does not say whether it calls tools stays usable: the
+// adapter decides then, because an ACP session checks the Pages tool server
+// before its prompt and an API request node needs no tools.
 function planRefusal(model: ConsumerModel): ModelConsumerRefusal | null {
   if (model.isSimulation === true) return null;
   if (model.isToolCapable === false) return "noToolCalls";
@@ -214,8 +217,8 @@ const CONSUMER_RULES: Readonly<
  * models. A provider that registers a chat adapter in
  * {@link AGENT_PROVIDERS} releases its models for Pica without any change to
  * a model choice. The server applies the same rules before it saves
- * or runs a model. The choice shows refused models disabled with their
- * reason; a listed model is no grant of use.
+ * or runs a model. The choice lists no refused model and names the reason only
+ * for a saved one; a listed model is no grant of use.
  * @param consumer - The place that chooses the model.
  * @param model - Provider, model ID and catalog traits of the model.
  * @param context - Access level of an agent employee.

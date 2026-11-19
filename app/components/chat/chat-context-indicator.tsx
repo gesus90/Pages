@@ -148,8 +148,9 @@ export function ChatContextIndicator({
         <ScrollViewport
           as="span"
           axis="vertical"
-          containerClassName="max-h-[min(22rem,calc(100dvh-16rem))]"
-          className="block overflow-y-auto rounded-lg bg-surface p-3 text-xs leading-relaxed text-foreground shadow-panel ring-1 ring-border"
+          isShell
+          containerClassName="max-h-[min(22rem,calc(100dvh-16rem))] rounded-lg bg-surface shadow-panel ring-1 ring-border"
+          className="block overflow-y-auto p-3 text-xs leading-relaxed text-foreground"
         >
           <ChatContextDetails
             context={context}

@@ -1,6 +1,7 @@
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { useTranslation } from "react-i18next";
 
+import { ScrollViewport } from "@/app/components/ui/scroll-viewport";
 import { cn } from "@/app/lib/cn";
 
 import {
@@ -128,43 +129,47 @@ export function ChatMenuSheet({
     <DialogPrimitive.Root open={isOpen} onOpenChange={onOpenChange}>
       <DialogPrimitive.Portal>
         <DialogPrimitive.Overlay className="fixed inset-0 z-40 bg-scrim-drawer" />
-        <DialogPrimitive.Content
-          className="fixed inset-x-0 bottom-0 z-50 flex max-h-[85vh] flex-col overflow-y-auto rounded-t-2xl bg-surface p-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] shadow-panel outline-none"
-          data-chat-menu-sheet=""
-        >
-          <span
-            aria-hidden="true"
-            className="mx-auto mt-1 mb-2 h-1 w-10 shrink-0 rounded-full bg-border"
-          />
-          <div className="flex min-w-0 flex-col px-3 pb-1.5">
-            <DialogPrimitive.Title className="truncate text-sm font-semibold text-foreground">
-              {model.title}
-            </DialogPrimitive.Title>
-            <DialogPrimitive.Description className="truncate text-xs text-muted-foreground">
-              {model.subtitle}
-            </DialogPrimitive.Description>
-          </div>
-          <div
-            aria-label={t("chatPage.chatMenu.label")}
-            onKeyDown={moveFocus}
-            role="menu"
+        <DialogPrimitive.Content asChild>
+          <ScrollViewport
+            isShell
+            containerClassName="fixed inset-x-0 bottom-0 z-50 max-h-[85vh] rounded-t-2xl bg-surface shadow-panel"
+            className="flex flex-col p-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] outline-none"
+            data-chat-menu-sheet=""
           >
-            {model.sections.map((section) => (
-              <div
-                aria-label={section.title}
-                className="border-t border-border pt-1 mt-1"
-                key={section.id}
-                role="group"
-              >
-                {section.title === undefined ? null : (
-                  <p className={CHAT_MENU_SECTION_CLASS}>{section.title}</p>
-                )}
-                {section.entries.map((entry) => (
-                  <SheetEntry key={entry.id} entry={entry} onClose={close} />
-                ))}
-              </div>
-            ))}
-          </div>
+            <span
+              aria-hidden="true"
+              className="mx-auto mt-1 mb-2 h-1 w-10 shrink-0 rounded-full bg-border"
+            />
+            <div className="flex min-w-0 flex-col px-3 pb-1.5">
+              <DialogPrimitive.Title className="truncate text-sm font-semibold text-foreground">
+                {model.title}
+              </DialogPrimitive.Title>
+              <DialogPrimitive.Description className="truncate text-xs text-muted-foreground">
+                {model.subtitle}
+              </DialogPrimitive.Description>
+            </div>
+            <div
+              aria-label={t("chatPage.chatMenu.label")}
+              onKeyDown={moveFocus}
+              role="menu"
+            >
+              {model.sections.map((section) => (
+                <div
+                  aria-label={section.title}
+                  className="border-t border-border pt-1 mt-1"
+                  key={section.id}
+                  role="group"
+                >
+                  {section.title === undefined ? null : (
+                    <p className={CHAT_MENU_SECTION_CLASS}>{section.title}</p>
+                  )}
+                  {section.entries.map((entry) => (
+                    <SheetEntry key={entry.id} entry={entry} onClose={close} />
+                  ))}
+                </div>
+              ))}
+            </div>
+          </ScrollViewport>
         </DialogPrimitive.Content>
       </DialogPrimitive.Portal>
     </DialogPrimitive.Root>

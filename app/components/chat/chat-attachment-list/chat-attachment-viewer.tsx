@@ -66,8 +66,9 @@ function PdfViewer({
     <div className="space-y-2">
       <ScrollViewport
         axis="both"
-        containerClassName="max-h-[60dvh]"
-        className="overflow-auto rounded-lg bg-muted p-2"
+        isShell
+        containerClassName="max-h-[60dvh] rounded-lg bg-muted"
+        className="overflow-auto p-2"
       >
         <canvas
           ref={pdf.canvas}
@@ -114,8 +115,9 @@ function TablePreview({
   return (
     <ScrollViewport
       axis="both"
-      containerClassName="max-h-[60dvh]"
-      className="overflow-auto rounded-lg ring-1 ring-border"
+      isShell
+      containerClassName="max-h-[60dvh] rounded-lg ring-1 ring-border"
+      className="overflow-auto"
     >
       <table className="min-w-full border-collapse text-xs">
         {preview.sheet ? (
@@ -161,8 +163,9 @@ function ContentPreview({
         <ScrollViewport
           as="pre"
           axis="both"
-          containerClassName="max-h-[60dvh]"
-          className="overflow-auto rounded-lg bg-muted p-3 font-mono text-xs leading-relaxed whitespace-pre-wrap"
+          isShell
+          containerClassName="max-h-[60dvh] rounded-lg bg-muted"
+          className="overflow-auto p-3 font-mono text-xs leading-relaxed whitespace-pre-wrap"
         >
           {preview.text}
         </ScrollViewport>
@@ -170,8 +173,9 @@ function ContentPreview({
       {preview.kind === "sections" ? (
         <ScrollViewport
           axis="both"
-          containerClassName="max-h-[60dvh]"
-          className="space-y-3 overflow-auto rounded-lg bg-muted p-3 text-sm"
+          isShell
+          containerClassName="max-h-[60dvh] rounded-lg bg-muted"
+          className="space-y-3 overflow-auto p-3 text-sm"
         >
           {preview.sections.map((section) => (
             <section key={`${section.kind}-${section.number}`}>
@@ -203,8 +207,9 @@ function ViewerBody({
       return (
         <ScrollViewport
           axis="both"
-          containerClassName="max-h-[65dvh]"
-          className="flex justify-center overflow-auto rounded-lg bg-muted p-2"
+          isShell
+          containerClassName="max-h-[65dvh] rounded-lg bg-muted"
+          className="flex justify-center overflow-auto p-2"
         >
           <img
             alt={t("chat.files.imageAlt", { name: attachment.fileName })}

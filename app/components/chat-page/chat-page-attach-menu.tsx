@@ -252,7 +252,8 @@ export function ChatPageAttachMenu({
         <DropdownMenuContent
           align="start"
           aria-label={t("chatPage.attach.menu")}
-          className="min-w-60 border border-border p-1.5 shadow-floating"
+          className="min-w-60"
+          containerClassName="shadow-floating ring-1 ring-border"
           side="top"
         >
           {isAskingAddress ? (

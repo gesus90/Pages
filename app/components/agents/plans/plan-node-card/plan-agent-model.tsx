@@ -57,7 +57,7 @@ const FOOTER_CLASS =
  * Choosing one pins its connection, model and provider on this node only;
  * instructions, bindings, reasoning and run options stay as they are. A member of an ACP
  * group shares the group's session, which never spans runners, so models of
- * another runner stay listed but disabled, naming the way out: drag the
+ * another runner are not listed; a saved one names the way out: drag the
  * agent out of the frame. Without edit rights or without a released model
  * the card shows the effective values read only.
  */
@@ -150,8 +150,8 @@ function ModelValues(props: {
 }
 
 /**
- * Why a model cannot join the node's group: models of another runner stay
- * listed but disabled, naming the reason and the way to choose them.
+ * Why a model cannot join the node's group: models of another runner are not
+ * listed, and the saved one names the reason and the way to choose another.
  */
 function useGroupRefusal(input: {
   readonly step: AgentPlanStep;

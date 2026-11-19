@@ -2,7 +2,10 @@ import { Ban, CircleStop, LoaderCircle, Terminal, Zap } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import { Button } from "@/app/components/ui/button";
+import { ScrollViewport } from "@/app/components/ui/scroll-viewport";
 import { cn } from "@/app/lib/cn";
+
+import { useToolDetails } from "./use-tool-details";
 
 import type { VirtualToolUse } from "@/definition/VirtualChat";
 
@@ -20,9 +23,15 @@ function ToolText({
       <span className="text-[11px] font-semibold text-muted-foreground uppercase">
         {label}
       </span>
-      <pre className="max-h-64 overflow-auto rounded-md bg-muted px-2 py-1.5 font-mono text-xs whitespace-pre-wrap break-words text-foreground">
+      <ScrollViewport
+        as="pre"
+        axis="both"
+        isShell
+        containerClassName="max-h-64 rounded-md bg-muted"
+        className="px-2 py-1.5 font-mono text-xs whitespace-pre-wrap break-words text-foreground"
+      >
         {text}
-      </pre>
+      </ScrollViewport>
     </div>
   );
 }
@@ -76,13 +85,48 @@ function durationText(
     : formatToolDuration(use.durationMs);
 }
 
+/** The input, the result and the error of an opened call, read on demand where the history left them out. */
+function ToolDetailsBody({
+  use,
+  isLoading,
+  hasFailed,
+}: {
+  readonly use: VirtualToolUse;
+  readonly isLoading: boolean;
+  readonly hasFailed: boolean;
+}): React.ReactElement {
+  const { t } = useTranslation();
+  const hasText =
+    (use.input ?? "") !== "" || (use.output ?? "") !== "" || use.detail !== "";
+  if (hasText)
+    return (
+      <div className="flex flex-col gap-2 px-2 pb-2">
+        <ToolText label={t("chatPage.toolInput")} text={use.input} />
+        <ToolText label={t("chatPage.toolOutput")} text={use.output} />
+        <ToolText label={t("chatPage.toolError")} text={use.detail} />
+      </div>
+    );
+  let message = t("chatPage.toolNoDetails");
+  if (isLoading) message = t("chatPage.toolDetailsLoading");
+  else if (hasFailed) message = t("chatPage.toolDetailsFailed");
+  return (
+    <p
+      className="px-2 pb-2 text-muted-foreground"
+      role={isLoading ? "status" : undefined}
+    >
+      {message}
+    </p>
+  );
+}
+
 /**
  * One tool call of an agent in one line of 28 px: the tool or
  * command with its short description and, at the right, its duration and a
- * cancel button while it runs; opened, its input and result.
+ * cancel button while it runs; opened, its input and result, which a call of
+ * a stored answer reads when it opens.
  */
 export function ChatPageToolUse({
-  use,
+  use: storedUse,
   onCancel,
   durationLabel,
   isRow = false,
@@ -96,10 +140,10 @@ export function ChatPageToolUse({
   readonly isRow?: boolean;
 }): React.ReactElement {
   const { t } = useTranslation();
+  const details = useToolDetails(storedUse);
+  const { use } = details;
   const status = t(`chatPage.toolStatus.${use.status ?? "completed"}`);
   const duration = durationText(use, durationLabel);
-  const hasDetails =
-    (use.input ?? "") !== "" || (use.output ?? "") !== "" || use.detail !== "";
   return (
     <li
       className={cn(
@@ -108,7 +152,7 @@ export function ChatPageToolUse({
       )}
       data-tool-use={use.callId}
     >
-      <details className="group">
+      <details className="group" onToggle={details.onToggle}>
         <summary className="flex h-7 min-w-0 cursor-pointer items-center gap-1.5 overflow-hidden px-2 font-mono whitespace-nowrap">
           <StatusIcon use={use} />
           <span className="min-w-0 shrink truncate">{use.name}</span>
@@ -142,17 +186,11 @@ export function ChatPageToolUse({
             </Button>
           ) : null}
         </summary>
-        {hasDetails ? (
-          <div className="flex flex-col gap-2 px-2 pb-2">
-            <ToolText label={t("chatPage.toolInput")} text={use.input} />
-            <ToolText label={t("chatPage.toolOutput")} text={use.output} />
-            <ToolText label={t("chatPage.toolError")} text={use.detail} />
-          </div>
-        ) : (
-          <p className="px-2 pb-2 text-muted-foreground">
-            {t("chatPage.toolNoDetails")}
-          </p>
-        )}
+        <ToolDetailsBody
+          use={use}
+          isLoading={details.isLoading}
+          hasFailed={details.hasFailed}
+        />
       </details>
     </li>
   );

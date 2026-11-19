@@ -845,7 +845,7 @@ bindings and run options; unsupported options need an explicit correction.
 Node templates remain optional independent copies, subject to current model
 and resource rights at save and insertion. A withdrawn selection remains visible
 and is refused at save and Play without a fallback. Inside an ACP group, models
-of another runner stay listed but disabled; detach the node to select them.
+of another runner are not listed; detach the node to select them.
 In the node editor the execution target stands once above the
 model choice. Pica, agent profiles, plan nodes, the palette, node cards and
 page agents use this one choice with the same fixed measures: 40 px
@@ -864,7 +864,10 @@ model or level changes only the badge, never the field or its arrow. The
 levels come from the model's catalog entry: a model with a single level shows
 it without an arrow, a model without levels keeps a greyed level field with a
 dash and no arrow, and a missing model reads "Modell fehlt" in the warning
-color. Its panel starts with a search field and lists the target's models under
+color. A saved model that the node can no longer use, such as one that cannot
+call the tools of an agent plan, reads "Modell nicht nutzbar" there and names
+its reason in the tooltip; it is neither replaced nor offered as a new choice.
+Its panel starts with a search field and lists the target's models under
 collapsible tools in a fixed order (Claude Code, Codex, Antigravity, OpenCode,
 OpenRouter, Z.AI, then other API connections), each header naming the access
 and model count. OpenRouter and z.AI are independent agent providers with the
@@ -888,7 +891,16 @@ the search is empty, Escape closes the panel. The models come complete with
 the page; the server keeps the catalogs current, a change appears with the
 next page load, and the panel warns only after a failed catalog refresh. The
 selection stores the listed model's full connection, route, model and
-provider.
+provider. Every model choice, the list and its search alike, holds only the
+models its place can use, judged by the one rule the server applies when it
+saves or starts the model: a node of an agent plan needs a model that calls
+tools and is no decision, speech output or transcription model; decision models
+appear only for group chat decisions and model decisions; Pica and agents need
+a model with a chat adapter; speech recognition and speech output take only
+their own models. A Free mark changes none of this. A connection that is off or
+unverified, another execution target or another runner in an ACP group removes
+its models from the list as well, and switching the connection, the access or
+the target updates it.
 Double-clicking an
 agent node opens its PageAgentCLI console instead: the fixed ticket panel over
 the dimmed plan with the node's session history, workspace and Git state,

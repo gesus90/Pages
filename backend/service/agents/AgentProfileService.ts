@@ -17,6 +17,7 @@ import {
   readAgentProfileInput,
   requireAllowedRunOptions,
 } from "./AgentProfileValidation";
+import { requirePlanConsumerModel } from "./AgentPlanModel";
 import { requireAgentAdministrator } from "./AgentServiceAccess";
 import { AgentAvailabilityService } from "./AgentAvailabilityService";
 import { canUseAgentConnection } from "./AgentConnectionAccess";
@@ -272,10 +273,7 @@ export class AgentProfileService {
             previous.model !== profile.model ||
             previous.reasoningEffort !== profile.reasoningEffort
           )
-            await resolveAgentAssignment(
-              this.dependencies.connections,
-              profile,
-            );
+            await this.requireAssignment(profile);
           const profileId = id ?? randomUUID();
           await this.persist({
             ...configured,
@@ -406,6 +404,17 @@ export class AgentProfileService {
     if (!previous) throw new AgentError("profile_not_found");
     if (previous.ownerId) throw new AgentError("agent_usage_denied");
     return previous;
+  }
+
+  // The editor lists an agent profile only models a plan node can run, so the
+  // server refuses the others when the profile names a new model.
+  private async requireAssignment(profile: AgentProfileInput): Promise<void> {
+    const assignment = await resolveAgentAssignment(
+      this.dependencies.connections,
+      profile,
+    );
+    if (profile.purposes.includes("agent"))
+      await requirePlanConsumerModel(this.dependencies.connections, assignment);
   }
 
   private async persist(profile: AgentProfile): Promise<void> {

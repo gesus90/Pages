@@ -150,6 +150,20 @@ export interface VirtualToolUse {
   readonly isNative?: boolean;
   /** What the tool does, in one short sentence. */
   readonly summary?: string;
+  /**
+   * The address the page reads the input and the result of a call of a
+   * stored answer from when the person opens it; the history leaves both
+   * out then. The server checks the right to the chat on every request.
+   */
+  readonly detailsUrl?: string;
+}
+
+/** The input and the result of one tool call of a stored answer, read on demand. */
+export interface VirtualToolDetails {
+  readonly input?: string;
+  readonly output?: string;
+  /** The error of a failed call; empty for none. */
+  readonly detail: string;
 }
 
 /** The audio of a voice message. */
@@ -267,10 +281,16 @@ export interface VirtualChatDirectory {
   /** The person's own groups, the latest activity first. */
   readonly groups: readonly VirtualGroup[];
   /**
-   * The one continuous history of every participant and group, by its id.
-   * There is no list of several conversations per participant or group.
+   * The one continuous history of each participant and group this reading
+   * holds, by its id. There is no list of several conversations per participant or group.
    */
   readonly histories: Readonly<Record<string, readonly VirtualChatMessage[]>>;
+  /**
+   * The participants and groups whose history this reading holds, read for
+   * the chat that opens; absent when it holds every history. Another chat
+   * reads its history when it opens.
+   */
+  readonly loadedHistoryIds?: readonly string[];
   /**
    * The ids of the participants and groups whose stored history holds older
    * messages than the ones shown, which the page loads page by page.

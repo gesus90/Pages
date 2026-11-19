@@ -80,8 +80,10 @@ export class AgentAvailabilityService {
   /**
    * Lists the released model choices for independent plan nodes.
    * @remarks
-   * The choice marks models that cannot call tools disabled; all providers
-   * remain visible, including models whose catalog states no capability.
+   * The list stays complete, so a saved node can still name its model; the
+   * editor's choice leaves out the models the central plan rule refuses, which
+   * the server refuses again when a node is saved or started. A model whose
+   * catalog states no capability stays usable.
    */
   public async models(
     userId: string,
