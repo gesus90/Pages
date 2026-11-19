@@ -1,7 +1,9 @@
 import { z } from "zod";
 
+import { executionLocationSchema } from "@/definition/ExecutionLocation";
 import { quotaPaceSchema } from "@/definition/QuotaForecast";
 
+import type { ExecutionLocation } from "@/definition/ExecutionLocation";
 import type { QuotaPace } from "@/definition/QuotaForecast";
 
 /** The usage windows of a claude.ai subscription, in the order a card lists them. */
@@ -77,6 +79,8 @@ export type ClaudeQuotaStatus =
 export interface ClaudeQuotaAccount {
   readonly provider: "claude_code";
   readonly connectionId: string;
+  /** The runner that served the card; absent when the data does not name it. */
+  readonly executionLocation?: ExecutionLocation;
   readonly name: string;
   readonly plan: ClaudePlan | null;
   readonly windows: readonly ClaudeQuotaWindow[];
@@ -124,6 +128,7 @@ export const quotaStatusSchema = z.discriminatedUnion("kind", [
 export const claudeQuotaAccountSchema = z.object({
   provider: z.literal("claude_code"),
   connectionId: z.string().min(1).max(200),
+  executionLocation: executionLocationSchema.optional(),
   name: z.string().max(400),
   plan: z.enum(CLAUDE_PLANS).nullable(),
   windows: z.array(windowSchema).max(CLAUDE_QUOTA_WINDOWS.length),

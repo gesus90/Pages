@@ -56,6 +56,7 @@ import { registerShutdownHandler } from "./services-shutdown.server";
 import { createAutomationServices } from "./automation-services.server";
 import { createCalendarService } from "./calendar-services.server";
 
+import type { AgentCallService } from "@/backend/service/employee/call/AgentCallService";
 import type { ManagementService } from "@/backend/service/management/ManagementService";
 import type { WikiService } from "@/backend/service/WikiService";
 import type { CalendarService } from "@/backend/service/calendar/CalendarService";
@@ -101,6 +102,8 @@ export interface ApplicationServices
     AutomationApplicationServices,
     AgentPlanLoaderServices {
   readonly managementService: ManagementService;
+  /** The voice calls of the direct chat with an agent. */
+  readonly agentCallService: AgentCallService;
   readonly administrationService: AdministrationService;
   readonly agentPlanService: AgentPlanService;
   readonly agentPlanCommands: AgentPlanCommandOperations;

@@ -9,11 +9,16 @@ import type {
   AgentSessionView,
 } from "@/definition/AgentSessionJournal";
 
-/** The share of the window in use, from 0 to 100; `null` without both values. */
+/**
+ * The share of the window in use, from 0 to 100; `null` without a window.
+ * @remarks
+ * A known window without a report yet counts as empty, so a fresh attempt
+ * starts at `0 / window` with an empty bar.
+ */
 function contextShare(context: AgentSessionContextUsage): number | null {
   const { contextUsed: used, contextLimit: limit } = context;
-  if (used === null || limit === null || limit <= 0) return null;
-  return Math.min(100, (used / limit) * 100);
+  if (limit === null || limit <= 0) return null;
+  return Math.min(100, ((used ?? 0) / limit) * 100);
 }
 
 /** From this share on the bar warns; from the second one it signals an almost full window. */
@@ -52,7 +57,12 @@ function ContextBar({
   );
 }
 
-/** Formats whichever parts of the context the provider has reported. */
+/**
+ * Formats whichever parts of the context are known.
+ * @remarks
+ * Without a report the known window stands as `0 / window`; without a window
+ * the shared placeholder of the sidebar stands, or the tokens in use.
+ */
 function contextValue(
   context: AgentSessionContextUsage,
   options: {
@@ -62,24 +72,21 @@ function contextValue(
 ): string {
   const key = "plans.console.terminal.sidebar";
   const { contextUsed: used, contextLimit: limit } = context;
-  if (used === null) {
-    if (limit === null) return options.t(`${key}.contextNotReported`);
-    return options.t(`${key}.contextWindowTokens`, {
-      limit: options.numbers.format(limit),
-    });
-  }
-  if (limit === null)
+  if (limit === null) {
+    if (used === null) return options.t(`${key}.unknown`);
     return options.t(`${key}.contextTokens`, {
       used: options.numbers.format(used),
     });
-  return `${options.numbers.format(used)} / ${options.numbers.format(limit)}`;
+  }
+  return `${options.numbers.format(used ?? 0)} / ${options.numbers.format(limit)}`;
 }
 
 /**
  * The block "Kontext", fixed 76 px high: how much of the model's window the session occupies.
  * @remarks
- * The session view holds the last reported values of the attempt's model.
- * The bar is shown once both occupancy and window are available.
+ * The session view holds the last reported values of the attempt's model and
+ * takes a window the adapter did not report from the model's catalog entry.
+ * The bar is shown as soon as the window is known.
  */
 export function ConsoleContextSection({
   view,

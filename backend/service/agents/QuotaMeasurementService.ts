@@ -297,6 +297,7 @@ export class QuotaMeasurementService {
               plan: reading.plan,
               windows: reading.windows,
               tally: reading.tally,
+              entries: reading.entries,
             }
           : undefined,
       windows: measureWindows(

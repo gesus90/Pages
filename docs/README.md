@@ -11,7 +11,7 @@ a Pages instance or its private wiki. Some specialized guides are in German.
 - [Pica chat and models](Pica.md), [administrator operator](PicaAdminOperator.md),
   [administrator browser/files](PicaAdminTools.md) and [visual operator browser](PicaOperatorBrowser.md).
 - [Agent Plans](AgentPlanRunner.md): editor, ticket parameters, teams, plans that call each other, execution and recovery.
-- [Automations](Automations.md), [conversation content cards](ConversationContentCards.md), [code previews in the chat](ChatCodePreviews.md), [video and audio in the chat](ChatVideoAndAudio.md), [documents, tables and binary files in the chat](ChatDocumentsAndFiles.md)
+- [Automations](Automations.md), [conversation content cards](ConversationContentCards.md), [code previews in the chat](ChatCodePreviews.md), [video and audio in the chat](ChatVideoAndAudio.md), [voice calls with agents](AgentVoiceCalls.md), [documents, tables and binary files in the chat](ChatDocumentsAndFiles.md)
   and [group observer/context](GroupObserver.md).
 - [Storage API and Google Drive setup](StorageApi.md).
 

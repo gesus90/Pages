@@ -10,7 +10,7 @@ import zaiUrl from "@/assets/providers/logo-zai.png?no-inline";
 import { cn } from "@/app/lib/cn";
 
 import { zaiWindowDurationMinutes } from "@/definition/ZaiQuota";
-import { QuotaCardFrame } from "./quota-card-frame";
+import { QuotaCardFrame, QuotaHeaderBadges } from "./quota-card-frame";
 import {
   QUOTA_COMPACT_WINDOWS_AREA_CLASS,
   QUOTA_WINDOWS_AREA_CLASS,
@@ -157,10 +157,12 @@ export function ZaiQuotaCard({
             {t(`agentsPage.zai.subtitle.${account.accountType}`)}
           </p>
         </div>
-        {isLoading && hasTier ? <QuotaBadgePlaceholder /> : null}
-        {!isLoading && (hasTier || account.plan !== null) ? (
-          <ZaiPlanBadge plan={account.plan} />
-        ) : null}
+        <QuotaHeaderBadges location={null}>
+          {isLoading && hasTier ? <QuotaBadgePlaceholder /> : null}
+          {!isLoading && (hasTier || account.plan !== null) ? (
+            <ZaiPlanBadge plan={account.plan} />
+          ) : null}
+        </QuotaHeaderBadges>
       </header>
       {isLoading ? (
         <QuotaWindowsPlaceholder />

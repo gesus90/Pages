@@ -41,6 +41,24 @@ function badgeProvider(
   return runner;
 }
 
+/** The identity of a session's model and the context window its catalog entry states. */
+export interface SessionIdentity extends Pick<
+  AgentSessionView,
+  "modelIdentity" | "reasoning"
+> {
+  readonly contextWindow: number | null;
+}
+
+/** The window of the catalog entry the identity resolved to; `null` for an unresolved or unlisted model. */
+function catalogContextWindow(
+  modelIdentity: AgentSessionView["modelIdentity"],
+  catalog: readonly AgentCatalogModelName[],
+): number | null {
+  if (!modelIdentity?.modelId) return null;
+  const entry = catalog.find(({ id }) => id === modelIdentity.modelId);
+  return entry?.contextWindow ?? null;
+}
+
 /**
  * The model and reasoning of a session as structured identity for the badges.
  * @remarks
@@ -57,9 +75,9 @@ export async function describeSessionIdentity(
   record: AgentPlanSessionRecord,
   model: AgentSessionModelReport,
   readCatalogOf: SessionCatalogReader | undefined,
-): Promise<Pick<AgentSessionView, "modelIdentity" | "reasoning">> {
+): Promise<SessionIdentity> {
   const provider = badgeProvider(record.runner);
-  if (provider === null) return {};
+  if (provider === null) return { contextWindow: null };
   const catalog = await readCatalog(
     record.requested.connectionId,
     readCatalogOf,
@@ -85,5 +103,6 @@ export async function describeSessionIdentity(
       model: modelIdentity,
       catalog,
     }),
+    contextWindow: catalogContextWindow(modelIdentity, catalog),
   };
 }

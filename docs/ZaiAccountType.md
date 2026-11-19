@@ -44,18 +44,21 @@ answer shows as "Query failed" or as missing values, never as an invented one.
 A `limits` that is not a list is a changed answer and fails the query; a
 missing or empty list is an answer without entries.
 
-**What an answer delivered.** Every successful answer is counted, and only the
-counts are logged, as the event `integration.zai.quota.answer` of the component
-`ZaiQuotaProbe` with the connection id and these numbers: `deliveredEntries`
-(entries in `limits`), `unsupportedEntries` (entries of a type no card names),
-`withoutUsageEntries` (entries of a named type without a usable share),
-`evaluatedEntries` (entries the card can read) and `hiddenEntries` (evaluated
-entries whose reset had passed when the answer came). Delivered is the sum of
-the unsupported, without-usage and evaluated entries. The log holds neither the
-key nor any entry or field of the answer. An answer with the same numbers as the
-last one of the connection is logged at `debug`, so the notice level shows each
-change once. Comparing a card with the answer of a live key therefore needs no
-raw response: the numbers say which of the cases below applies.
+**What an answer delivered.** Every successful answer is counted and logged as
+the event `integration.zai.quota.answer` of the component `ZaiQuotaProbe` with
+the connection id, the reported `plan` tier, these aggregate numbers:
+`deliveredEntries` (entries in `limits`), `unsupportedEntries` (entries of a
+type no card names), `withoutUsageEntries` (entries of a named type without a
+usable share), `evaluatedEntries` (entries the card can read) and
+`hiddenEntries` (evaluated entries whose reset had passed when the answer came),
+and `diagnostic`: a sanitized per-entry summary (`type`, `outcome`, `kind`,
+`unit`, `number`, `percentage`, `currentValue`, `usage`, `remaining` and reset
+presence). Delivered is the sum of the unsupported, without-usage and
+evaluated entries. The log holds neither the key nor raw response strings. An
+answer with the same summary as the last one of the connection is logged at
+`debug`, so the notice level shows each change once. Comparing a card with the
+answer of a live key therefore needs no raw response: the numbers and entry
+summaries say which of the cases below applies.
 
 **Required permission.** Only the key of the connection. The monitor has no
 separate management credential. A key the monitor rejects (HTTP 401, 403 or a
@@ -68,21 +71,24 @@ level } }`; `code` other than 200 and `success: false` are failures.
 
 - `level` is the plan tier badge: `lite`, `pro` or `max`; any other value
   reads unknown.
-- `limits[].type`: `TOKENS_LIMIT` is "Token allowance", `TIME_LIMIT` is "MCP
-  usage".
+- `limits[].type`: `TOKENS_LIMIT` is "Token allowance", `CREDIT_LIMIT` is
+  "Credit allowance" (the rolling five-hour and weekly credit pools of
+  credit-based GLM Coding Plan tiers), `TIME_LIMIT` is "MCP usage".
 - `limits[].percentage` is the used share in percent; the rest is "left".
 - `limits[].nextResetTime` is the Unix time in milliseconds of the next reset;
   without it the entry shows no reset line.
 - `limits[].unit` and `number` give the window length: `unit` 3 is hours, 5 is
   months and 6 is weeks.
 - `currentValue`, `usage` and `remaining` are the used, total and remaining
-  count, shown for `TIME_LIMIT` only.
+  count, shown for `CREDIT_LIMIT` and `TIME_LIMIT` when a positive total is
+  reported.
 
 z.ai documents no table of its `unit` codes. The three above are the ones its
 plugin and captured answers pair with a known window (five hours, one month,
 one week); a window with another code carries no length, and an entry of
 another `type` or without a usable share is dropped. Units: tokens entries
-are a share only, MCP entries are a share and a count of tool calls. Periods:
+are a share only, credit entries are a share (and used/total credits when
+reported), and MCP entries are a share and a count of tool calls. Periods:
 a five-hour window resets five hours after consumption, the weekly window
 every seven days and the MCP allowance monthly, as the plan documentation of
 z.ai states; the card shows the reset time z.ai reports and never computes one.

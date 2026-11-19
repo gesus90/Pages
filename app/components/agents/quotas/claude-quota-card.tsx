@@ -11,7 +11,7 @@ import { cn } from "@/app/lib/cn";
 import { claudePlanTier } from "@/definition/ClaudeQuota";
 import { FIXED_QUOTA_MINUTES } from "@/definition/QuotaForecast";
 
-import { QuotaCardFrame } from "./quota-card-frame";
+import { QuotaCardFrame, QuotaHeaderBadges } from "./quota-card-frame";
 import { QUOTA_WINDOWS_AREA_CLASS } from "./quota-card-layout";
 import { quotaCardView } from "./quota-card-state";
 import { QuotaNotice } from "./quota-notice";
@@ -136,11 +136,13 @@ export function ClaudeQuotaCard({
             {t("agentsPage.card.subscription")}
           </p>
         </div>
-        {isLoading ? (
-          <QuotaBadgePlaceholder />
-        ) : (
-          <ClaudePlanBadge plan={account.plan} />
-        )}
+        <QuotaHeaderBadges location={account.executionLocation ?? null}>
+          {isLoading ? (
+            <QuotaBadgePlaceholder />
+          ) : (
+            <ClaudePlanBadge plan={account.plan} />
+          )}
+        </QuotaHeaderBadges>
       </header>
       {isLoading ? (
         <QuotaWindowsPlaceholder />

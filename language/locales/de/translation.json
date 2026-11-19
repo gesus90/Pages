@@ -4041,10 +4041,8 @@
     "start": "Anruf starten",
     "hangUp": "Auflegen",
     "cancel": "Abbrechen",
-    "prototype": "Prototyp",
     "call": "Anruf",
     "active": "Anruf mit {{name}}",
-    "simulated": "Simulierter Anruf · ohne Ton und Bild",
     "waitingTitle": "Ruft {{name}} an …",
     "waiting": "Wartet auf Annahme",
     "incomingTitle": "{{name}} ruft an",
@@ -4107,6 +4105,25 @@
         "openSettings": "Audio-Einstellungen"
       },
       "busy": "Du bist bereits in einem Anruf. Lege zuerst auf."
+    },
+    "agent": {
+      "failedTitle": "Anruf nicht möglich",
+      "voiceMissing": "Die gespeicherte Stimme fehlt im Sprachmodell; die erste Stimme spricht.",
+      "activity": {
+        "connecting": "Anruf wird vorbereitet …",
+        "listening": "Hört zu",
+        "thinking": "Denkt nach …",
+        "speaking": "Spricht"
+      },
+      "failure": {
+        "recognition_not_configured": "Die Spracherkennung ist nicht eingerichtet. Ein Administrator wählt sie in den Einstellungen unter Agents.",
+        "recognition_failed": "Die Spracherkennung hat nicht geantwortet. Sprich bitte noch einmal.",
+        "synthesis_not_configured": "Die Sprachausgabe ist nicht eingerichtet. Ein Administrator wählt sie in den Einstellungen unter Agents.",
+        "synthesis_failed": "Die Sprachausgabe hat nicht geantwortet. Die Antwort steht im Chat.",
+        "agent_unavailable": "Der Agent ist gerade nicht erreichbar.",
+        "agent_busy": "Der Agent beantwortet noch eine andere Nachricht. Sprich gleich noch einmal.",
+        "invalid": "Die Aufnahme konnte nicht verarbeitet werden."
+      }
     }
   },
   "chatPage": {
@@ -6043,9 +6060,7 @@
           },
           "activityWaiting": "Wartet auf Neustart",
           "context": "Kontext",
-          "contextNotReported": "Kontext noch nicht gemeldet",
           "contextTokens": "{{used}} Tokens",
-          "contextWindowTokens": "Fenster {{limit}} Tokens",
           "unknown": "unbekannt",
           "session": "Session",
           "runtime": "Laufzeit",
@@ -9592,7 +9607,9 @@
     "status": {
       "refreshing": "wird aktualisiert …",
       "live": "live",
-      "refresh": "Kontingente aktualisieren"
+      "refresh": "Kontingente aktualisieren",
+      "refreshAll": "Aktualisieren",
+      "refreshingAll": "Aktualisiere …"
     },
     "order": {
       "handle": "Karte {{name}} verschieben",
@@ -9846,6 +9863,7 @@
       },
       "window": {
         "tokens": "Token-Kontingent",
+        "credits": "Credit-Kontingent",
         "mcp": "MCP-Nutzung",
         "named": "{{name}} · {{length}}"
       },
@@ -10707,6 +10725,11 @@
     "monthlyLimitHint": "Rechnerische Kosten einschließlich Abo-Verbrauch; leer bedeutet unbegrenzt. Neue Anfragen werden nach Erreichen des Limits abgewiesen."
   },
   "agentBadges": {
+    "executionLocation": {
+      "local": "Lokal",
+      "remote": "Remote",
+      "unknown": "Unbekannt"
+    },
     "model": {
       "label": "Modell {{vendor}} {{name}}, {{status}}",
       "labelWithSource": "Modell {{vendor}} {{name}}, Quelle {{source}}, {{status}}",

@@ -1,10 +1,11 @@
-import { useState } from "react";
-
+import { useAgentCall } from "./agent-call/use-agent-call";
 import { useAudioSettings } from "./audio-settings-context";
 import { useCallAudio } from "./use-call-audio";
 import { useChatCalls } from "./use-chat-calls";
 
 import type { ChatCallView } from "@/definition/ChatCall";
+import type { AgentCallControl } from "./agent-call/use-agent-call";
+import type { CallAudioState } from "./call-audio-session";
 import type { VirtualParticipant } from "@/definition/VirtualChat";
 import type { ChatCallBarAudio } from "./chat-call-audio-bar";
 import type { ChatCallPhase } from "./chat-call-bar";
@@ -18,7 +19,7 @@ export interface DirectCall {
   readonly start: () => void;
   /** "Abbrechen" while waiting, "Auflegen" once the call runs. */
   readonly end: () => void;
-  /** The audio of a call with a person; missing for the simulated call with an agent. */
+  /** The audio of the running call, with a person or an agent. */
   readonly audio?: ChatCallBarAudio;
 }
 
@@ -29,14 +30,57 @@ function humanPhase(call: ChatCallView | undefined): ChatCallPhase | null {
   return call.isOutgoing ? "waiting" : null;
 }
 
+function agentCallOf(
+  agentId: string,
+  call: AgentCallControl,
+  openSettings: () => void,
+): DirectCall {
+  const { state } = call;
+  const isThisAgent = state?.agentId === agentId;
+  const audioState: CallAudioState | null =
+    state === null || !isThisAgent
+      ? null
+      : {
+          callId: state.callId,
+          microphone: state.microphone,
+          connection: state.isFailedToStart ? "failed" : "connected",
+          route: null,
+        };
+  return {
+    phase: isThisAgent ? "active" : null,
+    // One call at a time: another chat's call blocks starting this one.
+    isRunning: state !== null,
+    start: () => call.start(agentId),
+    end: call.end,
+    ...(isThisAgent && state !== null
+      ? {
+          audio: {
+            state: audioState,
+            onToggleMute: call.toggleMute,
+            onOpenSettings: openSettings,
+            agent: {
+              activity: state.activity,
+              failure: state.failure,
+              isFailedToStart: state.isFailedToStart,
+              isVoiceMissing: state.isVoiceMissing,
+              latencies: state.latencies,
+            },
+          },
+        }
+      : {}),
+  };
+}
+
 /**
  * The call of the direct chat with the opened participant.
  * @remarks
- * With an agent the call starts and ends in the page at once, simulated: no
- * server, no model, no voice, no microphone. With a person the server keeps
- * the call, so both sides see it, and the microphone opens when the person
- * starts the call; the running call carries voice in both directions.
- * Without a participant, as in a group, no call exists.
+ * With an agent the call runs in the page and on the server: the microphone
+ * opens when the person starts the call, speech detection on the device cuts
+ * out each utterance, the agent answers once per utterance in the same chat
+ * session and its voice speaks the answer while it is written. With a person
+ * the server keeps the call, so both sides see it, and the microphone opens
+ * when the person starts the call; the running call carries voice in both
+ * directions. Without a participant, as in a group, no call exists.
  * @param participant - The opened participant of a direct chat, or `null`.
  */
 export function useDirectCall(
@@ -45,16 +89,10 @@ export function useDirectCall(
   const { calls, start, respond } = useChatCalls();
   const callAudio = useCallAudio();
   const settings = useAudioSettings();
-  const [agentCallIds, setAgentCallIds] = useState<readonly string[]>([]);
+  const agentCall = useAgentCall();
   if (participant === null) return null;
   if (participant.kind === "agent")
-    return {
-      phase: agentCallIds.includes(participant.id) ? "active" : null,
-      isRunning: agentCallIds.includes(participant.id),
-      start: () => setAgentCallIds((ids) => [...ids, participant.id]),
-      end: () =>
-        setAgentCallIds((ids) => ids.filter((id) => id !== participant.id)),
-    };
+    return agentCallOf(participant.id, agentCall, settings.open);
   const call = calls.find((entry) => entry.participant.id === participant.id);
   const participantId = participant.id;
 

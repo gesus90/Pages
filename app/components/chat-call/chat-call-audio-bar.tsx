@@ -3,18 +3,37 @@ import { useTranslation } from "react-i18next";
 
 import { cn } from "@/app/lib/cn";
 
+import type { AgentCallFailure } from "@/definition/AgentCall";
+import type {
+  AgentCallActivity,
+  AgentCallLatency,
+} from "./agent-call/agent-call-session";
 import type { CallAudioState } from "./call-audio-session";
 
 const FOCUS_RING =
   "focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface focus-visible:outline-none";
 
-/** The audio of a running call with a person, which the bar shows and steers. */
+/** What the bar shows of a call with an agent beside the microphone. */
+export interface ChatCallBarAgent {
+  readonly activity: AgentCallActivity;
+  /** The step that failed last; `null` while the call goes well. */
+  readonly failure: AgentCallFailure | null;
+  /** The call could not start, so there is nothing to mute. */
+  readonly isFailedToStart: boolean;
+  /** The saved voice is not offered by the speech model. */
+  readonly isVoiceMissing: boolean;
+  readonly latencies: readonly AgentCallLatency[];
+}
+
+/** The audio of a running call, which the bar shows and steers. */
 export interface ChatCallBarAudio {
   /** The audio of this call; `null` until its connection starts. */
   readonly state: CallAudioState | null;
   readonly onToggleMute: () => void;
   /** Opens "Audio-Einstellungen", where a microphone for the next call is chosen. */
   readonly onOpenSettings: () => void;
+  /** Present for a call with an agent. */
+  readonly agent?: ChatCallBarAgent;
 }
 
 type MicrophoneProblem = "lost" | "blocked" | "none" | "unavailable";
@@ -27,10 +46,26 @@ function problemOf(state: CallAudioState | null): MicrophoneProblem | null {
   return microphone;
 }
 
-function statusLine(
-  state: CallAudioState | null,
+function agentLine(
+  agent: ChatCallBarAgent,
+  isMuted: boolean,
   t: (key: string) => string,
 ): string {
+  if (agent.failure !== null)
+    return t(`chatCall.agent.failure.${agent.failure}`);
+  if (isMuted) return t("chatCall.audio.bar.microphoneOff");
+  if (agent.isVoiceMissing && agent.activity === "listening")
+    return t("chatCall.agent.voiceMissing");
+  return t(`chatCall.agent.activity.${agent.activity}`);
+}
+
+function statusLine(
+  audio: ChatCallBarAudio,
+  t: (key: string) => string,
+): string {
+  const { state, agent } = audio;
+  if (agent !== undefined)
+    return agentLine(agent, state?.microphone === "muted", t);
   if (state?.connection === "failed") return t("chatCall.audio.bar.failed");
   if (state?.connection !== "connected")
     return t("chatCall.audio.bar.connecting");
@@ -79,14 +114,81 @@ function MuteControls({
   );
 }
 
+type BarProblem = MicrophoneProblem | "agent";
+
+/** What needs the person's attention: a call that could not start, or the microphone. */
+function barProblemOf(audio: ChatCallBarAudio): BarProblem | null {
+  if (audio.agent?.isFailedToStart === true) return "agent";
+  return problemOf(audio.state);
+}
+
+function BarText({
+  name,
+  audio,
+  problem,
+}: {
+  readonly name: string;
+  readonly audio: ChatCallBarAudio;
+  readonly problem: BarProblem | null;
+}): React.ReactElement {
+  const { t } = useTranslation();
+  let title = t("chatCall.active", { name });
+  let line = statusLine(audio, t);
+  if (problem === "agent") {
+    title = t("chatCall.agent.failedTitle");
+  } else if (problem !== null) {
+    title = t("chatCall.audio.bar.unavailableTitle");
+    line = t(`chatCall.audio.bar.${problem}`);
+  }
+  return (
+    <div className="min-w-0 flex-1">
+      <p className="truncate text-sm leading-5 font-bold">{title}</p>
+      <p className="truncate text-xs leading-4 text-foreground/75">{line}</p>
+    </div>
+  );
+}
+
+function BarControls({
+  audio,
+  problem,
+}: {
+  readonly audio: ChatCallBarAudio;
+  readonly problem: BarProblem | null;
+}): React.ReactElement | null {
+  const { t } = useTranslation();
+  if (problem === "agent") return null;
+  if (problem === null)
+    return (
+      <MuteControls
+        isMuted={audio.state?.microphone === "muted"}
+        onToggleMute={audio.onToggleMute}
+      />
+    );
+  return (
+    <button
+      type="button"
+      onClick={audio.onOpenSettings}
+      className={cn(
+        "inline-flex h-9 shrink-0 items-center rounded-xl bg-primary px-3.5 text-[13px] font-semibold text-primary-foreground hover:bg-primary-hover",
+        FOCUS_RING,
+      )}
+    >
+      {t("chatCall.audio.bar.openSettings")}
+    </button>
+  );
+}
+
 /**
- * The bar of a running call with a person, in the three states of the microphone.
+ * The bar of a running call, in the states of the microphone.
  * @remarks
  * "Mikrofon an", "Stumm" (shown by button, mark and text, never by color
- * alone) and "Gerät verloren" with the way to the audio settings. The bar is
- * one status message that changes only when the state changes. The path of the
- * audio, direct or relay, is named in `data-call-route` for the check of a
- * connection.
+ * alone) and "Gerät verloren" with the way to the audio settings. A call with
+ * an agent names what the agent does, listening, thinking or speaking, and
+ * the step that failed; a call that could not start offers only to hang up.
+ * The bar is one status message that changes only when the state changes. The
+ * path of the audio, direct or relay, is named in `data-call-route` and the
+ * measured times of each answer in `data-call-latency`, for the check of a
+ * call.
  */
 export function AudioCallBar({
   name,
@@ -98,12 +200,15 @@ export function AudioCallBar({
   readonly audio: ChatCallBarAudio;
 }): React.ReactElement {
   const { t } = useTranslation();
-  const problem = problemOf(audio.state);
-  const isMuted = audio.state?.microphone === "muted";
+  const problem = barProblemOf(audio);
+  const latencies = audio.agent?.latencies ?? [];
   return (
     <div
       role="status"
       data-call-route={audio.state?.route ?? undefined}
+      data-call-latency={
+        latencies.length === 0 ? undefined : JSON.stringify(latencies)
+      }
       className={cn(
         "-mt-1 flex h-14 shrink-0 items-center gap-3 rounded-2xl border pr-3 pl-4",
         problem === null
@@ -120,32 +225,8 @@ export function AudioCallBar({
             : "bg-warning ring-4 ring-warning/25",
         )}
       />
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-sm leading-5 font-bold">
-          {problem === null
-            ? t("chatCall.active", { name })
-            : t("chatCall.audio.bar.unavailableTitle")}
-        </p>
-        <p className="truncate text-xs leading-4 text-foreground/75">
-          {problem === null
-            ? statusLine(audio.state, t)
-            : t(`chatCall.audio.bar.${problem}`)}
-        </p>
-      </div>
-      {problem === null ? (
-        <MuteControls isMuted={isMuted} onToggleMute={audio.onToggleMute} />
-      ) : (
-        <button
-          type="button"
-          onClick={audio.onOpenSettings}
-          className={cn(
-            "inline-flex h-9 shrink-0 items-center rounded-xl bg-primary px-3.5 text-[13px] font-semibold text-primary-foreground hover:bg-primary-hover",
-            FOCUS_RING,
-          )}
-        >
-          {t("chatCall.audio.bar.openSettings")}
-        </button>
-      )}
+      <BarText name={name} audio={audio} problem={problem} />
+      <BarControls audio={audio} problem={problem} />
       <button
         type="button"
         onClick={onEnd}

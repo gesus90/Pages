@@ -7,6 +7,7 @@ import {
 
 import type {
   ZaiQuotaCounts,
+  ZaiQuotaEntrySummary,
   ZaiQuotaKind,
   ZaiQuotaReading,
   ZaiQuotaTally,
@@ -16,11 +17,30 @@ import type {
 /** Why an entry of the answer leaves no entry on the card. */
 type DroppedEntry = "unsupportedType" | "withoutUsage";
 
+interface EvaluatedEntry {
+  readonly window: ZaiQuotaWindow | DroppedEntry;
+  readonly summary: ZaiQuotaEntrySummary;
+}
+
+const TYPE_TOKEN_PATTERN = /^[A-Za-z0-9_]{1,40}$/;
+
 /** The entry types of the usage monitor that a card names; any other type is ignored. */
 const KIND_BY_TYPE: ReadonlyMap<string, ZaiQuotaKind> = new Map([
   ["TOKENS_LIMIT", "tokens"],
+  ["CREDIT_LIMIT", "credits"],
   ["TIME_LIMIT", "mcp"],
 ]);
+
+function readTypeToken(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  return TYPE_TOKEN_PATTERN.test(trimmed) ? trimmed : "invalid";
+}
+
+function readInteger(value: unknown): number | null {
+  return typeof value === "number" && Number.isInteger(value) ? value : null;
+}
 
 function readAmount(value: unknown): number | null {
   return typeof value === "number" && Number.isFinite(value) && value >= 0
@@ -36,11 +56,11 @@ function readResetTime(value: unknown): string | null {
   return Number.isNaN(resetsAt.getTime()) ? null : resetsAt.toISOString();
 }
 
-/** The plugin of Z.AI reads `currentValue` as the used and `usage` as the total number of calls. */
+/** The monitor reports `currentValue` as the used and `usage` as the total count. */
 function readCounts(entry: Record<string, unknown>): ZaiQuotaCounts | null {
   const used = readAmount(entry.currentValue);
   const total = readAmount(entry.usage);
-  if (used === null || total === null) return null;
+  if (used === null || total === null || total === 0) return null;
   return { used, total, remaining: readAmount(entry.remaining) };
 }
 
@@ -55,20 +75,40 @@ function readUsedPercent(
   return Math.min(100, (counts.used / counts.total) * 100);
 }
 
-function readWindow(entry: unknown): ZaiQuotaWindow | DroppedEntry {
+function readEntry(entry: unknown): EvaluatedEntry {
   const fields = readAgentObject(entry);
-  const kind =
-    typeof fields.type === "string" ? KIND_BY_TYPE.get(fields.type) : undefined;
-  if (kind === undefined) return "unsupportedType";
-  const counts = kind === "mcp" ? readCounts(fields) : null;
-  const usedPercent = readUsedPercent(fields, counts);
-  if (usedPercent === null) return "withoutUsage";
-  return {
+  const type = readTypeToken(fields.type);
+  const kind = type !== null ? (KIND_BY_TYPE.get(type) ?? null) : null;
+  const length = readZaiWindowLength(fields.unit, fields.number);
+  const resetsAt = readResetTime(fields.nextResetTime);
+  const rawCounts = readCounts(fields);
+  const counts = kind === "tokens" ? null : rawCounts;
+  const usedPercent = readUsedPercent(fields, rawCounts);
+  const baseSummary = {
+    type,
     kind,
-    usedPercent,
-    length: readZaiWindowLength(fields.unit, fields.number),
-    resetsAt: readResetTime(fields.nextResetTime),
-    counts,
+    unit: readInteger(fields.unit),
+    number: readInteger(fields.number),
+    length,
+    percentage: readAmount(fields.percentage),
+    currentValue: readAmount(fields.currentValue),
+    usage: readAmount(fields.usage),
+    remaining: readAmount(fields.remaining),
+    resetsAt,
+  };
+  if (kind === null)
+    return {
+      window: "unsupportedType",
+      summary: { ...baseSummary, outcome: "unsupportedType" },
+    };
+  if (usedPercent === null)
+    return {
+      window: "withoutUsage",
+      summary: { ...baseSummary, outcome: "withoutUsage" },
+    };
+  return {
+    window: { kind, usedPercent, length, resetsAt, counts },
+    summary: { ...baseSummary, outcome: "evaluated" },
   };
 }
 
@@ -124,10 +164,12 @@ export function readZaiQuota(payload: unknown): ZaiQuotaReading | null {
   const quota = readAgentObject(envelope.data);
   const limits = readLimits(quota.limits);
   if (limits === null) return null;
-  const readings = limits.map(readWindow);
+  const evaluated = limits.map(readEntry);
+  const readings = evaluated.map((entry) => entry.window);
   return {
     plan: readZaiPlan(quota.level),
     windows: readings.filter(isWindow).slice(0, ZAI_MAX_WINDOWS),
     tally: tallyEntries(readings),
+    entries: evaluated.map((entry) => entry.summary).slice(0, ZAI_MAX_WINDOWS),
   };
 }

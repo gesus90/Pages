@@ -165,6 +165,7 @@ export class AntigravityQuotaService {
     return {
       provider: "antigravity",
       connectionId: connection.id,
+      executionLocation: "local",
       name: connection.name,
       groups: status.kind === "signed_out" ? [] : groups,
       status,

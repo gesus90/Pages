@@ -217,10 +217,11 @@ function SessionSection(props: ConsoleSidebarProps): React.ReactElement {
 }
 
 /**
- * The attempt's context, session facts and progress in the plan terminal.
+ * The attempt's progress, context and session facts in the plan terminal.
  * @remarks
- * The todo list takes the remaining room. A short window scrolls the whole
- * sidebar so the context and session rows remain reachable.
+ * Every provider shows the todo list first, then the context, then the
+ * session. The todo list takes the remaining room. A short window scrolls
+ * the whole sidebar so the context and session rows remain reachable.
  */
 export function ConsoleSidebar(props: ConsoleSidebarProps): React.ReactElement {
   const { t } = useTranslation();
@@ -229,12 +230,12 @@ export function ConsoleSidebar(props: ConsoleSidebarProps): React.ReactElement {
       aria-label={t("plans.console.details")}
       className="flex min-w-0 shrink-0 flex-col overflow-y-auto border-t border-agent-console-border bg-agent-console-surface px-5 pt-5 pb-8 [&>*+*]:mt-3.5 [&>*+*]:border-t [&>*+*]:border-agent-console-border [&>*+*]:pt-3.5 min-[680px]:w-[300px] min-[680px]:border-t-0 min-[680px]:border-l"
     >
-      <ConsoleContextSection view={props.view} />
-      <SessionSection {...props} />
       <ConsoleTodoList
         step={props.step}
         activity={activityText(props.step, t)}
       />
+      <ConsoleContextSection view={props.view} />
+      <SessionSection {...props} />
     </aside>
   );
 }

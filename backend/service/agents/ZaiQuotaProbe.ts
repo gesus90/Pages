@@ -9,9 +9,25 @@ import type { ZaiProvider } from "@/backend/agents/providers/ZaiProvider";
 import type { AgentConnectionRepository } from "@/backend/database/repositories/AgentConnectionRepository";
 import type { AgentConnectionRecord } from "@/backend/database/repositories/agent/AgentConnectionRows";
 import type { InstanceSecretCipher } from "@/backend/security/InstanceSecretCipher";
-import type { ZaiQuotaReading } from "@/definition/ZaiQuota";
+import type {
+  ZaiQuotaEntrySummary,
+  ZaiQuotaReading,
+} from "@/definition/ZaiQuota";
 import type { QuotaProbeOutcome } from "./ProviderQuotaProbe";
 import type { QuotaMeasurementService } from "./QuotaMeasurementService";
+
+function formatEntryDiagnostic(entry: ZaiQuotaEntrySummary): string {
+  const type = entry.type ?? "none";
+  const kind = entry.kind ?? "-";
+  const unit = entry.unit ?? "-";
+  const count = entry.number ?? "-";
+  const percentage = entry.percentage ?? "-";
+  const current = entry.currentValue ?? "-";
+  const total = entry.usage ?? "-";
+  const remaining = entry.remaining ?? "-";
+  const hasReset = entry.resetsAt === null ? "0" : "1";
+  return `${type}[${entry.outcome} kind=${kind} u=${unit}x${count} pct=${percentage} cur=${current}/${total} rem=${remaining} rst=${hasReset}]`;
+}
 
 interface ZaiQuotaProbeDependencies {
   readonly connections: Pick<AgentConnectionRepository, "findSecretEncrypted">;
@@ -40,10 +56,9 @@ export interface ZaiStoredReading extends ZaiQuotaReading {
  * answer, and a replaced key never shows the figures of the old one. A key
  * the monitor rejects drops its answer, because nothing it said holds any
  * more. The scheduling of the queries is that of {@link ProviderQuotaProbe}.
- * Every answer is logged as numbers only: how many entries Z.AI delivered, how
- * many were dropped for an unsupported type or a missing usable share, how many
- * were evaluated and how many of those had passed their reset. Neither the key
- * nor any entry or field of the answer enters the log.
+ * Every answer is logged with the plan tier, aggregate counts and sanitized
+ * per-entry diagnostics (cleaned type token, outcome, numeric usage and
+ * window codes). Neither the key nor the raw response enters the log.
  */
 export class ZaiQuotaProbe {
   private readonly dependencies: ZaiQuotaProbeDependencies;
@@ -138,16 +153,22 @@ export class ZaiQuotaProbe {
 
   /** An answer that differs from the last logged one is an operator notice; a repeat is a trace. */
   private logAnswer(connectionId: string, reading: ZaiQuotaReading): void {
-    const { tally, windows } = reading;
-    const counts = {
+    const { tally, windows, plan, entries } = reading;
+    const diagnostic = (entries ?? [])
+      .map(formatEntryDiagnostic)
+      .join(" | ")
+      .slice(0, 256);
+    const summary = {
+      plan,
       deliveredEntries: tally.delivered,
       unsupportedEntries: tally.unsupportedType,
       withoutUsageEntries: tally.withoutUsage,
       evaluatedEntries: tally.evaluated,
       hiddenEntries:
         windows.length - visibleZaiQuotaWindows(windows, this.now()).length,
+      diagnostic,
     };
-    const signature = JSON.stringify(counts);
+    const signature = JSON.stringify(summary);
     const isRepeat = this.lastCounts.get(connectionId) === signature;
     this.lastCounts.set(connectionId, signature);
     logEvent({
@@ -155,7 +176,7 @@ export class ZaiQuotaProbe {
       event: "integration.zai.quota.answer",
       component: "ZaiQuotaProbe",
       message: "Z.AI usage monitor answered",
-      metadata: { connectionId, ...counts },
+      metadata: { connectionId, ...summary },
     });
   }
 

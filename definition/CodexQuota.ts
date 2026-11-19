@@ -1,9 +1,11 @@
 import { z } from "zod";
 
 import { quotaStatusSchema } from "@/definition/ClaudeQuota";
+import { executionLocationSchema } from "@/definition/ExecutionLocation";
 import { quotaPaceSchema } from "@/definition/QuotaForecast";
 
 import type { ClaudeQuotaStatus } from "@/definition/ClaudeQuota";
+import type { ExecutionLocation } from "@/definition/ExecutionLocation";
 import type { QuotaPace } from "@/definition/QuotaForecast";
 
 /** The windows of the general Codex quota in the order a card lists them. */
@@ -84,6 +86,8 @@ export interface CodexQuotaWindow {
 export interface CodexQuotaAccount {
   readonly provider: "codex_cli";
   readonly connectionId: string;
+  /** The runner that served the card; absent when the data does not name it. */
+  readonly executionLocation?: ExecutionLocation;
   readonly name: string;
   readonly plan: CodexPlan | null;
   readonly windows: readonly CodexQuotaWindow[];
@@ -103,6 +107,7 @@ const windowSchema = z.object({
 export const codexQuotaAccountSchema = z.object({
   provider: z.literal("codex_cli"),
   connectionId: z.string().min(1).max(200),
+  executionLocation: executionLocationSchema.optional(),
   name: z.string().max(400),
   plan: z.enum(CODEX_PLANS).nullable(),
   windows: z.array(windowSchema).max(CODEX_QUOTA_WINDOWS.length),

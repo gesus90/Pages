@@ -1,5 +1,7 @@
 import path from "node:path";
 
+import { ChatSessionRepository } from "@/backend/database/repositories/chat/ChatSessionRepository";
+import { AgentCallService } from "@/backend/service/employee/call/AgentCallService";
 import { ManagementService } from "@/backend/service/management/ManagementService";
 import { SendmailInvitationDelivery } from "@/backend/service/management/SendmailInvitationDelivery";
 import { StorageOperationRepository } from "@/backend/database/repositories/google/StorageOperationRepository";
@@ -152,6 +154,33 @@ function startWorkspaceMaintenance(
   );
 }
 
+/** The management service of the instance, on the employee administration of the workspace. */
+function createManagementService(
+  context: McpWorkspaceContext,
+  agentEmployees: AgentEmployeeAdministration,
+): ManagementService {
+  return new ManagementService({
+    database: context.database,
+    cache: context.serverCache,
+    hasher: context.hasher,
+    agents: agentEmployees,
+    invitations: new SendmailInvitationDelivery(),
+  });
+}
+
+/** The voice calls of the direct chat, on the employee sessions and the speech services. */
+function createAgentCallService(
+  context: McpWorkspaceContext,
+  sessions: ReturnType<typeof createEmployeeServices>["agentEmployeeSessions"],
+): AgentCallService {
+  return new AgentCallService({
+    sessions,
+    recognition: context.agents.speechRecognitionService,
+    speech: context.agents.agentSpeechService,
+    messages: new ChatSessionRepository(context.database),
+  });
+}
+
 /**
  * Builds the agent write services and the chat on the same operation catalog,
  * and shares the existing maintenance scheduler.
@@ -161,6 +190,7 @@ export async function startMcpWorkspace(context: McpWorkspaceContext): Promise<
     ChatApplicationServices &
     EmployeeApplicationServices & {
       readonly managementService: ManagementService;
+      readonly agentCallService: AgentCallService;
     }
 > {
   const directory = path.dirname(context.databasePath);
@@ -234,13 +264,10 @@ export async function startMcpWorkspace(context: McpWorkspaceContext): Promise<
       publicUrl: runtime.getConfig().publicUrl,
     },
   });
-  const managementService = new ManagementService({
-    database: context.database,
-    cache: context.serverCache,
-    hasher: context.hasher,
-    agents: employees.agentEmployeeAdministration,
-    invitations: new SendmailInvitationDelivery(),
-  });
+  const managementService = createManagementService(
+    context,
+    employees.agentEmployeeAdministration,
+  );
   managementSlot.service = managementService;
   managementSlot.agentEmployees = employees.agentEmployeeAdministration;
   chat.picaAcpService?.setAgentDeletions(employees.agentDeletionService);
@@ -254,5 +281,9 @@ export async function startMcpWorkspace(context: McpWorkspaceContext): Promise<
     managementService,
     ...chat,
     ...employees,
+    agentCallService: createAgentCallService(
+      context,
+      employees.agentEmployeeSessions,
+    ),
   };
 }

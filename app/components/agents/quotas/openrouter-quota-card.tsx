@@ -8,7 +8,7 @@ import { OpenRouterBalanceDialog } from "./openrouter-balance-dialog";
 import { OpenRouterQuotaContent } from "./openrouter-quota-content";
 import { openRouterQuotaFormat } from "./openrouter-quota-format";
 import { openRouterQuotaStatus } from "./openrouter-quota-status";
-import { QuotaCardFrame } from "./quota-card-frame";
+import { QuotaCardFrame, QuotaHeaderBadges } from "./quota-card-frame";
 import { QuotaWindowsPlaceholder } from "./quota-placeholders";
 import { QuotaStatusFooter } from "./quota-status-line";
 import { useRefreshHint } from "./use-refresh-hint";
@@ -91,6 +91,7 @@ export function OpenRouterQuotaCard({
             )}
           />
         </button>
+        <QuotaHeaderBadges location={null} />
       </header>
       {isLoading ? (
         <QuotaWindowsPlaceholder />

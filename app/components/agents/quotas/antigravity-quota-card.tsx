@@ -15,7 +15,7 @@ import {
 
 import styles from "./antigravity-quota-card.module.css";
 import { AntigravityQuotaWindow } from "./antigravity-quota-window";
-import { QuotaCardFrame } from "./quota-card-frame";
+import { QuotaCardFrame, QuotaHeaderBadges } from "./quota-card-frame";
 import {
   QUOTA_GROUP_LIST_CLASS,
   QUOTA_GROUP_SLOT_CLASS,
@@ -105,14 +105,16 @@ export function AntigravityQuotaCard({
             {t("agentsPage.card.antigravity")}
           </p>
         </div>
-        {groupCount > VISIBLE_GROUPS ? (
-          <p
-            data-quota-group-count={groupCount}
-            className="shrink-0 text-xs font-semibold text-muted-foreground"
-          >
-            {t("agentsPage.antigravity.groupCount", { count: groupCount })}
-          </p>
-        ) : null}
+        <QuotaHeaderBadges location={account.executionLocation ?? null}>
+          {groupCount > VISIBLE_GROUPS ? (
+            <p
+              data-quota-group-count={groupCount}
+              className="shrink-0 text-xs font-semibold text-muted-foreground"
+            >
+              {t("agentsPage.antigravity.groupCount", { count: groupCount })}
+            </p>
+          ) : null}
+        </QuotaHeaderBadges>
       </header>
       {isLoading ? (
         <QuotaGroupsPlaceholder />

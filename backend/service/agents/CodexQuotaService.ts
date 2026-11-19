@@ -166,6 +166,7 @@ export class CodexQuotaService {
     return {
       provider: "codex_cli",
       connectionId: connection.id,
+      executionLocation: "local",
       name: connection.name,
       plan: isSignedOut ? null : (record?.plan ?? null),
       windows: isSignedOut ? [] : windows,

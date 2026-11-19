@@ -399,6 +399,30 @@ export class ChatSessionRepository {
   }
 
   /**
+   * Replaces the text of one assistant message of a session, for an answer
+   * a voice call interrupted and marked at the place where the speech ended.
+   * @returns Whether the session holds the message.
+   */
+  public async replaceAnswerContent(
+    sessionId: string,
+    messageId: string,
+    content: string,
+  ): Promise<boolean> {
+    const rows = await this.database.query(
+      `
+      UPDATE chat_messages
+      SET content = $content
+      WHERE session_id = $session_id
+          AND id = $id
+          AND role = 'assistant'
+      RETURNING id;
+    `,
+      { session_id: sessionId, id: messageId, content },
+    );
+    return rows.length > 0;
+  }
+
+  /**
    * Deletes an own session with its messages and attachment rows.
    *
    * @returns The storage names of the deleted attachments, or `null` when the

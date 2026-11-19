@@ -1,6 +1,7 @@
 import { UserGroupRepository } from "@/backend/database/repositories/UserGroupRepository";
 import { SpeechSettingsRepository } from "@/backend/database/repositories/speech/SpeechSettingsRepository";
 import { SpeechSynthesisSettingsRepository } from "@/backend/database/repositories/speech/SpeechSynthesisSettingsRepository";
+import { AgentSpeechService } from "@/backend/service/speech/AgentSpeechService";
 import { SpeechProviderClient } from "@/backend/service/speech/SpeechProviderClient";
 import { SpeechRecognitionService } from "@/backend/service/speech/SpeechRecognitionService";
 import { SpeechSettingsService } from "@/backend/service/speech/SpeechSettingsService";
@@ -20,6 +21,8 @@ export interface SpeechApplicationServices {
   readonly speechRecognitionService: SpeechRecognitionService;
   readonly speechSynthesisSettingsService: SpeechSynthesisSettingsService;
   readonly speechSynthesisPreviewService: SpeechSynthesisPreviewService;
+  /** Speaks the sentences of an agent's answer in a voice call. */
+  readonly agentSpeechService: AgentSpeechService;
 }
 
 function createSpeechSynthesisServices(input: {
@@ -28,7 +31,9 @@ function createSpeechSynthesisServices(input: {
   readonly cipher: InstanceSecretCipher;
 }): Pick<
   SpeechApplicationServices,
-  "speechSynthesisSettingsService" | "speechSynthesisPreviewService"
+  | "speechSynthesisSettingsService"
+  | "speechSynthesisPreviewService"
+  | "agentSpeechService"
 > {
   const simulation = currentSpeechSynthesisSimulationMode();
   const speechSynthesisSettingsService = new SpeechSynthesisSettingsService({
@@ -37,13 +42,21 @@ function createSpeechSynthesisServices(input: {
     groups: new UserGroupRepository(input.database),
     simulation,
   });
+  const client = new SpeechSynthesisClient();
   return {
     speechSynthesisSettingsService,
     speechSynthesisPreviewService: new SpeechSynthesisPreviewService({
       settings: speechSynthesisSettingsService,
       connections: input.connections,
       cipher: input.cipher,
-      client: new SpeechSynthesisClient(),
+      client,
+      simulation,
+    }),
+    agentSpeechService: new AgentSpeechService({
+      settings: speechSynthesisSettingsService,
+      connections: input.connections,
+      cipher: input.cipher,
+      client,
       simulation,
     }),
   };

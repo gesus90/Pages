@@ -29,8 +29,10 @@ import type { SortedQuotaCards } from "./use-quota-card-order";
  * the current figures replace card by card as each query answers. The
  * figures stay while a query runs or fails, so the page never falls back to
  * an empty state once it has cards; the empty state appears only when it is
- * certain that no card is available. All cards have the same height, 340 px
- * on a wide screen and 344 px in the single column of a phone, also in a row
+ * certain that no card is available. The cards fill as many columns as fit
+ * with at least 518 px per card and grow with the window at a fixed gap; the
+ * header of the section and the grid share one width. All cards have the same
+ * height, 340 px from the medium breakpoint and 344 px below it, also in a row
  * with fewer cards. A person arranges the cards by drag and drop or by
  * keyboard; Pages stores that order per account, so it holds after a reload
  * and on every device, and a list, a query or the push of the minute never
@@ -56,7 +58,7 @@ export function AgentsPage(): React.ReactElement {
       </header>
       <section
         aria-label={t("agentsPage.quotas.title")}
-        className="mt-8 flex flex-col gap-4"
+        className="@container mt-8 flex flex-col gap-4"
       >
         <QuotaSectionHeader
           isRefreshing={quotas.isRefreshing}
@@ -195,7 +197,7 @@ function QuotaSectionHeader({
   const { t } = useTranslation();
   const isHintShown = useRefreshHint(isRefreshing);
   return (
-    <div className="flex min-h-9 flex-wrap items-center gap-x-3 gap-y-1">
+    <div className="flex min-h-9 max-w-[720px] flex-wrap items-center gap-x-3 gap-y-1 @min-[1056px]:max-w-none">
       <h2 className="mr-auto text-lg font-bold text-foreground">
         <span className="md:hidden">{t("agentsPage.quotas.shortTitle")}</span>
         <span className="hidden md:inline">{t("agentsPage.quotas.title")}</span>
@@ -215,22 +217,58 @@ function QuotaSectionHeader({
           {t("agentsPage.status.live")}
         </span>
       ) : null}
-      <button
-        type="button"
-        onClick={onRefresh}
-        disabled={isRefreshing}
-        aria-label={t("agentsPage.status.refresh")}
-        title={t("agentsPage.status.refresh")}
-        className="inline-flex size-8 items-center justify-center rounded-[10px] border border-border bg-surface text-muted-foreground transition-colors hover:bg-surface-hover hover:text-foreground disabled:cursor-default"
-      >
-        <RefreshCw
-          className={cn(
-            "size-4",
-            isHintShown && "animate-spin motion-reduce:animate-none",
-          )}
-          aria-hidden="true"
-        />
-      </button>
+      <RefreshButton
+        isRefreshing={isRefreshing}
+        isHintShown={isHintShown}
+        onRefresh={onRefresh}
+      />
     </div>
+  );
+}
+
+/**
+ * The button that refreshes all cards: icon and text, only the icon below the
+ * medium breakpoint. Both texts stand in one grid cell, the hidden one keeps
+ * the width, so the header does not jump while it loads.
+ */
+function RefreshButton({
+  isRefreshing,
+  isHintShown,
+  onRefresh,
+}: {
+  readonly isRefreshing: boolean;
+  readonly isHintShown: boolean;
+  readonly onRefresh: () => void;
+}): React.ReactElement {
+  const { t } = useTranslation();
+  return (
+    <button
+      type="button"
+      onClick={onRefresh}
+      disabled={isRefreshing}
+      aria-label={t("agentsPage.status.refresh")}
+      title={t("agentsPage.status.refresh")}
+      className="inline-flex size-9 items-center justify-center gap-2 rounded-xl border border-border bg-surface text-[13px] font-semibold text-foreground transition-colors hover:bg-surface-hover disabled:cursor-default md:w-auto md:px-3"
+    >
+      <RefreshCw
+        className={cn(
+          "size-4 shrink-0",
+          isHintShown && "animate-spin motion-reduce:animate-none",
+        )}
+        aria-hidden="true"
+      />
+      <span aria-hidden="true" className="hidden md:inline-grid">
+        <span
+          className={cn("col-start-1 row-start-1", isHintShown && "invisible")}
+        >
+          {t("agentsPage.status.refreshAll")}
+        </span>
+        <span
+          className={cn("col-start-1 row-start-1", !isHintShown && "invisible")}
+        >
+          {t("agentsPage.status.refreshingAll")}
+        </span>
+      </span>
+    </button>
   );
 }

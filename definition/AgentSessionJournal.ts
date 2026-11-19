@@ -36,7 +36,14 @@ export type {
 export interface AgentSessionContextUsage {
   /** Tokens currently in context; `null` when the adapter reported none that holds. */
   readonly contextUsed: number | null;
-  /** The context window; `null` when the adapter reported none. */
+  /**
+   * The context window; `null` when neither the adapter nor the model's
+   * catalog entry states one.
+   * @remarks
+   * The adapter's report wins. The session view fills a missing window from
+   * the catalog of the attempt's model, so a fresh attempt shows its window
+   * before the first report.
+   */
   readonly contextLimit: number | null;
   /** Share of the window in percent; `null` without both values. */
   readonly percent: number | null;

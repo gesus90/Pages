@@ -9,6 +9,7 @@ import type { AgentMediaToolDependencies } from "./AgentMediaTool";
 import type { AgentAttachmentToolDependencies } from "./AgentAttachmentTool";
 import type { ConversationAnswerFileDependencies } from "@/backend/service/conversation/content/ConversationAnswerFiles";
 import type { ConversationAnswerStream } from "@/backend/service/conversation/ConversationAnswerStream";
+import type { AnswerTap } from "./call/AgentCallAnswerTap";
 import type { LiveAnswerSink } from "@/backend/service/conversation/ConversationLiveAnswer";
 import type { ConversationDelivery } from "@/definition/ConversationLiveAnswer";
 import type { PicaAcpConversationTurn } from "@/backend/service/chat/acp/PicaAcpSteering";
@@ -235,6 +236,13 @@ export interface AgentJobRequest {
   readonly isDeferred?: boolean;
   /** Shows the answer on the chat page while it is written; a direct chat opens its own. */
   readonly liveAnswer?: LiveAnswerSink;
+  /**
+   * The person speaks with the agent in a voice call: the answer is read
+   * aloud, so it is kept short and the model thinks as little as it can.
+   */
+  readonly isVoiceCall?: boolean;
+  /** Hears the text of the answer while it is written, such as a voice call that speaks it. */
+  readonly answerTap?: AnswerTap;
 }
 
 /** A message of a person to an agent that waits for a free place. */

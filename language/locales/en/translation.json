@@ -4041,10 +4041,8 @@
     "start": "Start call",
     "hangUp": "Hang up",
     "cancel": "Cancel",
-    "prototype": "Prototype",
     "call": "Call",
     "active": "Call with {{name}}",
-    "simulated": "Simulated call · no sound or picture",
     "waitingTitle": "Calling {{name}} …",
     "waiting": "Waiting to be answered",
     "incomingTitle": "{{name}} is calling",
@@ -4107,6 +4105,25 @@
         "openSettings": "Audio settings"
       },
       "busy": "You are already in a call. Hang up first."
+    },
+    "agent": {
+      "failedTitle": "Call not possible",
+      "voiceMissing": "The saved voice is missing from the speech model; the first voice speaks.",
+      "activity": {
+        "connecting": "Preparing the call …",
+        "listening": "Listening",
+        "thinking": "Thinking …",
+        "speaking": "Speaking"
+      },
+      "failure": {
+        "recognition_not_configured": "Speech recognition is not set up. An administrator chooses it in the settings under Agents.",
+        "recognition_failed": "Speech recognition did not answer. Please say it again.",
+        "synthesis_not_configured": "Speech output is not set up. An administrator chooses it in the settings under Agents.",
+        "synthesis_failed": "Speech output did not answer. The answer is in the chat.",
+        "agent_unavailable": "The agent cannot be reached right now.",
+        "agent_busy": "The agent is still answering another message. Please say it again in a moment.",
+        "invalid": "The recording could not be processed."
+      }
     }
   },
   "chatPage": {
@@ -6043,9 +6060,7 @@
           },
           "activityWaiting": "Waiting for the restart",
           "context": "Context",
-          "contextNotReported": "Context not reported yet",
           "contextTokens": "{{used}} tokens",
-          "contextWindowTokens": "Window {{limit}} tokens",
           "unknown": "unknown",
           "session": "Session",
           "runtime": "Runtime",
@@ -9585,7 +9600,9 @@
     "status": {
       "refreshing": "refreshing …",
       "live": "live",
-      "refresh": "Refresh quotas"
+      "refresh": "Refresh quotas",
+      "refreshAll": "Refresh",
+      "refreshingAll": "Refreshing …"
     },
     "order": {
       "handle": "Move card {{name}}",
@@ -9839,6 +9856,7 @@
       },
       "window": {
         "tokens": "Token allowance",
+        "credits": "Credit allowance",
         "mcp": "MCP usage",
         "named": "{{name}} · {{length}}"
       },
@@ -10700,6 +10718,11 @@
     "monthlyLimitHint": "Calculated equivalent including subscription usage; blank means unlimited. Further requests are refused once the limit is reached."
   },
   "agentBadges": {
+    "executionLocation": {
+      "local": "Local",
+      "remote": "Remote",
+      "unknown": "Unknown"
+    },
     "model": {
       "label": "Model {{vendor}} {{name}}, {{status}}",
       "labelWithSource": "Model {{vendor}} {{name}}, source {{source}}, {{status}}",

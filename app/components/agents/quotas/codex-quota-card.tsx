@@ -10,6 +10,7 @@ import chatgptUrl from "@/assets/providers/logo-chatgpt.png?no-inline";
 import { cn } from "@/app/lib/cn";
 import { codexWindowLength } from "@/definition/CodexQuota";
 
+import { QuotaHeaderBadges } from "./quota-card-frame";
 import {
   QUOTA_CARD_CLASS,
   QUOTA_WINDOWS_AREA_CLASS,
@@ -135,11 +136,13 @@ export function CodexQuotaCard({
             {t("agentsPage.card.codex")}
           </p>
         </div>
-        {isLoading ? (
-          <QuotaBadgePlaceholder isWide />
-        ) : (
-          <CodexPlanBadge plan={account.plan} />
-        )}
+        <QuotaHeaderBadges location={account.executionLocation ?? null}>
+          {isLoading ? (
+            <QuotaBadgePlaceholder isWide />
+          ) : (
+            <CodexPlanBadge plan={account.plan} />
+          )}
+        </QuotaHeaderBadges>
       </header>
       {isLoading ? (
         <QuotaWindowsPlaceholder />

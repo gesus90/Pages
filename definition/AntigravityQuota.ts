@@ -1,9 +1,11 @@
 import { z } from "zod";
 
 import { quotaStatusSchema } from "@/definition/ClaudeQuota";
+import { executionLocationSchema } from "@/definition/ExecutionLocation";
 import { quotaPaceSchema } from "@/definition/QuotaForecast";
 
 import type { ClaudeQuotaStatus } from "@/definition/ClaudeQuota";
+import type { ExecutionLocation } from "@/definition/ExecutionLocation";
 import type { QuotaPace } from "@/definition/QuotaForecast";
 
 /** The windows of a quota group, in the columns a card shows them: left, right. */
@@ -52,6 +54,8 @@ export interface AntigravityQuotaGroup {
 export interface AntigravityQuotaAccount {
   readonly provider: "antigravity";
   readonly connectionId: string;
+  /** The runner that served the card; absent when the data does not name it. */
+  readonly executionLocation?: ExecutionLocation;
   readonly name: string;
   readonly groups: readonly AntigravityQuotaGroup[];
   readonly status: ClaudeQuotaStatus;
@@ -68,6 +72,7 @@ const windowSchema = z.object({
 export const antigravityQuotaAccountSchema = z.object({
   provider: z.literal("antigravity"),
   connectionId: z.string().min(1).max(200),
+  executionLocation: executionLocationSchema.optional(),
   name: z.string().max(400),
   groups: z
     .array(

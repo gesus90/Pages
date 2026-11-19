@@ -95,6 +95,8 @@ export interface AgentCatalogModelName {
   readonly reasoningEfforts?: readonly string[];
   /** Whether the catalog proves a price of zero for the model on this connection. */
   readonly isFree?: boolean;
+  /** The context window the catalog states for the model; `null` or absent when it states none. */
+  readonly contextWindow?: number | null;
 }
 
 /** The model of a session or an agent as structured identity, never as a joined text. */

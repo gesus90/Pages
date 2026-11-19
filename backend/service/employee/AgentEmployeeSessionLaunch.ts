@@ -6,7 +6,7 @@ import { chatInteractionsFor } from "./AgentEmployeeJobRun";
 
 import { employeeAccessRun } from "./AgentEmployeeAccessRun";
 import { createAgentEmployeeInstructions } from "./AgentEmployeeInstructions";
-import { agentIdentity } from "./AgentEmployeeAssignments";
+import { agentIdentity, employeeAssignment } from "./AgentEmployeeAssignments";
 import {
   answerFileToolOf,
   attachmentToolOf,
@@ -15,6 +15,7 @@ import {
   mediaToolOf,
 } from "./AgentEmployeeChatTools";
 import {
+  chatModelKey,
   isChatPurpose,
   type AgentChatScope,
   type AgentEmployeeSessionDependencies,
@@ -22,6 +23,7 @@ import {
 } from "./AgentEmployeeSessionTypes";
 
 import type { StoredAgentEmployee } from "@/backend/database/repositories/employee/AgentEmployeeRepository";
+import type { EmployeeStore } from "@/backend/database/repositories/employee/EmployeeStore";
 import type { User } from "@/definition/User";
 import type { ResolvedAgentAssignment } from "../agents/AgentAssignmentResolution";
 import type {
@@ -63,6 +65,27 @@ async function logbookHintOf(
     logCaughtError(COMPONENT, error);
     return { line: null, newest: 0 };
   }
+}
+
+type EmployeeChatContext = Awaited<ReturnType<AgentChatContext["forJob"]>>;
+
+function promptOf(
+  dependencies: AgentEmployeeSessionDependencies,
+  request: AgentJobRequest,
+  language: string | undefined,
+  context: EmployeeChatContext,
+): PicaAcpStart["brief"]["prompt"] {
+  const { agent, person } = request;
+  return {
+    personName: person?.displayName ?? agent.displayName,
+    interfaceLanguage: language ?? "de",
+    today: dependencies.today?.() ?? new Date().toISOString().slice(0, 10),
+    // A run of the agent's own reads its sources from the message alone.
+    history: context.history,
+    summary: context.summary,
+    nativeTools: true,
+    assistantName: agent.displayName,
+  };
 }
 
 /**
@@ -113,22 +136,67 @@ export async function buildEmployeeBrief(
           context.isChat && (dependencies.logbook?.() ?? null) !== null,
         logbookHint: hint.line,
         ...(recipes ? { recipes } : {}),
+        ...(request.isVoiceCall === true ? { isVoiceCall: true } : {}),
       }),
       // A continued agent session knows its chat; only a new or restarted one
       // gets the summary and the last messages.
       keepsContext: false,
-      prompt: {
-        personName: person?.displayName ?? agent.displayName,
-        interfaceLanguage: settings?.language ?? "de",
-        today: dependencies.today?.() ?? new Date().toISOString().slice(0, 10),
-        // A run of the agent's own reads its sources from the message alone.
-        history: context.history,
-        summary: context.summary,
-        nativeTools: true,
-        assistantName: agent.displayName,
-      },
+      prompt: promptOf(dependencies, request, settings?.language, context),
     },
   };
+}
+
+/**
+ * The model chosen for the agent in the chat of a round; a run of
+ * the agent's own and a chat without a choice answer with its own model.
+ */
+export async function chatModelOf(
+  dependencies: AgentEmployeeSessionDependencies,
+  request: AgentJobRequest,
+): Promise<AgentJobRequest["modelOverride"]> {
+  const key = chatModelKey(request);
+  if (key === null) return undefined;
+  let stored: Awaited<
+    ReturnType<ReturnType<EmployeeStore["chatModels"]>["find"]>
+  >;
+  try {
+    stored = await dependencies.store.chatModels().find(key);
+  } catch (error: unknown) {
+    // A failed read must not fail the round: the agent answers with its own model.
+    logCaughtError(COMPONENT, error);
+    return undefined;
+  }
+  return stored
+    ? {
+        connectionId: stored.connectionId,
+        model: stored.model,
+        reasoningEffort: stored.reasoningEffort,
+      }
+    : undefined;
+}
+
+/**
+ * The model and connection a round runs on. A voice call takes the lowest
+ * reasoning effort the model lists, because its answer must start fastest.
+ */
+export async function assignmentOf(
+  dependencies: AgentEmployeeSessionDependencies,
+  employee: StoredAgentEmployee,
+  override: AgentJobRequest["modelOverride"],
+  isVoiceCall: boolean,
+): Promise<ResolvedAgentAssignment> {
+  const { models } = dependencies;
+  const assignment = await employeeAssignment(models, employee, override);
+  if (!isVoiceCall || assignment.reasoningEffort === "none") return assignment;
+  // A call waits for the first spoken words: the lowest effort the model lists answers fastest.
+  const effort = await models.fastestReasoningEffort(assignment);
+  if (effort === null || effort === assignment.reasoningEffort)
+    return assignment;
+  return employeeAssignment(models, employee, {
+    connectionId: assignment.connection.id,
+    model: assignment.model,
+    reasoningEffort: effort,
+  });
 }
 
 /**

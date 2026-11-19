@@ -198,6 +198,7 @@ export class ClaudeQuotaService {
     return {
       provider: "claude_code",
       connectionId: connection.id,
+      executionLocation: "local",
       name: connection.name,
       plan: isSignedOut ? null : record.plan,
       windows: isSignedOut ? [] : windows,

@@ -82,16 +82,22 @@ function QuotaCardOfConnection({
 }
 
 /**
- * The grid of the quota cards of the provider connections: one
- * column on a phone, two on a tablet, three on a wide screen.
+ * The grid of the quota cards of the provider connections: as many
+ * columns as fit with at least 518 px per card, at a fixed gap of 20 px.
  * @remarks
+ * The cards grow with the width of the section and never the gap. Up to the
+ * width where two columns fit, the grid is at most 720 px wide and stands
+ * left; from there it spans the section. The grid takes its width from the
+ * container query of the section, which the page sets (`@container`), and
+ * shares it with the header of the section.
  * While the connections are unknown (`cards` is `null`) three placeholder
  * cards of the full card size stand in the grid; the cards of the connections
  * replace them in place and surplus placeholders leave. All cards have the
- * same height, 340 px on a wide screen and 344 px in the single column of a
- * phone, also in a row with fewer cards. The cards arrive in the order the
- * person arranged; a handle at the top of each card moves it by mouse, finger
- * or keyboard, and `onMove` receives the place the card is put down at.
+ * same height, 340 px from the medium breakpoint and 344 px below it,
+ * whatever the number of columns, also in a row with fewer cards. The cards
+ * arrive in the order the person arranged; a handle at the top of each card
+ * moves it by mouse, finger or keyboard, and `onMove` receives the place the
+ * card is put down at.
  * The keys are explained to a screen reader once, and a live region tells
  * what happens to the card in hand.
  */
@@ -116,7 +122,7 @@ export function QuotaCardGrid({
       <div
         ref={sort.gridRef}
         aria-busy={cards === null}
-        className="grid auto-rows-[344px] grid-cols-1 gap-5 md:auto-rows-[340px] md:grid-cols-2 xl:max-w-[1594px] xl:grid-cols-3"
+        className="grid max-w-[720px] auto-rows-[344px] grid-cols-[repeat(auto-fill,minmax(min(100%,518px),1fr))] gap-5 @min-[1056px]:max-w-none md:auto-rows-[340px]"
       >
         {cards === null
           ? PLACEHOLDER_CARDS.map((position) => (

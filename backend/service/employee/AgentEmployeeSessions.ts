@@ -8,17 +8,20 @@ import { logCaughtError } from "@/backend/logging/Logger";
 
 import { AgentChatActivity } from "./AgentChatActivity";
 import { AgentChatContext } from "./AgentChatContext";
+import { tapLiveAnswer } from "./call/AgentCallAnswerTap";
 import {
+  assignmentOf,
   buildEmployeeBrief,
   buildEmployeeRun,
+  chatModelOf,
   recordEmployeeAnswer,
 } from "./AgentEmployeeSessionLaunch";
 import { chatScopeOf } from "./AgentEmployeeJobRun";
 import { foldJobToolCalls } from "./AgentToolCallView";
 
 import type { LiveAnswerSink } from "@/backend/service/conversation/ConversationLiveAnswer";
+import type { AnswerTap } from "./call/AgentCallAnswerTap";
 import type { StoredAgentEmployee } from "@/backend/database/repositories/employee/AgentEmployeeRepository";
-import type { EmployeeStore } from "@/backend/database/repositories/employee/EmployeeStore";
 import type { ResolvedAgentAssignment } from "../agents/AgentAssignmentResolution";
 import type { PicaAcpRequest } from "../chat/acp/PicaAcpService";
 import type {
@@ -27,6 +30,7 @@ import type {
   ChatSteerStatus,
 } from "@/definition/ChatJob";
 import type { User } from "@/definition/User";
+import type { AgentEmployeeVoice } from "@/definition/SpeechSynthesis";
 import type {
   PicaAcpEmployeeRun,
   PicaAcpStart,
@@ -42,7 +46,6 @@ import type {
 import {
   IDENTIFIER,
   chatKey,
-  chatModelKey,
   isChatPurpose,
   isSessionBusy,
   keptSessionOf,
@@ -57,7 +60,7 @@ export type {
   AgentJobRequest,
   QueuedAgentMessage,
 } from "./AgentEmployeeSessionTypes";
-import { answerModelOf, employeeAssignment } from "./AgentEmployeeAssignments";
+import { answerModelOf } from "./AgentEmployeeAssignments";
 
 /** Jobs of a conversation whose tool calls the chat page shows. */
 const TOOL_CALL_JOBS = 20;
@@ -193,6 +196,79 @@ export class AgentEmployeeSessions {
           logCaughtError("AgentEmployeeSessions", error);
         })
         .finally(() => this.forgetWaiting(key, entry));
+  }
+
+  /**
+   * The ID of the chat session of a person's direct chat with an agent.
+   * @returns The session ID, or `null` before the first message.
+   */
+  public async directSessionId(
+    agentId: string,
+    personId: string,
+  ): Promise<string | null> {
+    const conversation = await this.dependencies.store
+      .conversations()
+      .find(agentId, personId, "chat");
+    return conversation?.sessionId ?? null;
+  }
+
+  /**
+   * The voice an agent saved for its spoken answers.
+   * @returns Voice ID and speed, or `null` for an agent that does not exist.
+   */
+  public async voiceOf(agentId: string): Promise<AgentEmployeeVoice | null> {
+    const employee = await this.dependencies.store.employees().find(agentId);
+    return employee
+      ? { voiceId: employee.voiceId, speedTenths: employee.voiceSpeedTenths }
+      : null;
+  }
+
+  /**
+   * Starts the answer to an utterance of a voice call.
+   * @remarks
+   * The recognized text is the person's message in the direct chat, so the
+   * agent answers in the same session and both texts are stored there. The
+   * ID of the message makes a repeated turn visible: a second message with
+   * the same ID is refused. The job reports its answer text to the tap while
+   * it is written.
+   * @param person - The signed-in caller.
+   * @param input - Agent, recognized text, the ID of the message, the listener
+   * of the answer and the signal that ends the wait for a free place.
+   * @returns Whether a job of its own started; `false` when the message joined
+   * a job that was still running, which has no tap for it.
+   * @throws {AgentEmployeeError} `inactive`, `busy`, `unavailable` or `invalidInput`.
+   */
+  public async startVoiceTurn(
+    person: User,
+    input: {
+      readonly agentId: string;
+      readonly text: string;
+      readonly clientMessageId: string;
+      readonly answerTap: AnswerTap;
+      readonly signal: AbortSignal;
+    },
+  ): Promise<boolean> {
+    const message = readMessage({
+      agentId: input.agentId,
+      text: input.text,
+      clientMessageId: input.clientMessageId,
+    });
+    const { agent, employee } = await this.requireAgent(message.agentId);
+    const started = await withBackgroundDatabaseWork("agent_call_turn", () =>
+      this.run({
+        agent,
+        employee,
+        person,
+        purpose: "chat",
+        text: message.text,
+        attachmentIds: [],
+        clientMessageId: message.clientMessageId,
+        isVoiceCall: true,
+        answerTap: input.answerTap,
+        signal: input.signal,
+      }),
+    );
+    return started !== null;
   }
 
   /** The person's messages to an agent that wait for a free place, oldest first. */
@@ -504,9 +580,12 @@ export class AgentEmployeeSessions {
           return null;
         }
         await this.restartIfNeeded(request, sessionId);
-        const assignment = await this.assignment(
+        const assignment = await assignmentOf(
+          this.dependencies,
           employee,
-          request.modelOverride ?? (await this.chatModel(request)),
+          request.modelOverride ??
+            (await chatModelOf(this.dependencies, request)),
+          request.isVoiceCall === true,
         );
         const { brief, audience, logbookNewest } = await this.brief(
           request,
@@ -558,6 +637,13 @@ export class AgentEmployeeSessions {
    * agent's own shows none.
    */
   private liveAnswerOf(request: AgentJobRequest): LiveAnswerSink | undefined {
+    const answer = this.openedAnswer(request);
+    return request.answerTap
+      ? tapLiveAnswer(answer, request.answerTap)
+      : answer;
+  }
+
+  private openedAnswer(request: AgentJobRequest): LiveAnswerSink | undefined {
     if (request.liveAnswer) return request.liveAnswer;
     const { answers } = this.dependencies;
     const { person, agent } = request;
@@ -634,41 +720,6 @@ export class AgentEmployeeSessions {
     const employee = await this.dependencies.store.employees().find(agentId);
     if (!employee) throw new AgentEmployeeError("notFound");
     return { agent, employee };
-  }
-
-  /**
-   * The model chosen for the agent in the chat of a round; a run of
-   * the agent's own and a chat without a choice answer with its own model.
-   */
-  private async chatModel(
-    request: AgentJobRequest,
-  ): Promise<AgentJobRequest["modelOverride"]> {
-    const key = chatModelKey(request);
-    if (key === null) return undefined;
-    let stored: Awaited<
-      ReturnType<ReturnType<EmployeeStore["chatModels"]>["find"]>
-    >;
-    try {
-      stored = await this.dependencies.store.chatModels().find(key);
-    } catch (error: unknown) {
-      // A failed read must not fail the round: the agent answers with its own model.
-      logCaughtError("AgentEmployeeSessions", error);
-      return undefined;
-    }
-    return stored
-      ? {
-          connectionId: stored.connectionId,
-          model: stored.model,
-          reasoningEffort: stored.reasoningEffort,
-        }
-      : undefined;
-  }
-
-  private assignment(
-    employee: StoredAgentEmployee,
-    override?: AgentJobRequest["modelOverride"],
-  ): Promise<ResolvedAgentAssignment> {
-    return employeeAssignment(this.dependencies.models, employee, override);
   }
 
   private brief(

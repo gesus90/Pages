@@ -110,6 +110,28 @@ export function keepReportedContext(
   };
 }
 
+/**
+ * Fills the missing context window of a session's occupancy from its model.
+ * @param context - The occupancy the adapter reported so far.
+ * @param window - The context window of the attempt's catalog model, or `null` when the catalog states none.
+ * @returns The occupancy with the window; unchanged when the adapter reported a window or the model has none.
+ */
+export function withCatalogContextWindow(
+  context: AgentSessionContextUsage,
+  window: number | null,
+): AgentSessionContextUsage {
+  if (context.contextLimit !== null || window === null || window <= 0)
+    return context;
+  return {
+    ...context,
+    contextLimit: window,
+    percent:
+      context.contextUsed === null
+        ? null
+        : Math.round((context.contextUsed / window) * 1_000) / 10,
+  };
+}
+
 function readCounts(usage: Usage): TokenCounts {
   return {
     inputTokens: count(usage.inputTokens),

@@ -128,6 +128,11 @@ export function QuotaBadgePlaceholder({
   );
 }
 
+/** The placeholder of the location badge: 66 px wide, 24 px high, 7 px radius. */
+function QuotaLocationPlaceholder(): React.ReactElement {
+  return <PlaceholderFace className="h-6 w-[66px] rounded-[7px]" />;
+}
+
 /**
  * A card while the connections are not known yet: logo, name, subtitle, two
  * window slots and the status line as placeholders, without any text.
@@ -151,6 +156,9 @@ export function QuotaPlaceholderCard(): React.ReactElement {
           <div className="flex h-4 items-center">
             <PlaceholderFace className="h-3 w-[90px]" />
           </div>
+        </div>
+        <div className="ml-auto flex shrink-0 items-center gap-1.5 md:gap-2">
+          <QuotaLocationPlaceholder />
         </div>
       </header>
       <QuotaWindowsPlaceholder />

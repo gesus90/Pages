@@ -252,6 +252,19 @@ function workspaceResources(routes: RouteBuilder): RouteConfigEntry[] {
       "chat/attachments/:attachmentId/content",
       "routes/chat-attachment-content.ts",
     ),
+    ...chatResources(routes),
+    resource("kalender-api/page", "routes/calendar-data.ts"),
+    ...page("kalender", {
+      browser: "routes/calendar.tsx",
+      server: "routes/calendar-server.ts",
+    }),
+  ];
+}
+
+/** Resources of the chat page: its data, calls, agent panels, files and the chat page itself. */
+function chatResources(routes: RouteBuilder): RouteConfigEntry[] {
+  const { resource, page } = routes;
+  return [
     resource("chat-page-api/page", "routes/chat-page-data.ts"),
     resource("chat-page-api/presence", "routes/chat-page-presence.ts"),
     resource("chat-page-api/calls", "routes/chat-page-calls.ts"),
@@ -283,6 +296,7 @@ function workspaceResources(routes: RouteBuilder): RouteConfigEntry[] {
       "routes/chat-page-agent-lessons.ts",
     ),
     resource("chat-page-api/voice", "routes/chat-page-voice.ts"),
+    resource("chat-page-api/agent-call", "routes/chat-page-agent-call.ts"),
     resource("chat-page-api/files", "routes/chat-page-files.ts"),
     resource(
       "chat/agent-files/:agentId/:attachmentId",
@@ -308,11 +322,6 @@ function workspaceResources(routes: RouteBuilder): RouteConfigEntry[] {
     ...page("chat", {
       browser: "routes/chat-page.tsx",
       server: "routes/chat-page-server.ts",
-    }),
-    resource("kalender-api/page", "routes/calendar-data.ts"),
-    ...page("kalender", {
-      browser: "routes/calendar.tsx",
-      server: "routes/calendar-server.ts",
     }),
   ];
 }

@@ -10,12 +10,13 @@ import type { QuotaPace } from "@/definition/QuotaForecast";
 /**
  * The quota entries Z.AI reports for a key, in the order a card lists them.
  * @remarks
- * `tokens` is the entry `TOKENS_LIMIT` (the usage allowance of the model
- * calls, for example five hours or a week) and `mcp` the entry `TIME_LIMIT`
- * (the monthly allowance of the MCP tools). Every other entry type is
- * ignored, because nothing documents what it measures.
+ * `tokens` is the entry `TOKENS_LIMIT` (the token usage allowance of model
+ * calls, for example five hours or a week), `credits` is `CREDIT_LIMIT` (the
+ * credit allowance of credit-based Coding Plan tiers across rolling windows)
+ * and `mcp` is `TIME_LIMIT` (the monthly allowance of the MCP tools). Every
+ * other entry type is ignored, because nothing documents what it measures.
  */
-export const ZAI_QUOTA_KINDS = ["tokens", "mcp"] as const;
+export const ZAI_QUOTA_KINDS = ["tokens", "credits", "mcp"] as const;
 export type ZaiQuotaKind = (typeof ZAI_QUOTA_KINDS)[number];
 
 /**
@@ -49,7 +50,7 @@ export interface ZaiWindowLength {
 }
 
 /**
- * The counts of an MCP allowance as Z.AI reports them: `used` is
+ * The counts of a credit or MCP allowance as Z.AI reports them: `used` is
  * `currentValue`, `total` is `usage` and `remaining` is `remaining`, `null`
  * when Z.AI names none.
  */
@@ -65,8 +66,8 @@ export interface ZaiQuotaCounts {
  * `usedPercent` is the reported `percentage`, 0 to 100, and the rest is 100
  * minus it. `length` is `null` when the `unit` and `number` codes name no
  * known length; `resetsAt` is the ISO time of `nextResetTime`, `null` when
- * Z.AI named none; `counts` is set only for an `mcp` entry that reports its
- * used and total numbers.
+ * Z.AI named none; `counts` is set for a `credits` or `mcp` entry that
+ * reports its used and positive total numbers.
  */
 export interface ZaiQuotaWindow {
   readonly pace?: QuotaPace;
@@ -94,6 +95,38 @@ export interface ZaiQuotaTally {
 }
 
 /**
+ * Whether an entry delivered by the usage monitor was evaluated as a card
+ * window or dropped.
+ */
+export const ZAI_ENTRY_OUTCOMES = [
+  "evaluated",
+  "unsupportedType",
+  "withoutUsage",
+] as const;
+export type ZaiEntryOutcome = (typeof ZAI_ENTRY_OUTCOMES)[number];
+
+/**
+ * Sanitized server-side summary of one entry delivered in `limits`.
+ * @remarks
+ * Keeps only the cleaned type token, numeric usage and window codes, the
+ * resolved window kind and length, and why an entry was evaluated or dropped;
+ * neither the key nor raw response strings are stored.
+ */
+export interface ZaiQuotaEntrySummary {
+  readonly type: string | null;
+  readonly outcome: ZaiEntryOutcome;
+  readonly kind: ZaiQuotaKind | null;
+  readonly unit: number | null;
+  readonly number: number | null;
+  readonly length: ZaiWindowLength | null;
+  readonly percentage: number | null;
+  readonly currentValue: number | null;
+  readonly usage: number | null;
+  readonly remaining: number | null;
+  readonly resetsAt: string | null;
+}
+
+/**
  * What one answer of the usage monitor holds: the tier, the reported entries
  * and how many entries it delivered and dropped.
  */
@@ -101,6 +134,7 @@ export interface ZaiQuotaReading {
   readonly plan: ZaiPlan | null;
   readonly windows: readonly ZaiQuotaWindow[];
   readonly tally: ZaiQuotaTally;
+  readonly entries?: readonly ZaiQuotaEntrySummary[];
 }
 
 /**
@@ -145,16 +179,16 @@ export interface ZaiQuotaAccount {
  */
 export const ZAI_MAX_WINDOWS = 8;
 
+const windowLengthSchema = z.object({
+  unit: z.enum(ZAI_WINDOW_UNITS),
+  count: z.number().int().positive(),
+});
+
 const windowSchema = z.object({
   pace: quotaPaceSchema.optional(),
   kind: z.enum(ZAI_QUOTA_KINDS),
   usedPercent: z.number().min(0).max(100),
-  length: z
-    .object({
-      unit: z.enum(ZAI_WINDOW_UNITS),
-      count: z.number().int().positive(),
-    })
-    .nullable(),
+  length: windowLengthSchema.nullable(),
   resetsAt: z.string().min(1).max(40).nullable(),
   counts: z
     .object({
@@ -163,6 +197,20 @@ const windowSchema = z.object({
       remaining: z.number().finite().nonnegative().nullable(),
     })
     .nullable(),
+});
+
+const entrySummarySchema = z.object({
+  type: z.string().min(1).max(64).nullable(),
+  outcome: z.enum(ZAI_ENTRY_OUTCOMES),
+  kind: z.enum(ZAI_QUOTA_KINDS).nullable(),
+  unit: z.number().int().nullable(),
+  number: z.number().int().nullable(),
+  length: windowLengthSchema.nullable(),
+  percentage: z.number().finite().nonnegative().nullable(),
+  currentValue: z.number().finite().nonnegative().nullable(),
+  usage: z.number().finite().nonnegative().nullable(),
+  remaining: z.number().finite().nonnegative().nullable(),
+  resetsAt: z.string().min(1).max(40).nullable(),
 });
 
 /** Validates the latest successful Z.AI reading stored for the current key. */
@@ -175,6 +223,7 @@ export const zaiQuotaReadingSchema = z.object({
     withoutUsage: z.number().int().nonnegative(),
     evaluated: z.number().int().nonnegative(),
   }),
+  entries: z.array(entrySummarySchema).max(ZAI_MAX_WINDOWS).optional(),
 });
 
 /** Validates the Z.AI card of a quota answer before the browser shows it. */

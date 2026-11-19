@@ -22,6 +22,7 @@ import {
   UNKNOWN_CONTEXT,
   claudeNodeUsage,
   sumTurnUsage,
+  withCatalogContextWindow,
 } from "./AgentSessionUsage";
 import type { OpenRouterPricing } from "./OpenRouterPricing";
 import { checkSessionWorkspace } from "./AgentSessionWorkspace";
@@ -273,6 +274,11 @@ export class AgentSessionService {
     const { openRouterRunTotal, isOpenRouterRunIncomplete } =
       openRouterRunSummary(run, runTurns);
     const model = describeSessionModel(attempt.record, stored);
+    const { contextWindow, ...identity } = await describeSessionIdentity(
+      attempt.record,
+      model,
+      this.dependencies.catalog,
+    );
     return {
       key,
       provider: attempt.record.runner,
@@ -285,12 +291,11 @@ export class AgentSessionService {
         stored: stored?.workspace ?? null,
       })),
       model,
-      ...(await describeSessionIdentity(
-        attempt.record,
-        model,
-        this.dependencies.catalog,
-      )),
-      context: stored?.context ?? UNKNOWN_CONTEXT,
+      ...identity,
+      context: withCatalogContextWindow(
+        stored?.context ?? UNKNOWN_CONTEXT,
+        contextWindow,
+      ),
       turns,
       totals: sumTurnUsage(turns),
       runTotals: sumTurnUsage(runTurns),

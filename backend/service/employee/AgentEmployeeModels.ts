@@ -37,6 +37,9 @@ export interface AgentModelDescription {
   readonly isFree?: boolean;
 }
 
+/** The efforts that answer fastest, lowest first. */
+const FAST_REASONING_EFFORTS: readonly string[] = ["minimal", "low"];
+
 /**
  * The models an agent employee may get and the check of a stored choice.
  * @remarks
@@ -117,6 +120,25 @@ export class AgentEmployeeModels {
     }
     await this.requireEmployeeModel(assignment, settings.access);
     return assignment;
+  }
+
+  /**
+   * The lowest thinking effort the catalog lists for the model of an assignment.
+   * @param assignment - The resolved model of a job.
+   * @returns `minimal` or `low` when the model lists one of them, otherwise
+   * `null`, so the model keeps the effort it has.
+   */
+  public async fastestReasoningEffort(
+    assignment: ResolvedAgentAssignment,
+  ): Promise<string | null> {
+    const catalog = await this.dependencies.connections
+      .catalogs()
+      .find(assignment.connection.id);
+    const model = catalog.models.find((entry) => entry.id === assignment.model);
+    const efforts = model?.reasoningEfforts ?? [];
+    return (
+      FAST_REASONING_EFFORTS.find((effort) => efforts.includes(effort)) ?? null
+    );
   }
 
   /** Names an agent's model and provider for a list, without checking anything. */
