@@ -2,17 +2,19 @@ import {
   evaluatePlanAcceptance,
   evaluateTodoCompletion,
 } from "./AgentPlanAcceptance";
-import { refreshPlanContract } from "./AgentPlanContractRefresh";
+import { buildPlanContract } from "./AgentPlanContract";
 
 import type {
   AgentPlanAcceptance,
   AgentPlanContract,
+  AgentPlanContractItem,
 } from "@/definition/AgentPlanSession";
 import type { AgentPlanStepProgressService } from "./AgentPlanStepProgressService";
 import type { AgentProviderId } from "@/definition/AgentConnection";
 import type { AgentPlanStepReport } from "@/definition/AgentPlanStepReport";
 import type { AgentRunReach } from "@/definition/McpAuthorization";
 import type { AgentPlanTicketStates } from "./AgentPlanAcceptance";
+import type { AgentPlanContractOptions } from "./AgentPlanContract";
 import type {
   AgentPlanTasks,
   AgentPlanTicketChecklist,
@@ -145,5 +147,58 @@ function enforceNativePlanAcceptance(
       ...acceptance.issues.filter((issue) => !issue.endsWith(":PAGES_PLAN")),
       "todo_open:PAGES_PLAN",
     ],
+  };
+}
+
+function sameRequirement(
+  current: AgentPlanContractItem,
+  previous: AgentPlanContractItem,
+): boolean {
+  if (current.text !== previous.text) return false;
+  if (current.ticket === null)
+    return previous.ticket === null && current.id === previous.id;
+  return (
+    previous.ticket?.id === current.ticket.id &&
+    previous.ticket.itemId === current.ticket.itemId
+  );
+}
+
+function reconcileItems(
+  current: readonly AgentPlanContractItem[],
+  previous: readonly AgentPlanContractItem[],
+  prefix: string,
+): readonly AgentPlanContractItem[] {
+  let nextId = Math.max(
+    0,
+    ...previous.map((item) => Number(item.id.slice(prefix.length)) || 0),
+  );
+  return current.map((item) => {
+    const original = previous.find((entry) => sameRequirement(item, entry));
+    return {
+      ...item,
+      id: original?.id ?? `${prefix}${++nextId}`,
+      ...(!item.ticket && original?.checked ? { checked: true } : {}),
+    };
+  });
+}
+
+function refreshPlanContract(
+  instruction: string,
+  previous: AgentPlanContract,
+  tickets: readonly AgentPlanTicketChecklist[],
+  options: Pick<AgentPlanContractOptions, "isReadOnly">,
+): AgentPlanContract {
+  const current = buildPlanContract(instruction, tickets, {
+    ...options,
+    completion: previous.completion,
+    completionGate: previous.completionGate,
+  });
+  return {
+    ...current,
+    todos: [
+      ...reconcileItems(current.todos, previous.todos, "T"),
+      ...previous.todos.filter((todo) => todo.agent),
+    ],
+    criteria: reconcileItems(current.criteria, previous.criteria, "K"),
   };
 }

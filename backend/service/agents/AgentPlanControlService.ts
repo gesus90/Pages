@@ -8,12 +8,12 @@ import { AgentPlanValidationError } from "@/backend/error/AgentPlanValidationErr
 import { AgentPlanWorkspaceConflictError } from "@/backend/error/AgentPlanWorkspaceConflictError";
 import { isSamePlanTarget } from "@/definition/AgentPlanTarget";
 import { AgentPlanRecoveryError } from "@/backend/error/AgentPlanRecoveryError";
+import { RemoteError } from "@/backend/error/RemoteErrors";
 import { planControl } from "./AgentPlanControl";
 import {
   resumeBlockFromIssue,
   resumeBlockFromRecovery,
 } from "./AgentPlanResumeBlocks";
-import { visibleStartRejection } from "./AgentPlanStartRejectionVisibility";
 import type { AgentWorkspaceCleanupRepository } from "@/backend/database/repositories/agent/AgentWorkspaceCleanupRepository";
 import type { AgentPlanWorkspaceLocks } from "./AgentPlanWorkspaceLocks";
 import type { AgentPlanIssue } from "@/definition/AgentPlanGraph";
@@ -385,4 +385,28 @@ export class AgentPlanControlService {
 function blockedCode(control: AgentPlanControl): string {
   if (control.issues?.length) return "plan_invalid";
   return control.issue ?? "plan_run_unavailable";
+}
+
+async function visibleStartRejection(
+  workspaces: Pick<AgentPlanWorkspaces, "requireAccess"> | undefined,
+  userId: string,
+  plan: AgentPlan,
+  rejection: AgentPlanStartRejection | null,
+): Promise<AgentPlanStartRejection | null> {
+  if (!rejection?.conflict) return rejection;
+  if (workspaces) {
+    try {
+      for (const target of rejection.conflict.targets)
+        await workspaces.requireAccess(
+          userId,
+          target.workspaceId,
+          plan.projectId,
+        );
+      return rejection;
+    } catch (error: unknown) {
+      if (!(error instanceof AgentError) && !(error instanceof RemoteError))
+        throw error;
+    }
+  }
+  return { ...rejection, conflict: null, targetResolution: "unknown" };
 }

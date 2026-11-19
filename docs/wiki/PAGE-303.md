@@ -149,7 +149,7 @@ verdrahtet:
     Den Prozessrahmen bildet dann die begrenzte Worker-Unit: Ihre Identität
     wird vor der ersten ACP-Anfrage an der Reservierung gespeichert, und der
     Closeout bestätigt über die gestoppte Unit statt über den Legacy-Scan
-    (siehe die Notiz zur Reservierungsbereinigung in `docs/PAGE-340.md`).
+    (siehe die Notiz zur Reservierungsbereinigung in `docs/AcpLeaseCleanup.md`).
 - **Vorgabe:** `createAgentEmployeeInstructions()` erzeugt den Zugriffsabsatz
   aus der Stufe; `picaHelperUsage(path, hasHostTools)` erlaubt bei Host-Tools
   andere Werkzeuge neben dem Helper.

@@ -43,6 +43,107 @@ const POSTGRES_URL = /^postgres(?:ql)?:\/\//u;
 /** SQLSTATE of a duplicate key, which the removal of U+0000 can cause. */
 const POSTGRES_UNIQUE_VIOLATION = "23505";
 
+/**
+ * Frozen DuckDB migration names required in `schema_migrations` of a source
+ * file before transfer. Their SQL files were removed after PostgreSQL
+ * `001_baseline.sql` and `004`–`009` captured the final schema.
+ */
+const EXPECTED_DUCKDB_MIGRATIONS: readonly string[] = [
+  "001_baseline.sql",
+  "002_instance_settings.sql",
+  "003_username_case_insensitive.sql",
+  "004_password_change_required.sql",
+  "005_user_authorization.sql",
+  "006_legacy_user_roles.sql",
+  "007_project_departments.sql",
+  "008_project_permissions.sql",
+  "009_work_item_departments.sql",
+  "010_project_templates.sql",
+  "011_project_activity_work_items.sql",
+  "012_user_groups.sql",
+  "013_global_labels.sql",
+  "014_work_item_templates.sql",
+  "015_github_sync_switch.sql",
+  "016_user_board_preferences.sql",
+  "017_ticket_number_counter.sql",
+  "018_instance_logo.sql",
+  "019_wiki.sql",
+  "020_agent_connections.sql",
+  "021_agent_model_catalogs.sql",
+  "022_agent_reasoning_effort.sql",
+  "023_wiki_page_cover.sql",
+  "024_ticket_attachments_and_tree.sql",
+  "025_text_assistant.sql",
+  "026_agent_function_assignments.sql",
+  "027_mcp_authorization.sql",
+  "028_agent_assets.sql",
+  "029_agent_imports.sql",
+  "030_agent_execution_profiles.sql",
+  "031_agent_configuration.sql",
+  "032_agent_workspaces.sql",
+  "033_agent_plans.sql",
+  "034_project_activity_wiki_source.sql",
+  "035_mcp_pairing.sql",
+  "036_chat.sql",
+  "037_milestone_initiatives.sql",
+  "038_administration_activity.sql",
+  "039_agent_connection_scopes.sql",
+  "040_user_theme.sql",
+  "041_agent_workspace_project_access.sql",
+  "042_page_agents.sql",
+  "043_remove_oauth.sql",
+  "044_agent_run_credentials.sql",
+  "045_opencode_connections.sql",
+  "046_work_item_checklist_revisions.sql",
+  "047_agent_run_credential_reach.sql",
+  "048_discord.sql",
+  "049_chat_context.sql",
+  "050_acp_resource_leases.sql",
+  "051_chat_acp_jobs.sql",
+  "052_chat_message_client_ids.sql",
+  "053_chat_job_cost_estimate.sql",
+  "054_chat_message_stopped.sql",
+  "055_opencode_acp_resource_leases.sql",
+  "056_agent_session_journal.sql",
+  "057_agent_plan_recovery.sql",
+  "058_chat_attachment_origin.sql",
+  "059_remove_text_assistant.sql",
+  "060_agent_plan_continuations.sql",
+  "061_agent_plan_templates.sql",
+  "062_agent_plan_teams.sql",
+  "063_mcp_http_oauth.sql",
+  "064_agent_plan_loops.sql",
+  "065_agent_plan_recovery_executions.sql",
+  "066_pica_settings.sql",
+  "067_user_design_theme.sql",
+  "068_remote_connections.sql",
+  "069_remote_allowed_roots.sql",
+  "070_remote_workspace_check_roots.sql",
+  "071_pages_runners.sql",
+  "072_runner_plan_events.sql",
+  "073_remote_install_findings.sql",
+  "074_user_terminal_screen_reader.sql",
+  "075_zai_account_type.sql",
+  "076_agent_session_history_chunks.sql",
+  "077_runner_history_recovery.sql",
+  "078_agent_asset_revisions.sql",
+  "079_agent_plan_work.sql",
+  "080_agent_plan_start_rejections.sql",
+  "081_agent_plan_cleanup_failures.sql",
+  "082_antigravity_acp.sql",
+  "083_acp_namespace_identity.sql",
+  "084_agent_workspace_cleanup.sql",
+  "085_rebuild_buffered_secondary_indexes.sql",
+  "086_pica_mobile_notifications.sql",
+  "087_agent_plan_loop_counts.sql",
+  "088_agent_plan_step_reports.sql",
+  "089_saved_list_order.sql",
+  "090_creation_order.sql",
+  "091_run_creation_order.sql",
+  "092_messaging_creation_order.sql",
+  "093_core_creation_order.sql",
+];
+
 /** What the check of the tables takes from the run and adds to it. */
 interface TableCheck {
   readonly copyDurations: ReadonlyMap<string, number>;
@@ -78,11 +179,12 @@ function parseArguments(argv: readonly string[]): TransferArguments | null {
 
 async function refuseOtherSchemaLevel(source: DuckDbSource): Promise<void> {
   const applied = await source.readAppliedMigrations();
-  const known = (await readMigrations("migrations")).map(
-    (migration) => migration.name,
+  const missing = EXPECTED_DUCKDB_MIGRATIONS.filter(
+    (name) => !applied.includes(name),
   );
-  const missing = known.filter((name) => !applied.includes(name));
-  const unknown = applied.filter((name) => !known.includes(name));
+  const unknown = applied.filter(
+    (name) => !EXPECTED_DUCKDB_MIGRATIONS.includes(name),
+  );
   if (missing.length > 0 || unknown.length > 0)
     throw new TransferRefusal(
       `The DuckDB file is not on the schema of this version (missing: ${missing.join(", ") || "none"}; unknown: ${unknown.join(", ") || "none"}). Run this version on it once and stop it cleanly.`,

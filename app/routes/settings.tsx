@@ -1,6 +1,12 @@
-import { useState } from "react";
-import { Outlet, redirect, useLoaderData, useLocation } from "react-router";
+import { useLayoutEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import {
+  Outlet,
+  redirect,
+  useLoaderData,
+  useLocation,
+  useNavigationType,
+} from "react-router";
 
 import {
   createLocalStateLayoutAnswers,
@@ -9,7 +15,6 @@ import {
 import { SettingsHeaderSlotContext } from "@/app/components/settings/settings-header-slot";
 import { SettingsNavigation } from "@/app/components/settings/settings-navigation";
 import { settingsAreaOf } from "@/app/components/settings/use-settings-area";
-import { useSettingsScroll } from "@/app/components/settings/use-settings-scroll";
 import { VerticalScrollArea } from "@/app/components/ui/vertical-scroll-area";
 import {
   isCurrentLocalStateAudience,
@@ -19,12 +24,13 @@ import { loadLocalFirst } from "@/app/lib/local-state/local-state-loader";
 import { isLocalStateNavigation } from "@/app/lib/local-state/local-state-navigation";
 import { readRouteData } from "@/app/lib/local-state/route-data";
 
-import type { ShouldRevalidateFunctionArgs } from "react-router";
 import type { LocalStateLayoutSource } from "@/app/components/common/use-local-state-layout";
 import type { LocalStateRouteKind } from "@/app/components/common/use-local-state-route";
 import type { ScrollMaskEdge } from "@/app/components/ui/scroll-viewport/scroll-mask";
 import type { LocalStateAudience } from "@/app/lib/local-state/local-state-audience";
 import type { WithLocalState } from "@/app/lib/local-state/local-state-loader";
+import type { RefObject, UIEvent } from "react";
+import type { ShouldRevalidateFunctionArgs } from "react-router";
 import type { Route } from "./+types/settings";
 
 /** The settings frame as its endpoint answers it. */
@@ -32,6 +38,11 @@ export interface SettingsLayoutData {
   /** Whether the navigation lists the admin areas System and Agents. */
   readonly canViewSystem: boolean;
   readonly audience: LocalStateAudience;
+}
+
+interface SettingsScroll {
+  readonly viewportRef: RefObject<HTMLElement | null>;
+  readonly onScroll: (event: UIEvent<HTMLElement>) => void;
 }
 
 /** The settings content fades out where more of it waits above or below. */
@@ -42,6 +53,46 @@ const SETTINGS_FADE_TOP = 24;
 
 /** The rights-checked endpoint of the settings frame; the key of its kept answers as well. */
 const SETTINGS_LAYOUT_ENDPOINT = "/settings-api/navigation";
+
+const MAX_REMEMBERED_POSITIONS = 100;
+
+const rememberedPositions = new Map<string, number>();
+
+function rememberPosition(historyKey: string, top: number): void {
+  rememberedPositions.delete(historyKey);
+  rememberedPositions.set(historyKey, top);
+  if (rememberedPositions.size <= MAX_REMEMBERED_POSITIONS) return;
+  const oldest = rememberedPositions.keys().next();
+  if (!oldest.done) rememberedPositions.delete(oldest.value);
+}
+
+function useSettingsScroll(): SettingsScroll {
+  const { key, pathname } = useLocation();
+  const navigationType = useNavigationType();
+  const viewportRef = useRef<HTMLElement | null>(null);
+  const shownKey = useRef(key);
+  const shownPathname = useRef<string | null>(null);
+
+  useLayoutEffect(() => {
+    const isNewPage = shownPathname.current !== pathname;
+    shownKey.current = key;
+    shownPathname.current = pathname;
+    const viewport = viewportRef.current;
+    if (!viewport) return;
+    const remembered = rememberedPositions.get(key);
+    if (navigationType === "POP" && remembered !== undefined) {
+      viewport.scrollTop = remembered;
+      return;
+    }
+    if (isNewPage) viewport.scrollTop = 0;
+  }, [key, pathname, navigationType]);
+
+  function handleScroll(event: UIEvent<HTMLElement>): void {
+    rememberPosition(shownKey.current, event.currentTarget.scrollTop);
+  }
+
+  return { viewportRef, onScroll: handleScroll };
+}
 
 function isSettingsLayoutData(value: unknown): value is SettingsLayoutData {
   return (

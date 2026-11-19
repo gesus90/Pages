@@ -11,7 +11,7 @@ import type { WorkItemDetail } from "@/definition/Task";
 import type { User } from "@/definition/User";
 import type { McpTicketPerson } from "./McpTicketContract";
 
-/** A ticket key such as `PAGE-12`; anything else names a ticket by its id. */
+/** A ticket key such as `TICKET-12`; anything else names a ticket by its id. */
 const TICKET_KEY_PATTERN = /^[A-Za-z][A-Za-z0-9]*-\d+$/u;
 
 /**
@@ -50,7 +50,7 @@ export class McpTicketContext {
 
   /**
    * Reads a ticket by key or id with the visibility rules of the interface.
-   * @param reference - `PAGE-12` or the id of the ticket.
+   * @param reference - `TICKET-12` or the id of the ticket.
    * @returns The ticket, archived ones included.
    * @throws {WorkItemNotFoundError} When it does not exist or is hidden.
    */

@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 
 import { Tooltip } from "@/app/components/ui/tooltip";
 import { cn } from "@/app/lib/cn";
+import { modelConsumerRefusal } from "@/definition/AgentModelConsumers";
 
 import { FreeBadge } from "./badges/free-badge";
 import {
@@ -24,7 +25,6 @@ import {
   MODEL_FIELD_LABEL_CLASS,
 } from "./model-picker/model-field";
 import { ModelPickerPanel } from "./model-picker/model-picker-panel";
-import { modelRefusalText, usableModels } from "./model-picker/model-usability";
 import { ToolMark } from "./model-picker/tool-mark";
 import { useModelPicker } from "./model-picker/use-model-picker";
 
@@ -352,4 +352,44 @@ export function ModelPicker(props: ModelPickerProps): React.ReactElement {
       </div>
     </div>
   );
+}
+
+interface ModelUsageRule {
+  readonly consumer?: AgentModelConsumer;
+  readonly employeeAccess?: AgentEmployeeAccess;
+  readonly refusalOf?: (model: PageAgentModel) => string | null;
+}
+
+interface UsableModels {
+  readonly listed: readonly PageAgentModel[];
+  readonly refusals: ReadonlyMap<string, string>;
+}
+
+function modelRefusalText(
+  rule: ModelUsageRule,
+  model: PageAgentModel,
+  translate: TFunction,
+): string | null {
+  const refusal = modelConsumerRefusal(rule.consumer ?? "plan", model, {
+    employeeAccess: rule.employeeAccess,
+  });
+  if (refusal === "zenToolsMissing")
+    return translate("settings.agents.error.picaZenUnsupported");
+  if (refusal !== null)
+    return translate(`settings.agents.modelSelection.refusal.${refusal}`);
+  return rule.refusalOf?.(model) ?? null;
+}
+
+function usableModels(
+  models: readonly PageAgentModel[],
+  refusalOf: (model: PageAgentModel) => string | null,
+): UsableModels {
+  const listed: PageAgentModel[] = [];
+  const refusals = new Map<string, string>();
+  for (const model of models) {
+    const refusal = refusalOf(model);
+    if (refusal === null) listed.push(model);
+    else refusals.set(model.id, refusal);
+  }
+  return { listed, refusals };
 }

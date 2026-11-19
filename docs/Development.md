@@ -189,24 +189,42 @@ Each child process exits before the next block starts so TypeScript
 
 | Setting                                      | Default                                      | Environment override            | CLI override                                                | Valid range                         |
 | -------------------------------------------- | -------------------------------------------- | ------------------------------- | ----------------------------------------------------------- | ----------------------------------- |
-| Max files per block (`blockSize`)            | `200` (`DEFAULT_BLOCK_SIZE`)                 | `PAGES_LINT_BLOCK_SIZE`         | `--block-size <int>` / `--block-size=<int>`                 | `1..5000` (positive integer)        |
+| Max files per block (`blockSize`)            | `600` (`DEFAULT_BLOCK_SIZE`)                 | `PAGES_LINT_BLOCK_SIZE`         | `--block-size <int>` / `--block-size=<int>`                 | `1..5000` (positive integer)        |
 | Node V8 old-space heap (`maxOldSpaceSizeMb`) | `2048` MiB (`DEFAULT_MAX_OLD_SPACE_SIZE_MB`) | `PAGES_LINT_MAX_OLD_SPACE_SIZE` | `--max-old-space-size <int>` / `--max-old-space-size=<int>` | `128..65536` MiB (positive integer) |
+| Changed files only (`changedOnly`)           | `false` (full repository)                    | —                               | `--changed`                                                 | Boolean CLI flag                    |
+| Diff base (`diffBase`, with `--changed`)     | `null` (working tree + index vs `HEAD`)      | —                               | `--base <ref>` / `--base=<ref>`                             | Valid Git commit reference          |
 
 CLI flags take precedence over environment variables, which take precedence over
 the defaults in `scripts/run-lint.mjs`. Invalid values (`0`, negative numbers,
-floats, non-numeric strings or unknown flags) and empty file selections fail
-immediately with exit code `2` without falling back. Normal lint findings
+floats, non-numeric strings, `--base` without `--changed`, or unknown flags)
+fail immediately with exit code `2` without falling back. An empty file selection
+fails with exit code `2` in full-repository mode, while `--changed` exits `0`
+when zero lintable source files changed. Normal lint findings
 (exit code `1`) continue through the remaining blocks and return exit code `1`
 with a summary of all failed blocks; fatal configuration errors, OOM or
 `SIGINT`/`SIGTERM` forward the signal to the active child process, wait for it
 to exit, stop before starting further blocks and report the checked and
 remaining unchecked file counts.
 
+**Changed-files mode for local pre-checks:** Pass `--changed` (`node
+scripts/run-lint.mjs --changed`, or `node scripts/run-lint.mjs --changed --base
+main`) to lint only modified, staged, or untracked source files (plus committed
+branch changes since `<ref>` when `--base` is given), still filtered through
+`source-population.mjs` and `eslint.config.js` ignores. The merge gate
+(`pnpm run lint` and CI) omits `--changed` and always checks the full repository.
+
 **Memory characteristics and `projectService` boundaries:** `eslint.config.js`
 enables `projectService: true` for typed rules. Even a small block (for example
 50 files) loads the enclosing TypeScript program (`tsconfig.json`), requiring a baseline of roughly `1.15–1.20 GiB` V8 heap
-(`~1.45 GiB` process RSS) per child process; at `200` files per block, measured
-per-process peak usage is `~1.35–1.50 GiB` V8 heap and `~1.60–1.70 GiB` RSS.
+(`~1.45 GiB` process RSS) per child process; at `200` files per block, prior
+measured per-process peak usage was `~1.35–1.50 GiB` V8 heap and `~1.60–1.70 GiB` RSS
+(`24` ESLint starts across `4,749` discovered source files). Raising
+`DEFAULT_BLOCK_SIZE` from `200` to `600` reduces the `4,749`-file run from `24`
+to `8` sequential ESLint starts (`16` fewer ~5s `projectService` cold starts)
+while staying conservatively under the unchanged `2048` MiB V8 heap limit; live
+full-run duration and peak RSS benchmarks across block sizes (`--block-size` /
+`PAGES_LINT_BLOCK_SIZE` and `--max-old-space-size` / `PAGES_LINT_MAX_OLD_SPACE_SIZE`)
+were not executed during the configuration update.
 `--max-old-space-size` bounds only V8 old-space heap, not total process RSS
 (which includes V8 code/new space, C++ allocations and shared libraries) and not
 concurrent memory from other processes. If the root `tsconfig.json`

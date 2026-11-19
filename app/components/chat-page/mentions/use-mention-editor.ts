@@ -1,17 +1,18 @@
+import { Node, mergeAttributes } from "@tiptap/core";
 import { useEffect, useId, useState } from "react";
 
 import { useChatEditor } from "@/app/components/chat/use-chat-editor";
+import { readTextAttribute } from "@/app/lib/editor/editor-schema";
 
 import {
   activeMention,
   filterMentionChoices,
   mentionChoices,
 } from "./mention-choices";
-import { ChatMentionNode } from "./mention-node";
 
-import type { EditorView } from "@tiptap/pm/view";
 import type { ChatEditor } from "@/app/components/chat/use-chat-editor";
 import type { ConversationMentionDirectory } from "@/definition/ConversationMention";
+import type { EditorView } from "@tiptap/pm/view";
 import type { MentionChoice } from "./mention-choices";
 
 /** Editor-relative token and viewport anchor of the open picker. */
@@ -41,6 +42,49 @@ interface MentionEditorOptions {
   readonly memberIds: readonly string[];
 }
 
+interface QuerySubscription {
+  readonly editor: ChatEditor["editor"];
+  readonly isEnabled: boolean;
+  readonly setQuery: (query: MentionQuery | null) => void;
+  readonly setSelected: (index: number) => void;
+}
+
+interface MentionAria {
+  readonly isEnabled: boolean;
+  readonly query: MentionQuery | null;
+  readonly current: number;
+  readonly listId: string;
+}
+
+// Inline atom with text content so the shared Markdown serializer retains the handle.
+const ChatMentionNode = Node.create({
+  name: "chatMention",
+  group: "inline",
+  inline: true,
+  atom: true,
+  content: "text*",
+  selectable: false,
+  addAttributes: () => ({ username: { default: "" } }),
+  parseHTML: () => [
+    {
+      tag: "span[data-chat-mention]",
+      getAttrs: (element) => ({
+        username: element.getAttribute("data-chat-mention") ?? "",
+      }),
+    },
+  ],
+  renderHTML: ({ node, HTMLAttributes }) => [
+    "span",
+    mergeAttributes(HTMLAttributes, {
+      "data-chat-mention": readTextAttribute(node.attrs, "username") ?? "",
+      contenteditable: "false",
+      class: "rounded bg-primary-subtle px-1 font-semibold text-status-active",
+    }),
+    0,
+  ],
+  renderText: ({ node }) => node.textContent,
+});
+
 function readQuery(view: EditorView): MentionQuery | null {
   const { $from, empty } = view.state.selection;
   if (
@@ -62,13 +106,6 @@ function readQuery(view: EditorView): MentionQuery | null {
     left: coordinates.left,
     bottom: window.innerHeight - coordinates.top + 8,
   };
-}
-
-interface QuerySubscription {
-  readonly editor: ChatEditor["editor"];
-  readonly isEnabled: boolean;
-  readonly setQuery: (query: MentionQuery | null) => void;
-  readonly setSelected: (index: number) => void;
 }
 
 function useMentionQuery({
@@ -98,13 +135,6 @@ function useMentionQuery({
       window.removeEventListener("scroll", close);
     };
   }, [editor, isEnabled, setQuery, setSelected]);
-}
-
-interface MentionAria {
-  readonly isEnabled: boolean;
-  readonly query: MentionQuery | null;
-  readonly current: number;
-  readonly listId: string;
 }
 
 function useMentionAria(

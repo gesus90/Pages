@@ -95,7 +95,7 @@ terminal that starts this path runs the same installation as Pages. The Tools
 card names the executable of new calls, the rollback generation and whether
 the terminal entry is current; versions there and in connection checks are the
 results of the check shown with its time, not a new call; see the [Claude tool
-generation notes](PAGE-293.md).
+generation notes](ManagedClaudeCli.md).
 
 After listening, Pages reconstructs required dependencies from active CLI
 connections and saved optional integrations in the background. It checks local

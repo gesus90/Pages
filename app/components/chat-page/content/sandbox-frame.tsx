@@ -1,5 +1,5 @@
 import { ShieldCheck } from "lucide-react";
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 
 import { cn } from "@/app/lib/cn";
@@ -7,10 +7,13 @@ import { cn } from "@/app/lib/cn";
 import { useChatContent } from "./chat-content-context";
 import {
   buildPreviewDocument,
+  canSendFromPreview,
+  isPreviewReady,
   PREVIEW_FRAME_URL,
+  PREVIEW_RENDER_MESSAGE,
   PREVIEW_SANDBOX,
+  readPreviewSend,
 } from "./preview-document";
-import { usePreviewBridge } from "./use-preview-bridge";
 
 import type { CardTone } from "./content-card";
 import type { PreviewFile } from "./preview-kinds";
@@ -35,7 +38,46 @@ interface SandboxFrameProps {
   readonly className?: string;
 }
 
-/** The running preview inside its frame; a new key replaces it. */
+// Connects a sandbox frame with the chat: hands the frame its document once
+// ready, and passes on what the preview writes with `pages.chat.send(text)`.
+function usePreviewBridge(
+  frame: React.RefObject<HTMLIFrameElement | null>,
+  html: string,
+  onSend: (text: string) => void,
+): void {
+  const lastSentAt = useRef(0);
+
+  useEffect(() => {
+    function handleMessage(event: MessageEvent): void {
+      const element = frame.current;
+      if (!element?.contentWindow || event.source !== element.contentWindow)
+        return;
+      if (isPreviewReady(event.data)) {
+        element.contentWindow.postMessage(
+          { type: PREVIEW_RENDER_MESSAGE, html },
+          "*",
+        );
+        return;
+      }
+      const text = readPreviewSend(event.data);
+      if (text === null) return;
+      const now = Date.now();
+      if (
+        !canSendFromPreview({
+          frame: element,
+          lastSentAt: lastSentAt.current,
+          now,
+        })
+      )
+        return;
+      lastSentAt.current = now;
+      onSend(text);
+    }
+    window.addEventListener("message", handleMessage);
+    return () => window.removeEventListener("message", handleMessage);
+  }, [frame, html, onSend]);
+}
+
 function PreviewFrame({
   files,
   title,

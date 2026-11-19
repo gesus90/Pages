@@ -1,15 +1,14 @@
 import { useTranslation } from "react-i18next";
 
-import { AssigneeSightNotice } from "@/app/components/tasks/assignee-sight-notice";
 import { useAssigneeOptions } from "@/app/components/tasks/assignee-options";
-import { useAssigneeSight } from "@/app/components/tasks/use-assignee-sight";
+import { AssigneeSightNotice } from "@/app/components/tasks/assignee-sight-notice";
 import { useTicketAccess } from "@/app/components/tasks/ticket-access";
 import { TicketDepartmentChips } from "@/app/components/tasks/ticket-department-chips";
+import { useAssigneeSight } from "@/app/components/tasks/use-assignee-sight";
+import { Input } from "@/app/components/ui/input";
+import { Textarea } from "@/app/components/ui/textarea";
 import { WORK_ITEM_LIMITS } from "@/definition/Task";
 
-import { TaskFormTemplateField } from "./task-form-template-field";
-import { TaskFormSelectField } from "./task-form-select-field";
-import { TaskFormTextField } from "./task-form-text-field";
 import {
   PARENT_FIELDS,
   parentOptions,
@@ -17,6 +16,7 @@ import {
   reporterOptions,
   workItemTypeOptions,
 } from "./task-form-options";
+import { TaskFormSelectField } from "./task-form-select-field";
 
 import type { Project } from "@/definition/Project";
 import type {
@@ -30,8 +30,8 @@ import type {
   WorkItemTemplateView,
 } from "@/definition/WorkItemTemplate";
 import type {
-  TaskFormSelectionState,
   TaskFormSelections,
+  TaskFormSelectionState,
 } from "./task-form-selections";
 
 /** Everything the form fields offer to pick from. */
@@ -54,6 +54,126 @@ type SectionProps = Pick<
   "mode" | "initialTask" | "select" | "selections"
 > &
   TaskFormChoices;
+
+interface TaskFormTextFieldProps {
+  readonly id: string;
+  readonly label: string;
+  readonly name: string;
+  readonly defaultValue: string;
+  readonly maxLength?: number;
+  readonly type?: "text" | "date" | "textarea";
+  readonly isRequired?: boolean;
+  readonly hint?: string;
+}
+
+interface TaskFormTemplateFieldProps extends TaskFormSelectionState {
+  readonly templates: readonly WorkItemTemplateView[];
+}
+
+function TaskFormTextField({
+  id,
+  label,
+  name,
+  defaultValue,
+  maxLength,
+  type = "text",
+  isRequired = false,
+  hint,
+}: TaskFormTextFieldProps): React.ReactElement {
+  return (
+    <div>
+      <label
+        className="block select-none text-sm font-medium text-foreground"
+        htmlFor={id}
+      >
+        {label}
+      </label>
+      {type === "textarea" ? (
+        <Textarea
+          aria-describedby={hint ? `${id}-hint` : undefined}
+          className="mt-1 resize-y"
+          defaultValue={defaultValue}
+          id={id}
+          maxLength={maxLength}
+          name={name}
+        />
+      ) : (
+        <Input
+          className="mt-1"
+          defaultValue={defaultValue}
+          id={id}
+          maxLength={maxLength}
+          name={name}
+          required={isRequired}
+          type={type}
+        />
+      )}
+      {hint ? (
+        <p className="mt-1 text-xs text-muted-foreground" id={`${id}-hint`}>
+          {hint}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+function TaskFormTemplateField({
+  templates,
+  select,
+  selections,
+}: TaskFormTemplateFieldProps): React.ReactElement | null {
+  const { t } = useTranslation();
+  const chosen = templates.find(
+    (template) => template.id === selections.templateId,
+  );
+
+  if (templates.length === 0) {
+    return null;
+  }
+
+  function handleChange(templateId: string): void {
+    select("templateId", templateId);
+
+    const template = templates.find((entry) => entry.id === templateId);
+
+    if (!template) {
+      return;
+    }
+
+    select("priority", template.priority);
+
+    // A ticket created below a parent keeps the type that parent allows.
+    if (selections.parentId === "") {
+      select("type", template.type);
+    }
+  }
+
+  return (
+    <div>
+      <TaskFormSelectField
+        id="task-template"
+        label={t("tasks.templates.fromTemplate")}
+        onValueChange={handleChange}
+        options={[
+          { label: t("tasks.templates.none"), value: "" },
+          ...templates.map((template) => ({
+            label: template.name,
+            value: template.id,
+          })),
+        ]}
+        value={selections.templateId}
+      />
+      {chosen ? (
+        <p className="mt-1.5 text-xs text-muted-foreground">
+          {t("tasks.templates.applyHint", {
+            items: chosen.checklist.length,
+            labels: chosen.labelIds.length,
+          })}
+        </p>
+      ) : null}
+    </div>
+  );
+}
 
 function ClassificationFields({
   mode,

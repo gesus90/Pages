@@ -1,16 +1,19 @@
-import { useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { ChatBrowserPanel } from "@/app/components/chat/browser/chat-browser-panel";
 import { ChatBrowsersProvider } from "@/app/components/chat/browser/chat-browsers-context";
 import { Button } from "@/app/components/ui/button";
+import { Select } from "@/app/components/ui/select";
+import { useToastCenter } from "@/app/components/ui/toast/toast-provider";
+import { toastChatKey } from "@/app/components/ui/toast/toast-types";
+import { backendRequestHeaders } from "@/app/lib/backend-request";
 
 import {
   ChatMenuRequestContext,
   useChatMenuRequestState,
 } from "./chat-menu/chat-menu-request";
 import { MentionDirectoryContext } from "./mentions/mention-context";
-import { ChatDecisionHealth } from "./mentions/chat-decision-health";
 import { ChatPageCommandOutcome } from "./chat-page-command-outcome";
 import { ChatPageComposer } from "./chat-page-composer";
 import { openedSessionIds } from "./chat-page-browser-sessions";
@@ -21,8 +24,8 @@ import { ChatPageHeader } from "./chat-page-header";
 import { ChatPageHistory } from "./chat-page-history";
 import { ChatPageLiveTools } from "./chat-page-tool-strip";
 import { ChatPageList } from "./chat-page-list";
-import { ChatPagePicker } from "./chat-page-picker";
 import { CardOverlay } from "./content/card-panel";
+import { messageElement } from "./content/chat-image-viewer";
 import { MediaOverviewOverlay } from "./media/media-overview-panel";
 import {
   ChatContentProvider,
@@ -30,12 +33,9 @@ import {
 } from "./content/chat-content-context";
 import { SplitPanel } from "./content/split-panel";
 import { useBesideBrowser } from "./content/use-beside-browser";
-import { useChatToastSelection } from "./use-chat-toast-selection";
-import { useVisibleChatPresence } from "./use-visible-chat-presence";
 import { useChatListCollapse } from "./use-chat-list-collapse";
 import { useChatCommandRunner } from "./use-chat-command-runner";
 import { useChatPage } from "./use-chat-page";
-import { useMessageReveal } from "./use-message-reveal";
 import { useVoiceSending } from "./use-voice-sending";
 import { formatVoiceDuration } from "./voice-audio";
 
@@ -43,6 +43,7 @@ import type { ChatDecisionStatus } from "@/definition/ConversationDecision";
 import type { ConversationDelivery } from "@/definition/ConversationLiveAnswer";
 import type {
   VirtualChatDirectory,
+  VirtualChatMessage,
   VirtualChatSelection,
 } from "@/definition/VirtualChat";
 import type { ComposerAnswering } from "./chat-page-composer";
@@ -430,5 +431,207 @@ export function ChatPage(props: ChatPageProps): React.ReactElement {
     <ChatBrowsersProvider isOpen>
       <ChatPageLayout {...props} />
     </ChatBrowsersProvider>
+  );
+}
+
+const PRESENCE_HEARTBEAT_MILLISECONDS = 20_000;
+
+function ChatDecisionHealth({
+  status,
+  opened,
+  messages,
+}: {
+  readonly status: ChatDecisionStatus | undefined;
+  readonly opened: OpenedConversation | null;
+  readonly messages: readonly VirtualChatMessage[];
+}): React.ReactElement | null {
+  const { t } = useTranslation();
+  if (opened?.kind !== "group" || status === undefined) return null;
+  const last = [...messages]
+    .reverse()
+    .find((message) => message.decision)?.decision;
+  const isDecision =
+    !opened.group.replyMode || opened.group.replyMode === "decision";
+  const hasFallback =
+    isDecision && last !== undefined && last.fallback !== "none";
+  return (
+    <p
+      role="status"
+      className="text-xs text-muted-foreground"
+      data-chat-decision-status={status}
+    >
+      {opened.group.replyMode && opened.group.replyMode !== "decision"
+        ? t(`chatPage.replySettings.modes.${opened.group.replyMode}.label`)
+        : t(`chatPage.decisionHealth.${status}`)}
+      {hasFallback
+        ? ` · ${t(`chatPage.replySettings.decisions.result.unavailable.${last.fallback}`)}`
+        : ""}
+    </p>
+  );
+}
+
+function encodeChatSelection(selection: VirtualChatSelection | null): string {
+  return selection ? `${selection.kind}:${selection.id}` : "";
+}
+
+function decodeChatSelection(value: string): VirtualChatSelection | null {
+  const separator = value.indexOf(":");
+  const kind = value.slice(0, separator);
+  const id = value.slice(separator + 1);
+  if (kind === "group" || kind === "participant") return { kind, id };
+  return null;
+}
+
+function ChatPagePicker({
+  page,
+}: {
+  readonly page: ChatPageState;
+}): React.ReactElement {
+  const { t } = useTranslation();
+  const options = [
+    ...page.allGroups.map((group) => ({
+      value: encodeChatSelection({ kind: "group", id: group.id }),
+      label: group.name,
+      description: t("chatPage.groupOption"),
+    })),
+    ...page.allParticipants.map((participant) => ({
+      value: encodeChatSelection({ kind: "participant", id: participant.id }),
+      label: participant.name,
+      description: participant.role,
+    })),
+  ];
+
+  function handleChange(value: string): void {
+    const selection = decodeChatSelection(value);
+    if (selection) page.select(selection);
+  }
+
+  return (
+    <div className="shrink-0 md:hidden">
+      <Select
+        ariaLabel={t("chatPage.selectLabel")}
+        className="w-full"
+        onValueChange={handleChange}
+        options={options}
+        placeholder={t("chatPage.selectLabel")}
+        size="default"
+        value={encodeChatSelection(page.selection)}
+      />
+    </div>
+  );
+}
+
+function useChatToastSelection(options: {
+  readonly selection: VirtualChatSelection | null;
+  readonly requested: VirtualChatSelection | undefined;
+  readonly select: (selection: VirtualChatSelection) => void;
+}): void {
+  const { dispatch } = useToastCenter();
+  const { select } = options;
+  const kind = options.requested?.kind;
+  const id = options.requested?.id;
+  useEffect(() => {
+    if (kind && id) select({ kind, id });
+  }, [kind, id, select]);
+  const key = options.selection ? toastChatKey(options.selection) : null;
+  useEffect(() => {
+    const update = (): void => {
+      dispatch({
+        type: "open-chat",
+        key: document.visibilityState === "visible" ? key : null,
+      });
+    };
+    update();
+    document.addEventListener("visibilitychange", update);
+    return () => {
+      document.removeEventListener("visibilitychange", update);
+      dispatch({ type: "open-chat", key: null });
+    };
+  }, [key, dispatch]);
+}
+
+interface RevealHistory {
+  readonly messageCount: number;
+  readonly hasOlder: boolean;
+  readonly isLoadingOlder: boolean;
+  loadOlder(): void;
+}
+
+function useMessageReveal(history: RevealHistory): (messageId: string) => void {
+  const [wanted, setWanted] = useState<string | null>(null);
+  const requestedAt = useRef<number | null>(null);
+  const { messageCount, hasOlder, isLoadingOlder, loadOlder } = history;
+
+  useEffect(() => {
+    if (wanted === null) return;
+    const element = messageElement(wanted);
+    if (element) {
+      element.scrollIntoView({ block: "center", behavior: "smooth" });
+      element.focus({ preventScroll: true });
+      setWanted(null);
+      return;
+    }
+    if (isLoadingOlder || !hasOlder || requestedAt.current === messageCount)
+      return;
+    requestedAt.current = messageCount;
+    loadOlder();
+  }, [wanted, messageCount, hasOlder, isLoadingOlder, loadOlder]);
+
+  return function reveal(messageId: string): void {
+    requestedAt.current = null;
+    setWanted(messageId);
+  };
+}
+
+function useVisibleChatPresence(
+  selection: VirtualChatSelection | null,
+  conversationId: string | null,
+): void {
+  const connectionId = useRef<string | null>(null);
+  const selectedChatKey = selection ? toastChatKey(selection) : null;
+  useEffect(() => {
+    connectionId.current ??= crypto.randomUUID();
+    const id = connectionId.current;
+    function report(): void {
+      const isVisible = document.visibilityState === "visible";
+      const chatKey = isVisible ? selectedChatKey : null;
+      void fetch("/chat-page-api/presence", {
+        method: "POST",
+        headers: backendRequestHeaders({ "Content-Type": "application/json" }),
+        body: JSON.stringify({
+          connectionId: id,
+          chatKey,
+          conversationId: chatKey === null ? null : conversationId,
+        }),
+        keepalive: true,
+      }).catch(() => undefined);
+    }
+    report();
+    const timer = window.setInterval(
+      () => report(),
+      PRESENCE_HEARTBEAT_MILLISECONDS,
+    );
+    const onVisibilityChange = (): void => report();
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
+  }, [selectedChatKey, conversationId]);
+  useEffect(
+    () => () => {
+      if (connectionId.current === null) return;
+      void fetch("/chat-page-api/presence", {
+        method: "POST",
+        headers: backendRequestHeaders({ "Content-Type": "application/json" }),
+        body: JSON.stringify({
+          connectionId: connectionId.current,
+          chatKey: null,
+          conversationId: null,
+        }),
+        keepalive: true,
+      }).catch(() => undefined);
+    },
+    [],
   );
 }

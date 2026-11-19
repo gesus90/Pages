@@ -1,4 +1,9 @@
-import { dispatchPlanScript } from "./AgentPlanScriptDispatch";
+import { AgentPlanPausedError } from "@/backend/error/AgentPlanPausedError";
+
+import {
+  readRunBranchBaseline,
+  withRunBranch,
+} from "./AgentPlanRunBranchCapture";
 import { skippedPlanScriptResult } from "./AgentPlanScriptResult";
 import { createLoopHost } from "./loop/AgentPlanLoopEngineHost";
 import { triggerOuterPlanStack } from "./stack/AgentPlanStackTrigger";
@@ -6,6 +11,7 @@ import { invalidDecisionInput } from "./branching/AgentPlanDecisionValue";
 import { patchStep } from "./AgentPlanRunState";
 
 import type { SerialQueue } from "@/backend/concurrency/SerialQueue";
+import type { AgentPlanRunRepository } from "@/backend/database/repositories/agent/AgentPlanRunRepository";
 import type {
   AgentPlanDecision,
   AgentPlanNode,
@@ -15,6 +21,10 @@ import type { AgentPlanLoop } from "@/definition/AgentPlanLoop";
 import type { AgentPlanSwarm } from "@/definition/AgentPlanSwarm";
 import type { EngineDependencies } from "./AgentPlanEngineDependencies";
 import type { ActivePlanRun } from "./AgentPlanRunState";
+import type {
+  AgentPlanScriptRunner,
+  ScriptRunControl,
+} from "./AgentPlanScriptRunner";
 import type { AgentPlanLoopRunner } from "./loop/AgentPlanLoopRunner";
 
 /** What the engine lends the dispatch of a node that is no agent session. */
@@ -175,4 +185,66 @@ export function dispatchPlanLoop(
       context.dependencies.start.control(active.view, active.snapshot, node),
   });
   return context.loops.run(node, host);
+}
+
+async function dispatchPlanScript(
+  active: ActivePlanRun,
+  stepId: string,
+  controller: AbortController,
+  dependencies: {
+    readonly scripts: Pick<AgentPlanScriptRunner, "run"> | undefined;
+    readonly writes: SerialQueue;
+    readonly runs: Pick<AgentPlanRunRepository, "update">;
+  },
+): Promise<Partial<AgentPlanStepResult>> {
+  active.dispatched.delete(stepId);
+  const script = active.snapshot.scripts?.find(
+    (entry) => entry.step.id === stepId,
+  );
+  if (!script || !dependencies.scripts)
+    return { status: "failed", error: "plan_script_interpreter_unavailable" };
+  const baseline = await readRunBranchBaseline(active.snapshot, script);
+  const result = await dependencies.scripts.run(
+    active.view,
+    active.snapshot,
+    script,
+    scriptControl(active, stepId, controller, dependencies),
+  );
+  return withRunBranch(result, {
+    baseline,
+    script,
+    recordedAt: new Date().toISOString(),
+  });
+}
+
+function scriptControl(
+  active: ActivePlanRun,
+  stepId: string,
+  controller: AbortController,
+  dependencies: {
+    readonly writes: SerialQueue;
+    readonly runs: Pick<AgentPlanRunRepository, "update">;
+  },
+): ScriptRunControl {
+  return {
+    signal: controller.signal,
+    claimStart: () => {
+      controller.signal.throwIfAborted();
+      if (active.view.status !== "running") throw new AgentPlanPausedError();
+      active.dispatched.add(stepId);
+    },
+    save: async (record) => {
+      await dependencies.writes.run(async () => {
+        if (active.view.stopRequested) return;
+        patchStep(active, stepId, { script: record });
+        try {
+          await dependencies.runs.update(active.view);
+        } catch (error: unknown) {
+          active.hasPersistenceFailure = true;
+          for (const running of active.controllers.values()) running.abort();
+          throw error;
+        }
+      });
+    },
+  };
 }

@@ -321,7 +321,7 @@ export class TaskRepository {
     return this.queries.findById(id, visibility);
   }
 
-  /** Returns one non-archived work item by its key (e.g. PAGE-12). */
+  /** Returns one non-archived work item by its key (e.g. TICKET-12). */
   public async findByKey(
     key: string,
     visibility?: WorkItemVisibility,

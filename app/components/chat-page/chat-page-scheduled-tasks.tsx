@@ -11,16 +11,12 @@ import {
   DialogTitle,
 } from "@/app/components/ui/dialog";
 
-import {
-  describeTaskSchedule,
-  formatTaskMoment,
-  triggerTimeZone,
-} from "./chat-page-task-schedule";
-
+import type { TFunction } from "i18next";
 import type {
   AgentChatTaskErrorCode,
   AgentChatTaskView,
 } from "@/definition/AgentChatTask";
+import type { AutomationTrigger } from "@/definition/Automation";
 
 /** The chat whose tasks the dialog lists: a group, or the direct chat with an agent. */
 export type ScheduledTasksChat =
@@ -284,4 +280,64 @@ export function ChatPageScheduledTasks({
       </DialogContent>
     </Dialog>
   );
+}
+
+const MONDAY = Date.UTC(2024, 0, 1, 12);
+const DAY_MILLISECONDS = 86_400_000;
+
+function weekdayName(weekday: number, language: string): string {
+  return new Intl.DateTimeFormat(language, {
+    weekday: "long",
+    timeZone: "UTC",
+  }).format(new Date(MONDAY + (weekday - 1) * DAY_MILLISECONDS));
+}
+
+function formatTaskMoment(
+  moment: string,
+  language: string,
+  timeZone: string,
+): string {
+  return new Intl.DateTimeFormat(language, {
+    weekday: "short",
+    day: "numeric",
+    month: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    timeZone,
+  }).format(new Date(moment));
+}
+
+function triggerTimeZone(trigger: AutomationTrigger): string | undefined {
+  return "timeZone" in trigger ? trigger.timeZone : undefined;
+}
+
+function describeTaskSchedule(
+  trigger: AutomationTrigger,
+  t: TFunction,
+  language: string,
+): string {
+  switch (trigger.type) {
+    case "once":
+      return trigger.at === null
+        ? t("chatPage.tasks.schedule.done")
+        : t("chatPage.tasks.schedule.once", {
+            moment: formatTaskMoment(trigger.at, language, trigger.timeZone),
+          });
+    case "interval":
+      return t(`chatPage.tasks.schedule.every.${trigger.unit}`, {
+        count: trigger.every,
+      });
+    case "weekly":
+      return t("chatPage.tasks.schedule.weekly", {
+        days: new Intl.ListFormat(language, { type: "conjunction" }).format(
+          trigger.weekdays.map((day) => weekdayName(day, language)),
+        ),
+        times: new Intl.ListFormat(language, { type: "conjunction" }).format(
+          trigger.times,
+        ),
+      });
+    case "manual":
+    case "event":
+      return "";
+  }
 }

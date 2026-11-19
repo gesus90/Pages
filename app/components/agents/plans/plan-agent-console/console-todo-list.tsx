@@ -1,3 +1,4 @@
+import { Check, RefreshCw, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import { ScrollViewport } from "@/app/components/ui/scroll-viewport";
@@ -7,7 +8,6 @@ import { sessionAttemptId } from "@/definition/AgentSessionJournal";
 
 import { SIDEBAR_TITLE_CLASS } from "./console-sidebar-parts";
 import { formatSecondTime } from "./console-time";
-import { ConsoleTodoStatus } from "./console-todo-status";
 
 import type { AgentPlanStepResult } from "@/definition/AgentPlan";
 import type { AgentPlanContractItem } from "@/definition/AgentPlanSession";
@@ -219,5 +219,44 @@ export function ConsoleTodoList({
         </time>
       ) : null}
     </section>
+  );
+}
+
+function ConsoleTodoStatus({
+  status,
+}: {
+  readonly status: AgentPlanProgressItem["status"];
+}): React.ReactElement {
+  const { t } = useTranslation();
+  const isOpen =
+    status !== "done" && status !== "active" && status !== "failed";
+  return (
+    <span
+      role="img"
+      aria-label={t(`plans.console.terminal.sidebar.todoStatus.${status}`)}
+      data-todo-mark={status}
+      className={cn(
+        "flex size-[18px] shrink-0 items-center justify-center rounded-sm text-plan-todo-label",
+        status === "done" && "bg-plan-todo-done",
+        status === "active" && "bg-plan-todo-active",
+        status === "failed" && "bg-plan-todo-failed",
+        isOpen && "border-[1.5px] border-border",
+      )}
+    >
+      {status === "done" ? (
+        <Check aria-hidden="true" className="size-3" strokeWidth={3} />
+      ) : null}
+      {status === "active" ? (
+        <RefreshCw
+          aria-hidden="true"
+          data-todo-spinner=""
+          className="size-3 motion-safe:animate-todo-spin"
+          strokeWidth={2.8}
+        />
+      ) : null}
+      {status === "failed" ? (
+        <X aria-hidden="true" className="size-3" strokeWidth={3} />
+      ) : null}
+    </span>
   );
 }

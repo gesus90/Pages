@@ -5,7 +5,7 @@ import { Link } from "react-router";
 import { cn } from "@/app/lib/cn";
 
 import { QUOTA_STATUS_LINE_CLASS } from "./quota-card-layout";
-import { QuotaSpinner } from "./quota-spinner";
+import styles from "./quota-loading.module.css";
 import { statusPresentation } from "./quota-status-presentation";
 import { formatQuotaMoment, formatQuotaStand } from "./quota-time";
 
@@ -156,5 +156,22 @@ export function QuotaStatusFooter({
         </Link>
       ) : null}
     </footer>
+  );
+}
+
+function QuotaSpinner(): React.ReactElement {
+  return (
+    <span
+      aria-hidden="true"
+      data-quota-spinner=""
+      className="flex size-3.5 shrink-0 items-center justify-center"
+    >
+      <span
+        className={cn(
+          "block size-3 rounded-full border-[1.5px] border-muted-foreground/30 border-t-muted-foreground",
+          styles.spinner,
+        )}
+      />
+    </span>
   );
 }

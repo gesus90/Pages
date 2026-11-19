@@ -1,15 +1,17 @@
+import { Plus } from "lucide-react";
 import { Fragment } from "react";
 import { useTranslation } from "react-i18next";
 
+import { ScrollViewport } from "@/app/components/ui/scroll-viewport";
 import { cn } from "@/app/lib/cn";
 
-import { KanbanColumnHeader } from "./kanban-column-header";
+import styles from "../tasks-kanban.module.css";
 import { KanbanTicketCard } from "./kanban-ticket-card";
 import { KanbanTicketGhost } from "./kanban-ticket-ghost";
-import { KanbanTicketViewport } from "./kanban-ticket-viewport";
 
-import type { KanbanDrag } from "./use-kanban-drag";
 import type { Label, WorkItemDetail, WorkflowStatus } from "@/definition/Task";
+import type { ReactNode } from "react";
+import type { KanbanDrag } from "./use-kanban-drag";
 
 interface KanbanColumnProps {
   /** Unique on the board; one status has one column per group. */
@@ -27,6 +29,12 @@ interface KanbanColumnProps {
   readonly onQuickCreate: (statusId: string) => void;
   readonly onShowMore: () => void;
   readonly onChangeStatus: (taskId: string, statusId: string) => void;
+}
+
+interface KanbanColumnHeaderProps {
+  readonly status: WorkflowStatus;
+  readonly itemCount: number;
+  readonly onQuickCreate: (statusId: string) => void;
 }
 
 function getColumnBgClass(key: string): string {
@@ -47,6 +55,77 @@ function getColumnBgClass(key: string): string {
   }
 
   return "bg-column-backlog";
+}
+
+function getColumnFadeClass(key: string): string {
+  if (key === "todo") {
+    return styles.todo;
+  }
+
+  if (key === "in_progress") {
+    return styles.progress;
+  }
+
+  if (key === "review") {
+    return styles.review;
+  }
+
+  if (key === "done") {
+    return styles.done;
+  }
+
+  return styles.backlog;
+}
+
+function KanbanColumnHeader({
+  status,
+  itemCount,
+  onQuickCreate,
+}: KanbanColumnHeaderProps): React.ReactElement {
+  const { t } = useTranslation();
+
+  return (
+    <header className="flex items-center justify-between gap-2 px-1 pb-4">
+      <div className="flex items-center gap-2">
+        <h3 className="text-base font-semibold text-foreground">
+          {status.name}
+        </h3>
+        <span className="inline-flex size-5 items-center justify-center rounded-full bg-surface/70 text-[11px] font-semibold text-muted-foreground select-none">
+          {itemCount}
+        </span>
+      </div>
+      <button
+        aria-label={`${t("tasks.create.trigger")} (${status.name})`}
+        className="inline-flex size-7 items-center justify-center rounded-lg text-muted-foreground transition-colors select-none hover:bg-surface/70 hover:text-foreground"
+        onClick={() => onQuickCreate(status.id)}
+        type="button"
+      >
+        <Plus className="size-4" aria-hidden="true" />
+      </button>
+    </header>
+  );
+}
+
+function KanbanTicketViewport({
+  children,
+  statusKey,
+}: {
+  readonly children: ReactNode;
+  readonly statusKey: string;
+}): React.ReactElement {
+  return (
+    <ScrollViewport
+      containerClassName={cn(
+        "-mx-1 min-h-0 flex-1",
+        getColumnFadeClass(statusKey),
+      )}
+      className="overscroll-y-contain"
+    >
+      <div className="flex min-h-min flex-col gap-3 pt-1 pr-3.5 pb-2 pl-1">
+        {children}
+      </div>
+    </ScrollViewport>
+  );
 }
 
 /** Renders one workflow column with its tickets and the drop ghost. */

@@ -6,7 +6,10 @@ import {
 } from "@/app/components/agents/definitions/page-agent-model-fields";
 import { ModelPicker } from "@/app/components/agents/model-picker";
 import { ModelFieldRow } from "@/app/components/agents/model-picker/model-field";
+import { OpenCodeRemoteFacts } from "@/app/components/settings/agents/opencode-remote-facts";
+import { Checkbox } from "@/app/components/ui/checkbox";
 import { Select } from "@/app/components/ui/select";
+import { Textarea } from "@/app/components/ui/textarea";
 import { emptyAgentConfiguration } from "@/definition/AgentConfiguration";
 import { consumerModels } from "@/definition/AgentModelConsumers";
 import {
@@ -17,9 +20,7 @@ import {
 } from "@/definition/AgentPlanConfiguration";
 import { effectivePlanTarget } from "@/definition/AgentPlanTarget";
 
-import { PlanExecutionTargetField } from "./plan-execution-target-field";
-import { PlanCompletionGateField } from "./plan-completion-gate-field";
-import { PlanRemoteStatus } from "./plan-remote-status";
+import { PlanExecutionTargetSelect } from "./plan-execution-target-select";
 import {
   PlanNodeContentFields,
   PlanNodeNameField,
@@ -242,5 +243,173 @@ export function PlanNodeConfigurationFields(props: {
         )}
       </details>
     </fieldset>
+  );
+}
+
+function PlanExecutionTargetField(props: {
+  readonly step: AgentPlanStep;
+  readonly planTarget: AgentPlanExecutionTarget | undefined;
+  readonly sources: AgentPlanSources;
+  readonly configuration: AgentPlanConfiguration;
+  readonly onChange: (step: AgentPlanStep) => void;
+}): React.ReactElement {
+  const { t } = useTranslation();
+  function change(target: AgentPlanExecutionTarget | undefined): void {
+    props.onChange({ ...props.step, executionTarget: target });
+  }
+  const model = props.sources.models?.find(
+    (entry) =>
+      entry.connectionId === props.configuration.connectionId &&
+      entry.model === props.configuration.model,
+  );
+  return (
+    <div className="space-y-4 text-sm">
+      <PlanExecutionTargetSelect
+        id={`plan-target-${props.step.id}`}
+        target={props.step.executionTarget}
+        planTarget={props.planTarget}
+        choices={props.sources.remoteTargets ?? []}
+        onChange={change}
+      />
+      <p className="space-y-1">
+        <span className="block">{t("plans.execution.modelAccess")}</span>
+        <span className="block rounded-xl border border-border px-3 py-2 text-xs">
+          {model?.connectionName ??
+            props.configuration.connectionId ??
+            t("plans.execution.unavailable")}
+        </span>
+      </p>
+    </div>
+  );
+}
+
+function PlanCompletionGateField({
+  step,
+  onChange,
+}: {
+  readonly step: AgentPlanStep;
+  readonly onChange: (step: AgentPlanStep) => void;
+}): React.ReactElement {
+  const { t } = useTranslation();
+  const { completionGate: gate, ...withoutGate } = step;
+  function toggle(): void {
+    if (gate) {
+      onChange(withoutGate);
+      return;
+    }
+    onChange({
+      ...step,
+      completion: "todos",
+      completionGate: {
+        version: 1,
+        requiredChecks: ["pnpm run check", "pnpm run lint"],
+      },
+    });
+  }
+  function changeChecks(event: React.ChangeEvent<HTMLTextAreaElement>): void {
+    const requiredChecks = [
+      ...new Set(
+        event.target.value
+          .split("\n")
+          .map((entry) => entry.trim())
+          .filter(Boolean),
+      ),
+    ];
+    onChange({
+      ...step,
+      completion: "todos",
+      completionGate: { version: 1, requiredChecks },
+    });
+  }
+  return (
+    <div className="space-y-2 text-sm">
+      <label className="flex items-center gap-2">
+        <Checkbox checked={gate !== undefined} onChange={toggle} />
+        {t("plans.workGate.label")}
+      </label>
+      <p className="text-xs text-muted-foreground">
+        {t("plans.workGate.hint")}
+      </p>
+      {gate ? (
+        <label className="block space-y-1">
+          <span>{t("plans.workGate.checks")}</span>
+          <Textarea
+            key={step.id}
+            defaultValue={gate.requiredChecks.join("\n")}
+            onBlur={changeChecks}
+            rows={4}
+            required
+          />
+        </label>
+      ) : null}
+    </div>
+  );
+}
+
+function PlanRemoteStatus({
+  sources,
+  target,
+}: {
+  readonly sources: AgentPlanSources;
+  readonly target: AgentPlanExecutionTarget;
+}): React.ReactElement | null {
+  const { t } = useTranslation();
+  if (target.kind !== "remote") return null;
+  const status = sources.remoteStatus?.find(
+    (entry) => entry.workspaceId === target.workspaceId,
+  );
+  if (!status) return null;
+  return (
+    <div
+      role="status"
+      className="space-y-1 rounded-lg bg-muted p-3 text-xs text-muted-foreground"
+    >
+      {status.problem ? (
+        <p>{t(`plans.panel.issueCause.${status.problem}`)}</p>
+      ) : (
+        <>
+          {(["codex", "claude", "opencode", "antigravity"] as const).map(
+            (tool) => {
+              const entry = status.tools.find(
+                (candidate) => candidate.tool === tool,
+              );
+              const reason = entry
+                ? (entry.authentication ?? "unknown")
+                : "missing";
+              return (
+                <p key={tool}>
+                  {t(`settings.agents.runner.toolName.${tool}`)} ·{" "}
+                  {t(`settings.agents.runner.auth.${reason}`)}
+                  {entry?.authentication === "authenticated" &&
+                  !entry.models?.length
+                    ? ` · ${t("plans.panel.issueCause.remoteCatalog")}`
+                    : ""}
+                  {entry?.tool === "opencode" ? (
+                    <OpenCodeRemoteFacts
+                      entry={entry}
+                      hasOpenCodeAccess={status.hasOpenCodeAccess === true}
+                    />
+                  ) : null}
+                </p>
+              );
+            },
+          )}
+          {!status.hasModelCatalog ? (
+            <p>{t("plans.execution.catalogMissing")}</p>
+          ) : null}
+        </>
+      )}
+      {status.catalogCheckedAt ? (
+        <p>
+          {t("plans.communication.catalogChecked", {
+            at: status.catalogCheckedAt,
+          })}
+        </p>
+      ) : null}
+      <p>{t("plans.execution.remotePause")}</p>
+      <a className="underline" href="/settings/agents">
+        {t("plans.execution.runnerSettings")}
+      </a>
+    </div>
   );
 }

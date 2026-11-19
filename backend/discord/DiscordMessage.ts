@@ -24,7 +24,7 @@ const EVENT_LABELS: Readonly<Record<DiscordEventType, string>> = {
 export interface DiscordNotificationContent {
   readonly event: DiscordEventType;
   readonly projectName: string;
-  /** The ticket key, for example `PAGE-12`; `null` for a milestone. */
+  /** The ticket key, for example `TICKET-12`; `null` for a milestone. */
   readonly reference: string | null;
   readonly title: string;
   readonly status: string | null;

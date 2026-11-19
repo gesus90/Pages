@@ -45,7 +45,7 @@ export type AgentMemoryChat =
 export interface AgentMemorySource {
   /** The chat; `null` for an entry written by hand without one. */
   readonly chat: AgentMemoryChat | null;
-  /** Ticket keys such as `PAGE-12` the entry is about. */
+  /** Ticket keys such as `TICKET-12` the entry is about. */
   readonly tickets: readonly string[];
   /** IDs of wiki pages the entry is about. */
   readonly wikiPages: readonly string[];

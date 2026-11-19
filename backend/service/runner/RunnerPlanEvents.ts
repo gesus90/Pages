@@ -3,11 +3,12 @@ import { createHash } from "node:crypto";
 
 import { planContentDigest } from "@/backend/agents/AgentPlanContentDigest";
 import { readAgentObject } from "@/backend/agents/AgentPayload";
+import { readPlanNode } from "@/backend/agents/AgentPlanInput";
 import { planStepExecutionSchema } from "@/definition/AgentPlanExecution";
 import { isActivePlanRun } from "@/definition/AgentPlanRunState";
 import { sanitizePlanOutput } from "@/backend/service/agents/AgentPlanOutput";
 import { recordRemoteAgentResult } from "@/backend/service/agents/AgentPlanRemoteResult";
-import { recordRemoteScriptResult } from "@/backend/service/agents/AgentPlanRemoteScriptResult";
+import { assessPlanScriptResult } from "@/backend/service/agents/AgentPlanScriptResult";
 import { planWorkStep } from "@/backend/service/agents/AgentPlanWorkContext";
 import { settleDetachedRun } from "@/backend/service/agents/AgentPlanRunState";
 import { markDetachedCloseoutBlocks } from "@/backend/service/agents/AgentPlanDetachedBlocks";
@@ -20,6 +21,7 @@ import type {
   AgentPlanStepStatus,
 } from "@/definition/AgentPlan";
 import type { AgentPlanCheckpointInput } from "@/definition/AgentPlanRecovery";
+import type { RunnerExecution } from "@/definition/RunnerExecution";
 import type { RunnerJob, RunnerMessage } from "@/definition/RunnerProtocol";
 
 type PlanEvent = Extract<RunnerMessage, { type: "event" }>;
@@ -486,4 +488,23 @@ function businessProjection(
       ? "plan_acceptance_failed"
       : runnerResultError(input, projection.sensitive),
   };
+}
+
+function recordRemoteScriptResult(
+  snapshot: unknown,
+  command: RunnerExecution | undefined,
+  result: AgentPlanStepResult,
+): AgentPlanStepResult {
+  if (command?.program.kind !== "script" || result.status !== "succeeded")
+    return result;
+  const basis = readAgentObject(snapshot);
+  const steps: readonly unknown[] = Array.isArray(basis.remoteSteps)
+    ? basis.remoteSteps
+    : [];
+  const pinned = steps.find(
+    (entry) => readAgentObject(readAgentObject(entry).step).id === result.id,
+  );
+  const step = readPlanNode(readAgentObject(pinned).step);
+  if (step.type !== "script") throw new Error("Remote script node missing");
+  return { ...result, ...assessPlanScriptResult(step, result) };
 }

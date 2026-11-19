@@ -2,11 +2,17 @@ import { useEffect } from "react";
 
 import { planContainedNodes } from "@/definition/AgentPlanGroupLoop";
 import { setPlanDecisionCondition } from "@/definition/AgentPlanBranchingEdit";
+import { planExecutionIssues } from "@/definition/AgentPlanGraph";
+import { expandPlanGroups } from "@/definition/AgentPlanGroup";
 import { replacePlanNode } from "@/definition/AgentPlanGroupEdit";
+import { isPlanJumpIn } from "@/definition/AgentPlanJump";
+import { expandPlanLoops } from "@/definition/AgentPlanLoop";
 import { findPlanNodeLocation } from "@/definition/AgentPlanLoopEdit";
 import { findPlanGroupLocation } from "@/definition/AgentPlanLoopGroupEdit";
+import { executablePlan, planStartIssues } from "@/definition/AgentPlanStart";
+import { planWarnings } from "@/definition/AgentPlanWarnings";
 
-import { planCanvasIssues } from "./plan-jump/plan-entry-warnings";
+import { planJumpTargetIssues } from "./plan-jump/plan-jump-model";
 import { planLinkKey, planLinks, removePlanLink } from "./plan-links";
 import { boundedPlanCoordinate, removePlanNode } from "./plan-node-factory";
 import { usePlanConnections } from "./use-plan-connections";
@@ -290,4 +296,51 @@ export function usePlanGraph(
         setPlanDecisionCondition(previous, decisionId, agentId),
       ),
   };
+}
+
+function allNodeIds(plan: AgentPlanInput): ReadonlySet<string> {
+  return new Set([
+    ...plan.nodes.map((node) => node.id),
+    ...expandPlanLoops(expandPlanGroups(plan)).nodes.map((node) => node.id),
+  ]);
+}
+
+function uniqueIssues(
+  issues: readonly AgentPlanIssue[],
+): readonly AgentPlanIssue[] {
+  return [
+    ...new Map(issues.map((issue) => [JSON.stringify(issue), issue])).values(),
+  ];
+}
+
+function planCanvasIssues(
+  draft: AgentPlanInput,
+  sources: AgentPlanSources,
+): readonly AgentPlanIssue[] {
+  const entries = draft.nodes
+    .filter(isPlanJumpIn)
+    .filter((node) => node.isEnabled);
+  const reached = new Set<string>();
+  const found: AgentPlanIssue[] = [];
+  for (const entry of entries) {
+    const active = executablePlan(draft, entry.id);
+    for (const id of allNodeIds(active)) reached.add(id);
+    found.push(
+      ...planStartIssues(draft, entry.id),
+      ...planExecutionIssues(active, sources.agents).filter(
+        (issue) => issue.nodeId !== null,
+      ),
+    );
+  }
+  const kept = planWarnings(draft, sources.agents).filter(
+    (issue) =>
+      issue.reason !== "unreachable" ||
+      issue.nodeId === null ||
+      !reached.has(issue.nodeId),
+  );
+  return uniqueIssues([
+    ...kept,
+    ...found,
+    ...planJumpTargetIssues(draft, sources),
+  ]);
 }

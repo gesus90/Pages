@@ -1,35 +1,49 @@
-import { ReactFlow, ReactFlowProvider, useConnection } from "@xyflow/react";
-import { lazy, Suspense, useState } from "react";
+import {
+  getBezierPath,
+  ReactFlow,
+  ReactFlowProvider,
+  useConnection,
+} from "@xyflow/react";
+import { CircleAlert, X } from "lucide-react";
+import { lazy, Suspense, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { Button } from "@/app/components/ui/button";
 import { cn } from "@/app/lib/cn";
+import { planPendingSelections } from "@/definition/AgentPlanSelection";
 
-import { PlanSelectionNotice } from "./plan-selection-notice";
 import { PLAN_FIT_VIEW, PlanCanvasControls } from "./plan-canvas-controls";
 import { planRefusalKey } from "./plan-connection-refusal";
-import { PlanFlowConnectionLine } from "./plan-flow-connection-line";
 import { PlanFlowContext, usePlanFlowContext } from "./plan-flow-context";
 import { PlanFlowEdgeView } from "./plan-flow-edge";
 import { planFlowEdges, planFlowNodes } from "./plan-flow-model";
-import { PlanGroupNoticeBar } from "./plan-group-notice";
 import { PlanGroupRemoval } from "./plan-group-removal";
+import {
+  PLAN_LINK_DASH,
+  PLAN_LINK_STROKE,
+  planConnectionChannel,
+} from "./plan-link-style";
+import { planLinkKey, planLinks } from "./plan-links";
 import { PlanNodeCard } from "./plan-node-card";
 import { PlanRunStatus } from "./plan-run-status";
 import { PlanNodePalette } from "./plan-node-palette";
 import { usePlanNodePalette } from "./use-plan-node-palette";
-import { usePlanCanvasKeys } from "./use-plan-canvas-keys";
-import { usePlanFlowAria } from "./use-plan-flow-aria";
 import { usePlanFlowConnections } from "./use-plan-flow-connections";
 import { usePlanFlowMovement } from "./use-plan-flow-movement";
-import { usePlanFlowSelection } from "./use-plan-flow-selection";
-import { usePlanGroupCollapse } from "./use-plan-group-collapse";
 import { usePlanTemplates } from "./plan-templates/use-plan-templates";
 import styles from "./plan-canvas.module.css";
 
+import type {
+  AriaLabelConfig,
+  ConnectionLineComponentProps,
+  ReactFlowProps,
+} from "@xyflow/react";
+import type { AgentPlanInput, AgentPlanNode } from "@/definition/AgentPlan";
 import type { PlanCanvasProps } from "./plan-flow-context";
 import type { PlanFlowEdge, PlanFlowNode } from "./plan-flow-model";
 import type { PlanTemplates } from "./plan-templates/use-plan-templates";
+import type { PlanGraphActions } from "./use-plan-graph";
+import type { PlanGroupNotice } from "./use-plan-group-actions";
 
 const NODE_TYPES = { plan: PlanNodeCard };
 const EDGE_TYPES = { plan: PlanFlowEdgeView };
@@ -295,4 +309,288 @@ function PlanConnectionHint(): React.ReactElement | null {
       </Button>
     </div>
   );
+}
+
+function usePlanFlowAria(): Partial<AriaLabelConfig> {
+  const { t } = useTranslation();
+  return {
+    "node.a11yDescription.default": t("plans.flow.nodeKeys"),
+    "node.a11yDescription.keyboardDisabled": t("plans.flow.nodeReadOnlyKeys"),
+    "node.a11yDescription.ariaLiveMessage": ({ x, y }) =>
+      t("plans.flow.nodeMoved", { x, y }),
+    "edge.a11yDescription.default": t("plans.flow.edgeKeys"),
+  };
+}
+
+function PlanSelectionNotice({
+  canvas,
+}: {
+  readonly canvas: PlanCanvasProps;
+}): React.ReactElement | null {
+  const { t } = useTranslation();
+  const pending = planPendingSelections(canvas.draft);
+  const first = pending[0];
+  if (!first) return null;
+  function openFirst(): void {
+    if (!first) return;
+    canvas.graph.select(first.id);
+    canvas.onEdit?.(first.id);
+  }
+  return (
+    <div
+      role="status"
+      className="pointer-events-auto flex h-11 w-full shrink-0 items-center gap-2 bg-primary-subtle px-4 text-sm"
+    >
+      <CircleAlert
+        aria-hidden="true"
+        className="size-4 shrink-0 text-primary"
+      />
+      <p>
+        <strong>
+          {t("plans.manage.selectionSteps", { count: pending.length })}
+        </strong>{" "}
+        {t("plans.manage.selectionNeeded")}
+      </p>
+      <button
+        type="button"
+        className="ml-auto shrink-0 text-primary underline-offset-2 hover:underline"
+        onClick={openFirst}
+      >
+        {t("plans.manage.selectionFirst")}
+      </button>
+    </div>
+  );
+}
+
+function usePlanGroupCollapse(
+  draft: AgentPlanInput,
+  graph: PlanGraphActions,
+): {
+  readonly collapsedGroups: ReadonlySet<string>;
+  readonly toggleGroup: (id: string) => void;
+} {
+  const [collapsedGroups, setCollapsed] = useState<ReadonlySet<string>>(
+    new Set(),
+  );
+  const selections = useRef(new Map<string, string>());
+  function toggleGroup(id: string): void {
+    const group = draft.nodes.find(
+      (node) => node.id === id && node.type === "group",
+    );
+    if (group?.type !== "group") return;
+    const next = new Set(collapsedGroups);
+    if (next.has(id)) {
+      next.delete(id);
+      const selected = selections.current.get(id);
+      if (
+        graph.selectedId === id &&
+        selected !== undefined &&
+        group.steps.some((step) => step.id === selected)
+      )
+        graph.select(selected);
+      selections.current.delete(id);
+    } else {
+      next.add(id);
+      const { selectedId } = graph;
+      if (
+        selectedId !== null &&
+        group.steps.some((step) => step.id === selectedId)
+      ) {
+        selections.current.set(id, selectedId);
+        graph.select(id);
+      }
+    }
+    setCollapsed(next);
+  }
+  return { collapsedGroups, toggleGroup };
+}
+
+function PlanFlowConnectionLine(
+  props: ConnectionLineComponentProps,
+): React.ReactElement | null {
+  const { graph } = usePlanFlowContext();
+  if (!graph.connection) return null;
+  const channel = planConnectionChannel(graph.connection);
+  const [path] = getBezierPath({
+    sourceX: props.fromX,
+    sourceY: props.fromY,
+    sourcePosition: props.fromPosition,
+    targetX: props.toX,
+    targetY: props.toY,
+    targetPosition: props.toPosition,
+  });
+  const color = PLAN_LINK_STROKE[channel];
+  return (
+    <g>
+      <path
+        d={path}
+        fill="none"
+        stroke={color}
+        strokeWidth={2}
+        strokeDasharray={PLAN_LINK_DASH[channel]}
+      />
+      <circle
+        cx={props.toX}
+        cy={props.toY}
+        r={4}
+        fill="var(--color-surface)"
+        stroke={
+          props.connectionStatus === "invalid"
+            ? "var(--color-destructive)"
+            : color
+        }
+        strokeWidth={2}
+      />
+    </g>
+  );
+}
+
+const DELETE_KEYS = new Set(["Delete", "Backspace"]);
+
+function deletesSelection(
+  event: React.KeyboardEvent<HTMLElement>,
+  selectedId: string | null,
+): boolean {
+  const target = event.target;
+  if (target === event.currentTarget) return true;
+  return (
+    target instanceof Element &&
+    ((target instanceof HTMLElement &&
+      selectedId !== null &&
+      target.dataset.planHandle === selectedId) ||
+      target.matches(".react-flow__pane, .react-flow__node, .react-flow__edge"))
+  );
+}
+
+function usePlanCanvasKeys(options: {
+  readonly graph: PlanGraphActions;
+  readonly canEdit: boolean;
+  readonly onCancel: () => void;
+}): (event: React.KeyboardEvent<HTMLElement>) => void {
+  const { graph, canEdit } = options;
+  return (event) => {
+    if (event.key === "Escape") {
+      options.onCancel();
+      graph.begin(null);
+      return;
+    }
+    const { selectedLink, selectedId } = graph;
+    if (!canEdit || !DELETE_KEYS.has(event.key)) return;
+    if (!deletesSelection(event, selectedId)) return;
+    if (selectedLink) {
+      event.preventDefault();
+      graph.disconnect(selectedLink);
+    } else if (selectedId) {
+      event.preventDefault();
+      graph.remove(selectedId);
+    }
+  };
+}
+
+const NOTICE_AREAS = {
+  group: "groups",
+  loop: "loops",
+  stack: "stack",
+} as const;
+
+function useNoticeText(notice: PlanGroupNotice): string {
+  const { t } = useTranslation();
+  if (notice.kind === "repair")
+    return t("plans.groups.frameRepairRequired", { name: notice.name });
+  if (notice.kind === "moved")
+    return t(`plans.${NOTICE_AREAS[notice.frame]}.moved`, {
+      edges: notice.removedEdges,
+      bindings: notice.removedBindings,
+    });
+  return t(`plans.groups.refusal.${notice.refusal}`, {
+    name: notice.name,
+    adapter: t(`plans.groups.adapter.${notice.adapter ?? "neutral"}`),
+    group: t(`plans.groups.adapter.${notice.groupAdapter ?? "neutral"}`),
+  });
+}
+
+function PlanGroupNoticeBar(props: {
+  readonly notice: PlanGroupNotice;
+  readonly onClose: () => void;
+  readonly className?: string;
+}): React.ReactElement {
+  const { t } = useTranslation();
+  const text = useNoticeText(props.notice);
+  const isRefusal = props.notice.kind !== "moved";
+  return (
+    <div
+      role={isRefusal ? "alert" : "status"}
+      className={cn(
+        "flex max-w-[min(36rem,calc(100%-1rem))] items-start gap-2 rounded-lg border bg-surface p-2 pl-3 text-sm shadow-xs",
+        isRefusal ? "border-destructive/40 text-destructive" : "border-border",
+        props.className,
+      )}
+    >
+      <p className="min-w-0 flex-1">{text}</p>
+      <Button
+        size="icon-sm"
+        variant="ghost"
+        aria-label={t("plans.groups.closeNotice")}
+        onClick={props.onClose}
+      >
+        <X className="size-4" aria-hidden="true" />
+      </Button>
+    </div>
+  );
+}
+
+const OPENS_SETTINGS: ReadonlySet<AgentPlanNode["type"]> = new Set([
+  "script",
+  "git_closeout",
+  "loop",
+  "decision",
+  "stack",
+  "start",
+  "end",
+  "jump",
+  "signal",
+]);
+
+function usePlanFlowSelection(
+  props: PlanCanvasProps,
+): Pick<
+  ReactFlowProps<PlanFlowNode, PlanFlowEdge>,
+  | "onNodeClick"
+  | "onNodeDoubleClick"
+  | "onEdgeClick"
+  | "onEdgesChange"
+  | "onPaneClick"
+> {
+  const { graph } = props;
+  return {
+    onNodeClick: (event, node) => graph.select(node.id),
+    onNodeDoubleClick: (event, node) => {
+      const target = event.target;
+      if (
+        target instanceof Element &&
+        target.closest(
+          "button, input, textarea, select, a, .react-flow__handle",
+        ) &&
+        !target.closest("[data-plan-handle]")
+      )
+        return;
+      graph.select(node.id);
+      if (node.data.node.type === "agent" || node.data.node.type === "group")
+        props.onOpen?.(node.id);
+      if (OPENS_SETTINGS.has(node.data.node.type)) props.onEdit?.(node.id);
+    },
+    onEdgeClick: (event, edge) => graph.selectLink(edge.data?.link ?? null),
+    onEdgesChange: (changes) => {
+      const selection = changes.find(
+        (change) => change.type === "select" && change.selected,
+      );
+      if (!selection || selection.type !== "select") return;
+      graph.selectLink(
+        planLinks(props.draft).find(
+          (link) => planLinkKey(link) === selection.id,
+        ) ?? null,
+      );
+    },
+    onPaneClick: () => graph.select(null),
+  };
 }

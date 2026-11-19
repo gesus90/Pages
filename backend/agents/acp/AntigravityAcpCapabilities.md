@@ -347,14 +347,14 @@ without changing application code or test infrastructure.
   `low`, a two-second live-panel guarantee, fixed Pause/Stop time guarantees,
   complete real-process and state acceptance, repeated pause/continue cycles,
   restarts, and UI/MCP/database agreement for every state. No new provider run,
-  disposable instance or live credential/data access was used for this ticket.
+  disposable instance or live credential/data access was used for that handoff.
 - Token and cost accounting is described in the accounting handoff. No additional production defect
   was reproduced within this source review and mocked-test scope; that is not
   evidence that none exists in a live provider environment.
 - Lint, Check, typecheck, formatting checks, build, full suites and coverage:
   **an die Abschluss-QA übergeben**; none was executed for this handoff.
 
-T1 is evidenced by the implementation map, the four changed ACP test files and
-the actual targeted results above. T2 is evidenced by the explicit limits and
-deferred cases in this section. K1 is fulfilled by these workspace artifacts
-and their reproducible commands; business acceptance remains with the reviewer.
+Implementation and targeted ACP checks are evidenced by the implementation map,
+the four changed ACP test files and the actual targeted results above. Explicit
+limits and deferred cases are documented in this section. Reproducible commands
+and workspace artifacts remain subject to business acceptance by the reviewer.

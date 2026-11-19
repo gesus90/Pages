@@ -13,10 +13,8 @@ import {
   PAGES_AGENT_READ_OPERATIONS,
 } from "@/definition/PagesAgentOperations";
 
-import { AgentProjectReadService } from "./AgentProjectReadService";
 import { AgentWikiReadService } from "./AgentWikiReadService";
 import { createAgentWikiAccess } from "./AgentWikiAccess";
-import { dispatchAgentTicketNavigation } from "./AgentTicketNavigationDispatch";
 import {
   isAgentTicketLinkOperation,
   isAgentTicketNavigationRead,
@@ -60,6 +58,9 @@ import type { UserService } from "@/backend/service/UserService";
 import type { User } from "@/definition/User";
 import type { AgentIdentity } from "@/definition/McpAuthorization";
 import type {
+  AgentProjectDetails,
+  AgentProjectList,
+  AgentProjectReference,
   PagesAgentCommentOperation,
   PagesAgentReadOperation,
   PagesAgentReadResponse,
@@ -524,5 +525,83 @@ export class AgentOperationRouter {
     if (!actor?.isActive || actor.mustChangePassword)
       throw new McpAuthorizationError("invalid_token", 401);
     return actor;
+  }
+}
+
+async function dispatchAgentTicketNavigation(
+  planning: AgentPlanningServices,
+  identity: AgentIdentity,
+  operation: unknown,
+  parameters: unknown,
+): Promise<PagesAgentReadResponse | PagesAgentWriteResponse | null> {
+  if (isAgentTicketLinkOperation(operation))
+    return planning.links.apply(identity, operation, parameters);
+  if (!isAgentTicketNavigationRead(operation)) return null;
+  const reads = {
+    "tickets.search": () => planning.search.search(identity, parameters),
+    "tickets.tree.read": () => planning.tree.read(identity, parameters),
+    "tickets.links.read": () => planning.links.read(identity, parameters),
+    "assignment.targets.search": () =>
+      planning.targets.search(identity, parameters),
+  }[operation];
+  return reads();
+}
+
+class AgentProjectReadService {
+  private readonly access: Pick<ProjectAccessService, "findAll">;
+
+  public constructor(access: Pick<ProjectAccessService, "findAll">) {
+    this.access = access;
+  }
+
+  /** Lists projects accessible to the actor, subject to the candidate limit. */
+  public async list(actor: User): Promise<AgentProjectList> {
+    const projects = (await this.access.findAll(actor))
+      .map(({ id, name, status }) => ({ id, name, status }))
+      .sort(
+        (left, right) =>
+          left.name.localeCompare(right.name) ||
+          left.id.localeCompare(right.id),
+      );
+    return {
+      projects: projects.slice(0, PAGES_AGENT_LIMITS.candidates),
+      total: projects.length,
+      truncated: projects.length > PAGES_AGENT_LIMITS.candidates,
+    };
+  }
+
+  /** Resolves an accessible project by its exact name. */
+  public async resolve(
+    actor: User,
+    name: string,
+  ): Promise<AgentProjectReference> {
+    const projects = (await this.access.findAll(actor)).filter(
+      (project) => project.name === name.trim(),
+    );
+    const candidates = projects
+      .map(({ id, name: projectName }) => ({ id, name: projectName }))
+      .sort((left, right) => left.id.localeCompare(right.id));
+    const first = candidates[0];
+    if (!first) throw new AgentOperationError("NOT_FOUND");
+    if (candidates.length > 1)
+      throw new AgentOperationError("AMBIGUOUS", {
+        candidates: candidates.slice(0, PAGES_AGENT_LIMITS.candidates),
+        truncated: candidates.length > PAGES_AGENT_LIMITS.candidates,
+      });
+    return first;
+  }
+
+  /** Returns details of an accessible project by its identifier. */
+  public async read(
+    actor: User,
+    projectId: string,
+  ): Promise<AgentProjectDetails> {
+    const project = (await this.access.findAll(actor)).find(
+      (entry) => entry.id === projectId,
+    );
+    if (!project) throw new AgentOperationError("NOT_FOUND");
+    const { id, name, description, status, progress, startDate, targetDate } =
+      project;
+    return { id, name, description, status, progress, startDate, targetDate };
   }
 }

@@ -1,20 +1,24 @@
-import { spawn } from "node:child_process";
-import { existsSync } from "node:fs";
+import { spawn, spawnSync } from "node:child_process";
+import { existsSync, lstatSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { ESLint } from "eslint";
 
-import { isSourceFile, walkFiles } from "./source-population.mjs";
+import {
+  isGeneratedDirectory,
+  isSourceFile,
+  walkFiles,
+} from "./source-population.mjs";
 
 /**
  * Default maximum number of files checked per sequential ESLint process.
- * Chosen from repository measurements: `projectService: true` has a fixed
- * ~5s / ~1.15 GiB V8-heap (~1.45 GiB RSS) bootstrap per TypeScript project.
- * Blocks of at most 200 files keep per-process peak V8 heap around
- * ~1.35-1.50 GiB and peak RSS around ~1.65-1.75 GiB while releasing the
- * TypeScript project context after every block.
+ * Raised from 200 to 600 (from 24 to 8 ESLint cold starts across ~4,749 files)
+ * to cut repeated `projectService: true` TypeScript bootstrap overhead (~5s /
+ * ~1.15 GiB V8 heap per start) while staying conservatively within the 2048 MiB
+ * `DEFAULT_MAX_OLD_SPACE_SIZE_MB` limit. Tune with `--block-size` or
+ * `PAGES_LINT_BLOCK_SIZE` when benchmarking under runner limits.
  */
-export const DEFAULT_BLOCK_SIZE = 200;
+export const DEFAULT_BLOCK_SIZE = 600;
 
 /**
  * Default V8 old-space heap limit (in MiB) passed via `--max-old-space-size`
@@ -54,104 +58,145 @@ function parsePositiveInteger(rawValue, settingName, sourceLabel, min, max) {
   return parsed;
 }
 
-/**
- * Parses and validates CLI and environment overrides for the sequential lint runner.
- *
- * Precedence:
- * 1. CLI flags (`--block-size`, `--max-old-space-size`)
- * 2. Environment variables (`PAGES_LINT_BLOCK_SIZE`, `PAGES_LINT_MAX_OLD_SPACE_SIZE`)
- * 3. Repository defaults (`DEFAULT_BLOCK_SIZE`, `DEFAULT_MAX_OLD_SPACE_SIZE_MB`)
- */
-export function resolveLintConfig(argv, env) {
-  let cliBlockSize;
-  let cliMaxOldSpaceSize;
+const VALUE_FLAG_SPECS = [
+  { flag: "--base", key: "diffBase", expected: "a Git reference" },
+  { flag: "--block-size", key: "blockSize", expected: "a positive integer" },
+  {
+    flag: "--max-old-space-size",
+    key: "maxOldSpaceSize",
+    expected: "a positive integer in MiB",
+  },
+];
+
+function matchValueFlag(argv, index) {
+  const arg = argv[index];
+  for (const spec of VALUE_FLAG_SPECS) {
+    if (arg === spec.flag) {
+      if (index + 1 >= argv.length) {
+        throw new Error(
+          `Missing value for CLI option "${spec.flag}". Expected ${spec.expected}.`,
+        );
+      }
+      return { key: spec.key, value: argv[index + 1], nextIndex: index + 1 };
+    }
+    if (arg.startsWith(`${spec.flag}=`)) {
+      return {
+        key: spec.key,
+        value: arg.slice(spec.flag.length + 1),
+        nextIndex: index,
+      };
+    }
+  }
+  return null;
+}
+
+function parseCliArgs(argv) {
+  const parsed = {
+    blockSize: undefined,
+    maxOldSpaceSize: undefined,
+    changedOnly: false,
+    diffBase: null,
+  };
 
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
     if (arg === "--") continue;
-    if (arg === "--block-size") {
-      if (index + 1 >= argv.length) {
-        throw new Error(
-          'Missing value for CLI option "--block-size". Expected a positive integer.',
-        );
-      }
-      cliBlockSize = argv[index + 1];
-      index += 1;
+    if (arg === "--changed") {
+      parsed.changedOnly = true;
       continue;
     }
-    if (arg.startsWith("--block-size=")) {
-      cliBlockSize = arg.slice("--block-size=".length);
-      continue;
-    }
-    if (arg === "--max-old-space-size") {
-      if (index + 1 >= argv.length) {
-        throw new Error(
-          'Missing value for CLI option "--max-old-space-size". Expected a positive integer in MiB.',
-        );
-      }
-      cliMaxOldSpaceSize = argv[index + 1];
-      index += 1;
-      continue;
-    }
-    if (arg.startsWith("--max-old-space-size=")) {
-      cliMaxOldSpaceSize = arg.slice("--max-old-space-size=".length);
+    const matched = matchValueFlag(argv, index);
+    if (matched) {
+      parsed[matched.key] = matched.value;
+      index = matched.nextIndex;
       continue;
     }
     throw new Error(
-      `Unsupported lint argument "${arg}". Supported options: --block-size <int>, --max-old-space-size <int>.`,
+      `Unsupported lint argument "${arg}". Supported options: --block-size <int>, --max-old-space-size <int>, --changed, --base <ref>.`,
     );
   }
 
-  let blockSize = DEFAULT_BLOCK_SIZE;
-  let blockSizeSource = "default";
-  if (cliBlockSize !== undefined) {
-    blockSize = parsePositiveInteger(
-      cliBlockSize,
-      "blockSize",
-      "CLI --block-size",
-      MIN_BLOCK_SIZE,
-      MAX_BLOCK_SIZE,
-    );
-    blockSizeSource = "cli:--block-size";
-  } else if (env.PAGES_LINT_BLOCK_SIZE !== undefined) {
-    blockSize = parsePositiveInteger(
-      env.PAGES_LINT_BLOCK_SIZE,
-      "blockSize",
-      "env PAGES_LINT_BLOCK_SIZE",
-      MIN_BLOCK_SIZE,
-      MAX_BLOCK_SIZE,
-    );
-    blockSizeSource = "env:PAGES_LINT_BLOCK_SIZE";
+  if (parsed.diffBase !== null) {
+    parsed.diffBase = parsed.diffBase.trim();
+    if (!parsed.diffBase) {
+      throw new Error(
+        'Invalid value for CLI option "--base". Expected a non-empty Git reference.',
+      );
+    }
+    if (!parsed.changedOnly) {
+      throw new Error('CLI option "--base" requires "--changed".');
+    }
   }
 
-  let maxOldSpaceSizeMb = DEFAULT_MAX_OLD_SPACE_SIZE_MB;
-  let maxOldSpaceSizeSource = "default";
-  if (cliMaxOldSpaceSize !== undefined) {
-    maxOldSpaceSizeMb = parsePositiveInteger(
-      cliMaxOldSpaceSize,
-      "maxOldSpaceSizeMb",
-      "CLI --max-old-space-size",
-      MIN_MAX_OLD_SPACE_SIZE_MB,
-      MAX_MAX_OLD_SPACE_SIZE_MB,
-    );
-    maxOldSpaceSizeSource = "cli:--max-old-space-size";
-  } else if (env.PAGES_LINT_MAX_OLD_SPACE_SIZE !== undefined) {
-    maxOldSpaceSizeMb = parsePositiveInteger(
-      env.PAGES_LINT_MAX_OLD_SPACE_SIZE,
-      "maxOldSpaceSizeMb",
-      "env PAGES_LINT_MAX_OLD_SPACE_SIZE",
-      MIN_MAX_OLD_SPACE_SIZE_MB,
-      MAX_MAX_OLD_SPACE_SIZE_MB,
-    );
-    maxOldSpaceSizeSource = "env:PAGES_LINT_MAX_OLD_SPACE_SIZE";
+  return parsed;
+}
+
+function resolveIntOption(options) {
+  if (options.cliValue !== undefined) {
+    return {
+      value: parsePositiveInteger(
+        options.cliValue,
+        options.settingName,
+        `CLI ${options.cliFlag}`,
+        options.min,
+        options.max,
+      ),
+      source: `cli:${options.cliFlag}`,
+    };
   }
+  if (options.envValue !== undefined) {
+    return {
+      value: parsePositiveInteger(
+        options.envValue,
+        options.settingName,
+        `env ${options.envName}`,
+        options.min,
+        options.max,
+      ),
+      source: `env:${options.envName}`,
+    };
+  }
+  return { value: options.defaultValue, source: "default" };
+}
+
+/**
+ * Parses and validates CLI and environment overrides for the sequential lint runner.
+ * Precedence:
+ * 1. CLI flags (`--block-size`, `--max-old-space-size`, `--changed`, `--base`)
+ * 2. Environment variables (`PAGES_LINT_BLOCK_SIZE`, `PAGES_LINT_MAX_OLD_SPACE_SIZE`)
+ * 3. Repository defaults (`DEFAULT_BLOCK_SIZE`, `DEFAULT_MAX_OLD_SPACE_SIZE_MB`)
+ */
+export function resolveLintConfig(argv, env) {
+  const parsed = parseCliArgs(argv);
+  const blockSize = resolveIntOption({
+    cliValue: parsed.blockSize,
+    envValue: env.PAGES_LINT_BLOCK_SIZE,
+    defaultValue: DEFAULT_BLOCK_SIZE,
+    settingName: "blockSize",
+    cliFlag: "--block-size",
+    envName: "PAGES_LINT_BLOCK_SIZE",
+    min: MIN_BLOCK_SIZE,
+    max: MAX_BLOCK_SIZE,
+  });
+  const maxOldSpaceSize = resolveIntOption({
+    cliValue: parsed.maxOldSpaceSize,
+    envValue: env.PAGES_LINT_MAX_OLD_SPACE_SIZE,
+    defaultValue: DEFAULT_MAX_OLD_SPACE_SIZE_MB,
+    settingName: "maxOldSpaceSizeMb",
+    cliFlag: "--max-old-space-size",
+    envName: "PAGES_LINT_MAX_OLD_SPACE_SIZE",
+    min: MIN_MAX_OLD_SPACE_SIZE_MB,
+    max: MAX_MAX_OLD_SPACE_SIZE_MB,
+  });
 
   return {
-    blockSize,
-    blockSizeSource,
-    maxOldSpaceSizeMb,
-    maxOldSpaceSizeSource,
+    blockSize: blockSize.value,
+    blockSizeSource: blockSize.source,
+    maxOldSpaceSizeMb: maxOldSpaceSize.value,
+    maxOldSpaceSizeSource: maxOldSpaceSize.source,
     concurrency: LINT_PROCESS_CONCURRENCY,
+    changedOnly: parsed.changedOnly,
+    diffBase: parsed.diffBase,
   };
 }
 
@@ -165,9 +210,10 @@ export function collectCandidateFiles(rootDir) {
   return walkFiles(rootDir, isSourceFile);
 }
 
-/** The lint population: all candidates that `eslint.config.js` does not name as generated. */
-export async function discoverLintFiles(rootDir) {
-  const candidates = collectCandidateFiles(rootDir);
+const GIT_DIFF_NAME_ARGS = ["diff", "--name-only", "-z", "--diff-filter=ACMR"];
+
+async function filterIgnoredFiles(rootDir, candidates) {
+  if (candidates.length === 0) return [];
   const eslint = new ESLint({ cwd: rootDir });
   const selected = [];
   for (const relativePath of candidates) {
@@ -177,6 +223,164 @@ export async function discoverLintFiles(rootDir) {
     if (!ignored) selected.push(relativePath);
   }
   return selected;
+}
+
+/** The lint population: all candidates that `eslint.config.js` does not name as generated. */
+export async function discoverLintFiles(rootDir) {
+  return filterIgnoredFiles(rootDir, collectCandidateFiles(rootDir));
+}
+
+function runGitCommand(rootDir, args) {
+  return spawnSync("git", args, {
+    cwd: rootDir,
+    encoding: "utf8",
+    maxBuffer: 64 * 1024 * 1024,
+    shell: false,
+  });
+}
+
+function splitNullSeparated(stdout) {
+  return (stdout ?? "")
+    .split("\0")
+    .filter(Boolean)
+    .map((entry) => entry.split(path.sep).join("/"));
+}
+
+function runGitPaths(rootDir, args, contextLabel) {
+  const result = runGitCommand(rootDir, args);
+  if (result.error) throw new Error(`${contextLabel}: ${result.error.message}`);
+  if (result.status !== 0) {
+    const detail = (result.stderr || result.stdout || "").trim();
+    throw new Error(
+      detail
+        ? `${contextLabel}: ${detail}`
+        : `${contextLabel} (exit ${result.status}).`,
+    );
+  }
+  return splitNullSeparated(result.stdout);
+}
+
+function isInsideGeneratedDirectory(relativePath) {
+  const parts = relativePath.split("/");
+  let current = "";
+  for (let index = 0; index < parts.length - 1; index += 1) {
+    current = current ? `${current}/${parts[index]}` : parts[index];
+    if (isGeneratedDirectory(current)) return true;
+  }
+  return false;
+}
+
+function isExistingRegularSourceFile(rootDir, relativePath) {
+  if (!isSourceFile(relativePath) || isInsideGeneratedDirectory(relativePath)) {
+    return false;
+  }
+  const absolutePath = path.resolve(rootDir, relativePath);
+  if (!existsSync(absolutePath)) return false;
+  try {
+    const stats = lstatSync(absolutePath);
+    return !stats.isSymbolicLink() && stats.isFile();
+  } catch {
+    return false;
+  }
+}
+
+function collectBaseDiffPaths(rootDir, baseRef, hasHead) {
+  const baseCheck = runGitCommand(rootDir, [
+    "rev-parse",
+    "--verify",
+    "--end-of-options",
+    `${baseRef}^{commit}`,
+  ]);
+  if (baseCheck.error || baseCheck.status !== 0) {
+    throw new Error(`Invalid Git base reference "${baseRef}" for --base.`);
+  }
+  if (!hasHead) {
+    throw new Error(
+      `Cannot diff against --base "${baseRef}" before an initial commit exists.`,
+    );
+  }
+  const threeDot = runGitCommand(rootDir, [
+    ...GIT_DIFF_NAME_ARGS,
+    `${baseRef}...HEAD`,
+  ]);
+  if (!threeDot.error && threeDot.status === 0)
+    return splitNullSeparated(threeDot.stdout);
+  return runGitPaths(
+    rootDir,
+    [...GIT_DIFF_NAME_ARGS, baseRef, "HEAD"],
+    `Git diff against --base "${baseRef}" failed`,
+  );
+}
+
+function collectGitChangedPaths(rootDir, baseRef) {
+  const workTreeCheck = runGitCommand(rootDir, [
+    "rev-parse",
+    "--is-inside-work-tree",
+  ]);
+  if (
+    workTreeCheck.error ||
+    workTreeCheck.status !== 0 ||
+    workTreeCheck.stdout.trim() !== "true"
+  ) {
+    throw new Error(
+      "Changed-files lint mode (--changed) requires a Git working tree.",
+    );
+  }
+
+  const headCheck = runGitCommand(rootDir, [
+    "rev-parse",
+    "--verify",
+    "--end-of-options",
+    "HEAD",
+  ]);
+  const hasHead = !headCheck.error && headCheck.status === 0;
+  const candidates = new Set();
+  const addAll = (files) => {
+    for (const file of files) candidates.add(file);
+  };
+
+  if (baseRef !== null) addAll(collectBaseDiffPaths(rootDir, baseRef, hasHead));
+  if (hasHead) {
+    addAll(
+      runGitPaths(
+        rootDir,
+        [...GIT_DIFF_NAME_ARGS, "HEAD"],
+        "Git diff against HEAD failed",
+      ),
+    );
+  } else {
+    addAll(
+      runGitPaths(
+        rootDir,
+        [...GIT_DIFF_NAME_ARGS, "--cached"],
+        "Git staged diff failed",
+      ),
+    );
+    addAll(
+      runGitPaths(rootDir, GIT_DIFF_NAME_ARGS, "Git working-tree diff failed"),
+    );
+  }
+  addAll(
+    runGitPaths(
+      rootDir,
+      ["ls-files", "--others", "--exclude-standard", "-z"],
+      "Git untracked-files listing failed",
+    ),
+  );
+
+  return [...candidates].sort((left, right) => left.localeCompare(right));
+}
+
+/**
+ * Discovers changed lintable files for local pre-check (`--changed`),
+ * including working-tree edits, staged changes, untracked files, and optional
+ * committed branch changes against `baseRef`.
+ */
+export async function discoverChangedLintFiles(rootDir, baseRef = null) {
+  const candidates = collectGitChangedPaths(rootDir, baseRef).filter(
+    (relativePath) => isExistingRegularSourceFile(rootDir, relativePath),
+  );
+  return filterIgnoredFiles(rootDir, candidates);
 }
 
 /**
@@ -249,7 +453,9 @@ async function main() {
 
   let files;
   try {
-    files = await discoverLintFiles(repoRoot);
+    files = config.changedOnly
+      ? await discoverChangedLintFiles(repoRoot, config.diffBase)
+      : await discoverLintFiles(repoRoot);
   } catch (error) {
     console.error(
       `[lint] Fatal error during file discovery: ${error instanceof Error ? error.message : String(error)}`,
@@ -259,6 +465,16 @@ async function main() {
   }
 
   if (files.length === 0) {
+    if (config.changedOnly) {
+      const scopeHint = config.diffBase
+        ? ` (base=${config.diffBase})`
+        : " (working tree + index; pass --base <ref> to include committed branch changes)";
+      console.info(
+        `[lint] PASSED (changed mode): 0 changed lintable files${scopeHint}.`,
+      );
+      process.exitCode = 0;
+      return;
+    }
     console.error(
       "[lint] Fatal error: No lintable files were discovered. Refusing to treat an empty selection as success.",
     );
@@ -289,8 +505,11 @@ async function main() {
     return;
   }
 
+  const modeLabel = config.changedOnly
+    ? `changed-files lint${config.diffBase ? ` (base=${config.diffBase})` : ""}`
+    : "sequential block lint";
   console.info(
-    `[lint] Starting sequential block lint: ${files.length} files in ${blocks.length} blocks (blockSize=${config.blockSize} [${config.blockSizeSource}], maxOldSpaceSizeMb=${config.maxOldSpaceSizeMb} [${config.maxOldSpaceSizeSource}], concurrency=${config.concurrency}).`,
+    `[lint] Starting ${modeLabel}: ${files.length} files in ${blocks.length} blocks (blockSize=${config.blockSize} [${config.blockSizeSource}], maxOldSpaceSizeMb=${config.maxOldSpaceSizeMb} [${config.maxOldSpaceSizeSource}], concurrency=${config.concurrency}).`,
   );
 
   let activeChild = null;
@@ -382,27 +601,18 @@ async function main() {
           process.stderr.write(chunk);
         });
 
-        child.once("error", (error) => {
-          activeChild = null;
-          resolve({
-            code: null,
-            signal: null,
-            spawnError: error,
-            stdout: Buffer.concat(stdoutChunks).toString("utf8"),
-            stderr: Buffer.concat(stderrChunks).toString("utf8"),
-          });
-        });
-
-        child.once("close", (code, signal) => {
+        const finish = (code, signal, spawnError) => {
           activeChild = null;
           resolve({
             code,
             signal,
-            spawnError: null,
+            spawnError,
             stdout: Buffer.concat(stdoutChunks).toString("utf8"),
             stderr: Buffer.concat(stderrChunks).toString("utf8"),
           });
-        });
+        };
+        child.once("error", (error) => finish(null, null, error));
+        child.once("close", (code, signal) => finish(code, signal, null));
       });
 
       const elapsedSeconds = ((Date.now() - blockStart) / 1000).toFixed(1);
@@ -496,8 +706,9 @@ async function main() {
     return;
   }
 
+  const modeSuffix = config.changedOnly ? " (changed mode)" : "";
   console.info(
-    `[lint] PASSED: ${checkedFiles}/${files.length} files checked across ${completedBlocks}/${blocks.length} sequential blocks with 0 warnings and 0 errors (${totalSeconds}s).`,
+    `[lint] PASSED${modeSuffix}: ${checkedFiles}/${files.length} files checked across ${completedBlocks}/${blocks.length} sequential blocks with 0 warnings and 0 errors (${totalSeconds}s).`,
   );
   process.exitCode = 0;
 }

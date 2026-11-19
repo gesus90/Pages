@@ -3,7 +3,7 @@ import { SerialQueue } from "@/backend/concurrency/SerialQueue";
 import { withBackgroundDatabaseWork } from "@/backend/database/executor/DatabaseWorkContext";
 import { readAcpResourceOptions } from "@/backend/config/AcpResourceConfig";
 import { logCaughtError } from "@/backend/logging/Logger";
-import { isAcpSessionLimit } from "@/definition/AcpResource";
+import { isAcpSessionLimit, MAX_ACP_SESSIONS } from "@/definition/AcpResource";
 
 import {
   prepareRestartLeases,
@@ -34,12 +34,7 @@ import {
   acquireAcpRequest,
   markAcpStorageFailed,
 } from "./resources/AcpResourceAdmission";
-import type { ScheduledAcpSession } from "./resources/ScheduledAcpSession";
 import { wrapAcpSession } from "./resources/AcpScheduledSessionWrap";
-import {
-  acpWaitReason,
-  admissionCapacity,
-} from "./resources/AcpAdmissionCapacity";
 import {
   registerAcpNamespace,
   reconcileAcpRunLeases,
@@ -51,8 +46,9 @@ import {
   saveAcpActive,
   transitionAcpLease,
 } from "./resources/AcpLeaseJournal";
-import type { AcpLeaseJournalContext } from "./resources/AcpLeaseJournal";
 
+import type { AcpLeaseJournalContext } from "./resources/AcpLeaseJournal";
+import type { ScheduledAcpSession } from "./resources/ScheduledAcpSession";
 import type { SchedulerDependencies } from "./resources/AcpSchedulerDependencies";
 import type { AcpLeaseCleanup } from "./resources/AcpLeaseCleanup";
 import type {
@@ -633,4 +629,29 @@ export class AcpResourceScheduler {
       availableMemory: this.availableMemory,
     });
   }
+}
+
+interface AcpWaitState {
+  readonly isPaused: boolean;
+  readonly isReady: boolean;
+  readonly problem: AcpResourceSnapshot["problem"];
+  readonly activeCount: number;
+  readonly availableMemory: number | null;
+}
+
+function admissionCapacity(options: AcpResourceOptions): number {
+  return options.maxConcurrentAcpSessions === 0
+    ? MAX_ACP_SESSIONS
+    : options.maxConcurrentAcpSessions;
+}
+
+function acpWaitReason(
+  options: AcpResourceOptions,
+  state: AcpWaitState,
+): AcpWaitReason {
+  if (state.isPaused) return "paused";
+  if (!state.isReady) return "recovery";
+  if (state.problem) return "scheduler_error";
+  if (state.activeCount >= admissionCapacity(options)) return "capacity";
+  return acpMemoryWaitReason(options, state.availableMemory) ?? "capacity";
 }

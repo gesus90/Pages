@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Form, useNavigation } from "react-router";
 
-import { PasswordField } from "@/app/components/settings/password/password-field";
 import { useActionOutcome } from "@/app/components/settings/use-action-outcome";
 import { Button } from "@/app/components/ui/button";
 import {
@@ -11,12 +10,42 @@ import {
   DialogContent,
   DialogTitle,
 } from "@/app/components/ui/dialog";
+import { Input } from "@/app/components/ui/input";
+import { cn } from "@/app/lib/cn";
 
 import type { PasswordChangeOutcome } from "@/app/lib/settings-actions/settings-action-support.server";
 
 interface ChangePasswordDialogProps {
   readonly open: boolean;
   readonly onOpenChange: (open: boolean) => void;
+}
+
+interface PasswordFieldProps {
+  readonly id: string;
+  readonly name: string;
+  readonly label: string;
+  readonly autoComplete: "current-password" | "new-password";
+  readonly labelClassName?: string;
+}
+
+function PasswordField({
+  id,
+  name,
+  label,
+  autoComplete,
+  labelClassName,
+}: PasswordFieldProps): React.ReactElement {
+  return (
+    <>
+      <label
+        className={cn(labelClassName, "text-sm font-medium text-foreground")}
+        htmlFor={id}
+      >
+        {label}
+      </label>
+      <Input autoComplete={autoComplete} id={id} name={name} type="password" />
+    </>
+  );
 }
 
 /**

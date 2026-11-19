@@ -8,7 +8,7 @@ import type { Tool } from "@modelcontextprotocol/server";
 import type { PropertySchema } from "./ToolDefinition.js";
 
 const COMMON =
-  "ticketId is a ticket ID, a key such as PAGE-12, or a Pages address such as /tasks/PAGE-12. The expected value is the one you read with read_ticket; if the field was saved with another value since then the call returns CONFLICT and nothing changes. Only this field changes; every other field and the position among the tickets stays as it is. Reuse operationId with identical input to recover the stored result after response loss; changed input returns CONFLICT. A hidden ticket returns NOT_FOUND; without the write right the call returns FORBIDDEN. Whether the change is published to GitHub follows the Pages setting of the project; the call never forces it. JSON request maximum 64 KiB.";
+  "ticketId is a ticket ID, a key such as TICKET-12, or a Pages address such as /tasks/TICKET-12. The expected value is the one you read with read_ticket; if the field was saved with another value since then the call returns CONFLICT and nothing changes. Only this field changes; every other field and the position among the tickets stays as it is. Reuse operationId with identical input to recover the stored result after response loss; changed input returns CONFLICT. A hidden ticket returns NOT_FOUND; without the write right the call returns FORBIDDEN. Whether the change is published to GitHub follows the Pages setting of the project; the call never forces it. JSON request maximum 64 KiB.";
 
 interface TicketFieldSpecification {
   readonly name: string;

@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+
 import { AgentError } from "@/backend/error/AgentErrors";
 import { canRunPlan } from "@/definition/AgentPlanTeam";
 import { planStartIssues } from "@/definition/AgentPlanStart";
@@ -5,11 +7,6 @@ import { planEntryContract } from "@/definition/AgentPlanJump";
 import { requireManagementScriptExecution } from "@/backend/service/management/ManagementPlanAccess";
 
 import { resolveNodeValues } from "./AgentPlanInvocationBindings";
-import { requireNoCallCycle } from "./AgentPlanInvocationCycle";
-import {
-  invocationActivationKey,
-  invocationId,
-} from "./AgentPlanInvocationIdentity";
 import { applyEntryContract } from "./AgentPlanInvocationValues";
 
 import type {
@@ -124,4 +121,48 @@ export async function findOrCreateCall(
     now.toISOString(),
   );
   return created.record;
+}
+
+const CHAIN_LIMIT = 64;
+
+async function requireNoCallCycle(
+  invocations: Pick<AgentPlanInvocationRepository, "findByTargetRun">,
+  source: { readonly runId: string; readonly planId: string },
+  targetPlanId: string,
+): Promise<void> {
+  const plans = new Set([source.planId]);
+  let runId = source.runId;
+  for (let depth = 0; depth < CHAIN_LIMIT; depth += 1) {
+    const call = await invocations.findByTargetRun(runId);
+    if (!call) break;
+    plans.add(call.sourcePlanId);
+    runId = call.sourceRunId;
+  }
+  if (plans.has(targetPlanId)) throw new AgentError("plan_jump_cycle");
+}
+
+function invocationActivationKey(
+  activation: number,
+  iteration?: number | null,
+): string {
+  return iteration === undefined || iteration === null
+    ? `${activation}`
+    : `${activation}:${iteration}`;
+}
+
+function invocationId(
+  sourceRunId: string,
+  sourceNodeId: string,
+  activationKey: string,
+): string {
+  const hex = createHash("sha256")
+    .update(JSON.stringify([sourceRunId, sourceNodeId, activationKey]))
+    .digest("hex");
+  return [
+    hex.slice(0, 8),
+    hex.slice(8, 12),
+    hex.slice(12, 16),
+    hex.slice(16, 20),
+    hex.slice(20, 32),
+  ].join("-");
 }

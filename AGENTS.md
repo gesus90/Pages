@@ -108,6 +108,7 @@ When implementing a task:
 - Do not add dependencies unless necessary.
 - Preserve existing public APIs unless the task requires a change.
 - Do not remove existing functionality unless requested.
+- Keep local helpers, props and local types, and single-caller subcomponents (or local hooks) unexported in the same file as their sole caller while the file stays within the 600-line file limit (`max-lines: 600`) of `GUIDELINES.md`. Each function, method, and component still obeys the 100-line limit. Create separate files only for cross-module reuse or when a file would exceed 600 lines of code.
 
 Prefer small, focused changes.
 
@@ -127,7 +128,9 @@ For frontend work:
 - Keep user-facing text compatible with i18next.
 - Preserve SSR compatibility.
 - Style with Tailwind utility classes; use a CSS Module only for what utilities cannot express.
-- Split a component that grows beyond the size limits of `GUIDELINES.md` into section components and hooks.
+- Keep a component's props type, local types, local helpers, and single-caller section components or hooks in the same file as their sole caller while staying within the 600-line file limit (`max-lines: 600`).
+- Keep every component and function within the 100-line limit of `GUIDELINES.md`; split oversized components into unexported local section components, helpers, and hooks in the same file first.
+- Move section components, hooks, or props types into separate files (or a component folder next to the original file) only for cross-module reuse or when the file exceeds 600 lines of code.
 
 Do not introduce a new UI pattern when an existing project pattern already solves the same problem.
 
@@ -148,7 +151,9 @@ For backend work:
   `pagesTempDirectory()` from `backend/config/PagesTempDirectory.ts`. Never use
   `tmpdir()` or `/tmp`: the Pages services run with a private `/tmp`, so agents,
   script owners and worker units in the account's service manager cannot see it.
-- Split a repository or service that grows beyond the size limits of `GUIDELINES.md` into one small class per aggregate; the original class stays as a facade when other code depends on its public API.
+- Keep local helper functions and single-module types in the same file as their sole caller while the file stays within the 600-line file limit (`max-lines: 600`).
+- Keep every function and method within the 100-line limit of `GUIDELINES.md`.
+- Split a repository or service into separate files (one small class per aggregate, keeping the original class as a thin facade when other code depends on its public API) only for cross-module reuse or when the file exceeds 600 lines of code.
 - `backend/service/chat/pica/AGENTS.md` and `SOUL.md` are runtime instructions of the Pica chatbot, not instructions for coding agents. Change them only when a task asks to change Pica's identity or rules.
 
 ---
@@ -161,8 +166,10 @@ For database work:
 - PostgreSQL is the only runtime database and `databaseUrl` is required after
   setup. Do not add another runtime database driver, dialect or fallback.
 - Add schema changes as a numbered `.sql` file in
-  `backend/database/postgres/migrations/`. The historical DuckDB migrations and
-  development dependency are retained only for the offline transfer command.
+  `backend/database/postgres/migrations/`. The DuckDB development dependency is
+  retained only for the offline transfer command (`scripts/db-transfer/`), which
+  checks the frozen source migration names directly without historical DuckDB
+  SQL files.
 - Do not rewrite previously applied migrations.
 - Keep SQL explicit and readable.
 - Parameterize dynamic values.
@@ -288,6 +295,7 @@ Do not:
 - hardcode secrets or environment-specific values
 - edit generated files instead of their sources
 - invent a new coding style when `GUIDELINES.md` already defines one
+- split single-caller local helpers, props types, or subcomponents into separate files while the enclosing file fits within the 600-line limit and no cross-module reuse requires it
 
 ---
 

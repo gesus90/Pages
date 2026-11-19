@@ -5,23 +5,25 @@ import { ScrollViewport } from "@/app/components/ui/scroll-viewport";
 import { Button } from "@/app/components/ui/button";
 
 import { PlanExecutionDetails } from "./plan-execution-details";
-import { PlanStatusActivity } from "./plan-status-activity";
-import { PlanStatusAgentTodos } from "./plan-status-agent-todos";
 import { PlanSwarmRun } from "./plan-swarm/plan-swarm-run";
-import { hasOpenPlanReport, PlanStatusBadge } from "./plan-status";
+import {
+  hasOpenPlanReport,
+  PlanStatusBadge,
+  planStatusKey,
+} from "./plan-status";
 import { PlanStatusConfiguration } from "./plan-status-configuration";
 import { isPlanDecisionResult, PlanStatusHistory } from "./plan-status-history";
-import { PlanScriptRun } from "./plan-script-run";
-import { PlanRemoteScriptRun } from "./plan-remote-script-run";
+import { agentTodoSummary } from "./plan-agent-todo-model";
+import { TodoRow } from "./plan-status-todos";
 import { PlanStatusRetry, PlanStatusStop } from "./plan-status-retry";
 import { PlanRemoteHistory } from "./plan-remote-history";
-import { PlanStatusReport } from "./plan-status-report";
-import { PlanScriptReport } from "./plan-script/plan-script-report";
 import { PlanJumpRunLines } from "./plan-jump/plan-jump-run";
 import { PlanSignalRunLine } from "./plan-jump/plan-signal-run";
 
 import type { TFunction } from "i18next";
 import type { AgentPlanRun, AgentPlanStepResult } from "@/definition/AgentPlan";
+import type { AgentPlanScriptAssessment } from "@/definition/AgentPlanScriptReport";
+import type { AgentPlanAcceptance } from "@/definition/AgentPlanSession";
 import type { PlanSequenceBlockKind } from "./plan-step-sequence";
 
 interface StatusDetailsProps {
@@ -223,5 +225,374 @@ function StepConfiguration({
     <p className="text-xs leading-4.5 text-muted-foreground">
       {t("plans.progress.noConfiguration")}
     </p>
+  );
+}
+
+function PlanScriptReport({
+  report,
+}: {
+  readonly report: AgentPlanScriptAssessment | undefined;
+}): React.ReactElement | null {
+  const { t } = useTranslation();
+  if (!report) return null;
+  return (
+    <section
+      className="mb-3 space-y-1"
+      aria-label={t("plans.scripts.reportTitle")}
+    >
+      <h4 className="font-semibold">
+        {t("plans.scripts.reportTitle")} ·{" "}
+        {t(`plans.scripts.reportStatus.${report.status}`)}
+      </h4>
+      <p className="wrap-anywhere">{report.summary}</p>
+      <p className="text-xs text-muted-foreground">
+        {t("plans.scripts.reportCounts", {
+          total: report.checkCount,
+          failed: report.failedCount,
+          partial: report.partialCount,
+        })}
+      </p>
+    </section>
+  );
+}
+
+const REPORT_ISSUES: Readonly<Record<string, string>> = {
+  report_missing: "missing",
+  report_invalid: "invalid",
+  todo_open: "todoOpen",
+  todo_missing: "todoMissing",
+  criterion_missing: "criterionMissing",
+  criterion_unmet: "criterionUnmet",
+  evidence_missing: "evidenceMissing",
+  ticket_unchecked: "ticketUnchecked",
+  ticket_unreadable: "ticketUnreadable",
+  ticket_changed: "ticketChanged",
+};
+
+function PlanStatusReport({
+  acceptance,
+}: {
+  readonly acceptance: AgentPlanAcceptance | null | undefined;
+}): React.ReactElement | null {
+  const { t } = useTranslation();
+  if (!acceptance) return null;
+  return (
+    <section className="mb-3 space-y-1" aria-label={t("plans.progress.report")}>
+      <h4 className="font-semibold">
+        {t("plans.progress.report")} ·{" "}
+        {t(`plans.progress.reportVerdict.${acceptance.verdict}`)}
+      </h4>
+      {acceptance.message ? (
+        <p className="wrap-anywhere">{acceptance.message}</p>
+      ) : null}
+      {acceptance.summary ? (
+        <p className="wrap-anywhere">{acceptance.summary}</p>
+      ) : null}
+      {acceptance.issues.length ? (
+        <ul className="list-inside list-disc text-warning">
+          {acceptance.issues.map((issue, index) => {
+            const separator = issue.indexOf(":");
+            const code = separator < 0 ? issue : issue.slice(0, separator);
+            const id = separator < 0 ? "" : issue.slice(separator + 1);
+            const key = REPORT_ISSUES[code];
+            return (
+              <li key={`${issue}-${index}`} className="wrap-anywhere">
+                {key
+                  ? t(`plans.progress.reportIssue.${key}`, { id })
+                  : t("plans.progress.reportIssue.other", { issue })}
+              </li>
+            );
+          })}
+        </ul>
+      ) : null}
+    </section>
+  );
+}
+
+function PlanScriptRun({
+  step,
+}: {
+  readonly step: AgentPlanStepResult;
+}): React.ReactElement | null {
+  const { t } = useTranslation();
+  const script = step.script;
+  if (!script) return null;
+  const details: readonly [string, string | number | null][] = [
+    ["profile", script.interpreterProfileId],
+    ["directory", script.directory],
+    ["identity", `${script.userId} · uid ${script.uid} · gid ${script.gid}`],
+    ["attempt", script.attemptId],
+    ["process", script.processId],
+    ["started", script.startedAt],
+    ["ended", script.endedAt],
+    ["exit", script.exitCode],
+    ["signal", script.signal],
+    [
+      "cause",
+      script.failure
+        ? t(`settings.agents.error.plan_script_${script.failure}`)
+        : null,
+    ],
+    ["closeout", t(`plans.scripts.run.${script.closeout}`)],
+  ];
+  return (
+    <section className="min-w-0 space-y-3">
+      <h4 className="font-medium">{t("plans.scripts.run.title")}</h4>
+      <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1 wrap-anywhere">
+        {details.map(([label, text]) => (
+          <div key={label} className="contents">
+            <dt className="text-muted-foreground">
+              {t(`plans.scripts.run.${label}`)}
+            </dt>
+            <dd className="whitespace-pre-wrap">{text ?? "—"}</dd>
+          </div>
+        ))}
+      </dl>
+      <p className="text-muted-foreground">
+        {t("plans.scripts.run.lifecycle")}
+      </p>
+      {step.error ? (
+        <p role="alert" className="text-destructive">
+          {t(`settings.agents.error.${step.error}`, {
+            defaultValue: step.error,
+          })}
+        </p>
+      ) : null}
+      <PlanScriptStream name="stdout" text={script.stdout} />
+      <PlanScriptStream name="stderr" text={script.stderr} />
+    </section>
+  );
+}
+
+function PlanStatusAgentTodos({
+  step,
+}: {
+  readonly step: AgentPlanStepResult;
+}): React.ReactElement {
+  const { t } = useTranslation();
+  const agent = agentTodoSummary(step);
+  const heading = t("plans.progress.agentTodos.heading");
+  return (
+    <section
+      aria-label={heading}
+      data-agent-todos=""
+      className="flex max-h-44 min-h-0 shrink-0 flex-col border-t border-border px-4 py-3 @2xl/status:max-h-none @2xl/status:w-72 @2xl/status:border-t-0 @2xl/status:border-l"
+    >
+      <div className="flex shrink-0 items-baseline justify-between gap-2">
+        <h3 className="text-sm leading-5 font-semibold">{heading}</h3>
+        {agent.isReported ? (
+          <span className="text-xs text-muted-foreground tabular-nums">
+            {t("plans.progress.agentTodos.count", {
+              done: agent.done,
+              total: agent.total,
+            })}
+          </span>
+        ) : null}
+      </div>
+      {agent.isReported ? (
+        <ScrollViewport
+          as="ul"
+          axis="vertical"
+          aria-label={heading}
+          containerClassName="mt-1 min-h-0 flex-1"
+          className="overscroll-contain py-1"
+        >
+          {agent.todos.map((todo) => (
+            <TodoRow
+              key={todo.id}
+              item={{ id: todo.id, text: todo.text, status: todo.status }}
+            />
+          ))}
+        </ScrollViewport>
+      ) : (
+        <p className="py-2 text-xs leading-4.5 text-muted-foreground">
+          {t("plans.progress.agentTodos.empty")}
+        </p>
+      )}
+    </section>
+  );
+}
+
+function PlanStatusActivity({
+  step,
+}: {
+  readonly step: AgentPlanStepResult;
+}): React.ReactElement | null {
+  if (
+    step.remote?.liveHistoryVersion === 1 &&
+    !step.session?.activity?.titles.length &&
+    !step.isBlocked
+  )
+    return null;
+  return <ReportedActivity step={step} />;
+}
+
+function ReportedActivity({
+  step,
+}: {
+  readonly step: AgentPlanStepResult;
+}): React.ReactElement {
+  const { t, i18n } = useTranslation();
+  const reportedAt = step.session?.activity?.reportedAt;
+  const timestamp = reportedAt ? new Date(reportedAt) : null;
+  const time =
+    timestamp && Number.isFinite(timestamp.getTime())
+      ? `${new Intl.DateTimeFormat(i18n.language, { dateStyle: "short", timeStyle: "medium", timeZone: "UTC" }).format(timestamp)} UTC`
+      : t("plans.progress.notReported");
+  const titles = step.session?.activity?.titles ?? [];
+  const isRunning = step.status === "running";
+  const heading = isRunning
+    ? "plans.progress.activity"
+    : "plans.progress.lastActivity";
+  return (
+    <section className="mt-4 border-t border-border/80 pt-3">
+      <h4 className="border-l-4 border-primary pl-3 text-xs leading-4.5 font-medium text-muted-foreground">
+        {t(heading)}
+      </h4>
+      {titles.length ? (
+        <ul className="mt-2 space-y-2">
+          {titles.map((content, index) => {
+            const [title, ...description] = content.split("\n");
+            return (
+              <li key={`${index}:${title}`}>
+                <p className="text-xs leading-4.5 font-semibold wrap-anywhere">
+                  {title}
+                </p>
+                {description.length ? (
+                  <p className="mt-1 text-xs leading-4.5 whitespace-pre-wrap text-muted-foreground wrap-anywhere">
+                    {description.join("\n")}
+                  </p>
+                ) : null}
+              </li>
+            );
+          })}
+        </ul>
+      ) : (
+        <p className="mt-2 text-xs leading-4.5 text-muted-foreground">
+          {t(
+            isRunning
+              ? "plans.progress.noActivity"
+              : "plans.progress.noLiveActivity",
+          )}
+        </p>
+      )}
+      {titles.length ? (
+        <p className="mt-1 text-xs text-muted-foreground">
+          {t("plans.progress.activitySource", { time })}
+        </p>
+      ) : null}
+      {step.isBlocked && step.error ? (
+        <p className="mt-2 text-xs leading-4.5 text-destructive">
+          {t(`settings.agents.error.${step.error}`, {
+            defaultValue: t(planStatusKey(step.status, step.isBlocked)),
+          })}
+        </p>
+      ) : null}
+    </section>
+  );
+}
+
+function remoteScriptDetails(
+  step: AgentPlanStepResult,
+  translate: TFunction,
+): readonly [string, string | number | null][] {
+  const { execution } = step;
+  return [
+    ["profile", execution?.interpreterProfileId ?? null],
+    ["directory", execution?.workspace.path ?? null],
+    ["attempt", execution?.attemptId ?? null],
+    ...processDetails(step.remote, translate),
+  ];
+}
+
+function processDetails(
+  remote: AgentPlanStepResult["remote"],
+  translate: TFunction,
+): readonly [string, string | number | null][] {
+  return [
+    ["observedStart", remote?.startedAt ?? null],
+    ["observedEnd", remote?.endedAt ?? null],
+    ["exit", remote?.exitCode ?? null],
+    ["signal", remote?.signal ?? null],
+    [
+      "closeout",
+      remote ? translate(`plans.scripts.run.${remote.closeout}`) : null,
+    ],
+  ];
+}
+
+function hasPartialOutput(step: AgentPlanStepResult): boolean {
+  return ["timeout", "cancelled", "output_limit", "lost", "storage"].includes(
+    step.remote?.reason ?? "",
+  );
+}
+
+function PlanRemoteScriptRun({
+  step,
+}: {
+  readonly step: AgentPlanStepResult;
+}): React.ReactElement {
+  const { t } = useTranslation();
+  const remote = step.remote;
+  const rows = remoteScriptDetails(step, t);
+  return (
+    <section className="min-w-0 space-y-3">
+      <h4 className="font-medium">{t("plans.scripts.run.title")}</h4>
+      <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1 wrap-anywhere">
+        {rows.map(([label, text]) => (
+          <div key={label} className="contents">
+            <dt className="text-muted-foreground">
+              {t(`plans.scripts.run.${label}`)}
+            </dt>
+            <dd className="whitespace-pre-wrap">{text ?? "—"}</dd>
+          </div>
+        ))}
+      </dl>
+      {step.error ? (
+        <p role="alert" className="text-destructive">
+          {t(`settings.agents.error.${step.error}`, {
+            defaultValue: step.error,
+          })}
+        </p>
+      ) : null}
+      <p className="text-muted-foreground">
+        {t("plans.scripts.run.remoteTail")}
+      </p>
+      {hasPartialOutput(step) ? (
+        <p className="text-muted-foreground">
+          {t("plans.scripts.run.remotePartial")}
+        </p>
+      ) : null}
+      <PlanScriptStream name="stdout" text={remote?.stdout ?? step.output} />
+      <PlanScriptStream name="stderr" text={remote?.stderr ?? null} />
+    </section>
+  );
+}
+
+function PlanScriptStream({
+  name,
+  text,
+}: {
+  readonly name: string;
+  readonly text: string | null;
+}): React.ReactElement {
+  const { t } = useTranslation();
+  let content = text;
+  if (content === null) content = t("plans.scripts.run.missing");
+  else if (content === "") content = t("plans.scripts.run.empty");
+  return (
+    <div className="space-y-1">
+      <h5 className="font-medium">{name}</h5>
+      <ScrollViewport
+        as="pre"
+        axis="both"
+        tabIndex={0}
+        aria-label={name}
+        containerClassName="max-h-64"
+        className="overflow-auto rounded-md border border-border bg-muted p-2 font-mono text-xs whitespace-pre-wrap wrap-anywhere"
+      >
+        {content}
+      </ScrollViewport>
+    </div>
   );
 }

@@ -2,24 +2,30 @@ import { randomUUID } from "node:crypto";
 
 import { readPlanInput } from "@/backend/agents/AgentPlanInput";
 import { AgentError } from "@/backend/error/AgentErrors";
+import { AgentPlanValidationError } from "@/backend/error/AgentPlanValidationError";
 import { requireCredentialFreeText } from "@/backend/security/AgentTextSafety";
 import { planExecutionIssues } from "@/definition/AgentPlanGraph";
 import { withPortlessPlanGroups } from "@/definition/AgentPlanGroupUpgrade";
+import {
+  isPlanJumpOut,
+  planCalledPlanIds,
+  wouldCloseCallCycle,
+} from "@/definition/AgentPlanJump";
 
 import { requireManagementPlanAccess } from "../management/ManagementPlanAccess";
 import {
   planOwnership,
   requireOwnerForProjectChange,
 } from "./AgentPlanOwnership";
-import { requireNoNewGitCloseout } from "./AgentPlanGitCloseoutLegacy";
 import { validatePlanReferences } from "./AgentPlanReferences";
-import { requireNoPlanCallCycle } from "./invocation/AgentPlanCallCycleCheck";
 
+import type { AgentPlanRepository } from "@/backend/database/repositories/agent/AgentPlanRepository";
 import type {
   AgentPlan,
   AgentPlanInput,
   AgentPlanView,
 } from "@/definition/AgentPlan";
+import type { AgentPlanIssue } from "@/definition/AgentPlanGraph";
 import type { PlanDependencies } from "./AgentPlanDependencies";
 import type { AgentPlanConfigurationPins } from "./AgentPlanConfigurationPins";
 
@@ -118,4 +124,49 @@ export async function reviseAgentPlan(
   if (!team.isManagement)
     await prepareExecutableGroups(dependencies, userId, plan);
   return plan;
+}
+
+function requireNoNewGitCloseout(
+  proposed: AgentPlanInput,
+  previous: AgentPlanInput | null,
+): void {
+  const saved = new Set(
+    (previous?.nodes ?? [])
+      .filter((node) => node.type === "git_closeout")
+      .map((node) => node.id),
+  );
+  const issues: AgentPlanIssue[] = proposed.nodes
+    .filter((node) => node.type === "git_closeout" && !saved.has(node.id))
+    .map((node) => ({
+      nodeId: node.id,
+      port: null,
+      reason: "gitCloseoutUnsupported",
+    }));
+  if (issues.length > 0) throw new AgentPlanValidationError(issues);
+}
+
+async function requireNoPlanCallCycle(
+  plans: Pick<AgentPlanRepository, "list">,
+  plan: AgentPlan,
+): Promise<void> {
+  if (planCalledPlanIds(plan).length === 0) return;
+  const calls = (await plans.list())
+    .filter((other) => other.id !== plan.id)
+    .flatMap((other) =>
+      planCalledPlanIds(other).map((to) => ({ from: other.id, to })),
+    );
+  const offending = plan.nodes.filter(
+    (node) =>
+      isPlanJumpOut(node) &&
+      node.target !== null &&
+      wouldCloseCallCycle(calls, plan.id, node.target.planId),
+  );
+  if (offending.length > 0)
+    throw new AgentPlanValidationError(
+      offending.map((node) => ({
+        nodeId: node.id,
+        port: null,
+        reason: "jumpCycle" as const,
+      })),
+    );
 }

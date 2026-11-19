@@ -1,8 +1,7 @@
 import { useEffect, useState } from "react";
 
-import { findDefaultStatusId } from "@/app/components/tasks/form/default-status";
 import { toAssigneeValue } from "@/app/lib/assignee-value";
-import { WORK_ITEM_PRIORITY } from "@/definition/Task";
+import { WORK_ITEM_PRIORITY, WORKFLOW_STATUS_KEY } from "@/definition/Task";
 
 import type { Project } from "@/definition/Project";
 import type {
@@ -49,6 +48,15 @@ export interface TaskFormSelectionState {
   ) => void;
 }
 
+function findDefaultStatusId(statuses: readonly WorkflowStatus[]): string {
+  const status =
+    statuses.find(({ key }) => key === WORKFLOW_STATUS_KEY.BACKLOG) ??
+    statuses.find(({ isDone }) => !isDone) ??
+    statuses[0];
+
+  return status?.id ?? "";
+}
+
 function resolveProjectId(defaults: TaskFormDefaults): string {
   const { defaultProjectId, projects } = defaults;
 
@@ -62,10 +70,6 @@ function resolveProjectId(defaults: TaskFormDefaults): string {
   return projects[0]?.id ?? "";
 }
 
-/**
- * Builds the selections for an edited work item or for a new one.
- * @param defaults - The edited item, or the defaults of a new item.
- */
 function buildSelections(defaults: TaskFormDefaults): TaskFormSelections {
   const { initialTask } = defaults;
 

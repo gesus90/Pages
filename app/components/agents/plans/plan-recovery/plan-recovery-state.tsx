@@ -1,5 +1,4 @@
 import { useTranslation } from "react-i18next";
-import { PlanCleanupHistory } from "./plan-cleanup-history";
 
 import type { AgentPlanRecoveryView } from "@/definition/AgentPlanRecovery";
 
@@ -102,5 +101,36 @@ export function PlanRecoveryState({
       ) : null}
       <PlanCleanupHistory view={view} />
     </dl>
+  );
+}
+
+function PlanCleanupHistory({
+  view,
+}: {
+  readonly view: AgentPlanRecoveryView;
+}): React.ReactElement | null {
+  const { t } = useTranslation();
+  const failure = view.latestCleanupFailure;
+  if (!failure) return null;
+  return (
+    <>
+      <dt className="font-medium text-foreground">
+        {t("plans.recovery.cleanupHistory")}
+      </dt>
+      <dd className="space-y-1">
+        <p>
+          {t("plans.recovery.cleanupHistoryTime", {
+            time: new Date(failure.createdAt).toLocaleString(),
+          })}
+        </p>
+        <p>
+          {t(`plans.recovery.cleanupFailure.${failure.reason}`, {
+            step: view.stepNames[failure.stepId] ?? failure.stepId,
+            resource: t(`plans.recovery.cleanupKind.${failure.kind}`),
+          })}
+        </p>
+        <p>{t("plans.recovery.cleanupHistoryHint")}</p>
+      </dd>
+    </>
   );
 }

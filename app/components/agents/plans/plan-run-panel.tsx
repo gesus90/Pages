@@ -1,7 +1,15 @@
 import { lazy, Suspense, useEffect, useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 
+import { Button } from "@/app/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+} from "@/app/components/ui/dialog";
 import { expandPlanGroups } from "@/definition/AgentPlanGroup";
+import { planStartOwnerSchema } from "@/definition/AgentPlanResourceRelease";
 import { isActivePlanRun } from "@/definition/AgentPlanRunState";
 import { ScrollViewport } from "@/app/components/ui/scroll-viewport";
 
@@ -16,17 +24,16 @@ import {
 } from "./plan-foreign-run-start-dialog";
 import { PlanManagementDialogs } from "./plan-management/plan-management-dialogs";
 import { usePlanManagement } from "./plan-management/use-plan-management";
-import { PlanOpenRunStartDialog } from "./plan-open-run-start-dialog";
 import { PlanPanelDetails } from "./plan-panel-details";
 import { PlanStartFailure } from "./plan-start-failure";
 import { PlanPanelHeading } from "./plan-panel-heading";
 import { PlanPanelStatus } from "./plan-panel-status";
 import { planPanelAttention, planPanelState } from "./plan-panel-status-model";
+import { PlanStartOwners } from "./plan-start-owners";
 import { planWorkspaceWait } from "./plan-workspace-wait-model";
 import { recoverableRunId, recoveryErrorText } from "./plan-recovery-panel";
 import { PlanFailedResumeDialog } from "./plan-recovery/plan-failed-resume-dialog";
 import { usePlanRecovery } from "./use-plan-recovery";
-import { usePlanStartOwners } from "./use-plan-start-owners";
 import type { AgentPlanStartOwner } from "@/definition/AgentPlanResourceRelease";
 
 import type { AgentPlanPage, AgentPlanRun } from "@/definition/AgentPlan";
@@ -451,5 +458,105 @@ export function PlanRunPanel(props: PlanRunPanelProps): React.ReactElement {
         management={management}
       />
     </>
+  );
+}
+
+function usePlanStartOwners(
+  planId: string | undefined,
+  revision: number | undefined,
+): {
+  readonly owners: readonly AgentPlanStartOwner[];
+  readonly isPending: boolean;
+  readonly error: string | null;
+  readonly inspect: () => Promise<readonly AgentPlanStartOwner[] | null>;
+} {
+  const [owners, setOwners] = useState<readonly AgentPlanStartOwner[]>([]);
+  const [isPending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  async function inspect(): Promise<readonly AgentPlanStartOwner[] | null> {
+    setPending(true);
+    setError(null);
+    try {
+      const body = new FormData();
+      body.set("intent", "inspect-plan-start");
+      body.set("planId", planId ?? "");
+      body.set("revision", String(revision ?? ""));
+      const response = await fetch("/agents/plans", {
+        method: "POST",
+        body,
+        cache: "no-store",
+      });
+      const payload: unknown = await response.json();
+      if (
+        !response.ok ||
+        typeof payload !== "object" ||
+        payload === null ||
+        !("owners" in payload)
+      )
+        throw new Error("Start owners unavailable");
+      const current = planStartOwnerSchema.array().parse(payload.owners);
+      setOwners(current);
+      return current;
+    } catch {
+      setError("plan_run_unavailable");
+      return null;
+    } finally {
+      setPending(false);
+    }
+  }
+  return { owners, isPending, error, inspect };
+}
+
+function PlanOpenRunStartDialog({
+  onConfirm,
+  onClose,
+  owners = [],
+}: {
+  readonly onConfirm: () => void;
+  readonly onClose: () => void;
+  readonly owners?: readonly AgentPlanStartOwner[];
+}): React.ReactElement {
+  const { t } = useTranslation();
+  function handleConfirm(): void {
+    onConfirm();
+    onClose();
+  }
+  return (
+    <Dialog
+      open
+      onOpenChange={(isOpen) => {
+        if (!isOpen) onClose();
+      }}
+    >
+      <DialogContent size="md" className="space-y-4">
+        <div className="space-y-1.5">
+          <DialogTitle className="text-lg font-semibold">
+            {t("plans.openRun.title")}
+          </DialogTitle>
+          <DialogDescription className="text-sm text-muted-foreground">
+            {t("plans.openRun.description")}
+          </DialogDescription>
+        </div>
+        <PlanStartOwners owners={owners} />
+        <div className="flex flex-wrap justify-end gap-1.5">
+          <Button
+            size="xs"
+            variant="outline"
+            onClick={onClose}
+            className="[@media(pointer:coarse)]:h-11"
+          >
+            {t("plans.openRun.cancel")}
+          </Button>
+          <Button
+            size="xs"
+            variant="outline"
+            onClick={handleConfirm}
+            className="[@media(pointer:coarse)]:h-11"
+          >
+            {t("plans.openRun.confirm")}
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }

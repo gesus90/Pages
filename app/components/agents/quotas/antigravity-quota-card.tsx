@@ -7,16 +7,34 @@ import { useTranslation } from "react-i18next";
  */
 import antigravityUrl from "@/assets/providers/logo-antigravity.png?no-inline";
 
-import { AntigravityGroupArea } from "./antigravity-group-area";
-import { antigravityGroupLabel } from "./antigravity-group-label";
+import { cn } from "@/app/lib/cn";
+import {
+  ANTIGRAVITY_QUOTA_WINDOWS,
+  antigravityGroupFamily,
+} from "@/definition/AntigravityQuota";
+
+import styles from "./antigravity-quota-card.module.css";
+import { AntigravityQuotaWindow } from "./antigravity-quota-window";
 import { QuotaCardFrame } from "./quota-card-frame";
-import { VISIBLE_GROUPS } from "./quota-card-layout";
+import {
+  QUOTA_GROUP_LIST_CLASS,
+  QUOTA_GROUP_SLOT_CLASS,
+  QUOTA_GROUPS_AREA_CLASS,
+  VISIBLE_GROUPS,
+} from "./quota-card-layout";
 import { antigravityCardView } from "./quota-card-state";
+import { QuotaNotice } from "./quota-notice";
 import { QuotaGroupsPlaceholder } from "./quota-placeholders";
 import { QuotaStatusLine } from "./quota-status-line";
 import { useRefreshHint } from "./use-refresh-hint";
 
-import type { AntigravityQuotaAccount } from "@/definition/AntigravityQuota";
+import type { TFunction } from "i18next";
+import type {
+  AntigravityGroupFamily,
+  AntigravityQuotaAccount,
+  AntigravityQuotaGroup as QuotaGroup,
+} from "@/definition/AntigravityQuota";
+import type { AntigravityCardBody } from "./quota-card-state";
 import type { StatusLimit } from "./quota-status-presentation";
 
 /**
@@ -110,4 +128,122 @@ export function AntigravityQuotaCard({
       />
     </QuotaCardFrame>
   );
+}
+
+function AntigravityQuotaGroupSlot({
+  group,
+  now,
+  isStale,
+}: {
+  readonly group: QuotaGroup;
+  readonly now: Date;
+  readonly isStale: boolean;
+}): React.ReactElement {
+  const { t } = useTranslation();
+  const label = antigravityGroupLabel(group.name, t);
+  return (
+    <li
+      data-quota-group={group.name}
+      className={cn(QUOTA_GROUP_SLOT_CLASS, "snap-start")}
+    >
+      <div className="flex h-4 items-center gap-2">
+        <span
+          aria-hidden="true"
+          className={cn(
+            "size-2 shrink-0 rounded-full",
+            GROUP_DOT_CLASSES[antigravityGroupFamily(group.name)],
+          )}
+        />
+        <h4 className="truncate text-xs font-bold text-foreground">{label}</h4>
+      </div>
+      <div className="grid min-h-0 grid-cols-2 gap-[18px]">
+        {ANTIGRAVITY_QUOTA_WINDOWS.map((kind) => {
+          const quotaWindow = group.windows.find(
+            (window) => window.kind === kind,
+          );
+          return quotaWindow ? (
+            <AntigravityQuotaWindow
+              key={kind}
+              quotaWindow={quotaWindow}
+              groupLabel={label}
+              now={now}
+              isStale={isStale}
+            />
+          ) : (
+            <div key={kind} aria-hidden="true" />
+          );
+        })}
+      </div>
+    </li>
+  );
+}
+
+function AntigravityGroupArea({
+  body,
+  now,
+}: {
+  readonly body: AntigravityCardBody;
+  readonly now: Date;
+}): React.ReactElement {
+  const { t } = useTranslation();
+  if (body.kind === "notice")
+    return (
+      <div data-quota-groups="notice" className={QUOTA_GROUPS_AREA_CLASS}>
+        <QuotaNotice
+          notice={body.notice}
+          provider="antigravity"
+          hasPlan={false}
+        />
+      </div>
+    );
+  const items = (
+    <ul className={QUOTA_GROUP_LIST_CLASS}>
+      {body.groups.map((group, position) => (
+        <AntigravityQuotaGroupSlot
+          key={`${position}:${group.name}`}
+          group={group}
+          now={now}
+          isStale={body.isStale}
+        />
+      ))}
+    </ul>
+  );
+  const isScrollable = body.groups.length > VISIBLE_GROUPS;
+  return (
+    <div
+      data-quota-groups={body.groups.length}
+      className={QUOTA_GROUPS_AREA_CLASS}
+    >
+      {isScrollable ? (
+        <div
+          role="region"
+          tabIndex={0}
+          aria-label={t("agentsPage.antigravity.groupList")}
+          data-quota-group-list="scroll"
+          className={cn(
+            styles.groupList,
+            "-mr-[14px] h-[172px] shrink-0 snap-y snap-mandatory overflow-y-auto overscroll-contain pr-[10px] focus-visible:-outline-offset-2 focus-visible:outline-2 focus-visible:outline-ring md:-mr-[18px] md:h-[148px] md:pr-[14px]",
+          )}
+        >
+          {items}
+        </div>
+      ) : (
+        items
+      )}
+    </div>
+  );
+}
+
+const GROUP_DOT_CLASSES: Readonly<Record<AntigravityGroupFamily, string>> = {
+  gemini: "bg-antigravity",
+  claude_gpt: "bg-claude",
+  other: "bg-claude",
+};
+
+function antigravityGroupLabel(name: string, t: TFunction): string {
+  const family = antigravityGroupFamily(name);
+  if (family === "gemini") return t("agentsPage.antigravity.group.gemini");
+  if (family === "claude_gpt")
+    return t("agentsPage.antigravity.group.claudeGpt");
+  return name;
 }

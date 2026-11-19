@@ -1,8 +1,16 @@
-import { useLoaderData } from "react-router";
+import { Folder } from "lucide-react";
+import { useTranslation } from "react-i18next";
+import {
+  isRouteErrorResponse,
+  useLoaderData,
+  useRevalidator,
+  useRouteError,
+} from "react-router";
 
-import { WorkspaceLoadError } from "@/app/components/agents/workspaces/workspace-load-error";
 import { WorkspacePage } from "@/app/components/agents/workspaces/workspace-page";
 import { useLocalStateRoute } from "@/app/components/common/use-local-state-route";
+import { SettingsCard } from "@/app/components/settings/settings-layout";
+import { Button } from "@/app/components/ui/button";
 import {
   isCurrentLocalStateAudience,
   isLocalStateAudience,
@@ -110,5 +118,38 @@ export default function AgentWorkspacesRoute(): React.ReactElement {
 
 /** A failed load keeps the page chrome and offers a retry. */
 export function ErrorBoundary(): React.ReactElement {
-  return <WorkspaceLoadError />;
+  const { t } = useTranslation();
+  const error = useRouteError();
+  const revalidator = useRevalidator();
+  const isForbidden = isRouteErrorResponse(error) && error.status === 403;
+  return (
+    <div className="mx-auto w-full max-w-6xl space-y-5 px-2 pt-3 pb-10">
+      <h1 className="text-2xl font-bold">{t("workspaces.title")}</h1>
+      <SettingsCard
+        icon={<Folder className="size-5" />}
+        title={t("workspaces.listTitle")}
+        description={t("workspaces.description")}
+      >
+        <p role="alert" className="pages-selectable text-sm text-destructive">
+          {t(
+            isForbidden
+              ? "errorPage.forbidden.message"
+              : "workspaces.loadError",
+          )}
+        </p>
+        {isForbidden ? null : (
+          <Button
+            className="mt-4"
+            variant="outline"
+            disabled={revalidator.state !== "idle"}
+            onClick={() => {
+              void revalidator.revalidate();
+            }}
+          >
+            {t("workspaces.retry")}
+          </Button>
+        )}
+      </SettingsCard>
+    </div>
+  );
 }

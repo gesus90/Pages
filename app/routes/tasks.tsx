@@ -1,20 +1,25 @@
-import { useLoaderData } from "react-router";
+import { useEffect, useState } from "react";
+import {
+  useActionData,
+  useLoaderData,
+  useNavigate,
+  useNavigation,
+  useSearchParams,
+  useSubmit,
+} from "react-router";
 
-import { TasksContent } from "@/app/components/tasks/board/tasks-content";
-import { TasksToolbar } from "@/app/components/tasks/board/tasks-toolbar";
-import { useBoardPreferences } from "@/app/components/tasks/board/use-board-preferences";
-import { useBoardItems } from "@/app/components/tasks/board/use-board-items";
-import { useBoardLabels } from "@/app/components/tasks/board/use-board-labels";
-import { useTasksDialog } from "@/app/components/tasks/board/use-tasks-dialog";
-import { useTasksPage } from "@/app/components/tasks/board/use-tasks-page";
-import { TasksDetailOverlay } from "@/app/components/tasks/board/tasks-detail-overlay";
-import { useTaskSelection } from "@/app/components/tasks/board/use-task-selection";
-import { TasksFormDialog } from "@/app/components/tasks/board/tasks-form-dialog";
-import { TicketAccessProvider } from "@/app/components/tasks/ticket-access";
 import { useLocalStateRoute } from "@/app/components/common/use-local-state-route";
-import { type TasksGitHubProjectState } from "@/app/components/tasks/tasks-github";
-import { cn } from "@/app/lib/cn";
+import { TasksContent } from "@/app/components/tasks/board/tasks-content";
+import { TasksDetailOverlay } from "@/app/components/tasks/board/tasks-detail-overlay";
+import { TasksToolbar } from "@/app/components/tasks/board/tasks-toolbar";
+import { useBoardItems } from "@/app/components/tasks/board/use-board-items";
+import { useBoardPreferences } from "@/app/components/tasks/board/use-board-preferences";
+import { useTaskSelection } from "@/app/components/tasks/board/use-task-selection";
+import { useTasksDialog } from "@/app/components/tasks/board/use-tasks-dialog";
+import { TaskFormDialog } from "@/app/components/tasks/task-form-dialog";
+import { TicketAccessProvider } from "@/app/components/tasks/ticket-access";
 import { sendToBackend } from "@/app/lib/backend-request";
+import { cn } from "@/app/lib/cn";
 import { isLiveRevalidation } from "@/app/lib/live-changes/live-revalidation";
 import {
   isCurrentLocalStateAudience,
@@ -27,26 +32,28 @@ import {
 import { readRouteData } from "@/app/lib/local-state/route-data";
 import { filterWorkItems, toTaskFilters } from "@/app/lib/task-filters";
 import {
-  hasBoardQuery,
-  withoutBoardQuery,
-} from "@/definition/BoardPreferences";
-import {
   BOARD_DETAIL_INTENTS,
   BOARD_TICKET_UPDATE_INTENTS,
 } from "@/app/lib/task-overlay-navigation";
+import {
+  hasBoardQuery,
+  withoutBoardQuery,
+} from "@/definition/BoardPreferences";
 
-import type { ShouldRevalidateFunctionArgs } from "react-router";
 import type { LocalStateRouteKind } from "@/app/components/common/use-local-state-route";
+import type { TasksDialog } from "@/app/components/tasks/board/use-tasks-dialog";
+import type { TasksGitHubProjectState } from "@/app/components/tasks/tasks-github";
 import type { TicketAccess } from "@/app/components/tasks/ticket-access";
 import type { LocalStateAudience } from "@/app/lib/local-state/local-state-audience";
 import type { WithLocalState } from "@/app/lib/local-state/local-state-loader";
 import type { ArchivedFilter } from "@/app/lib/tasks-view";
+import type { action, loader } from "@/app/routes/tasks-server";
 import type { BoardPreferences } from "@/definition/BoardPreferences";
 import type { GitHubPullRequest } from "@/definition/GitHub";
 import type { Project } from "@/definition/Project";
 import type {
-  Milestone,
   Label,
+  Milestone,
   TaskActionPermissions,
   TicketDepartmentChoices,
   WorkItemAttachment,
@@ -57,9 +64,10 @@ import type {
   WorkItemLink,
   WorkflowStatus,
 } from "@/definition/Task";
-import type { WorkItemTemplateView } from "@/definition/WorkItemTemplate";
-import type { GroupSummary } from "@/definition/UserGroup";
 import type { User } from "@/definition/User";
+import type { GroupSummary } from "@/definition/UserGroup";
+import type { WorkItemTemplateView } from "@/definition/WorkItemTemplate";
+import type { ShouldRevalidateFunctionArgs } from "react-router";
 import type { Route } from "./+types/tasks";
 
 export type { ArchivedFilter } from "@/app/lib/tasks-view";
@@ -102,6 +110,24 @@ export interface TasksLoaderData {
   readonly departmentChoices: TicketDepartmentChoices;
   readonly templates: readonly WorkItemTemplateView[];
   readonly audience: LocalStateAudience;
+}
+
+interface TasksPage {
+  readonly isArchiving: boolean;
+  readonly isSyncing: boolean;
+  readonly isSubmittingForm: boolean;
+  readonly changeArchived: (value: string) => void;
+  readonly moveTask: (
+    taskId: string,
+    targetStatusId: string,
+    sortOrder: number,
+  ) => void;
+}
+
+interface TasksFormDialogProps {
+  readonly loaderData: Awaited<ReturnType<typeof loader>>;
+  readonly dialog: TasksDialog;
+  readonly isSubmitting: boolean;
 }
 
 function isTasksLoaderData(value: unknown): value is TasksLoaderData {
@@ -160,6 +186,108 @@ function withoutItem(url: URL): string {
   const params = new URLSearchParams(url.searchParams);
   params.delete("item");
   return `${url.pathname}?${params.toString()}`;
+}
+
+function isSubmittingIntent(
+  navigation: ReturnType<typeof useNavigation>,
+  ...intents: readonly string[]
+): boolean {
+  const intent = navigation.formData?.get("intent");
+
+  return (
+    navigation.state === "submitting" &&
+    typeof intent === "string" &&
+    intents.includes(intent)
+  );
+}
+
+function useTasksPage(): TasksPage {
+  const navigation = useNavigation();
+  const navigate = useNavigate();
+  const submit = useSubmit();
+  const [searchParams] = useSearchParams();
+
+  return {
+    changeArchived: (value) => {
+      const params = new URLSearchParams(searchParams);
+
+      params.set("archived", value);
+      void navigate(`?${params.toString()}`);
+    },
+    isArchiving: isSubmittingIntent(navigation, "archive-task", "restore-task"),
+    isSubmittingForm: isSubmittingIntent(
+      navigation,
+      "create-task",
+      "update-task",
+    ),
+    isSyncing: isSubmittingIntent(
+      navigation,
+      "sync-github-project",
+      "sync-github-task",
+    ),
+    moveTask: (taskId, targetStatusId, sortOrder) => {
+      void submit(
+        {
+          id: taskId,
+          intent: "move-task",
+          sortOrder: String(sortOrder),
+          statusId: targetStatusId,
+        },
+        { method: "post" },
+      );
+    },
+  };
+}
+
+function useBoardLabels(
+  labelsByWorkItem: Readonly<Record<string, readonly Label[]>>,
+  details: ReturnType<typeof useTaskSelection>,
+): Readonly<Record<string, readonly Label[]>> {
+  const [replacements, setReplacements] = useState<
+    Readonly<Record<string, readonly Label[]>>
+  >({});
+  useEffect(() => {
+    setReplacements({});
+  }, [labelsByWorkItem]);
+  useEffect(() => {
+    const selected = details.selection?.selectedItem;
+    if (!details.isFresh || !selected) return;
+    setReplacements((previous) => ({
+      ...previous,
+      [selected.id]: details.labels,
+    }));
+  }, [details.isFresh, details.labels, details.selection]);
+  return { ...labelsByWorkItem, ...replacements };
+}
+
+function TasksFormDialog({
+  loaderData,
+  dialog,
+  isSubmitting,
+}: TasksFormDialogProps): React.ReactElement {
+  const actionData = useActionData<typeof action>();
+  const { dialogState } = dialog;
+
+  return (
+    <TaskFormDialog
+      assignees={loaderData.assignees}
+      defaultParentId={dialogState.defaultParentId}
+      defaultProjectId={dialogState.defaultProjectId}
+      defaultStatusId={dialogState.defaultStatusId}
+      defaultType={dialogState.defaultType}
+      error={actionData && !actionData.ok ? actionData.error : null}
+      existingWorkItems={loaderData.workItems}
+      initialTask={dialogState.task}
+      isOpen={dialogState.isOpen}
+      isSubmitting={isSubmitting}
+      milestones={loaderData.milestones}
+      mode={dialogState.mode}
+      onOpenChange={dialog.setOpen}
+      projects={loaderData.projects}
+      statuses={loaderData.statuses}
+      templates={loaderData.templates}
+    />
+  );
 }
 
 /**

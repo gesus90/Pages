@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 
+import { QuotaCardPointerDrag } from "./quota-card-pointer-drag";
+import { SORTABLE_CARD_SELECTOR } from "./quota-card-sort";
 import { useQuotaKeyboardSort } from "./use-quota-keyboard-sort";
-import { useQuotaPointerSort } from "./use-quota-pointer-sort";
-import { useHandleFocusAfterMove } from "./use-quota-handle-focus";
 import { useQuotaSortAnnouncement } from "./use-quota-sort-announcement";
 
 import type { RefObject } from "react";
@@ -103,5 +103,80 @@ export function useQuotaCardSort({
     startPointerDrag,
     handleKeyDown,
     handleBlur,
+  };
+}
+
+function useHandleFocusAfterMove(
+  gridRef: RefObject<HTMLElement | null>,
+  orderKey: string,
+): (connectionId: string) => void {
+  const pendingId = useRef<string | null>(null);
+
+  useEffect(() => {
+    const connectionId = pendingId.current;
+    pendingId.current = null;
+    if (connectionId === null) return;
+    const handles = gridRef.current?.querySelectorAll<HTMLElement>(
+      "[data-quota-handle]",
+    );
+    Array.from(handles ?? [])
+      .find((handle) => handle.dataset.quotaHandle === connectionId)
+      ?.focus({ preventScroll: true });
+  }, [gridRef, orderKey]);
+
+  return (connectionId) => {
+    pendingId.current = connectionId;
+  };
+}
+
+function useQuotaPointerSort(
+  context: QuotaSortContext,
+): (event: React.PointerEvent<HTMLElement>, connectionId: string) => void {
+  const { gridRef, connectionIds, session, setSession, putDown, latest } =
+    context;
+  const drag = useRef<QuotaCardPointerDrag | null>(null);
+
+  useEffect(() => () => drag.current?.cancel(), []);
+
+  return (event, connectionId) => {
+    const grid = gridRef.current;
+    const card = event.currentTarget.closest<HTMLElement>(
+      SORTABLE_CARD_SELECTOR,
+    );
+    if (!grid || !card || session !== null) return;
+    if (event.button !== 0 || !event.isPrimary) return;
+    // The press must not select text or move the focus; the drop returns it.
+    event.preventDefault();
+    const fromIndex = connectionIds.indexOf(connectionId);
+    let isPickedUp = false;
+    const pointerDrag = new QuotaCardPointerDrag({
+      start: {
+        pointerId: event.pointerId,
+        clientX: event.clientX,
+        clientY: event.clientY,
+      },
+      card,
+      cells: () =>
+        Array.from(grid.querySelectorAll<HTMLElement>(SORTABLE_CARD_SELECTOR)),
+      onStart: () => {
+        isPickedUp = true;
+        setSession({
+          activeId: connectionId,
+          targetIndex: fromIndex,
+          source: "pointer",
+        });
+        latest.current.announce("pickedUp", connectionId, fromIndex);
+      },
+      onTarget: (targetIndex) =>
+        setSession((current) =>
+          current === null ? null : { ...current, targetIndex },
+        ),
+      onEnd: (targetIndex) => {
+        drag.current = null;
+        if (isPickedUp) putDown(connectionId, targetIndex);
+      },
+    });
+    drag.current = pointerDrag;
+    pointerDrag.begin();
   };
 }

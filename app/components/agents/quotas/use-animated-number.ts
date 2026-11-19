@@ -1,6 +1,27 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 
-import { usePrefersReducedMotion } from "./use-prefers-reduced-motion";
+const REDUCED_MOTION_QUERY = "(prefers-reduced-motion: reduce)";
+
+function reducedMotionQuery(): MediaQueryList | null {
+  if (typeof window === "undefined" || typeof window.matchMedia !== "function")
+    return null;
+  return window.matchMedia(REDUCED_MOTION_QUERY);
+}
+
+function subscribeReducedMotion(onChange: () => void): () => void {
+  const query = reducedMotionQuery();
+  if (query === null) return () => undefined;
+  query.addEventListener("change", onChange);
+  return () => query.removeEventListener("change", onChange);
+}
+
+function usePrefersReducedMotion(): boolean {
+  return useSyncExternalStore(
+    subscribeReducedMotion,
+    () => reducedMotionQuery()?.matches === true,
+    () => false,
+  );
+}
 
 /**
  * A whole number that runs to its new value instead of jumping.

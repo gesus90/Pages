@@ -4,7 +4,6 @@ import { useTranslation } from "react-i18next";
 import { modelBadgeDisplay } from "@/app/components/agents/model-picker/model-catalog";
 
 import { ConsoleComposer } from "./console-composer";
-import { ConsoleFailure } from "./console-failure";
 import { providerBadgeKey } from "./console-header-badges";
 import { ConsoleSidebar } from "./console-sidebar";
 import { consoleStepState, hasSessionEnded } from "./console-step-state";
@@ -232,5 +231,24 @@ export function ConsoleSession(props: ConsoleSessionProps): React.ReactElement {
         />
       ) : null}
     </>
+  );
+}
+
+function ConsoleFailure({
+  remote,
+}: {
+  readonly remote?: {
+    readonly reason?: string | null;
+    readonly storageError?: string;
+  };
+}): React.ReactElement | null {
+  const { t } = useTranslation();
+  if (remote?.reason !== "storage" && !remote?.storageError) return null;
+  return (
+    <p role="alert" className="px-5 py-2 text-sm text-destructive">
+      {t("plans.console.storageFailure", {
+        code: remote.storageError ?? "journal_write_failed",
+      })}
+    </p>
   );
 }

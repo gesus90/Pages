@@ -1,4 +1,7 @@
+import { ChevronRight, House } from "lucide-react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { useFetcher } from "react-router";
 
 import { Button } from "@/app/components/ui/button";
 import { Checkbox } from "@/app/components/ui/checkbox";
@@ -9,10 +12,8 @@ import {
 } from "@/app/components/ui/dialog";
 import { VerticalScrollArea } from "@/app/components/ui/vertical-scroll-area";
 
-import { WorkspaceFolderBreadcrumb } from "./workspace-folder-breadcrumb";
 import { WorkspaceFolderList } from "./workspace-folder-list";
 import { WorkspaceFolderNotice } from "./workspace-folder-notice";
-import { useFolderBrowser } from "./use-folder-browser";
 
 import type { TFunction } from "i18next";
 import type { WorkspaceFolderListing } from "@/definition/AgentWorkspace";
@@ -133,4 +134,120 @@ export function WorkspaceFolderBrowser(props: {
       </div>
     </DialogContent>
   );
+}
+
+const CRUMB_CLASS =
+  "rounded-md px-1.5 py-1 text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-primary";
+
+function WorkspaceFolderBreadcrumb(props: {
+  readonly listing: WorkspaceFolderListing | null;
+  readonly onOpen: (path: string | null) => void;
+}): React.ReactElement {
+  const { t } = useTranslation();
+  const { listing } = props;
+  const steps = listing?.breadcrumbs ?? [];
+  const isRootLevel = listing !== null && listing.path === null;
+  return (
+    <nav aria-label={t("workspaces.folders.breadcrumb")} className="mt-4">
+      <ol className="flex flex-wrap items-center gap-0.5 text-sm">
+        {listing?.hasSeveralRoots ? (
+          <li className="flex items-center gap-0.5">
+            {isRootLevel ? (
+              <span aria-current="page" className="px-1.5 py-1 font-semibold">
+                {t("workspaces.folders.roots")}
+              </span>
+            ) : (
+              <button
+                type="button"
+                className={`${CRUMB_CLASS} flex items-center gap-1.5`}
+                onClick={() => props.onOpen(null)}
+              >
+                <House className="size-4" aria-hidden="true" />
+                {t("workspaces.folders.roots")}
+              </button>
+            )}
+          </li>
+        ) : null}
+        {steps.map((step, index) => {
+          const isCurrent = index === steps.length - 1;
+          const hasLead = index > 0 || listing?.hasSeveralRoots === true;
+          return (
+            <li key={step.path} className="flex items-center gap-0.5">
+              {hasLead ? (
+                <ChevronRight
+                  className="size-4 text-muted-foreground"
+                  aria-hidden="true"
+                />
+              ) : null}
+              {isCurrent ? (
+                <span
+                  aria-current="page"
+                  className="pages-selectable px-1.5 py-1 font-semibold break-all"
+                >
+                  {step.name}
+                </span>
+              ) : (
+                <button
+                  type="button"
+                  className={`${CRUMB_CLASS} break-all`}
+                  onClick={() => props.onOpen(step.path)}
+                >
+                  {step.name}
+                </button>
+              )}
+            </li>
+          );
+        })}
+      </ol>
+    </nav>
+  );
+}
+
+type FolderResponse =
+  WorkspaceFolderListing | { readonly ok: false; readonly error: string };
+
+interface FolderTarget {
+  readonly path: string | null;
+  readonly showHidden: boolean;
+}
+
+function useFolderBrowser(startPath: string | null): {
+  readonly listing: WorkspaceFolderListing | null;
+  readonly errorCode: string | null;
+  readonly failedPath: string | null;
+  readonly isLoading: boolean;
+  readonly showHidden: boolean;
+  readonly open: (path: string | null) => void;
+  readonly reload: () => void;
+  readonly setShowHidden: (showHidden: boolean) => void;
+} {
+  const fetcher = useFetcher<FolderResponse>();
+  const { load } = fetcher;
+  const [target, setTarget] = useState<FolderTarget>({
+    path: startPath,
+    showHidden: false,
+  });
+  const [lastListing, setLastListing] = useState<WorkspaceFolderListing | null>(
+    null,
+  );
+  useEffect(() => {
+    const query = new URLSearchParams();
+    if (target.path !== null) query.set("path", target.path);
+    if (target.showHidden) query.set("hidden", "1");
+    void load(`/agent-api/workspace-folders?${query.toString()}`);
+  }, [target, load]);
+  const response = fetcher.data;
+  const loaded = response && "folders" in response ? response : null;
+  if (loaded !== null && loaded !== lastListing) setLastListing(loaded);
+  const errorCode = response && "error" in response ? response.error : null;
+  return {
+    listing: loaded ?? lastListing,
+    errorCode,
+    failedPath: errorCode === null ? null : target.path,
+    isLoading: fetcher.state !== "idle" || response === undefined,
+    showHidden: target.showHidden,
+    open: (path) => setTarget({ ...target, path }),
+    reload: () => setTarget({ ...target }),
+    setShowHidden: (showHidden) => setTarget({ ...target, showHidden }),
+  };
 }

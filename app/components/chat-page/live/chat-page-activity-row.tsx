@@ -1,10 +1,11 @@
+import { useLayoutEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { cn } from "@/app/lib/cn";
 
 import { ParticipantAvatar } from "../chat-page-avatar";
-import { useFittingChips } from "./use-fitting-chips";
 
+import type { RefObject } from "react";
 import type { VirtualParticipant } from "@/definition/VirtualChat";
 import type { LiveActivity } from "./live-answer-state";
 
@@ -168,4 +169,59 @@ export function ChatPageActivityRow({
       </div>
     </div>
   );
+}
+
+const CHIP_GAP_PX = 8;
+
+interface FittingChips {
+  readonly row: RefObject<HTMLUListElement | null>;
+  readonly measurer: RefObject<HTMLDivElement | null>;
+  readonly visibleCount: number;
+}
+
+function fittingChipCount(
+  widths: readonly number[],
+  plusWidth: number,
+  available: number,
+): number {
+  let used = 0;
+  let count = 0;
+  for (const [index, width] of widths.entries()) {
+    const next = used + (index === 0 ? 0 : CHIP_GAP_PX) + width;
+    const isLast = index === widths.length - 1;
+    const reserve = isLast ? 0 : CHIP_GAP_PX + plusWidth;
+    if (next + reserve > available) break;
+    used = next;
+    count = index + 1;
+  }
+  return Math.min(widths.length, Math.max(1, count));
+}
+
+function useFittingChips(contentKey: string): FittingChips {
+  const row = useRef<HTMLUListElement | null>(null);
+  const measurer = useRef<HTMLDivElement | null>(null);
+  const [visibleCount, setVisibleCount] = useState(Number.POSITIVE_INFINITY);
+
+  useLayoutEffect(() => {
+    const line = row.current;
+    const copies = measurer.current;
+    if (!line || !copies) return undefined;
+    function measure(): void {
+      if (!line || !copies) return;
+      const items = [...copies.children].filter(
+        (element): element is HTMLElement => element instanceof HTMLElement,
+      );
+      const plus = items.pop();
+      const widths = items.map((element) => element.offsetWidth);
+      setVisibleCount(
+        fittingChipCount(widths, plus?.offsetWidth ?? 0, line.clientWidth),
+      );
+    }
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(line);
+    return () => observer.disconnect();
+  }, [contentKey]);
+
+  return { row, measurer, visibleCount };
 }

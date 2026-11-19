@@ -1,15 +1,95 @@
-import { CheckSquare } from "lucide-react";
+import {
+  AlertCircle,
+  ArrowDown,
+  ArrowUp,
+  Bookmark,
+  CheckCircle2,
+  CheckSquare,
+  Circle,
+  Layers,
+} from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 import { AssigneeAvatar } from "@/app/components/tasks/assignee-avatar";
+import { WORK_ITEM_PRIORITY, WORK_ITEM_TYPE } from "@/definition/Task";
 
-import { KanbanGhostPriority } from "./kanban-ghost-priority";
-import { KanbanGhostType } from "./kanban-ghost-type";
-
-import type { Label, WorkItemDetail } from "@/definition/Task";
+import type {
+  Label,
+  WorkItemDetail,
+  WorkItemPriority,
+  WorkItemType,
+} from "@/definition/Task";
+import type { ReactNode } from "react";
 
 interface KanbanTicketGhostProps {
   readonly item: WorkItemDetail;
   readonly labels: readonly Label[];
+}
+
+interface KanbanGhostTypeProps {
+  readonly type: WorkItemType;
+}
+
+interface KanbanGhostPriorityProps {
+  readonly priority: WorkItemPriority;
+}
+
+function KanbanGhostType({ type }: KanbanGhostTypeProps): React.ReactElement {
+  const { t } = useTranslation();
+
+  let typeIcon: ReactNode = (
+    <Circle className="size-3 fill-current" aria-hidden="true" />
+  );
+  let typeLabel = t("tasks.type.task");
+
+  if (type === WORK_ITEM_TYPE.INITIATIVE) {
+    typeIcon = <Layers className="size-3.5" aria-hidden="true" />;
+    typeLabel = t("tasks.type.initiative");
+  } else if (type === WORK_ITEM_TYPE.EPIC) {
+    typeIcon = (
+      <Bookmark className="size-3.5 fill-current" aria-hidden="true" />
+    );
+    typeLabel = t("tasks.type.epic");
+  } else if (type === WORK_ITEM_TYPE.SUBTASK) {
+    typeIcon = <CheckCircle2 className="size-3.5" aria-hidden="true" />;
+    typeLabel = t("tasks.type.subtask");
+  }
+
+  return (
+    <span className="inline-flex items-center gap-1.5 rounded-md bg-primary/15 px-2 py-0.5 text-xs font-medium text-primary">
+      {typeIcon}
+      {typeLabel}
+    </span>
+  );
+}
+
+function KanbanGhostPriority({
+  priority,
+}: KanbanGhostPriorityProps): React.ReactElement {
+  const { t } = useTranslation();
+
+  let priorityIcon: ReactNode = (
+    <span className="size-1.5 rounded-full bg-primary/60" aria-hidden="true" />
+  );
+  let priorityLabel = t("tasks.priority.normal");
+
+  if (priority === WORK_ITEM_PRIORITY.URGENT) {
+    priorityIcon = <AlertCircle className="size-3.5" aria-hidden="true" />;
+    priorityLabel = t("tasks.priority.urgent");
+  } else if (priority === WORK_ITEM_PRIORITY.HIGH) {
+    priorityIcon = <ArrowUp className="size-3.5" aria-hidden="true" />;
+    priorityLabel = t("tasks.priority.high");
+  } else if (priority === WORK_ITEM_PRIORITY.LOW) {
+    priorityIcon = <ArrowDown className="size-3.5" aria-hidden="true" />;
+    priorityLabel = t("tasks.priority.low");
+  }
+
+  return (
+    <span className="inline-flex items-center gap-1 font-medium text-primary">
+      {priorityIcon}
+      {priorityLabel}
+    </span>
+  );
 }
 
 /**

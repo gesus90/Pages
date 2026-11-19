@@ -243,7 +243,7 @@ export interface AgentStructuredImportItem {
   readonly targetKey: string;
   readonly action: AgentImportAction;
   readonly targetId: string | null;
-  /** The key of a ticket, e.g. `PAGE-12`. */
+  /** The key of a ticket, e.g. `TICKET-12`. */
   readonly key: string | null;
   readonly link: string | null;
   /** The parent ticket of a ticket as resolved in this run. */

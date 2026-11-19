@@ -1,37 +1,43 @@
-import { lazy, Suspense, useState } from "react";
+import { CloudOff, LoaderCircle } from "lucide-react";
+import { lazy, Suspense, useEffect, useEffectEvent, useState } from "react";
 import { useTranslation } from "react-i18next";
+import {
+  useBlocker,
+  useFetcher,
+  useRevalidator,
+  useSearchParams,
+} from "react-router";
 
+import { useRegionFormatter } from "@/app/components/common/region-provider";
+import { AgentDiscardDialog } from "@/app/components/settings/agents/agent-discard-dialog";
+import { Button } from "@/app/components/ui/button";
+import { DEFAULT_PLAN_NAME } from "@/app/lib/agent-plan-default";
+import { cn } from "@/app/lib/cn";
 import { isPlanEditLocked } from "@/definition/AgentPlanRunState";
 import { planTargetDeviations } from "@/definition/AgentPlanTarget";
 
 import { PlanRunPanel } from "./plan-run-panel";
 import { sequencedRun } from "./plan-run-status-model";
-import { usePlanControl } from "./use-plan-control";
 import { PlanCanvas } from "./plan-canvas";
-import { PlanCanvasEmpty } from "./plan-canvas-empty";
-import { PlanLeaveGuard } from "./plan-leave-guard";
-import { PlanLocalStateNotice } from "./plan-local-state-notice";
 import {
   PlanIncomingRevision,
   PlanRevisionConflict,
 } from "./plan-revision-conflict";
 import { PlanSaveNotice } from "./plan-save-notice";
 import { usePlanEditor } from "./use-plan-editor";
+import { usePlanPoll } from "./use-plan-poll";
 import { usePlanRun } from "./use-plan-run";
-import {
-  useOpenRequestedRun,
-  usePlanRequestedRunId,
-} from "./use-plan-requested-run";
-import { usePlanRunSummaries } from "./use-plan-run-summaries";
 import { usePlanSave } from "./use-plan-save";
 import { planWorkspaceWait } from "./plan-workspace-wait-model";
 
 import type { AgentPlanOpening } from "@/app/lib/agent-plan-default";
+import type { AgentPlanActionResult } from "@/app/lib/agent-plan-response";
 import type { LocalStateMark } from "@/app/lib/local-state/local-state-loader";
 import type {
   AgentPlanInput,
   AgentPlanPage,
   AgentPlanRun,
+  AgentPlanRunSummary,
 } from "@/definition/AgentPlan";
 import type { AgentPlanControl } from "@/definition/AgentPlanControl";
 import type { AgentWorkspaceChoice } from "@/definition/AgentWorkspace";
@@ -344,6 +350,195 @@ function PlanEditorPage({
       />
       <PlanRevisionConflict editor={editor} />
       <PlanLeaveGuard isDirty={editor.isDirty} />
+    </div>
+  );
+}
+
+function usePlanRequestedRunId(): string | null {
+  const [searchParams] = useSearchParams();
+  return searchParams.get("runId");
+}
+
+function useOpenRequestedRun(
+  runId: string | null,
+  planId: string | undefined,
+  select: (id: string, mode: "follow" | "history") => void,
+): void {
+  const open = useEffectEvent((id: string): void => select(id, "history"));
+  useEffect(() => {
+    if (runId && planId) open(runId);
+  }, [runId, planId]);
+}
+
+interface RunSummariesResponse {
+  readonly ok: boolean;
+  readonly planId?: string;
+  readonly runs?: readonly AgentPlanRunSummary[];
+}
+
+function usePlanRunSummaries(
+  planId: string | undefined,
+  isWanted: boolean,
+): readonly AgentPlanRunSummary[] | null {
+  const fetcher = useFetcher<RunSummariesResponse>();
+  const { load } = fetcher;
+  const response = fetcher.data;
+  useEffect(() => {
+    if (!isWanted || !planId) return;
+    void load(
+      `/agent-api/plan-run-summaries?${new URLSearchParams({ planId }).toString()}`,
+    );
+  }, [isWanted, planId, load]);
+  return response?.ok && response.planId === planId
+    ? (response.runs ?? null)
+    : null;
+}
+
+function usePlanControl(
+  planId: string | undefined,
+  initial: AgentPlanControl | undefined,
+  command: AgentPlanActionResult | undefined,
+): {
+  readonly control: AgentPlanControl | undefined;
+  readonly error: string | null;
+  readonly readAgain: () => void;
+} {
+  const [readRequest, setReadRequest] = useState(0);
+  const poll = usePlanPoll(
+    planId ? `/agent-api/plan-runs?planId=${encodeURIComponent(planId)}` : null,
+    command,
+    "always",
+    readRequest,
+  );
+  return {
+    control: poll.response?.ok ? (poll.response.control ?? initial) : initial,
+    error: poll.error,
+    readAgain: () => setReadRequest((request) => request + 1),
+  };
+}
+
+function PlanLocalStateNotice({
+  mark,
+}: {
+  readonly mark?: LocalStateMark;
+}): React.ReactElement | null {
+  const { t } = useTranslation();
+  const { formatDateTime } = useRegionFormatter();
+  if (!mark) return null;
+  const isOffline = mark.state === "offline";
+  const Icon = isOffline ? CloudOff : LoaderCircle;
+  return (
+    <p
+      role={isOffline ? "alert" : "status"}
+      data-local-state={mark.state}
+      className={cn(
+        "pointer-events-auto flex max-w-[min(36rem,calc(100vw-2rem))] items-center gap-2 rounded-lg border px-3 py-2 text-sm shadow-xs",
+        isOffline
+          ? "border-warning/40 bg-warning-subtle text-warning"
+          : "border-border bg-surface text-muted-foreground",
+      )}
+    >
+      <Icon
+        aria-hidden="true"
+        className={cn("size-4 shrink-0", !isOffline && "animate-spin")}
+      />
+      {t(`plans.localState.${mark.state}`, {
+        time: formatDateTime(new Date(mark.savedAt).toISOString()),
+      })}
+    </p>
+  );
+}
+
+function isCreatedClone(location: {
+  readonly pathname: string;
+  readonly search: string;
+  readonly state: unknown;
+}): boolean {
+  const { state } = location;
+  return (
+    location.pathname === "/agents/plans" &&
+    typeof state === "object" &&
+    state !== null &&
+    "clonedPlanId" in state &&
+    typeof state.clonedPlanId === "string" &&
+    new URLSearchParams(location.search).get("planId") === state.clonedPlanId
+  );
+}
+
+function PlanLeaveGuard(props: {
+  readonly isDirty: boolean;
+}): React.ReactElement {
+  const { t } = useTranslation();
+  const blocker = useBlocker(
+    ({ nextLocation }) => props.isDirty && !isCreatedClone(nextLocation),
+  );
+  useEffect(() => {
+    if (!props.isDirty) return undefined;
+    const warn = (event: BeforeUnloadEvent): void => event.preventDefault();
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [props.isDirty]);
+  return (
+    <AgentDiscardDialog
+      open={blocker.state === "blocked"}
+      onOpenChange={(open) => {
+        if (!open) blocker.reset?.();
+      }}
+      onDiscard={() => blocker.proceed?.()}
+      title={t("plans.discardTitle")}
+      description={t("plans.discardHint")}
+    />
+  );
+}
+
+function useEmptyText(
+  opening: AgentPlanOpening,
+  isEmptyPlan: boolean,
+): { readonly title: string; readonly hint?: string } | null {
+  const { t } = useTranslation();
+  if (opening === "defaultMissing")
+    return {
+      title: t("plans.opening.defaultMissingTitle"),
+      hint: t("plans.opening.defaultMissing", { name: DEFAULT_PLAN_NAME }),
+    };
+  if (opening === "requestedMissing")
+    return {
+      title: t("plans.opening.requestedMissingTitle"),
+      hint: t("plans.opening.requestedMissing"),
+    };
+  return isEmptyPlan ? { title: t("plans.opening.emptyPlan") } : null;
+}
+
+function PlanCanvasEmpty(props: {
+  readonly opening: AgentPlanOpening;
+  readonly isEmptyPlan: boolean;
+}): React.ReactElement | null {
+  const { t } = useTranslation();
+  const { revalidate, state } = useRevalidator();
+  const text = useEmptyText(props.opening, props.isEmptyPlan);
+  if (!text) return null;
+  return (
+    <div className="pointer-events-none absolute inset-0 flex items-center justify-center p-8">
+      <div
+        role="status"
+        className="max-w-sm rounded-2xl bg-background/80 px-5 py-4 text-center"
+      >
+        <p className="text-sm font-semibold">{text.title}</p>
+        {text.hint ? (
+          <p className="mt-1 text-sm text-muted-foreground">{text.hint}</p>
+        ) : null}
+        {props.opening === "requestedMissing" ? (
+          <Button
+            className="pointer-events-auto mt-3"
+            variant="outline"
+            size="sm"
+            disabled={state !== "idle"}
+            onClick={() => void revalidate()}
+          >
+            {t("plans.opening.retry")}
+          </Button>
+        ) : null}
+      </div>
     </div>
   );
 }

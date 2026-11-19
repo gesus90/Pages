@@ -67,7 +67,7 @@ export function registerPicaHostFileTools(
 ): void {
   registry.register<TicketParameters, PicaToolOutcome>({
     id: "tickets_attach_file",
-    description: `Attach a file to a ticket as a ticket attachment. ticketId is the ticket ID or its key such as PAGE-12. ${PATH_NOTE}`,
+    description: `Attach a file to a ticket as a ticket attachment. ticketId is the ticket ID or its key such as TICKET-12. ${PATH_NOTE}`,
     inputSchema: TICKET_SCHEMA,
     outputSchema: PICA_TOOL_OUTCOME,
     execute: (parameters, context) =>

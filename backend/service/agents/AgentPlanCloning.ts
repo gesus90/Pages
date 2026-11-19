@@ -1,22 +1,31 @@
 import { randomUUID } from "node:crypto";
 
+import { requireCloneablePlan } from "@/backend/agents/AgentPlanCloneShape";
+import { readPlanInput } from "@/backend/agents/AgentPlanInput";
 import { requirePlanRevision } from "@/backend/database/repositories/agent/AgentPlanRepository";
 import { AgentPlanAuditRepository } from "@/backend/database/repositories/agent/AgentPlanAuditRepository";
 import { AgentError, isAgentErrorCode } from "@/backend/error/AgentErrors";
 import { AgentExecutionError } from "@/backend/error/AgentExecutionErrors";
 import { AgentOperationError } from "@/backend/error/AgentOperationError";
+import { requireCredentialFreeText } from "@/backend/security/AgentTextSafety";
+import { withoutTicketFlow } from "@/definition/AgentPlanGraph";
+import { withPortlessPlanGroups } from "@/definition/AgentPlanGroupUpgrade";
+import { removePlanNode } from "@/definition/AgentPlanRemoval";
 import {
   normalizePlanTeams,
   planNameDepartment,
 } from "@/definition/AgentPlanTeam";
 
 import { clonePlanGraph } from "./AgentPlanClone";
-import { cleanCloneForm } from "./AgentPlanCloneForm";
 import { AgentPlanCloneReferences } from "./AgentPlanCloneReferences";
 import { planOwnership } from "./AgentPlanOwnership";
 
 import type { DatabaseTransaction } from "@/backend/database/Database";
-import type { AgentPlan, AgentPlanView } from "@/definition/AgentPlan";
+import type {
+  AgentPlan,
+  AgentPlanInput,
+  AgentPlanView,
+} from "@/definition/AgentPlan";
 import type {
   AgentPlanCloneAdjustment,
   AgentPlanCloneReceipt,
@@ -317,4 +326,34 @@ export class AgentPlanCloning {
       }
     }
   }
+}
+
+function cleanCloneForm(source: unknown): {
+  readonly plan: AgentPlanInput;
+  readonly wasCleaned: boolean;
+} {
+  requireCredentialFreeText(JSON.stringify(source));
+  let parsed: AgentPlanInput;
+  try {
+    parsed = readPlanInput(source);
+  } catch (error: unknown) {
+    if (error instanceof AgentError)
+      throw new AgentError("plan_schema_unsupported");
+    throw error;
+  }
+  let plan = withPortlessPlanGroups(withoutTicketFlow(parsed));
+  for (const node of plan.nodes)
+    if (node.type === "git_closeout") plan = removePlanNode(plan, node.id);
+  let discardedFields = false;
+  try {
+    requireCloneablePlan(source);
+  } catch (error: unknown) {
+    if (!(error instanceof AgentOperationError)) throw error;
+    discardedFields = true;
+  }
+  const wasCleaned =
+    discardedFields ||
+    plan.nodes.length !== parsed.nodes.length ||
+    JSON.stringify(plan.edges) !== JSON.stringify(parsed.edges);
+  return { plan, wasCleaned };
 }

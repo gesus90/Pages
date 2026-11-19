@@ -2,23 +2,25 @@ import {
   AtSign,
   BarChart,
   Bell,
-  CalendarPlus,
   CalendarDays,
+  CalendarPlus,
   CheckSquare,
   Mail,
   Monitor,
+  Workflow,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import { SettingsCard } from "@/app/components/settings/settings-layout";
 import { ToggleRow } from "@/app/components/settings/toggle-row";
+import { Select } from "@/app/components/ui/select";
+import { AUTOMATION_NOTIFICATION_MODES } from "@/definition/Automation";
 
-import { AutomationNotificationRow } from "./automation-notification-row";
 import { NotificationChoiceSection } from "./notification-choice-section";
 
 import type { AutomationNotificationMode } from "@/definition/Automation";
-import type { UserNotificationKey, UserSettings } from "@/definition/Settings";
 import type { NotificationChoices } from "@/definition/PicaMobileNotifications";
+import type { UserNotificationKey, UserSettings } from "@/definition/Settings";
 import type { ReactNode } from "react";
 
 const NOTIFICATION_ITEMS: readonly {
@@ -65,6 +67,46 @@ interface NotificationsCardProps {
   readonly onAutomationNotificationChange: (
     mode: AutomationNotificationMode,
   ) => void;
+}
+
+interface AutomationNotificationRowProps {
+  readonly mode: AutomationNotificationMode;
+  readonly onChange: (mode: AutomationNotificationMode) => void;
+}
+
+function AutomationNotificationRow({
+  mode,
+  onChange,
+}: AutomationNotificationRowProps): React.ReactElement {
+  const { t } = useTranslation();
+  const options = AUTOMATION_NOTIFICATION_MODES.map((value) => ({
+    value,
+    label: t(`settings.notifications.automations.modes.${value}`),
+  }));
+
+  return (
+    <div className="flex items-center gap-3 rounded-xl px-3 py-2">
+      <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+        <Workflow className="size-4" aria-hidden="true" />
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-medium">
+          {t("settings.notifications.automations.title")}
+        </p>
+        <p className="text-xs text-muted-foreground">
+          {t("settings.notifications.automations.description")}
+        </p>
+      </div>
+      <Select
+        size="sm"
+        className="w-36"
+        value={mode}
+        onValueChange={onChange}
+        options={options}
+        ariaLabel={t("settings.notifications.automations.title")}
+      />
+    </div>
+  );
 }
 
 /** Renders one switch per notification channel. */

@@ -1,9 +1,14 @@
-import { redirect, useLoaderData, useLocation } from "react-router";
 import { useEffect } from "react";
+import { useTranslation } from "react-i18next";
+import {
+  redirect,
+  useLoaderData,
+  useLocation,
+  useNavigation,
+  useSearchParams,
+} from "react-router";
 
-import { PlanRetiredNotice } from "@/app/components/agents/plans/plan-retired-notice";
 import { PlanPage } from "@/app/components/agents/plans/plan-page";
-import { usePlanSelectionPreference } from "@/app/components/agents/plans/use-plan-selection-preference";
 import { useLocalStateRoute } from "@/app/components/common/use-local-state-route";
 import { planSelectionCookie } from "@/app/lib/agent-plan-selection";
 import {
@@ -145,4 +150,44 @@ export default function AgentPlansRoute(): React.ReactElement {
       />
     </>
   );
+}
+
+function PlanRetiredNotice(): React.ReactElement | null {
+  const { t } = useTranslation();
+  const [searchParams] = useSearchParams();
+  if (searchParams.get("notice") !== "direct-models") return null;
+  return (
+    <p
+      role="status"
+      className="fixed top-20 left-4 md:left-[calc(var(--app-sidebar-width)+1rem)] z-40 max-w-sm rounded-xl border border-border bg-surface p-3 text-sm text-foreground shadow-panel"
+    >
+      {t("picaSettings.retired")}
+    </p>
+  );
+}
+
+function usePlanSelectionPreference(preference: PlanSelectionPreference): void {
+  const { state } = useNavigation();
+  const { origin, userId, planId, discardedPlanId } = preference;
+  useEffect(() => {
+    if (state !== "idle" || (!planId && !discardedPlanId)) return;
+    let isCurrent = true;
+    async function persist(): Promise<void> {
+      const cookie = planSelectionCookie({ origin, userId });
+      const previous = document.cookie;
+      if (!planId && (await cookie.parse(previous)) !== discardedPlanId) return;
+      const serialized = await cookie.serialize(planId ?? "", {
+        secure: window.location.protocol === "https:",
+        ...(planId ? {} : { maxAge: 0, expires: new Date(0) }),
+      });
+      if (isCurrent && (planId || document.cookie === previous))
+        document.cookie = serialized;
+    }
+    void persist().catch((error: unknown) => {
+      console.warn("Pages could not store the last opened plan.", error);
+    });
+    return () => {
+      isCurrent = false;
+    };
+  }, [origin, userId, planId, discardedPlanId, state]);
 }

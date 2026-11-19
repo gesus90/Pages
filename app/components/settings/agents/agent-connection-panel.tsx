@@ -8,19 +8,19 @@ import { isLoginActive } from "@/definition/AgentConnection";
 
 import { AgentAlert } from "./agent-alert";
 import { AgentCatalogControls } from "./agent-catalog-controls";
-import { AgentChecks } from "./agent-checks";
+import { AgentCheckResults } from "./agent-check-results";
 import { AgentCliLogin } from "./agent-cli-login";
 import { AgentFormFields } from "./agent-form-fields";
 import { readBlockingAgents } from "./use-agent-actions";
 import { useAgentForm } from "./use-agent-form";
 import { useModelAvailability } from "./use-model-availability";
 
-import type { AgentModelCatalog } from "@/definition/AgentModelCatalog";
-import type { AgentProfileDirectory } from "@/definition/AgentProfile";
 import type {
   AgentAccessKind,
   AgentConnectionSummary,
 } from "@/definition/AgentConnection";
+import type { AgentModelCatalog } from "@/definition/AgentModelCatalog";
+import type { AgentProfileDirectory } from "@/definition/AgentProfile";
 import type { AgentCommandHandler } from "./agent-row-menu";
 import type { AgentActions } from "./use-agent-actions";
 import type { AgentForm } from "./use-agent-form";
@@ -43,98 +43,72 @@ function hasRunningLogin(
   );
 }
 
-/** Keeps editable metadata, login and checks in the shared accessible management panel. */
-export function AgentConnectionPanel({
-  kind,
-  catalog,
+function AgentChecks({
   connection,
-  directory,
-  actions,
-  hasPollError,
-  onSaved,
+  disabled,
+  isChecking,
   onCommand,
-  onReturnFocus,
 }: {
-  readonly kind: AgentAccessKind;
-  readonly catalog?: AgentModelCatalog;
-  readonly directory: AgentProfileDirectory;
-  readonly connection: AgentConnectionSummary | undefined;
-  readonly actions: AgentActions;
-  readonly hasPollError: boolean;
-  readonly onSaved: (id: string) => void;
+  readonly connection: AgentConnectionSummary;
+  readonly disabled: boolean;
+  readonly isChecking: boolean;
   readonly onCommand: AgentCommandHandler;
-  readonly onReturnFocus: (event: Event) => void;
 }): React.ReactElement {
   const { t } = useTranslation();
-  const form = useAgentForm(kind, connection, onSaved);
-  const isLoginRunning = hasRunningLogin(connection);
-  const isDisabled =
-    form.isDirty || form.isSaving || actions.isPending || isLoginRunning;
-  const isCliMissing = connection?.cli?.binaryFound === false;
-  const availability = useModelAvailability({
-    connection,
-    catalog,
-    actions,
-    isBlocked: isDisabled || isCliMissing,
-  });
+  const standardHint = connection.cli ? "cliAuthHint" : "apiAuthHint";
+  const authHint = connection.provider === "zai" ? "zaiAuthHint" : standardHint;
   return (
-    <SidePanelContent
-      title={t(
-        connection ? "settings.agents.editTitle" : "settings.agents.addTitle",
-      )}
-      closeLabel={t("settings.agents.close")}
-      hasUnsavedChanges={form.isDirty}
-      onCloseAutoFocus={onReturnFocus}
-    >
-      <VerticalScrollArea
-        className="min-h-0 flex-1"
-        contentClassName="gap-6 px-6 pb-6"
-      >
-        <PanelForm
-          form={form}
-          kind={kind}
-          availability={availability}
-          directory={directory}
-        />
-        <PanelMessages
-          error={actions.error}
-          blockingAgents={readBlockingAgents(actions.result)}
-          hasPollError={hasPollError}
-          shouldSaveFirst={form.isDirty || !connection}
-        />
-        {connection && catalog ? (
-          <AgentCatalogControls
-            id={connection.id}
-            catalog={catalog}
-            actions={actions}
-            disabled={isDisabled}
-            isCli={Boolean(connection.cli)}
-          />
-        ) : null}
-        {connection ? (
-          <>
-            <AgentCliLogin
-              connection={connection}
-              disabled={isDisabled}
-              actions={actions}
-              onCommand={onCommand}
-            />
-            <AgentChecks
-              connection={connection}
-              disabled={isDisabled || isCliMissing}
-              isChecking={actions.pendingIntent === "run-check"}
-              onCommand={onCommand}
-            />
-          </>
-        ) : null}
-      </VerticalScrollArea>
-      <PanelFooter
-        connection={connection}
-        isSaving={form.isSaving}
-        isBusy={actions.isPending || isLoginRunning}
-        onCommand={onCommand}
+    <section className="space-y-3">
+      <h3 className="text-sm font-semibold">{t("settings.agents.checks")}</h3>
+      <div className="flex flex-wrap gap-2">
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          disabled={disabled}
+          isPending={isChecking}
+          onClick={() => onCommand(connection, "auth")}
+        >
+          {t(
+            connection.cli
+              ? "settings.agents.checkLogin"
+              : "settings.agents.checkAccess",
+          )}
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          disabled={disabled || (!connection.cli && !connection.testModel)}
+          isPending={isChecking}
+          onClick={() => onCommand(connection, "model")}
+        >
+          {t(
+            connection.cli
+              ? "settings.agents.testCli"
+              : "settings.agents.testModelAction",
+          )}
+        </Button>
+      </div>
+      <p className="text-xs text-muted-foreground">
+        {t(`settings.agents.${authHint}`)}
+      </p>
+      {!connection.cli && !connection.testModel ? (
+        <p className="text-xs text-muted-foreground">
+          {t("settings.agents.modelRequiredHint")}
+        </p>
+      ) : null}
+      <AgentCheckResults
+        kind="auth"
+        check={connection.checks.auth}
+        isCli={Boolean(connection.cli)}
       />
-    </SidePanelContent>
+      <AgentCheckResults
+        kind="model"
+        check={connection.checks.model}
+        isCli={Boolean(connection.cli)}
+      />
+    </section>
   );
 }
 
@@ -241,5 +215,100 @@ function PanelMessages({
         </p>
       ) : null}
     </>
+  );
+}
+
+/** Keeps editable metadata, login and checks in the shared accessible management panel. */
+export function AgentConnectionPanel({
+  kind,
+  catalog,
+  connection,
+  directory,
+  actions,
+  hasPollError,
+  onSaved,
+  onCommand,
+  onReturnFocus,
+}: {
+  readonly kind: AgentAccessKind;
+  readonly catalog?: AgentModelCatalog;
+  readonly directory: AgentProfileDirectory;
+  readonly connection: AgentConnectionSummary | undefined;
+  readonly actions: AgentActions;
+  readonly hasPollError: boolean;
+  readonly onSaved: (id: string) => void;
+  readonly onCommand: AgentCommandHandler;
+  readonly onReturnFocus: (event: Event) => void;
+}): React.ReactElement {
+  const { t } = useTranslation();
+  const form = useAgentForm(kind, connection, onSaved);
+  const isLoginRunning = hasRunningLogin(connection);
+  const isDisabled =
+    form.isDirty || form.isSaving || actions.isPending || isLoginRunning;
+  const isCliMissing = connection?.cli?.binaryFound === false;
+  const availability = useModelAvailability({
+    connection,
+    catalog,
+    actions,
+    isBlocked: isDisabled || isCliMissing,
+  });
+  return (
+    <SidePanelContent
+      title={t(
+        connection ? "settings.agents.editTitle" : "settings.agents.addTitle",
+      )}
+      closeLabel={t("settings.agents.close")}
+      hasUnsavedChanges={form.isDirty}
+      onCloseAutoFocus={onReturnFocus}
+    >
+      <VerticalScrollArea
+        className="min-h-0 flex-1"
+        contentClassName="gap-6 px-6 pb-6"
+      >
+        <PanelForm
+          form={form}
+          kind={kind}
+          availability={availability}
+          directory={directory}
+        />
+        <PanelMessages
+          error={actions.error}
+          blockingAgents={readBlockingAgents(actions.result)}
+          hasPollError={hasPollError}
+          shouldSaveFirst={form.isDirty || !connection}
+        />
+        {connection && catalog ? (
+          <AgentCatalogControls
+            id={connection.id}
+            catalog={catalog}
+            actions={actions}
+            disabled={isDisabled}
+            isCli={Boolean(connection.cli)}
+          />
+        ) : null}
+        {connection ? (
+          <>
+            <AgentCliLogin
+              connection={connection}
+              disabled={isDisabled}
+              actions={actions}
+              onCommand={onCommand}
+            />
+            <AgentChecks
+              connection={connection}
+              disabled={isDisabled || isCliMissing}
+              isChecking={actions.pendingIntent === "run-check"}
+              onCommand={onCommand}
+            />
+          </>
+        ) : null}
+      </VerticalScrollArea>
+      <PanelFooter
+        connection={connection}
+        isSaving={form.isSaving}
+        isBusy={actions.isPending || isLoginRunning}
+        onCommand={onCommand}
+      />
+    </SidePanelContent>
   );
 }

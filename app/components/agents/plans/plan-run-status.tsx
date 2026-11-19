@@ -1,29 +1,35 @@
 import { useReactFlow } from "@xyflow/react";
-import { useId, useRef, useState } from "react";
+import { Crosshair } from "lucide-react";
+import { useEffect, useId, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
+import { useRegionFormatter } from "@/app/components/common/region-provider";
+import { Button } from "@/app/components/ui/button";
 import { allPlanRunResults } from "@/definition/AgentPlanLoopResults";
+import { isActivePlanRun } from "@/definition/AgentPlanRunState";
 
-import { focusStatusNode } from "./plan-status-focus";
-import { PlanCommandNote } from "./plan-command-note";
 import { PlanInvocationNote } from "./plan-jump/plan-jump-run";
 import { PlanStartFailure } from "./plan-start-failure";
 import { PlanStatusHeader } from "./plan-status-header";
 import { PlanStatusDetails } from "./plan-status-details";
-import { PlanStatusNow } from "./plan-status-now";
-import { PlanStatusOutlook } from "./plan-status-outlook";
 import { PlanAutomaticResumeNote } from "./plan-status-retry";
 import { planNodeLabel } from "./plan-layout";
 import { planSequencePreview, workGaps } from "./plan-run-status-model";
 import { planStepSequence } from "./plan-step-sequence";
 import { showsPass } from "./plan-status-sequence";
-import { usePlanStatusTime } from "./use-plan-status-time";
 import { keepPlanControlKeys } from "./plan-flow-keys";
 
+import type { ReactFlowInstance } from "@xyflow/react";
 import type { AgentPlanRun } from "@/definition/AgentPlan";
+import type { PlanRunCommandReceipt } from "@/definition/PagesRuns";
 import type { PlanCanvasProps } from "./plan-flow-context";
 import type { PlanFlowEdge, PlanFlowNode } from "./plan-flow-model";
-import type { PlanSequenceBlock } from "./plan-step-sequence";
+import type {
+  PlanSequenceBlock,
+  PlanSequenceBlockKind,
+  PlanStepSequence,
+} from "./plan-step-sequence";
+import type { PlanWorkspaceWait } from "./plan-workspace-wait-model";
 
 interface PlanRunStatusProps {
   readonly canvas: PlanCanvasProps;
@@ -171,5 +177,175 @@ function RunStatusContent({
         </div>
       ) : null}
     </section>
+  );
+}
+
+function usePlanStatusTime(run: AgentPlanRun | null): string | null {
+  const [now, setNow] = useState<string | null>(null);
+  const isActive = run !== null && isActivePlanRun(run.status);
+  useEffect(() => {
+    if (!isActive) return;
+    setNow(new Date().toISOString());
+    const timer = window.setInterval(
+      () => setNow(new Date().toISOString()),
+      1000,
+    );
+    return () => window.clearInterval(timer);
+  }, [isActive, run?.id]);
+  return isActive ? now : (run?.endedAt ?? null);
+}
+
+function PlanCommandNote({
+  command,
+}: {
+  readonly command: PlanRunCommandReceipt | undefined;
+}): React.ReactElement | null {
+  const { t, i18n } = useTranslation();
+  if (!command || command.status === "applied") return null;
+  const errorKey = `settings.agents.error.${command.error}`;
+  return (
+    <p
+      role="status"
+      className="border-t border-border bg-muted/50 px-3 py-2 text-xs text-muted-foreground"
+    >
+      {t(`plans.command.${command.status}`, {
+        action: t(`plans.command.action.${command.action}`),
+      })}
+      {command.error && i18n.exists(errorKey) ? ` ${t(errorKey)}` : null}
+    </p>
+  );
+}
+
+function canvasRightEdge(
+  panel: HTMLElement,
+  bounds: DOMRect,
+  top: number,
+): number {
+  const palette = panel.parentElement
+    ?.querySelector("[data-plan-palette]")
+    ?.getBoundingClientRect();
+  if (palette && palette.bottom > bounds.top + top)
+    return palette.left - bounds.left - 16;
+  return bounds.width - 16;
+}
+
+function focusStatusNode(
+  flow: ReactFlowInstance<PlanFlowNode, PlanFlowEdge>,
+  id: string,
+  panel: HTMLElement | null,
+): void {
+  const node = flow.getInternalNode(id);
+  const bounds = panel?.parentElement?.getBoundingClientRect();
+  if (!node || !panel || !bounds) return;
+  const upper = panel.parentElement
+    ?.querySelector("[data-plan-upper-stack]")
+    ?.getBoundingClientRect();
+  const top = Math.max(16, (upper?.bottom ?? bounds.top) - bounds.top + 16);
+  const bottom = panel.getBoundingClientRect().top - bounds.top - 16;
+  const right = canvasRightEdge(panel, bounds, top);
+  const width = node.measured.width ?? 280;
+  const height = node.measured.height ?? 200;
+  const zoom = Math.max(
+    0.01,
+    Math.min(
+      1,
+      Math.max(48, right - 16) / (width + 32),
+      Math.max(48, bottom - top) / (height + 32),
+    ),
+  );
+  const position = node.internals.positionAbsolute;
+  void flow.setViewport({
+    x: (16 + right) / 2 - (position.x + width / 2) * zoom,
+    y: (top + bottom) / 2 - (position.y + height / 2) * zoom,
+    zoom,
+  });
+}
+
+function PlanStatusOutlook({
+  name,
+  number,
+  pass,
+  kind,
+  canLocate,
+  onLocate,
+}: {
+  readonly name: string;
+  readonly number: number;
+  readonly pass: number | null;
+  readonly kind: Exclude<PlanSequenceBlockKind, "actual">;
+  readonly canLocate: boolean;
+  readonly onLocate: () => void;
+}): React.ReactElement {
+  const { t } = useTranslation();
+  return (
+    <section
+      aria-label={t("plans.progress.step", { number })}
+      className="flex flex-col gap-1 border-t border-border px-4 py-3 text-xs leading-4.5"
+    >
+      <h3 className="text-sm leading-5 font-semibold wrap-anywhere">
+        {t("plans.progress.step", { number })} · {name}
+        {pass ? ` · ${t("plans.progress.pass", { pass })}` : null}
+      </h3>
+      <p className="text-muted-foreground wrap-anywhere">
+        {t(`plans.progress.outlook.${kind}`)}
+      </p>
+      <Button
+        size="sm"
+        variant="ghost"
+        className="mt-1 h-auto min-h-8 max-w-full justify-start self-start rounded-md px-0 text-xs leading-4.5 text-muted-foreground whitespace-normal xl:min-h-8 xl:px-0 xl:text-xs [@media(pointer:coarse)]:min-h-11"
+        onClick={onLocate}
+        disabled={!canLocate}
+      >
+        <Crosshair aria-hidden="true" className="size-4 shrink-0" />
+        {t(canLocate ? "plans.progress.locate" : "plans.progress.nodeMissing")}
+      </Button>
+    </section>
+  );
+}
+
+function lastActivityAt(run: AgentPlanRun): string | null {
+  const reported = allPlanRunResults(run)
+    .map((step) => step.session?.activity?.reportedAt)
+    .filter((time): time is string => typeof time === "string")
+    .sort();
+  return reported.at(-1) ?? null;
+}
+
+function PlanStatusNow({
+  run,
+  sequence,
+  workspaceWait,
+}: {
+  readonly run: AgentPlanRun | null;
+  readonly sequence: PlanStepSequence;
+  readonly workspaceWait: PlanWorkspaceWait | null | undefined;
+}): React.ReactElement | null {
+  const { t } = useTranslation();
+  const { formatDateTime } = useRegionFormatter();
+  if (!run || workspaceWait) return null;
+  if (run.status !== "running" && run.status !== "pausing") return null;
+  const block = sequence.blocks.find(
+    (entry) => entry.key === sequence.anchorKey,
+  );
+  const step =
+    block?.kind === "actual" ? block.name : t("plans.progress.now.noStep");
+  const activityAt = lastActivityAt(run);
+  const pass =
+    block && showsPass(block, sequence.blocks)
+      ? ` · ${t("plans.progress.pass", { pass: block.pass })}`
+      : "";
+  return (
+    <p
+      role="status"
+      className="border-t border-border bg-muted/50 px-3 py-2 text-xs wrap-anywhere text-muted-foreground"
+    >
+      {t("plans.progress.now.line", {
+        step: `${step}${pass}`,
+        completed: sequence.completed,
+        activity: activityAt
+          ? formatDateTime(activityAt)
+          : t("plans.progress.notReported"),
+      })}
+    </p>
   );
 }

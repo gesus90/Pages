@@ -150,7 +150,7 @@ in force. No cross-run memory or new external MCP access is introduced.
 
 Lokale ACP-Planagenten verwenden einen unabhängigen nativen Sitzungsbesitzer mit dauerhaftem Journal und Wiederanbindung desselben Runs/Versuchs. Normaler Pages-Shutdown trennt die Beobachtung; Nutzer-Stop bleibt wirksam. Eigentumsprüfung, Kompatibilität und Abnahmegrenzen stehen in [LocalAgentSessions.md](./LocalAgentSessions.md).
 
-> Current control contract: [Agent Plan control and Runner synchronization](./PAGE-184-185.md) documents
+> Current control contract: [Agent Plan control and Runner synchronization](./AgentPlanControlAndRunnerSync.md) documents
 > Pages plan contract 13, Runner 1.15.0, business acceptance for every CLI,
 > upper control actions, actual writer queues and logical workspace removal.
 > The versioned historical sections below describe their original releases.

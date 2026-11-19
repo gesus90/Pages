@@ -2,13 +2,19 @@ import { UserRepository } from "@/backend/database/repositories/UserRepository";
 import { WorkItemAttachmentRepository } from "@/backend/database/repositories/task/WorkItemAttachmentRepository";
 import { AgentOperationError } from "@/backend/error/AgentOperationError";
 import { McpAuthorizationError } from "@/backend/error/McpAuthorizationError";
+import {
+  WikiAccessDeniedError,
+  WikiPageNotFoundError,
+  WikiValidationError,
+} from "@/backend/error/WikiErrors";
+import { WorkItemValidationError } from "@/backend/error/WorkItemErrors";
 import { TaskAttachmentService } from "@/backend/service/task/TaskAttachmentService";
 import { TicketFileStore } from "@/backend/storage/TicketFileStore";
 
-import { translateAssetWriteError } from "./AgentAssetWriteErrors";
 import { attachmentReturnTarget } from "./AgentAttachmentReturnTarget";
 import { AgentAttachmentReturnService } from "./AgentAttachmentReturnService";
 import { createAgentTaskContext } from "./AgentTaskAccess";
+import { translateAgentTicketError } from "./AgentTicketErrors";
 
 import type { AuthorizedAssetReturn } from "./AgentAttachmentReturnService";
 import type { Database } from "@/backend/database/Database";
@@ -150,4 +156,21 @@ export class AgentTicketUploadService {
       ),
     };
   }
+}
+
+function translateAssetWriteError(error: unknown): unknown {
+  if (
+    error instanceof WorkItemValidationError &&
+    error.code === "attachmentTooLarge"
+  )
+    return new AgentOperationError("PAYLOAD_TOO_LARGE");
+  if (error instanceof WikiValidationError && error.code === "fileTooLarge")
+    return new AgentOperationError("PAYLOAD_TOO_LARGE");
+  if (error instanceof WikiAccessDeniedError)
+    return new AgentOperationError("FORBIDDEN");
+  if (error instanceof WikiPageNotFoundError)
+    return new AgentOperationError("NOT_FOUND");
+  if (error instanceof WikiValidationError)
+    return new AgentOperationError("INVALID_REQUEST");
+  return translateAgentTicketError(error);
 }

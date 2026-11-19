@@ -14,6 +14,12 @@ import { useTranslation } from "react-i18next";
 
 import { Button } from "@/app/components/ui/button";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+} from "@/app/components/ui/dialog";
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -23,13 +29,11 @@ import {
 import { isActivePlanRun } from "@/definition/AgentPlanRunState";
 
 import { hasPlanCleanups, PlanCleanupDialog } from "./plan-cleanup-dialog";
-import {
-  PlanWorkspaceReleaseDialog,
-  releasableWorkspaceLocks,
-} from "./plan-workspace-release-dialog";
+import { PlanWorkspaceLocks } from "./plan-workspace-locks";
 
 import type { AgentPlanPage, AgentPlanRun } from "@/definition/AgentPlan";
 import type { AgentPlanControl } from "@/definition/AgentPlanControl";
+import type { AgentPlanWorkspaceLock } from "@/definition/AgentPlanWorkspaceLock";
 import type { PlanManagementDialog } from "./plan-management/use-plan-management";
 
 const ITEM_ICON_CLASS = "mr-2.5 size-4 shrink-0";
@@ -204,5 +208,41 @@ function PlanDeleteMenuItem(props: {
         ) : null}
       </span>
     </DropdownMenuItem>
+  );
+}
+
+function releasableWorkspaceLocks(
+  control: AgentPlanControl | undefined,
+): readonly AgentPlanWorkspaceLock[] {
+  return (control?.workspaceLocks ?? []).filter((entry) => entry.canRelease);
+}
+
+function PlanWorkspaceReleaseDialog({
+  entries,
+  onClose,
+}: {
+  readonly entries: readonly AgentPlanWorkspaceLock[];
+  readonly onClose: () => void;
+}): React.ReactElement {
+  const { t } = useTranslation();
+  return (
+    <Dialog
+      open
+      onOpenChange={(isOpen) => {
+        if (!isOpen) onClose();
+      }}
+    >
+      <DialogContent size="md" className="pb-4">
+        <DialogTitle className="text-lg font-semibold">
+          {t("plans.workspaceLocks.menu")}
+        </DialogTitle>
+        <DialogDescription className="mt-2 text-sm text-muted-foreground">
+          {t("plans.workspaceLocks.dialogDescription")}
+        </DialogDescription>
+        <div className="-mx-4 pb-2">
+          <PlanWorkspaceLocks entries={entries} />
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }

@@ -1,15 +1,19 @@
-import { DetailBody } from "@/app/components/tasks/detail/detail-body";
-import { DetailDialogs } from "@/app/components/tasks/detail/detail-dialogs";
-import { DetailHeader } from "@/app/components/tasks/detail/detail-header";
-import { useDetailPanelState } from "@/app/components/tasks/detail/use-detail-panel-state";
-import { useTaskPanelActions } from "@/app/components/tasks/detail/use-task-panel-actions";
-import { TaskPanelError } from "@/app/components/tasks/detail/task-panel-error";
+import { useState } from "react";
+import { useTranslation } from "react-i18next";
+import { useActionData } from "react-router";
 
+import { DetailBody } from "@/app/components/tasks/detail/detail-body";
+import { DetailHeader } from "@/app/components/tasks/detail/detail-header";
+import { useTaskPanelActions } from "@/app/components/tasks/detail/use-task-panel-actions";
+import { LabelPicker } from "@/app/components/tasks/label-picker";
+import { TaskMoveDialog } from "@/app/components/tasks/task-move-dialog";
+
+import type { action } from "@/app/routes/tasks-server";
 import type { GitHubPullRequest } from "@/definition/GitHub";
 import type { Project } from "@/definition/Project";
 import type {
-  Milestone,
   Label,
+  Milestone,
   WorkItemAttachment,
   WorkItemChecklistItem,
   WorkItemDescendants,
@@ -47,6 +51,121 @@ interface TaskDetailPanelProps {
   readonly onRefresh: () => void;
   readonly isArchiving?: boolean;
   readonly isSyncing?: boolean;
+}
+
+interface DetailPanelState {
+  readonly isLabelPickerOpen: boolean;
+  readonly isMoveDialogOpen: boolean;
+  readonly pendingProjectId: string;
+  readonly setIsLabelPickerOpen: (isOpen: boolean) => void;
+  readonly openMoveDialog: (projectId: string) => void;
+  readonly closeMoveDialog: () => void;
+}
+
+interface DetailDialogsProps {
+  readonly task: WorkItemDetail;
+  readonly taskLabels: readonly Label[];
+  readonly labels: readonly Label[];
+  readonly labelUsage: Readonly<Record<string, number>> | undefined;
+  readonly projects: readonly Project[];
+  readonly milestones: readonly Milestone[];
+  readonly workItems: readonly WorkItemDetail[];
+  readonly assigneesByProject: Readonly<Record<string, readonly User[]>>;
+  readonly isSyncing: boolean;
+  readonly isLabelPickerOpen: boolean;
+  readonly isMoveDialogOpen: boolean;
+  readonly pendingProjectId: string;
+  readonly onLabelPickerOpenChange: (isOpen: boolean) => void;
+  readonly onMoveDialogClose: () => void;
+}
+
+function useDetailPanelState(): DetailPanelState {
+  const [isLabelPickerOpen, setIsLabelPickerOpen] = useState(false);
+  const [isMoveDialogOpen, setIsMoveDialogOpen] = useState(false);
+  const [pendingProjectId, setPendingProjectId] = useState("");
+
+  function openMoveDialog(projectId: string): void {
+    setPendingProjectId(projectId);
+    setIsMoveDialogOpen(true);
+  }
+
+  function closeMoveDialog(): void {
+    setIsMoveDialogOpen(false);
+    setPendingProjectId("");
+  }
+
+  return {
+    closeMoveDialog,
+    isLabelPickerOpen,
+    isMoveDialogOpen,
+    openMoveDialog,
+    pendingProjectId,
+    setIsLabelPickerOpen,
+  };
+}
+
+function TaskPanelError(): React.ReactElement | null {
+  const result = useActionData<typeof action>();
+  const { t } = useTranslation();
+
+  if (!result || result.ok) {
+    return null;
+  }
+
+  return (
+    <p
+      className="mx-5 mt-4 rounded-lg bg-notice-subtle px-3 py-2 text-sm text-notice"
+      role="alert"
+    >
+      {t(`tasks.error.${result.error}`)}
+    </p>
+  );
+}
+
+function DetailDialogs({
+  task,
+  taskLabels,
+  labels,
+  labelUsage,
+  projects,
+  milestones,
+  workItems,
+  assigneesByProject,
+  isSyncing,
+  isLabelPickerOpen,
+  isMoveDialogOpen,
+  pendingProjectId,
+  onLabelPickerOpenChange,
+  onMoveDialogClose,
+}: DetailDialogsProps): React.ReactElement {
+  return (
+    <>
+      <LabelPicker
+        assignedLabelIds={new Set(taskLabels.map((label) => label.id))}
+        isOpen={isLabelPickerOpen}
+        isSubmitting={isSyncing}
+        labelUsage={labelUsage ?? {}}
+        onOpenChange={onLabelPickerOpenChange}
+        labels={labels}
+        workItemId={task.id}
+      />
+
+      {isMoveDialogOpen ? (
+        <TaskMoveDialog
+          assigneesByProject={assigneesByProject}
+          initialTargetProjectId={pendingProjectId}
+          isOpen={isMoveDialogOpen}
+          isSubmitting={isSyncing}
+          milestones={milestones}
+          onOpenChange={onMoveDialogClose}
+          projects={projects}
+          task={task}
+          taskLabels={taskLabels}
+          workItems={workItems}
+        />
+      ) : null}
+    </>
+  );
 }
 
 /** Renders the complete floating ticket panel with independent content panes. */

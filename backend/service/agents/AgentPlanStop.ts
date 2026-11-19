@@ -8,7 +8,7 @@ import { isActivePlanRun } from "@/definition/AgentPlanRunState";
 import { controlPlanProcesses } from "./AgentPlanProcessControl";
 import { forgetPlanPauseGate } from "./AgentPlanPauseGate";
 import { endedPlanRun } from "./AgentPlanRunState";
-import { settleStoppedScripts } from "./AgentPlanStoppedScripts";
+import { settleUnstartedScript } from "./AgentPlanScriptOwner";
 
 import type { AgentPlanRun, AgentPlanStepResult } from "@/definition/AgentPlan";
 import type { ActivePlanRun } from "./AgentPlanRunState";
@@ -141,4 +141,42 @@ export async function stopPlanRun(
       controlError: "plan_stop_unconfirmed",
     });
   else if (settled !== run) await context.runs.update(settled);
+}
+
+async function settledStep(
+  step: AgentPlanStepResult,
+): Promise<AgentPlanStepResult> {
+  if (!step.script || step.remote || step.execution?.target.kind === "remote")
+    return step;
+  try {
+    const script = await settleUnstartedScript(step.script);
+    return script === step.script ? step : { ...step, script };
+  } catch (error: unknown) {
+    logCaughtError("AgentPlanStoppedScripts", error);
+    return step;
+  }
+}
+
+async function settleStoppedScripts(run: AgentPlanRun): Promise<AgentPlanRun> {
+  const steps = await Promise.all(run.steps.map(settledStep));
+  const loops = run.loops
+    ? await Promise.all(
+        run.loops.map(async (loop) => ({
+          ...loop,
+          iterations: await Promise.all(
+            loop.iterations.map(async (iteration) => ({
+              ...iteration,
+              nodes: await Promise.all(iteration.nodes.map(settledStep)),
+            })),
+          ),
+        })),
+      )
+    : undefined;
+  const settled = { ...run, steps, ...(loops ? { loops } : {}) };
+  const before = allPlanRunResults(run);
+  const hasChanged = allPlanRunResults(settled).some(
+    (step, index) => step !== before[index],
+  );
+  if (!hasChanged) return run;
+  return settled;
 }

@@ -1,7 +1,14 @@
-import { LoadDonut } from "./load-donut";
+import { cn } from "@/app/lib/cn";
+
+import { LOAD_STROKES, loadLevel } from "./load-level";
 import { LoadSparkline } from "./load-sparkline";
 
 import type { LoadSample } from "./load-history";
+
+const DONUT_SIZE = 72;
+const DONUT_STROKE_WIDTH = 7;
+const DONUT_RADIUS = (DONUT_SIZE - DONUT_STROKE_WIDTH) / 2;
+const DONUT_CIRCUMFERENCE = 2 * Math.PI * DONUT_RADIUS;
 
 interface LoadTileProps {
   readonly name: string;
@@ -16,6 +23,53 @@ interface LoadTileProps {
   readonly samples: readonly LoadSample[];
   /** The time of the newest reading, where the curve ends. */
   readonly end: number | null;
+}
+
+interface LoadDonutProps {
+  readonly ratio: number | null;
+  readonly label: string;
+}
+
+function LoadDonut({ ratio, label }: LoadDonutProps): React.ReactElement {
+  const center = DONUT_SIZE / 2;
+  const level = ratio === null ? null : loadLevel(ratio);
+
+  return (
+    <div
+      className="relative size-18 shrink-0"
+      data-load-level={level ?? "none"}
+    >
+      <svg
+        viewBox={`0 0 ${DONUT_SIZE} ${DONUT_SIZE}`}
+        className="size-full -rotate-90"
+        aria-hidden="true"
+      >
+        <circle
+          cx={center}
+          cy={center}
+          r={DONUT_RADIUS}
+          fill="none"
+          strokeWidth={DONUT_STROKE_WIDTH}
+          className="stroke-muted"
+        />
+        {ratio !== null && level !== null && ratio > 0 ? (
+          <circle
+            cx={center}
+            cy={center}
+            r={DONUT_RADIUS}
+            fill="none"
+            strokeWidth={DONUT_STROKE_WIDTH}
+            strokeLinecap="round"
+            strokeDasharray={`${ratio * DONUT_CIRCUMFERENCE} ${DONUT_CIRCUMFERENCE}`}
+            className={cn(LOAD_STROKES[level], "transition-[stroke-dasharray]")}
+          />
+        ) : null}
+      </svg>
+      <span className="absolute inset-0 flex items-center justify-center text-lg font-semibold whitespace-nowrap text-foreground tabular-nums">
+        {label}
+      </span>
+    </div>
+  );
 }
 
 function DetailLine({

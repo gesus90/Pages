@@ -6,15 +6,13 @@ import { isActivePlanRun } from "@/definition/AgentPlanRunState";
 import { PLAN_SIGNAL_PAYLOAD_BINDING } from "@/definition/AgentPlanJump";
 
 import { planPauseGate } from "../AgentPlanPauseGate";
-import { patchStep } from "../AgentPlanRunState";
+import { hasUnconfirmedRunCloseout, patchStep } from "../AgentPlanRunState";
 import { sharedAgentPlanRunObservers } from "../AgentPlanRunObservers";
 import {
   presentValues,
   resolveNodeValues,
 } from "./AgentPlanInvocationBindings";
 import { callIdentity, findOrCreateCall } from "./AgentPlanInvocationCall";
-import { isWaitCycle } from "./AgentPlanInvocationDeadlock";
-import { quiesceForHandover } from "./AgentPlanInvocationHandover";
 import {
   jumpFailure,
   jumpOutcome,
@@ -494,4 +492,56 @@ export class AgentPlanInvocations {
       await this.waiter.release(call);
     await this.drain();
   }
+}
+
+async function isWaitCycle(
+  invocations: Pick<AgentPlanInvocationRepository, "waitingTargets">,
+  sourceRunId: string,
+  owners: readonly string[],
+): Promise<boolean> {
+  const pending = [...owners];
+  const seen = new Set<string>();
+  for (let id = pending.pop(); id !== undefined; id = pending.pop()) {
+    if (id === sourceRunId) return true;
+    if (seen.has(id)) continue;
+    seen.add(id);
+    pending.push(...(await invocations.waitingTargets(id)));
+  }
+  return false;
+}
+
+const QUIET_CHECK_MS = 250;
+
+function isOutgoingJump(active: ActivePlanRun, nodeId: string): boolean {
+  return active.snapshot.plan.nodes.some(
+    (node) =>
+      node.id === nodeId && node.type === "jump" && node.direction === "out",
+  );
+}
+
+function otherWork(active: ActivePlanRun, nodeId: string): readonly string[] {
+  return [...active.controllers.keys()].filter((id) => id !== nodeId);
+}
+
+async function quiesceForHandover(
+  active: ActivePlanRun,
+  nodeId: string,
+  options: { readonly signal: AbortSignal; readonly deadline: number | null },
+): Promise<void> {
+  active.isHandingOver = true;
+  for (;;) {
+    if (options.signal.aborted) throw new AgentPlanCancelledError();
+    const others = otherWork(active, nodeId);
+    const pendingResults = active.branching?.pending.length ?? 0;
+    if (others.length === 0 && pendingResults === 0) break;
+    if (others.some((id) => isOutgoingJump(active, id)))
+      throw new AgentError("plan_jump_handover_unavailable");
+    if (options.deadline !== null && Date.now() >= options.deadline)
+      throw new AgentError("plan_jump_handover_unavailable");
+    await new Promise<void>((resolve) => {
+      setTimeout(resolve, QUIET_CHECK_MS).unref();
+    });
+  }
+  if (hasUnconfirmedRunCloseout(active.view))
+    throw new AgentError("plan_jump_handover_unavailable");
 }

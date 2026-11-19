@@ -1,11 +1,18 @@
 import { ExternalLink } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { useTicketParentSubmission } from "./use-ticket-parent-submission";
+import {
+  useActionData,
+  useFetcher,
+  useLocation,
+  useNavigation,
+  useSubmit,
+} from "react-router";
 
 import { useTicketAccess } from "@/app/components/tasks/ticket-access";
 import { Select } from "@/app/components/ui/select";
 import { WORK_ITEM_PARENT_TYPE, WORK_ITEM_TYPE } from "@/definition/Task";
 
+import type { action } from "@/app/routes/tasks-server";
 import type { WorkItemDetail } from "@/definition/Task";
 
 interface TicketParentFieldProps {
@@ -14,6 +21,55 @@ interface TicketParentFieldProps {
   readonly workItems: readonly WorkItemDetail[];
   readonly isDisabled: boolean;
   readonly onOpenTicket: (key: string) => void;
+}
+
+function readFailure(answer: unknown): string | null {
+  return typeof answer === "object" &&
+    answer !== null &&
+    "ok" in answer &&
+    answer.ok === false &&
+    "error" in answer &&
+    typeof answer.error === "string"
+    ? answer.error
+    : null;
+}
+
+function useTicketParentSubmission(ticket: WorkItemDetail): {
+  readonly failure: string | null;
+  readonly isSubmitting: boolean;
+  readonly change: (parentId: string) => void;
+} {
+  const fetcher = useFetcher();
+  const submit = useSubmit();
+  const location = useLocation();
+  const navigation = useNavigation();
+  const outcome = useActionData<typeof action>();
+  const isBoardOverlay =
+    (location.pathname === "/aufgaben" || location.pathname === "/tasks") &&
+    new URLSearchParams(location.search).has("item");
+  const isSubmitting = isBoardOverlay
+    ? navigation.formData?.get("intent") === "change-parent"
+    : fetcher.state !== "idle";
+  let failure: string | null = null;
+  if (isBoardOverlay && outcome?.intent === "change-parent") {
+    failure = readFailure(outcome);
+  } else if (!isBoardOverlay && fetcher.state === "idle") {
+    failure = readFailure(fetcher.data);
+  }
+
+  function change(parentId: string): void {
+    const fields = {
+      baseParentId: ticket.parentId ?? "",
+      boardLocal: "true",
+      id: ticket.id,
+      intent: "change-parent",
+      parentId,
+    };
+    if (isBoardOverlay) void submit(fields, { method: "post" });
+    else void fetcher.submit(fields, { action: "/aufgaben", method: "post" });
+  }
+
+  return { change, failure, isSubmitting };
 }
 
 /**

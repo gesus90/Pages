@@ -1,15 +1,24 @@
 import { useTranslation } from "react-i18next";
+import { useNavigate } from "react-router";
 
-import { PlanPanelContext } from "./plan-panel-context";
+import { Select } from "@/app/components/ui/select";
+import { planTeamsOf } from "@/definition/AgentPlanTeam";
+
+import { planTeamName } from "./plan-management/plan-access-model";
 import { PlanReloadButton } from "./plan-reload-button";
-import { PlanWorkspaceConflict } from "./plan-workspace-conflict";
 import { recoveryErrorText } from "./plan-recovery-panel";
 import { PlanRunLog } from "./plan-run-log/plan-run-log";
 
-import type { usePlanRecovery } from "./use-plan-recovery";
-import type { AgentPlanPage, AgentPlanRun } from "@/definition/AgentPlan";
+import type { TFunction } from "i18next";
+import type {
+  AgentPlanPage,
+  AgentPlanRun,
+  AgentPlanSummary,
+} from "@/definition/AgentPlan";
 import type { AgentPlanControl } from "@/definition/AgentPlanControl";
+import type { AgentPlanWorkspaceConflict } from "@/definition/AgentPlanWorkspaceConflict";
 import type { usePlanEditor } from "./use-plan-editor";
+import type { usePlanRecovery } from "./use-plan-recovery";
 
 /**
  * What keeps the plan from starting or continuing, as one short line.
@@ -112,5 +121,80 @@ export function PlanPanelDetails(props: {
       <PlanPanelContext page={page} />
       <PlanRunLog run={props.run ?? null} />
     </div>
+  );
+}
+
+function PlanWorkspaceConflict({
+  conflict,
+}: {
+  readonly conflict: AgentPlanWorkspaceConflict | undefined;
+}): React.ReactElement | null {
+  const { t } = useTranslation();
+  if (!conflict) return null;
+  const nodes = conflict.nodes.map((node) => node.name).join(", ");
+  const targets = conflict.targets
+    .map((target) =>
+      [target.connectionName, target.workspaceName, target.path]
+        .filter((part) => part !== null)
+        .join(" · "),
+    )
+    .join(", ");
+  return (
+    <div className="space-y-1 text-xs wrap-anywhere text-muted-foreground">
+      <p>{t("plans.panel.workspaceConflictNodes", { nodes })}</p>
+      <p>{t("plans.panel.workspaceConflictTargets", { targets })}</p>
+      <p>{t(`plans.panel.workspaceConflictRemedy.${conflict.kind}`)}</p>
+    </div>
+  );
+}
+
+function planDescription(
+  page: AgentPlanPage,
+  plan: AgentPlanSummary,
+  translate: TFunction,
+): string {
+  const teams = planTeamsOf(plan).map((team) =>
+    translate("plans.access.teamBadge", {
+      name: planTeamName(page.directory, team),
+    }),
+  );
+  return [
+    plan.isWorkspaceMissing
+      ? `${plan.projectName} · ${translate("plans.manage.withoutWorkspace")}`
+      : plan.projectName,
+    ...teams,
+    plan.isAdminAccess ? translate("plans.access.adminBadge") : null,
+    plan.oneShot ? translate("plans.manage.oneShotBadge") : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+}
+
+function PlanPanelContext({
+  page,
+}: {
+  readonly page: AgentPlanPage;
+}): React.ReactElement | null {
+  const { t } = useTranslation();
+  const navigate = useNavigate();
+  if (page.plans.length === 0) return null;
+  return (
+    <label className="grid max-w-sm min-w-0 gap-1.5 text-xs font-medium">
+      {t("plans.panel.openPlan")}
+      <Select
+        ariaLabel={t("plans.panel.openPlan")}
+        value={page.selected?.id ?? ""}
+        placeholder={t("plans.manage.choosePlan")}
+        options={page.plans.map((plan) => ({
+          value: plan.id,
+          label: plan.name,
+          description: planDescription(page, plan, t),
+        }))}
+        onValueChange={(id) => {
+          void navigate(`/agents/plans?planId=${encodeURIComponent(id)}`);
+        }}
+        className="w-full min-w-0 [&>span]:truncate"
+      />
+    </label>
   );
 }

@@ -1,10 +1,5 @@
 import { useState } from "react";
 
-import {
-  computeDropSortOrder,
-  computeInsertIndex,
-} from "./kanban-drop-position";
-
 import type { WorkItemDetail } from "@/definition/Task";
 
 /** A column that accepts drops: its own id, the status it stands for and its tickets. */
@@ -41,6 +36,62 @@ export interface KanbanDrag {
     event: React.DragEvent<HTMLElement>,
     target: KanbanDropTarget,
   ) => void;
+}
+
+// Die eingeblendete Ghost-Karte verschiebt alle nachfolgenden Karten nach
+// unten. Ohne Korrektur würde die Vorschau deshalb zwischen zwei Positionen
+// hin- und herspringen, sobald der Zeiger nahe einer Kartenmitte steht. Die
+// Verschiebung wird aus dem tatsächlichen Abstand zwischen Ghost und
+// Folgekarte gemessen und wieder herausgerechnet.
+function computeInsertIndex(column: HTMLElement, clientY: number): number {
+  const cards = Array.from(
+    column.querySelectorAll<HTMLElement>("[data-ticket-item]"),
+  );
+  const ghost = column.querySelector<HTMLElement>("[data-drop-ghost]");
+  const ghostTop = ghost ? ghost.getBoundingClientRect().top : null;
+  const cardTops = cards.map((card) => card.getBoundingClientRect().top);
+
+  let ghostShift = 0;
+
+  if (ghostTop !== null) {
+    const nextCardTop = cardTops.find((top) => top > ghostTop);
+    ghostShift = nextCardTop === undefined ? 0 : nextCardTop - ghostTop;
+  }
+
+  for (let index = 0; index < cards.length; index += 1) {
+    const rect = cards[index].getBoundingClientRect();
+    const top =
+      ghostTop !== null && rect.top > ghostTop
+        ? rect.top - ghostShift
+        : rect.top;
+
+    if (clientY < top + rect.height / 2) {
+      return index;
+    }
+  }
+
+  return cards.length;
+}
+
+// A ticket moved inside its own column leaves its old slot first, so every
+// insertion index behind that slot is one too high.
+function computeDropSortOrder(
+  columnItems: readonly WorkItemDetail[],
+  taskId: string,
+  insertIndex: number,
+): number {
+  const draggedIndexInColumn = columnItems.findIndex(
+    (item) => item.id === taskId,
+  );
+
+  if (draggedIndexInColumn === -1) {
+    return insertIndex + 1;
+  }
+
+  const slotIndex =
+    insertIndex <= draggedIndexInColumn ? insertIndex : insertIndex - 1;
+
+  return slotIndex + 1;
 }
 
 /**

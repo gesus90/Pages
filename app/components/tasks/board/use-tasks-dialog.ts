@@ -1,13 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import {
   useActionData,
+  useLocation,
   useNavigate,
   useNavigation,
   useSearchParams,
 } from "react-router";
 
 import { WORK_ITEM_CHILD_TYPE, WORK_ITEM_TYPE } from "@/definition/Task";
-import { useTaskDetailNavigation } from "./use-task-detail-navigation";
 
 import type { action } from "@/app/routes/tasks-server";
 import type { WorkItemDetail, WorkItemType } from "@/definition/Task";
@@ -47,6 +47,60 @@ export interface TasksDialog {
   readonly quickCreate: (statusId: string) => void;
   readonly createSubtask: (parentTask: WorkItemDetail) => void;
   readonly editTask: (task: WorkItemDetail) => void;
+}
+
+function isBoardOverlay(state: unknown): boolean {
+  return (
+    typeof state === "object" &&
+    state !== null &&
+    "boardOverlay" in state &&
+    state.boardOverlay === true
+  );
+}
+
+function useTaskDetailNavigation(onSelect: (key: string) => void): {
+  readonly openTask: (key: string) => void;
+  readonly closeDetail: () => void;
+  readonly restoreFocus: () => void;
+} {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [searchParams] = useSearchParams();
+  const opener = useRef<HTMLElement | null>(null);
+
+  function openTask(key: string): void {
+    const params = new URLSearchParams(searchParams);
+    const active = document.activeElement;
+    if (
+      active instanceof HTMLElement &&
+      active.closest('[role="dialog"]') === null
+    ) {
+      opener.current = active;
+    }
+    onSelect(key);
+    const isOpen = params.has("item");
+    params.set("item", key);
+    void navigate(`?${params.toString()}`, {
+      preventScrollReset: true,
+      replace: isOpen,
+      state: { boardOverlay: isOpen ? isBoardOverlay(location.state) : true },
+    });
+  }
+
+  function closeDetail(): void {
+    if (isBoardOverlay(location.state)) {
+      void navigate(-1);
+      return;
+    }
+    const params = new URLSearchParams(searchParams);
+    params.delete("item");
+    void navigate(`?${params.toString()}`, {
+      preventScrollReset: true,
+      replace: true,
+    });
+  }
+
+  return { openTask, closeDetail, restoreFocus: () => opener.current?.focus() };
 }
 
 /**

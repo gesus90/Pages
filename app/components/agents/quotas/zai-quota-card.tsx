@@ -7,6 +7,8 @@ import { useTranslation } from "react-i18next";
  */
 import zaiUrl from "@/assets/providers/logo-zai.png?no-inline";
 
+import { cn } from "@/app/lib/cn";
+
 import { QuotaCardFrame } from "./quota-card-frame";
 import {
   QUOTA_COMPACT_WINDOWS_AREA_CLASS,
@@ -19,11 +21,15 @@ import {
   QuotaWindowsPlaceholder,
 } from "./quota-placeholders";
 import { QuotaStatusLine } from "./quota-status-line";
+import { QuotaWindow } from "./quota-window";
 import { useRefreshHint } from "./use-refresh-hint";
-import { ZaiPlanBadge } from "./zai-plan-badge";
-import { ZaiQuotaWindow } from "./zai-quota-window";
 
-import type { ZaiQuotaAccount } from "@/definition/ZaiQuota";
+import type { TFunction } from "i18next";
+import type {
+  ZaiPlan,
+  ZaiQuotaAccount,
+  ZaiQuotaWindow as ReportedWindow,
+} from "@/definition/ZaiQuota";
 import type { ZaiCardBody } from "./quota-card-state";
 
 /** More windows than two stand in the compact slots, so the area keeps its height. */
@@ -172,5 +178,75 @@ export function ZaiQuotaCard({
         onRetry={handleRetry}
       />
     </QuotaCardFrame>
+  );
+}
+
+function zaiWindowLabel(quotaWindow: ReportedWindow, t: TFunction): string {
+  const name = t(`agentsPage.zai.window.${quotaWindow.kind}`);
+  const { length } = quotaWindow;
+  if (length === null) return name;
+  return t("agentsPage.zai.window.named", {
+    name,
+    length: t(`agentsPage.zai.length.${length.unit}`, { count: length.count }),
+  });
+}
+
+function ZaiQuotaWindow({
+  quotaWindow,
+  now,
+  state,
+}: {
+  readonly quotaWindow: ReportedWindow;
+  readonly now: Date;
+  readonly state: {
+    readonly isStale: boolean;
+    readonly staleSince: string | null;
+    readonly isCompact: boolean;
+  };
+}): React.ReactElement {
+  const { t } = useTranslation();
+  const { counts } = quotaWindow;
+  return (
+    <QuotaWindow
+      figures={{
+        kind: quotaWindow.kind,
+        label: zaiWindowLabel(quotaWindow, t),
+        usedPercentage: quotaWindow.usedPercent,
+        resetsAt: quotaWindow.resetsAt,
+        usedLabel: counts
+          ? t("agentsPage.zai.counts", {
+              used: counts.used,
+              total: counts.total,
+            })
+          : undefined,
+      }}
+      now={now}
+      isStale={state.isStale}
+      staleSince={state.staleSince}
+      isCompact={state.isCompact}
+    />
+  );
+}
+
+function ZaiPlanBadge({
+  plan,
+}: {
+  readonly plan: ZaiPlan | null;
+}): React.ReactElement {
+  const { t } = useTranslation();
+  return (
+    <span
+      data-zai-plan={plan ?? "unknown"}
+      className={cn(
+        "inline-flex h-6 shrink-0 items-center rounded-[7px] border bg-surface px-2 text-[11px] leading-none font-semibold whitespace-nowrap",
+        plan === null
+          ? "border-border text-muted-foreground"
+          : "border-border-strong text-foreground",
+      )}
+    >
+      {plan === null
+        ? t("agentsPage.plan.unknown")
+        : t(`agentsPage.zai.plan.${plan}`)}
+    </span>
   );
 }

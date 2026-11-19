@@ -1,3 +1,4 @@
+import { CheckCircle2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import { planLoopOwner } from "@/definition/AgentPlanGroupLoop";
@@ -15,8 +16,11 @@ import {
 import { PlanLoopPortRows } from "./plan-loop-input";
 import { PlanLoopPorts } from "./plan-loop-ports";
 import { loopConditionText } from "./plan-loop-panel/loop-run-section";
-import { PlanLoopStatus } from "./plan-loop-status";
-import { planLoopRunOf, planLoopSummary } from "./plan-loop-summary";
+import {
+  planLoopProgress,
+  planLoopRunOf,
+  planLoopSummary,
+} from "./plan-loop-summary";
 import { PlanNodeActions, PlanNodeEditButton } from "./plan-node-actions";
 import { PlanNodeIcon } from "./plan-node-icon";
 import { PlanNodeWarning } from "./plan-node-warning";
@@ -29,6 +33,7 @@ import type {
   AgentPlanSources,
 } from "@/definition/AgentPlan";
 import type { AgentPlanLoop } from "@/definition/AgentPlanLoop";
+import type { AgentPlanLoopRun } from "@/definition/AgentPlanLoopRun";
 import type { PlanGraphActions } from "./use-plan-graph";
 
 interface LoopFrameProps {
@@ -233,5 +238,62 @@ function LoopFooter(props: LoopFrameProps): React.ReactElement {
         </p>
       )}
     </div>
+  );
+}
+
+const LOOP_STATUS_TONES = {
+  waiting: "text-muted-foreground",
+  running: "text-status-active",
+  paused: "text-muted-foreground",
+  succeeded: "text-success",
+  failed: "text-destructive",
+  cancelled: "text-muted-foreground",
+  skipped: "text-muted-foreground",
+} as const;
+
+function loopStatusKey(
+  record: AgentPlanLoopRun | undefined,
+  run: AgentPlanRun | null,
+): string {
+  const status = record?.status ?? "waiting";
+  if (record?.completion && isPlanLoopLeftRegularly(record))
+    return `plans.loops.completion.${record.completion}`;
+  if (run === null || status === "waiting")
+    return "plans.loops.status.notStarted";
+  if (status === "succeeded") return "plans.loops.status.closing";
+  return `plans.loops.status.${status}`;
+}
+
+function PlanLoopStatus(props: {
+  readonly loop: AgentPlanLoop;
+  readonly record: AgentPlanLoopRun | undefined;
+  readonly run: AgentPlanRun | null;
+}): React.ReactElement {
+  const { t } = useTranslation();
+  const { record } = props;
+  const status = record?.status ?? "waiting";
+  const isLeft = isPlanLoopLeftRegularly(record);
+  const progress = planLoopProgress(record);
+  const label = t(loopStatusKey(record, props.run));
+  return (
+    <span
+      data-plan-loop-status={isLeft ? "left" : status}
+      className={cn(
+        "inline-flex shrink-0 items-center gap-1.5",
+        PLAN_NODE_TEXT.meta,
+        isLeft || status !== "succeeded"
+          ? LOOP_STATUS_TONES[status]
+          : LOOP_STATUS_TONES.waiting,
+        isLeft && "font-semibold",
+      )}
+      title={record?.error ? t(`settings.agents.error.${record.error}`) : label}
+    >
+      {isLeft ? (
+        <CheckCircle2 aria-hidden="true" className="size-3.5 shrink-0" />
+      ) : (
+        <span aria-hidden="true" className="size-1.5 rounded-full bg-current" />
+      )}
+      {progress && status !== "waiting" ? `${progress} · ${label}` : label}
+    </span>
   );
 }

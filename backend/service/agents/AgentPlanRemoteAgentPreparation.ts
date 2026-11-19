@@ -1,6 +1,5 @@
 import { AgentError } from "@/backend/error/AgentErrors";
 import { AgentPlanValidationError } from "@/backend/error/AgentPlanValidationError";
-import { remoteTodoChecklists } from "./AgentPlanRemoteChecklist";
 import {
   remoteModelCommand,
   withRemoteRunnerFeatures,
@@ -15,6 +14,10 @@ import type { AgentPlanRemoteTarget } from "@/definition/AgentPlanExecution";
 import type { RunnerExecution } from "@/definition/RunnerExecution";
 import type { RunnerService } from "@/backend/service/runner/RunnerService";
 import type { RemotePlanParameters } from "./AgentPlanRemoteParameters";
+import type {
+  AgentPlanTasks,
+  AgentPlanTicketChecklist,
+} from "./AgentPlanTasks";
 
 /** Builds the frozen remote command of an agent node after its model and inputs are checked. */
 export async function prepareRemoteAgentCommand(options: {
@@ -96,4 +99,20 @@ export async function prepareRemoteAgentCommand(options: {
   if (parameters?.resources.length && command.pagesAccess !== 1)
     throw new AgentError("plan_mcp_unavailable");
   return { command, acceptanceContract };
+}
+
+async function remoteTodoChecklists(input: {
+  readonly step: AgentPlanStep;
+  readonly parameters: RemotePlanParameters | undefined;
+  readonly tasks: Pick<AgentPlanTasks, "checklist"> | undefined;
+  readonly userId: string;
+  readonly projectId: string;
+}): Promise<readonly AgentPlanTicketChecklist[]> {
+  const ids = Object.keys(input.parameters?.tickets ?? {});
+  if (!ids.length) return [];
+  const tasks = input.tasks;
+  if (!tasks) throw new AgentError("plan_binding_invalid");
+  return Promise.all(
+    ids.map((id) => tasks.checklist(input.userId, input.projectId, id)),
+  );
 }

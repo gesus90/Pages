@@ -1,13 +1,18 @@
+import { Plus, Trash2 } from "lucide-react";
 import { useId } from "react";
 import { useTranslation } from "react-i18next";
 
+import { Button } from "@/app/components/ui/button";
 import { Input } from "@/app/components/ui/input";
+import { SearchableSelect } from "@/app/components/ui/searchable-select";
 import { Select } from "@/app/components/ui/select";
+import { MAXIMUM_REMOTE_ROOTS } from "@/definition/RemoteConnection";
 
-import { RemoteAllowedRoots } from "./remote-allowed-roots";
-import { RemoteDepartmentSelect } from "./remote-department-select";
 import { RemoteField } from "./remote-field";
-import { REMOTE_FIELD_CLASS } from "./remote-field-style";
+import {
+  REMOTE_FIELD_CLASS,
+  REMOTE_SELECT_TRIGGER_CLASS,
+} from "./remote-field-style";
 import { RemoteSecretFields } from "./remote-secret-fields";
 
 import type { Department } from "@/definition/Authorization";
@@ -141,6 +146,101 @@ export function RemoteConnectionFields(props: {
         username={draft.username}
         onChange={(allowedRoots) => update({ allowedRoots })}
       />
+    </fieldset>
+  );
+}
+
+function RemoteDepartmentSelect(props: {
+  readonly id: string;
+  readonly value: string;
+  readonly departments: readonly Department[];
+  readonly disabled: boolean;
+  readonly onValueChange: (departmentId: string) => void;
+}): React.ReactElement {
+  const { t } = useTranslation();
+  const options = [...props.departments]
+    .sort((left, right) => left.name.localeCompare(right.name))
+    .map((department) => ({ value: department.id, label: department.name }));
+  return (
+    <SearchableSelect
+      id={props.id}
+      label={t("remote.dialog.department")}
+      value={props.value}
+      options={options}
+      disabled={props.disabled}
+      className={REMOTE_SELECT_TRIGGER_CLASS}
+      onValueChange={props.onValueChange}
+      texts={{
+        placeholder: t("remote.dialog.departmentPlaceholder"),
+        unavailable: t("remote.dialog.departmentUnavailable"),
+        search: t("remote.dialog.departmentSearch"),
+        empty: t("remote.dialog.departmentEmpty"),
+        count: (count, total) =>
+          t("remote.dialog.departmentCount", { count, total }),
+      }}
+    />
+  );
+}
+
+function RemoteAllowedRoots(props: {
+  readonly roots: readonly string[];
+  readonly username: string;
+  readonly onChange: (roots: readonly string[]) => void;
+}): React.ReactElement {
+  const { t } = useTranslation();
+  const id = useId();
+  const { roots, onChange } = props;
+  const user = props.username.trim();
+  const home = user ? `/home/${user}` : t("remote.dialog.rootsHomeUnknown");
+  function update(index: number, root: string): void {
+    onChange(
+      roots.map((entry, position) => (position === index ? root : entry)),
+    );
+  }
+  function remove(index: number): void {
+    onChange(roots.filter((entry, position) => position !== index));
+  }
+  return (
+    <fieldset className="min-w-0 space-y-2" aria-describedby={`${id}-hint`}>
+      <legend className="text-sm font-medium">
+        {t("remote.dialog.roots")}
+      </legend>
+      {roots.map((root, index) => (
+        <div key={index} className="flex items-center gap-2">
+          <Input
+            aria-label={t("remote.dialog.rootsEntry", { number: index + 1 })}
+            maxLength={4096}
+            spellCheck={false}
+            autoComplete="off"
+            placeholder="/srv/projects"
+            className={`font-mono ${REMOTE_FIELD_CLASS}`}
+            value={root}
+            onChange={(event) => update(index, event.target.value)}
+          />
+          <Button
+            type="button"
+            size="icon-sm"
+            variant="ghost"
+            aria-label={t("remote.dialog.rootsRemove", { number: index + 1 })}
+            onClick={() => remove(index)}
+          >
+            <Trash2 className="size-4" aria-hidden="true" />
+          </Button>
+        </div>
+      ))}
+      <p id={`${id}-hint`} className="text-xs text-muted-foreground">
+        {t("remote.dialog.rootsHint", { home })}
+      </p>
+      <Button
+        type="button"
+        size="sm"
+        variant="outline"
+        disabled={roots.length >= MAXIMUM_REMOTE_ROOTS}
+        onClick={() => onChange([...roots, ""])}
+      >
+        <Plus className="size-4" aria-hidden="true" />
+        {t("remote.dialog.rootsAdd")}
+      </Button>
     </fieldset>
   );
 }

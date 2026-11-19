@@ -9,7 +9,7 @@ import type { Tool } from "@modelcontextprotocol/server";
 const PAGING =
   "Up to 100 entries per cursor page (default 100), with the visible total and nextCursor; pass nextCursor with the same query to continue, so that no entry repeats and none is skipped. A cursor of another query returns INVALID_REQUEST.";
 const REFERENCE =
-  "a ticket ID, a key such as PAGE-12, or a Pages address such as /tasks/PAGE-12";
+  "a ticket ID, a key such as TICKET-12, or a Pages address such as /tasks/TICKET-12";
 const HIDDEN =
   "Hidden tickets, people, groups and departments are neither listed nor counted; a missing and a hidden one return NOT_FOUND alike.";
 const LIMIT = "Responses are limited to 1 MiB UTF-8 JSON.";

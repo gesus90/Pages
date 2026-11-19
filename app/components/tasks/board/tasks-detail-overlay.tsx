@@ -2,12 +2,14 @@ import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { useRef } from "react";
 import { useTranslation } from "react-i18next";
 
-import { TasksDetail } from "./tasks-detail";
+import { TaskDetailPanel } from "@/app/components/tasks/task-detail-panel";
 import { Button } from "@/app/components/ui/button";
 
-import type { TasksDialog } from "./use-tasks-dialog";
-import type { useTaskSelection } from "./use-task-selection";
+import type { TaskSelection } from "@/app/lib/task-selection.server";
 import type { loader } from "@/app/routes/tasks-server";
+import type { Label, WorkItemDetail } from "@/definition/Task";
+import type { useTaskSelection } from "./use-task-selection";
+import type { TasksDialog } from "./use-tasks-dialog";
 
 interface TasksDetailOverlayProps {
   readonly loaderData: Awaited<ReturnType<typeof loader>>;
@@ -17,13 +19,21 @@ interface TasksDetailOverlayProps {
   readonly isSyncing: boolean;
 }
 
-/**
- * Tells whether a key press happened inside another dialog than the ticket.
- * @remarks
- * The image viewer opens above the ticket. Its dialog layer is only
- * registered a moment after it appears, and an Escape in that moment would
- * close the ticket as well. The dialog that holds the focus owns Escape.
- */
+interface TasksDetailProps {
+  readonly loaderData: Awaited<ReturnType<typeof loader>>;
+  readonly dialog: TasksDialog;
+  readonly selectedItem: WorkItemDetail;
+  readonly selection: TaskSelection;
+  readonly labels: readonly Label[];
+  readonly labelUsage: Readonly<Record<string, number>> | null;
+  readonly onRefresh: () => void;
+  readonly isArchiving: boolean;
+  readonly isSyncing: boolean;
+}
+
+// The image viewer opens above the ticket. Its dialog layer is only
+// registered a moment after it appears, and an Escape in that moment would
+// close the ticket as well. The dialog that holds the focus owns Escape.
 function isInOtherDialog(
   target: EventTarget | null,
   ticket: Element | null,
@@ -35,6 +45,49 @@ function isInOtherDialog(
   const dialog = target.closest('[role="dialog"]');
 
   return dialog !== null && dialog !== ticket;
+}
+
+function TasksDetail({
+  loaderData,
+  dialog,
+  selectedItem,
+  selection,
+  labels,
+  labelUsage,
+  onRefresh,
+  isArchiving,
+  isSyncing,
+}: TasksDetailProps): React.ReactElement {
+  return (
+    <TaskDetailPanel
+      key={selectedItem.id}
+      assignees={loaderData.assignees}
+      attachments={selection.selectedAttachments}
+      descendants={selection.selectedDescendants}
+      assigneesByProject={loaderData.assigneesByProject}
+      checklist={selection.selectedChecklist}
+      history={selection.selectedHistory}
+      isArchiving={isArchiving}
+      isSyncing={isSyncing}
+      labels={loaderData.labels}
+      labelUsage={labelUsage ?? loaderData.labelUsage}
+      links={selection.selectedLinks}
+      milestones={loaderData.milestones}
+      onClose={dialog.closeDetail}
+      onCreateSubtask={dialog.createSubtask}
+      onEdit={dialog.editTask}
+      onOpenTask={dialog.openTask}
+      onRefresh={onRefresh}
+      onSelectTask={dialog.openTask}
+      projects={loaderData.projects}
+      pullRequests={selection.selectedPullRequests}
+      statuses={loaderData.statuses}
+      subtasks={selection.selectedSubtasks}
+      task={selectedItem}
+      taskLabels={labels}
+      workItems={loaderData.workItems}
+    />
+  );
 }
 
 /** Keeps the board mounted beneath the accessible ticket dialog. */

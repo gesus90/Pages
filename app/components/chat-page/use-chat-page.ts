@@ -9,7 +9,6 @@ import {
 
 import { saveLastChat } from "./chat-view-requests";
 import { useChatActivity } from "./use-chat-activity";
-import { useConversationRead } from "./use-conversation-read";
 import { useOlderHistory } from "./use-older-history";
 import { useOpenedHistory } from "./use-opened-history";
 import { useLiveChat } from "./live/use-live-chat";
@@ -664,4 +663,46 @@ export function useChatPage(
     findParticipant: (id) => shownParticipant(lists, opened, id),
     findMembers: (group) => membersOf(group, lists.participants),
   };
+}
+
+function readTarget(opened: OpenedConversation | null): {
+  readonly conversationId: string;
+  readonly unreadCount: number;
+  readonly upToMessageId?: string;
+} | null {
+  if (!opened) return null;
+  if (opened.kind === "group")
+    return {
+      conversationId: opened.group.id,
+      unreadCount: opened.group.unreadCount,
+    };
+  const { conversationId, unreadCount, agentChat } = opened.participant;
+  if (agentChat && agentChat.newestMessageId !== "")
+    return {
+      conversationId: agentChat.conversationId,
+      unreadCount,
+      upToMessageId: agentChat.newestMessageId,
+    };
+  return conversationId ? { conversationId, unreadCount } : null;
+}
+
+function useConversationRead(
+  opened: OpenedConversation | null,
+  messages: readonly VirtualChatMessage[],
+): void {
+  const reader = useFetcher();
+  const { submit } = reader;
+  const target = readTarget(opened);
+  const conversationId = target?.conversationId ?? null;
+  const unreadCount = target?.unreadCount ?? 0;
+  const lastMessageId = target?.upToMessageId ?? messages.at(-1)?.id ?? null;
+  useEffect(() => {
+    if (conversationId === null || lastMessageId === null || unreadCount === 0)
+      return;
+    const formData = new FormData();
+    formData.set("intent", "read");
+    formData.set("conversationId", conversationId);
+    formData.set("upToMessageId", lastMessageId);
+    void submit(formData, { method: "post" });
+  }, [conversationId, lastMessageId, unreadCount, submit]);
 }

@@ -7,8 +7,9 @@ import { useTranslation } from "react-i18next";
  */
 import chatgptUrl from "@/assets/providers/logo-chatgpt.png?no-inline";
 
-import { CodexPlanBadge } from "./codex-plan-badge";
-import { CodexQuotaWindow } from "./codex-quota-window";
+import { cn } from "@/app/lib/cn";
+import { codexWindowLength } from "@/definition/CodexQuota";
+
 import {
   QUOTA_CARD_CLASS,
   QUOTA_WINDOWS_AREA_CLASS,
@@ -20,9 +21,15 @@ import {
   QuotaWindowsPlaceholder,
 } from "./quota-placeholders";
 import { QuotaStatusLine } from "./quota-status-line";
+import { QuotaWindow } from "./quota-window";
 import { useRefreshHint } from "./use-refresh-hint";
 
-import type { CodexQuotaAccount } from "@/definition/CodexQuota";
+import type { TFunction } from "i18next";
+import type {
+  CodexPlan,
+  CodexQuotaAccount,
+  CodexQuotaWindow as ReportedWindow,
+} from "@/definition/CodexQuota";
 import type { CodexCardBody } from "./quota-card-state";
 
 /**
@@ -151,5 +158,91 @@ export function CodexQuotaCard({
         onRetry={handleRetry}
       />
     </article>
+  );
+}
+
+function codexWindowLabel(
+  durationMinutes: number | null,
+  t: TFunction,
+): string {
+  const length = codexWindowLength(durationMinutes);
+  switch (length.kind) {
+    case "five_hour":
+    case "seven_day":
+      return t(`agentsPage.window.${length.kind}`);
+    case "unknown":
+      return t("agentsPage.codex.window.unknown");
+    case "days":
+    case "hours":
+    case "minutes":
+      return t(`agentsPage.codex.window.${length.kind}`, {
+        count: length.count,
+      });
+  }
+}
+
+function CodexQuotaWindow({
+  quotaWindow,
+  now,
+  isStale = false,
+  staleSince = null,
+}: {
+  readonly quotaWindow: ReportedWindow;
+  readonly now: Date;
+  readonly isStale?: boolean;
+  readonly staleSince?: string | null;
+}): React.ReactElement {
+  const { t } = useTranslation();
+  return (
+    <QuotaWindow
+      figures={{
+        kind: quotaWindow.kind,
+        label: codexWindowLabel(quotaWindow.durationMinutes, t),
+        usedPercentage: quotaWindow.usedPercent,
+        resetsAt: quotaWindow.resetsAt,
+      }}
+      now={now}
+      isStale={isStale}
+      staleSince={staleSince}
+    />
+  );
+}
+
+function CodexPlanBadge({
+  plan,
+}: {
+  readonly plan: CodexPlan | null;
+}): React.ReactElement {
+  const { t } = useTranslation();
+  const isKnown = plan !== null;
+  return (
+    <span
+      data-codex-plan={plan ?? "unknown"}
+      className={cn(
+        "inline-flex h-6 shrink-0 items-center gap-1.5 rounded-[7px] border bg-surface py-[2px] pr-2 pl-[2px] text-[11px] leading-none font-semibold",
+        isKnown
+          ? "w-[88px] border-chatgpt text-foreground"
+          : "border-border text-muted-foreground",
+      )}
+    >
+      {isKnown ? (
+        <img
+          src={chatgptUrl}
+          alt=""
+          draggable={false}
+          className="size-[18px] shrink-0 rounded-[5px]"
+        />
+      ) : (
+        <span
+          aria-hidden="true"
+          className="size-[18px] shrink-0 rounded-[5px] bg-muted"
+        />
+      )}
+      <span className="whitespace-nowrap">
+        {plan === null
+          ? t("agentsPage.plan.unknown")
+          : t(`agentsPage.codex.plan.${plan}`)}
+      </span>
+    </span>
   );
 }

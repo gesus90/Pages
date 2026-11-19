@@ -1,11 +1,17 @@
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { useContext, useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useBlocker } from "react-router";
 
-import { Dialog } from "@/app/components/ui/dialog";
+import { Button } from "@/app/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+} from "@/app/components/ui/dialog";
 import { cn } from "@/app/lib/cn";
 
-import { ConsoleCloseDialog } from "./console-close-dialog";
 import { ConsoleBody, ConsoleFooter } from "./console-body";
 import { consoleActivityContext } from "./console-activity";
 import { ConsoleHeading } from "./console-heading";
@@ -196,5 +202,56 @@ export function RemoteConsolePanel(props: {
         />
       ) : null}
     </>
+  );
+}
+
+function ConsoleCloseDialog(props: {
+  readonly hostName: string;
+  readonly isSetup: boolean;
+  readonly onCancel: () => void;
+  readonly onConfirm: () => void;
+  readonly onReturnFocus: () => void;
+}): React.ReactElement {
+  const { t } = useTranslation();
+  return (
+    <Dialog
+      open
+      onOpenChange={(open) => {
+        if (!open) props.onCancel();
+      }}
+    >
+      <DialogContent
+        size="md"
+        overlayClassName="z-50"
+        onCloseAutoFocus={(event) => {
+          event.preventDefault();
+          props.onReturnFocus();
+        }}
+      >
+        <DialogTitle className="text-lg font-semibold">
+          {t(
+            props.isSetup
+              ? "remote.setup.closeTitle"
+              : "remote.console.closeTitle",
+            { name: props.hostName },
+          )}
+        </DialogTitle>
+        <DialogDescription className="mt-3 text-sm leading-relaxed text-muted-foreground">
+          {t(
+            props.isSetup
+              ? "remote.setup.closeDescription"
+              : "remote.console.closeDescription",
+          )}
+        </DialogDescription>
+        <div className="mt-6 flex justify-end gap-2">
+          <Button variant="ghost" onClick={props.onCancel}>
+            {t("remote.console.returnToConsole")}
+          </Button>
+          <Button variant="destructive" onClick={props.onConfirm}>
+            {t("remote.console.endSession")}
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }

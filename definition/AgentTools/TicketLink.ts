@@ -7,7 +7,7 @@ import {
 import type { Tool } from "@modelcontextprotocol/server";
 
 const COMMON =
-  "ticketId and targetTicketId are ticket IDs, keys such as PAGE-12, or Pages addresses such as /tasks/PAGE-12. Only this link changes: neither parent, fields nor other links of the tickets. Reuse operationId with identical input to recover the stored result after response loss; changed input returns CONFLICT. A hidden or missing ticket returns NOT_FOUND alike; without the write right the call returns FORBIDDEN. Whether a ticket is published to GitHub is not affected: links are Pages-only. JSON request maximum 64 KiB.";
+  "ticketId and targetTicketId are ticket IDs, keys such as TICKET-12, or Pages addresses such as /tasks/TICKET-12. Only this link changes: neither parent, fields nor other links of the tickets. Reuse operationId with identical input to recover the stored result after response loss; changed input returns CONFLICT. A hidden or missing ticket returns NOT_FOUND alike; without the write right the call returns FORBIDDEN. Whether a ticket is published to GitHub is not affected: links are Pages-only. JSON request maximum 64 KiB.";
 
 /** Adds one typed link from a ticket to another. */
 export const TICKET_LINK_ADD_TOOL: Tool = {

@@ -1,11 +1,12 @@
 import { AgentOperationError } from "@/backend/error/AgentOperationError";
-import { WORKFLOW_STATUS_KEY } from "@/definition/Task";
+import { WORKFLOW_STATUS_KEY, WORK_ITEM_LIMITS } from "@/definition/Task";
 
+import { agentTextVersion, applyTextPatch, indexText } from "./AgentTextRange";
 import {
   resolveAgentTicketCreate,
   takeStatedTicketCreate,
 } from "./AgentTicketCreateContext";
-import { patchAgentTicketDescription } from "./AgentTicketDescriptionPatch";
+import { agentTicketLink, requireAgentTicket } from "./AgentTicketLookup";
 import {
   isAgentTicketFieldOperation,
   readAgentTicketCreate,
@@ -362,4 +363,44 @@ export class AgentTicketService {
       baseParentId: existing.parentId,
     });
   }
+}
+
+async function patchAgentTicketDescription(
+  context: AgentTaskContext,
+  request: AgentTicketDescriptionPatchInput,
+): Promise<AgentTicketOutcome<AgentTicketDescriptionPatched>> {
+  const existing = await requireAgentTicket(context, request.ticket);
+  if (agentTextVersion(existing.description) !== request.expectedVersion)
+    throw new AgentOperationError("CONFLICT", { reason: "text_changed" });
+  const patched = applyTextPatch(indexText(existing.description), request);
+  if (patched.text.length > WORK_ITEM_LIMITS.descriptionLength)
+    throw new AgentOperationError("PAYLOAD_TOO_LARGE", {
+      constraint: "ticketDescriptionUtf16Units",
+      limit: WORK_ITEM_LIMITS.descriptionLength,
+    });
+  const stored = await context.tasks.updateDescription(
+    context.actor,
+    existing.id,
+    {
+      description: patched.text,
+      baseDescription: existing.description,
+      isVerbatim: true,
+    },
+  );
+  const hasChanged = stored.description !== existing.description;
+  return {
+    result: {
+      ticketId: existing.id,
+      key: existing.key,
+      link: agentTicketLink(existing.key),
+      field: "description",
+      changed: hasChanged,
+      descriptionVersion: agentTextVersion(stored.description),
+      start: patched.start,
+      end: patched.end,
+      ...(patched.after === undefined ? {} : { after: patched.after }),
+    },
+    published: hasChanged ? stored : null,
+    event: hasChanged ? { type: "ticket.updated", id: existing.id } : null,
+  };
 }

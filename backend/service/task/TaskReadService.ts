@@ -200,7 +200,7 @@ export class TaskReadService {
     return this.access.requireWorkItem(actor, id);
   }
 
-  /** Returns a single work item by its public key (e.g. PAGE-12). */
+  /** Returns a single work item by its public key (e.g. TICKET-12). */
   public async getByKey(actor: User, key: string): Promise<WorkItemDetail> {
     const item = await this.taskRepository.findByKey(
       key,

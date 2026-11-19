@@ -106,7 +106,7 @@ nesting depth 3
 4 parameters
 ```
 
-A function that exceeds a limit is split by responsibility. A component splits into section components and hooks. The limits are realistic for the code base: every function fits them, so they stay errors without exceptions.
+A function that exceeds a limit is split by responsibility. A component splits into section components and hooks. Keep the extracted local helpers, local types, and single-caller section components unexported in the same file alongside their sole caller; only move them to separate files for cross-module reuse or when the file would exceed the 600-line file limit (Chapter 9). The limits are realistic for the code base: every function fits them, so they stay errors without exceptions.
 
 Prefer guard clauses over deep nesting:
 
@@ -311,7 +311,8 @@ Rules:
 - Use `readonly` when a dependency should not be reassigned.
 - Do not create classes for simple stateless utility functions.
 - Avoid large classes with unrelated responsibilities.
-- A file has at most 600 lines of code (blank lines and comments do not count). A class that grows beyond that is split into one small class per aggregate; the original class stays as a thin facade when other code depends on its public API.
+- Keep local helper functions and single-module types used only by a class in the same file as that class while the file stays within 600 lines of code; methods still obey the 100-line function limit (Chapter 3).
+- A file has at most 600 lines of code (blank lines and comments do not count). Split a class into separate files (one small class per aggregate, keeping the original class as a thin facade when other code depends on its public API) only when the file exceeds 600 lines of code or when extracted types or helpers are reused across modules.
 - Member order, explicit accessibility on every member, and `readonly` for fields that are never reassigned are checked by ESLint.
 
 ---
@@ -426,9 +427,15 @@ Avoid circular dependencies.
 
 ## 9. File Structure
 
-A file should have one clear primary purpose.
+A file should have one clear primary purpose and at most 600 lines of code (blank lines and comments do not count).
 
-Good:
+Keep related code together in one file instead of splitting it into micro-files:
+
+- Keep local helper functions, component props interfaces, local types, and single-caller subcomponents or hooks in the same file as their sole caller, and keep them unexported unless a cross-module contract requires an export.
+- Every function, method, and component still obeys the 100-line limit (Chapter 3); split oversized functions and components into local helpers or subcomponents in the same file first.
+- Create separate files only for cross-module reuse or when a file would otherwise exceed the 600-line file limit (`max-lines: 600`).
+
+Good (single-file modules, with a component folder only when exceeding 600 lines or shared across modules):
 
 ```text
 backend/service/ProjectService.ts
@@ -438,7 +445,7 @@ app/components/projects/project-card/project-card-actions.tsx
 app/components/projects/project-card/use-project-card.ts
 ```
 
-A component that outgrows the size limits becomes a folder next to its file. The original file keeps the exported component as a composition of the section components and hooks in the folder, so imports of it stay valid.
+When a component file outgrows the 600-line file limit (or exports parts reused across modules), it becomes a folder next to its file. The original file keeps the exported component as a composition of the section components and hooks in the folder, so imports of it stay valid.
 
 Avoid generic dumping grounds:
 
@@ -455,8 +462,8 @@ Preferred order inside a TypeScript file:
 ```text
 imports
 constants
-types/interfaces
-small local helpers
+types/interfaces (including props)
+local helpers and single-caller subcomponents
 main implementation
 ```
 
@@ -572,13 +579,14 @@ export function ProjectCard({
 
 Rules:
 
-- Define props explicitly.
+- Define props explicitly and keep a component's `*Props` type, local types, local helpers, and single-caller subcomponents (or local hooks) in the same file as the component.
 - Do not mutate props or state.
 - Keep hooks at the top level.
 - Keep business logic out of JSX.
 - Prefer derived values over unnecessary state.
 - Prefer local event-handler functions over complex inline callbacks.
-- Split large components by responsibility.
+- Split components that exceed the 100-line function limit (Chapter 3) into smaller unexported local subcomponents, helpers, or hooks in the same file first; each subcomponent also obeys the 100-line limit.
+- Move subcomponents, hooks, or props types into separate files only for cross-module reuse or when the file would exceed the 600-line file limit (Chapter 9).
 - Avoid `useMemo` and `useCallback` unless they solve a real problem.
 - Use semantic HTML elements.
 - Hooks follow the rules of hooks, and effects list every value they read.

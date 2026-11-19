@@ -149,8 +149,8 @@ export function isAgentMilestoneOperation(
 
 /**
  * Resolves a ticket identifier, key or Pages address to a reference.
- * @param reference - An identifier, a key such as `PAGE-12`, or an address such
- * as `/tasks/PAGE-12` or `/aufgaben/PAGE-12`, with or without the address of
+ * @param reference - An identifier, a key such as `TICKET-12`, or an address such
+ * as `/tasks/TICKET-12` or `/aufgaben/TICKET-12`, with or without the address of
  * the server in front of it.
  * @returns The reference, or `null` when the text names no ticket.
  * @remarks

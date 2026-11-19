@@ -1,11 +1,19 @@
 import { LOCAL_RUNNER_CONNECTION_ID } from "@/backend/service/runner/LocalRunnerIdentity";
 import { withPlanReadOrigin } from "@/backend/error/AgentPlanReadDenied";
-
-import { readCallTargets } from "./invocation/AgentPlanCallTargets";
+import {
+  planCallableEntries,
+  planEntryContract,
+} from "@/definition/AgentPlanJump";
+import { planStartIssues } from "@/definition/AgentPlanStart";
+import { canRunPlan } from "@/definition/AgentPlanTeam";
 
 import type { AgentPlanAccess } from "./AgentPlanAccess";
 import type { AgentPlanRemoteExecution } from "./AgentPlanRemoteExecution";
 import type { AgentPlanSources } from "@/definition/AgentPlan";
+import type {
+  AgentPlanCallEntry,
+  AgentPlanCallTarget,
+} from "@/definition/AgentPlanJump";
 import type { AgentWorkspaceChoice } from "@/definition/AgentWorkspace";
 import type { AgentPlanRemoteTargets } from "./AgentPlanRemoteTargets";
 import type { AgentProfileService } from "./AgentProfileService";
@@ -90,4 +98,39 @@ async function readDecisionModels(
     models.defaultName(),
   ]);
   return { decisionModels, defaultDecisionModel };
+}
+
+async function readCallTargets(
+  access: Pick<AgentPlanAccess, "list">,
+  userId: string,
+): Promise<readonly AgentPlanCallTarget[]> {
+  const plans = await access.list(userId);
+  return plans.filter(canRunPlan).flatMap((plan): AgentPlanCallTarget[] => {
+    const entries = planCallableEntries(plan).flatMap(
+      (entry): AgentPlanCallEntry[] => {
+        const contract = planEntryContract(plan, entry.id);
+        if (!contract || planStartIssues(plan, entry.id).length > 0) return [];
+        return [
+          {
+            entryNodeId: entry.id,
+            entryName: contract.entryName,
+            kind: contract.direction,
+            inputs: contract.inputs,
+            returns: contract.returns,
+            hasReturnConflict: contract.hasReturnConflict,
+          },
+        ];
+      },
+    );
+    return entries.length === 0
+      ? []
+      : [
+          {
+            planId: plan.id,
+            planName: plan.name,
+            revision: plan.revision,
+            entries,
+          },
+        ];
+  });
 }

@@ -29,7 +29,7 @@ export type AgentHostFileTarget =
 /** The Pages services that store a ticket or wiki attachment with the rights of the uploader. */
 export interface AgentHostFileStores {
   readonly tickets: Pick<TaskAttachmentService, "upload">;
-  /** Resolves a ticket key such as `PAGE-12`, with the rights of the reader. */
+  /** Resolves a ticket key such as `TICKET-12`, with the rights of the reader. */
   readonly ticketKeys: Pick<TaskService, "getByKey">;
   readonly wiki: Pick<WikiService, "uploadAttachment">;
 }

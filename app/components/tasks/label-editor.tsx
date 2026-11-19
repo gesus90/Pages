@@ -1,12 +1,19 @@
+import { Check, Pipette } from "lucide-react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
-import { LabelColorPresets } from "@/app/components/tasks/label-editor/label-color-presets";
-import { LabelCustomColor } from "@/app/components/tasks/label-editor/label-custom-color";
-import { LabelEditorActions } from "@/app/components/tasks/label-editor/label-editor-actions";
-import { LabelPreview } from "@/app/components/tasks/label-editor/label-preview";
+import { HexagonColorPicker } from "@/app/components/tasks/hexagon-color-picker";
+import { getLabelTextColor } from "@/app/components/tasks/label-color";
+import { Button } from "@/app/components/ui/button";
 import { Input } from "@/app/components/ui/input";
+import { cn } from "@/app/lib/cn";
 import { focusOnMount } from "@/app/lib/focus-on-mount";
-import { DEFAULT_LABEL_COLOR, normalizeHexColorCode } from "@/definition/Task";
+import { createUserColorStyle } from "@/app/lib/user-color-style";
+import {
+  DEFAULT_LABEL_COLOR,
+  LABEL_COLORS,
+  normalizeHexColorCode,
+} from "@/definition/Task";
 
 interface LabelEditorProps {
   readonly name: string;
@@ -18,6 +25,172 @@ interface LabelEditorProps {
   readonly onColorChange: (color: string) => void;
   readonly onSave: () => void;
   readonly onCancel: () => void;
+}
+
+interface LabelPreviewProps {
+  readonly name: string;
+  readonly color: string;
+}
+
+interface LabelColorPresetsProps {
+  readonly activeColor: string;
+  readonly onSelect: (color: string) => void;
+}
+
+interface LabelCustomColorProps {
+  readonly color: string;
+  readonly onChange: (color: string) => void;
+}
+
+interface LabelEditorActionsProps {
+  readonly isSaveDisabled: boolean;
+  readonly saveLabel: string;
+  readonly onSave: () => void;
+  readonly onCancel: () => void;
+}
+
+function LabelPreview({ name, color }: LabelPreviewProps): React.ReactElement {
+  const { t } = useTranslation();
+
+  const previewName = name.trim() || t("tasks.labels.namePlaceholder");
+
+  return (
+    <div
+      aria-label={t("tasks.labels.preview")}
+      className="flex items-center gap-2 rounded-xl bg-muted/40 px-3 py-2"
+      role="status"
+    >
+      <span className="shrink-0 text-[11px] font-medium text-muted-foreground">
+        {t("tasks.labels.preview")}
+      </span>
+      <span
+        className="pages-user-color-text inline-flex max-w-full items-center gap-1 truncate rounded-md px-2 py-0.5 text-xs font-medium"
+        style={createUserColorStyle(color, "26", getLabelTextColor(color))}
+      >
+        <span className="min-w-0 truncate">{previewName}</span>
+      </span>
+    </div>
+  );
+}
+
+function LabelColorPresets({
+  activeColor,
+  onSelect,
+}: LabelColorPresetsProps): React.ReactElement {
+  const { t } = useTranslation();
+
+  const isPresetActive = LABEL_COLORS.some(
+    (preset) => preset.toLowerCase() === activeColor,
+  );
+
+  return (
+    <div
+      className="flex flex-wrap items-center gap-1.5"
+      role="radiogroup"
+      aria-label={t("tasks.labels.color")}
+    >
+      {LABEL_COLORS.map((preset) => {
+        const isActive = preset.toLowerCase() === activeColor;
+        const checkIsWhite = getLabelTextColor(preset) === preset;
+
+        return (
+          <button
+            key={preset}
+            aria-label={preset}
+            aria-pressed={isActive}
+            className={cn(
+              "inline-flex size-7 items-center justify-center rounded-full transition-transform",
+              isActive
+                ? "scale-110 ring-2 ring-foreground ring-offset-2 ring-offset-surface"
+                : "ring-1 ring-black/10 hover:scale-105",
+            )}
+            onClick={() => onSelect(preset)}
+            style={{ backgroundColor: preset }}
+            title={preset.toUpperCase()}
+            type="button"
+          >
+            {isActive ? (
+              <Check
+                className={cn(
+                  "size-3.5",
+                  checkIsWhite
+                    ? "text-white drop-shadow-[0_1px_1px_rgb(0_0_0/60%)]"
+                    : "text-[#44403c]",
+                )}
+                aria-hidden="true"
+              />
+            ) : null}
+          </button>
+        );
+      })}
+      {!isPresetActive ? (
+        <span
+          className="inline-flex size-7 items-center justify-center rounded-full ring-2 ring-dashed ring-foreground/60 ring-offset-2 ring-offset-surface"
+          style={{ backgroundColor: activeColor }}
+          title={`${t("tasks.labels.currentColor")}: ${activeColor.toUpperCase()}`}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+function LabelCustomColor({
+  color,
+  onChange,
+}: LabelCustomColorProps): React.ReactElement {
+  const { t } = useTranslation();
+  const [isOpen, setIsOpen] = useState(false);
+
+  return (
+    <div>
+      <Button
+        className="h-8 gap-1.5 px-3 text-xs"
+        onClick={() => setIsOpen((previous) => !previous)}
+        type="button"
+        variant="outline"
+        aria-expanded={isOpen}
+      >
+        <Pipette className="size-3.5" aria-hidden="true" />
+        {t("tasks.labels.customColor")}
+      </Button>
+
+      {isOpen ? (
+        <div className="mt-3 rounded-xl bg-muted/40 p-3">
+          <HexagonColorPicker color={color} onChange={onChange} />
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function LabelEditorActions({
+  isSaveDisabled,
+  saveLabel,
+  onSave,
+  onCancel,
+}: LabelEditorActionsProps): React.ReactElement {
+  const { t } = useTranslation();
+
+  return (
+    <div className="flex justify-end gap-2">
+      <Button
+        className="h-8 px-3 text-xs"
+        onClick={onCancel}
+        type="button"
+        variant="ghost"
+      >
+        {t("tasks.actions.cancel")}
+      </Button>
+      <Button
+        className="h-8 px-3 text-xs"
+        disabled={isSaveDisabled}
+        onClick={onSave}
+        type="button"
+      >
+        {saveLabel}
+      </Button>
+    </div>
+  );
 }
 
 /**

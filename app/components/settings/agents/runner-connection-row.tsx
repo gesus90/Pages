@@ -1,15 +1,14 @@
-import { useFetcher } from "react-router";
 import { useTranslation } from "react-i18next";
+import { useFetcher } from "react-router";
 
 import { Button } from "@/app/components/ui/button";
 
 import { AgentCheckTime } from "./agent-check-time";
-import { LocalRunnerRefresh } from "./local-runner-refresh";
 import { OpenCodeRemoteFacts } from "./opencode-remote-facts";
 import { RunnerMaintenance } from "./runner-maintenance";
 
-import type { RunnerConnectionView } from "@/definition/RunnerProtocol";
 import type { ToolInventory } from "@/definition/RemoteSetup";
+import type { RunnerConnectionView } from "@/definition/RunnerProtocol";
 
 interface RunnerActionResult {
   readonly ok: boolean;
@@ -23,12 +22,8 @@ function runnerStatus(connection: RunnerConnectionView): string {
   return connection.isStable ? "missing" : "waiting";
 }
 
-/**
- * The tools the runner found with the version each one printed.
- * @remarks
- * A tool that did not print a version shows that it is unknown, never a zero;
- * a runner that reported no inventory shows nothing at all.
- */
+// A tool that did not print a version shows that it is unknown, never a zero;
+// a runner that reported no inventory shows nothing at all.
 function ToolInventoryList({
   tools,
 }: {
@@ -63,7 +58,6 @@ function ToolInventoryList({
   );
 }
 
-/** A reconciled runner without the 1.10 contract keeps its jobs but starts nothing new. */
 function RunnerCommunicationUpgrade({
   connection,
 }: {
@@ -86,6 +80,100 @@ function RunnerCommunicationUpgrade({
           t("settings.agents.runner.versionBefore110"),
       })}
     </p>
+  );
+}
+
+function LocalRunnerRefresh({
+  connection,
+}: {
+  readonly connection: RunnerConnectionView;
+}): React.ReactElement | null {
+  const { t } = useTranslation();
+  const fetcher = useFetcher<{ readonly ok: boolean }>();
+  if (!connection.isOnline) return null;
+  return (
+    <fetcher.Form method="post" action="/settings-api/runners">
+      <input type="hidden" name="intent" value="refresh-tools" />
+      <input
+        type="hidden"
+        name="connectionId"
+        value={connection.connectionId}
+      />
+      <Button
+        type="submit"
+        size="sm"
+        variant="outline"
+        disabled={fetcher.state !== "idle"}
+      >
+        {t("settings.agents.runner.refreshTools")}
+      </Button>
+      {fetcher.data?.ok === false ? (
+        <p role="status" className="mt-2 text-xs text-muted-foreground">
+          {t("settings.agents.runner.catalogRecovery")}
+        </p>
+      ) : null}
+    </fetcher.Form>
+  );
+}
+
+function RunnerActions({
+  connection,
+}: {
+  readonly connection: RunnerConnectionView;
+}): React.ReactElement {
+  const { t } = useTranslation();
+  const fetcher = useFetcher<RunnerActionResult>();
+  const isPending = fetcher.state !== "idle";
+  const canSetup = connection.isStable && connection.runnerId === null;
+  return (
+    <div className="max-w-64 space-y-2">
+      <fetcher.Form method="post" action="/settings-api/runners">
+        <input
+          type="hidden"
+          name="connectionId"
+          value={connection.connectionId}
+        />
+        {canSetup ? (
+          <Button
+            type="submit"
+            size="sm"
+            variant="outline"
+            name="intent"
+            value="transfer"
+            disabled={isPending}
+          >
+            {t("settings.agents.runner.setup")}
+          </Button>
+        ) : null}
+        {!connection.isStable ? (
+          <Button
+            type="submit"
+            size="sm"
+            variant="outline"
+            name="intent"
+            value="connect"
+            disabled={isPending}
+          >
+            {t("settings.agents.runner.connect")}
+          </Button>
+        ) : null}
+      </fetcher.Form>
+      {canSetup ? (
+        <p className="text-xs text-muted-foreground">
+          {t("settings.agents.runner.transferOnly")}
+        </p>
+      ) : null}
+      {fetcher.data ? (
+        <p role="status" className="text-xs break-words text-muted-foreground">
+          {t(
+            fetcher.data.ok
+              ? `settings.agents.runner.${fetcher.data.intent === "transfer" ? "transferred" : "connected"}`
+              : "settings.agents.runner.failed",
+            { path: fetcher.data.path },
+          )}
+        </p>
+      ) : null}
+    </div>
   );
 }
 
@@ -148,66 +236,5 @@ export function RunnerConnectionRow({
         ) : null}
       </td>
     </tr>
-  );
-}
-
-function RunnerActions({
-  connection,
-}: {
-  readonly connection: RunnerConnectionView;
-}): React.ReactElement {
-  const { t } = useTranslation();
-  const fetcher = useFetcher<RunnerActionResult>();
-  const isPending = fetcher.state !== "idle";
-  const canSetup = connection.isStable && connection.runnerId === null;
-  return (
-    <div className="max-w-64 space-y-2">
-      <fetcher.Form method="post" action="/settings-api/runners">
-        <input
-          type="hidden"
-          name="connectionId"
-          value={connection.connectionId}
-        />
-        {canSetup ? (
-          <Button
-            type="submit"
-            size="sm"
-            variant="outline"
-            name="intent"
-            value="transfer"
-            disabled={isPending}
-          >
-            {t("settings.agents.runner.setup")}
-          </Button>
-        ) : null}
-        {!connection.isStable ? (
-          <Button
-            type="submit"
-            size="sm"
-            variant="outline"
-            name="intent"
-            value="connect"
-            disabled={isPending}
-          >
-            {t("settings.agents.runner.connect")}
-          </Button>
-        ) : null}
-      </fetcher.Form>
-      {canSetup ? (
-        <p className="text-xs text-muted-foreground">
-          {t("settings.agents.runner.transferOnly")}
-        </p>
-      ) : null}
-      {fetcher.data ? (
-        <p role="status" className="text-xs break-words text-muted-foreground">
-          {t(
-            fetcher.data.ok
-              ? `settings.agents.runner.${fetcher.data.intent === "transfer" ? "transferred" : "connected"}`
-              : "settings.agents.runner.failed",
-            { path: fetcher.data.path },
-          )}
-        </p>
-      ) : null}
-    </div>
   );
 }

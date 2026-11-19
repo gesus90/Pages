@@ -2,9 +2,10 @@ import { useTranslation } from "react-i18next";
 import { useFetcher } from "react-router";
 
 import { useRegionFormatter } from "@/app/components/common/region-provider";
+import { Button } from "@/app/components/ui/button";
+
 import { AgentToolActions } from "./agent-tool-actions";
 import { AgentToolConnections } from "./agent-tool-card/agent-tool-connections";
-import { AgentToolOperation } from "./agent-tool-card/agent-tool-operation";
 import { AgentToolReleaseFacts } from "./agent-tool-card/agent-tool-release-facts";
 
 import type {
@@ -18,85 +19,49 @@ interface ToolActionResult {
   readonly error?: string;
 }
 
-/** Shows installation, functional readiness and native activity as distinct facts. */
-export function AgentToolCard({
+// Rendered inside the card's form, so the retry button submits the same
+// fixed action the server serializes per tool.
+function AgentToolOperation({
   tool,
+  isPending,
 }: {
   readonly tool: AgentToolView;
-}): React.ReactElement {
+  readonly isPending: boolean;
+}): React.ReactElement | null {
   const { t } = useTranslation();
-  const { formatDateTime } = useRegionFormatter();
-  const fetcher = useFetcher<ToolActionResult>();
-  const isPending = fetcher.state !== "idle";
-  return (
-    <section
-      className="min-w-0 space-y-3 rounded-lg border border-border bg-surface p-4"
-      aria-label={t(`agentTools.names.${tool.id}`)}
-    >
-      <div className="flex flex-wrap items-start justify-between gap-2">
-        <div>
-          <h3 className="font-semibold">{t(`agentTools.names.${tool.id}`)}</h3>
-          <p className="text-sm text-muted-foreground">
-            {t(`agentTools.kind.${tool.kind}`)}
-          </p>
-        </div>
-        <span className="rounded-md bg-muted px-2 py-1 text-sm">
-          {t(`agentTools.status.${tool.status}`)}
-        </span>
-      </div>
-      <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1 text-sm">
-        <dt className="text-muted-foreground">
-          {t("agentTools.installation")}
-        </dt>
-        <dd>
-          {t(installationLabel(tool.installed))} ·{" "}
-          {t(`agentTools.source.${tool.source ?? "none"}`)}
-        </dd>
-        <ToolVersionFacts tool={tool} />
-        {tool.kind === "browser" ? null : <AgentToolReleaseFacts tool={tool} />}
-        <ToolLocationFacts tool={tool} />
-        <dt className="text-muted-foreground">{t("agentTools.enabled")}</dt>
-        <dd>{t(tool.enabled ? "agentTools.yes" : "agentTools.no")}</dd>
-        <dt className="text-muted-foreground">{t("agentTools.lastCheck")}</dt>
-        <dd>{formatDateTime(tool.lastCheck)}</dd>
-        <dt className="text-muted-foreground">{t("agentTools.processes")}</dt>
-        <dd>{tool.activities.length}</dd>
-      </dl>
-      {tool.updateAvailable ? (
-        <p className="text-sm text-primary-text">
-          {t("agentTools.updateAvailable")}
-        </p>
-      ) : null}
-      {tool.source === "system" && tool.release.source ? (
-        <p className="text-sm text-muted-foreground">
-          {t("agentTools.externalHint")}
-        </p>
-      ) : null}
+  const { operation } = tool;
+  if (!operation) return null;
+  const values = {
+    action: t(`agentTools.actions.${operation.action}`),
+    phase: t(`agentTools.operation.phase.${operation.phase}`),
+  };
+  if (operation.state !== "failed")
+    return (
       <p className="text-sm text-muted-foreground">
-        {t(`agentTools.diagnostic.${tool.diagnostic}`)}
-        {tool.dependency
-          ? ` (${t(`agentTools.names.${tool.dependency}`)})`
-          : ""}
+        {t(`agentTools.operation.${operation.state}`, values)}
       </p>
-      <ToolActivity tool={tool} />
-      <fetcher.Form
-        method="post"
-        action="/settings/agents/tools"
-        className="flex flex-wrap gap-2"
-      >
-        <input type="hidden" name="tool" value={tool.id} />
-        <AgentToolActions tool={tool} isPending={isPending} />
-        <div className="basis-full">
-          <AgentToolOperation tool={tool} isPending={isPending} />
-        </div>
-      </fetcher.Form>
-      {tool.operation?.action === "rebind" || tool.connections.length > 0 ? (
-        <AgentToolConnections connections={tool.connections} />
+    );
+  return (
+    <div role="alert" className="space-y-2 text-sm text-destructive">
+      <p>{t("agentTools.operation.failed", values)}</p>
+      {operation.diagnostic ? (
+        <p>{t(`agentTools.diagnostic.${operation.diagnostic}`)}</p>
       ) : null}
-      <div aria-live="polite" className="text-sm">
-        <ToolOutcome isPending={isPending} result={fetcher.data} />
-      </div>
-    </section>
+      {operation.retryAction ? (
+        <Button
+          type="submit"
+          name="intent"
+          value={operation.retryAction}
+          size="sm"
+          variant="outline"
+          disabled={isPending}
+        >
+          {t("agentTools.operation.retry", {
+            action: t(`agentTools.actions.${operation.retryAction}`),
+          })}
+        </Button>
+      ) : null}
+    </div>
   );
 }
 
@@ -258,5 +223,87 @@ function ToolVersionFacts({
       </dt>
       <dd className="break-words">{tool.approvedVersion ?? "—"}</dd>
     </>
+  );
+}
+
+/** Shows installation, functional readiness and native activity as distinct facts. */
+export function AgentToolCard({
+  tool,
+}: {
+  readonly tool: AgentToolView;
+}): React.ReactElement {
+  const { t } = useTranslation();
+  const { formatDateTime } = useRegionFormatter();
+  const fetcher = useFetcher<ToolActionResult>();
+  const isPending = fetcher.state !== "idle";
+  return (
+    <section
+      className="min-w-0 space-y-3 rounded-lg border border-border bg-surface p-4"
+      aria-label={t(`agentTools.names.${tool.id}`)}
+    >
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div>
+          <h3 className="font-semibold">{t(`agentTools.names.${tool.id}`)}</h3>
+          <p className="text-sm text-muted-foreground">
+            {t(`agentTools.kind.${tool.kind}`)}
+          </p>
+        </div>
+        <span className="rounded-md bg-muted px-2 py-1 text-sm">
+          {t(`agentTools.status.${tool.status}`)}
+        </span>
+      </div>
+      <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1 text-sm">
+        <dt className="text-muted-foreground">
+          {t("agentTools.installation")}
+        </dt>
+        <dd>
+          {t(installationLabel(tool.installed))} ·{" "}
+          {t(`agentTools.source.${tool.source ?? "none"}`)}
+        </dd>
+        <ToolVersionFacts tool={tool} />
+        {tool.kind === "browser" ? null : <AgentToolReleaseFacts tool={tool} />}
+        <ToolLocationFacts tool={tool} />
+        <dt className="text-muted-foreground">{t("agentTools.enabled")}</dt>
+        <dd>{t(tool.enabled ? "agentTools.yes" : "agentTools.no")}</dd>
+        <dt className="text-muted-foreground">{t("agentTools.lastCheck")}</dt>
+        <dd>{formatDateTime(tool.lastCheck)}</dd>
+        <dt className="text-muted-foreground">{t("agentTools.processes")}</dt>
+        <dd>{tool.activities.length}</dd>
+      </dl>
+      {tool.updateAvailable ? (
+        <p className="text-sm text-primary-text">
+          {t("agentTools.updateAvailable")}
+        </p>
+      ) : null}
+      {tool.source === "system" && tool.release.source ? (
+        <p className="text-sm text-muted-foreground">
+          {t("agentTools.externalHint")}
+        </p>
+      ) : null}
+      <p className="text-sm text-muted-foreground">
+        {t(`agentTools.diagnostic.${tool.diagnostic}`)}
+        {tool.dependency
+          ? ` (${t(`agentTools.names.${tool.dependency}`)})`
+          : ""}
+      </p>
+      <ToolActivity tool={tool} />
+      <fetcher.Form
+        method="post"
+        action="/settings/agents/tools"
+        className="flex flex-wrap gap-2"
+      >
+        <input type="hidden" name="tool" value={tool.id} />
+        <AgentToolActions tool={tool} isPending={isPending} />
+        <div className="basis-full">
+          <AgentToolOperation tool={tool} isPending={isPending} />
+        </div>
+      </fetcher.Form>
+      {tool.operation?.action === "rebind" || tool.connections.length > 0 ? (
+        <AgentToolConnections connections={tool.connections} />
+      ) : null}
+      <div aria-live="polite" className="text-sm">
+        <ToolOutcome isPending={isPending} result={fetcher.data} />
+      </div>
+    </section>
   );
 }

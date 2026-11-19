@@ -7,8 +7,9 @@ import { useTranslation } from "react-i18next";
  */
 import claudeUrl from "@/assets/providers/logo-claude.png?no-inline";
 
-import { ClaudePlanBadge } from "./claude-plan-badge";
-import { ClaudeQuotaWindow } from "./claude-quota-window";
+import { cn } from "@/app/lib/cn";
+import { claudePlanTier } from "@/definition/ClaudeQuota";
+
 import { QuotaCardFrame } from "./quota-card-frame";
 import { QUOTA_WINDOWS_AREA_CLASS } from "./quota-card-layout";
 import { quotaCardView } from "./quota-card-state";
@@ -18,9 +19,14 @@ import {
   QuotaWindowsPlaceholder,
 } from "./quota-placeholders";
 import { QuotaStatusLine } from "./quota-status-line";
+import { QuotaWindow } from "./quota-window";
 import { useRefreshHint } from "./use-refresh-hint";
 
-import type { ClaudeQuotaAccount } from "@/definition/ClaudeQuota";
+import type {
+  ClaudePlan,
+  ClaudeQuotaAccount,
+  ClaudeQuotaWindow as ReportedWindow,
+} from "@/definition/ClaudeQuota";
 import type { QuotaCardBody } from "./quota-card-state";
 
 /**
@@ -152,5 +158,90 @@ export function ClaudeQuotaCard({
         onRetry={handleRetry}
       />
     </QuotaCardFrame>
+  );
+}
+
+function ClaudeQuotaWindow({
+  quotaWindow,
+  now,
+  isStale = false,
+  staleSince = null,
+}: {
+  readonly quotaWindow: ReportedWindow;
+  readonly now: Date;
+  readonly isStale?: boolean;
+  readonly staleSince?: string | null;
+}): React.ReactElement {
+  const { t } = useTranslation();
+  return (
+    <QuotaWindow
+      figures={{
+        kind: quotaWindow.kind,
+        label: t(`agentsPage.window.${quotaWindow.kind}`),
+        usedPercentage: quotaWindow.usedPercentage,
+        resetsAt: quotaWindow.resetsAt,
+      }}
+      now={now}
+      isStale={isStale}
+      staleSince={staleSince}
+    />
+  );
+}
+
+const TIER_BAR_HEIGHTS = [5, 8, 11, 14] as const;
+
+function PlanTierMark({ tier }: { readonly tier: number }): React.ReactElement {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 14 14"
+      className="size-3.5"
+      fill="currentColor"
+    >
+      {TIER_BAR_HEIGHTS.map((height, index) => (
+        <rect
+          key={height}
+          data-plan-bar={index < tier ? "filled" : "empty"}
+          x={index * 3.67}
+          y={14 - height}
+          width={3}
+          height={height}
+          rx={0.75}
+          opacity={index < tier ? 1 : 0.3}
+        />
+      ))}
+    </svg>
+  );
+}
+
+function ClaudePlanBadge({
+  plan,
+}: {
+  readonly plan: ClaudePlan | null;
+}): React.ReactElement {
+  const { t } = useTranslation();
+  const isKnown = plan !== null;
+  return (
+    <span
+      data-claude-plan={plan ?? "unknown"}
+      className={cn(
+        "inline-flex h-6 shrink-0 items-center gap-1.5 rounded-[7px] border bg-surface py-[2px] pr-2 pl-[2px] text-[11px] leading-none font-semibold",
+        isKnown
+          ? "w-[68px] border-claude text-foreground"
+          : "border-border text-muted-foreground",
+      )}
+    >
+      <span
+        className={cn(
+          "inline-flex size-[18px] shrink-0 items-center justify-center rounded-[5px]",
+          isKnown ? "bg-claude/15 text-claude" : "bg-muted",
+        )}
+      >
+        <PlanTierMark tier={claudePlanTier(plan)} />
+      </span>
+      <span className="whitespace-nowrap">
+        {t(`agentsPage.plan.${plan ?? "unknown"}`)}
+      </span>
+    </span>
   );
 }

@@ -2,18 +2,22 @@ import { TriangleAlert } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
-import { ChatPageRoundLimits } from "@/app/components/chat-page/chat-page-round-limits";
 import { DecisionRulesFields } from "@/app/components/common/decision-rules-fields";
 import { Button } from "@/app/components/ui/button";
 import { SegmentedControl } from "@/app/components/ui/segmented-control";
+import { Select } from "@/app/components/ui/select";
 import { CONVERSATION_REPLY_MODES } from "@/definition/ConversationDecision";
-import { conversationRoundLimits } from "@/definition/ConversationObserver";
+import {
+  CONVERSATION_ROUND_LIMITS_RANGE,
+  conversationRoundLimits,
+} from "@/definition/ConversationObserver";
 
 import type {
   ConversationDecisionRules,
   ConversationReplyMode,
   ConversationReplySettingsView,
 } from "@/definition/ConversationDecision";
+import type { ConversationRoundLimits } from "@/definition/ConversationObserver";
 import type { ReplySettingsDraft } from "./use-reply-settings";
 
 interface ReplyAnswersTabProps {
@@ -169,5 +173,54 @@ export function ReplyAnswersTab({
         </p>
       ) : null}
     </form>
+  );
+}
+
+/** The bounded number of contributions without @ per round; @ hand-overs are not limited. */
+function ChatPageRoundLimits({
+  limits,
+  isDisabled,
+  onChange,
+}: {
+  readonly limits: ConversationRoundLimits;
+  readonly isDisabled: boolean;
+  readonly onChange: (limits: ConversationRoundLimits) => void;
+}): React.ReactElement {
+  const { t } = useTranslation();
+  const fields = [
+    {
+      key: "automaticRepliesPerOrigin",
+      maximum: CONVERSATION_ROUND_LIMITS_RANGE.automaticRepliesMaximum,
+    },
+  ] as const;
+  return (
+    <fieldset className="space-y-4" disabled={isDisabled}>
+      <legend className="mb-2 text-sm font-medium">
+        {t("chatPage.replySettings.roundLimits")}
+      </legend>
+      {fields.map(({ key, maximum }) => (
+        <div key={key}>
+          <label className="mb-1.5 block text-sm" htmlFor={`reply-${key}`}>
+            {t(`chatPage.replySettings.${key}`)}
+          </label>
+          <Select
+            id={`reply-${key}`}
+            ariaLabel={t(`chatPage.replySettings.${key}`)}
+            disabled={isDisabled}
+            value={String(limits[key])}
+            options={Array.from({ length: maximum }, (_, index) => ({
+              value: String(index + 1),
+              label: String(index + 1),
+            }))}
+            onValueChange={(count) =>
+              onChange({ ...limits, [key]: Number(count) })
+            }
+          />
+        </div>
+      ))}
+      <p className="text-xs text-muted-foreground">
+        {t("chatPage.replySettings.followUpHint")}
+      </p>
+    </fieldset>
   );
 }

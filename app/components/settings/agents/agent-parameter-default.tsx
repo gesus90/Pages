@@ -1,47 +1,116 @@
+import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
+import { useFetcher } from "react-router";
 
 import { Select } from "@/app/components/ui/select";
 import { Textarea } from "@/app/components/ui/textarea";
-import { AgentNumberDefault } from "./agent-number-default";
-import { AgentTicketValue } from "./agent-ticket-value";
 
-import type { AgentParameter } from "@/definition/AgentParameters";
+import type {
+  AgentParameter,
+  AgentTicketChoice,
+} from "@/definition/AgentParameters";
 import type { AgentWorkspaceChoice } from "@/definition/AgentWorkspace";
 
-/** Defaults retain workspace IDs; directory paths are resolved by the server at preparation. */
-export function AgentParameterDefault(props: {
+interface TicketChoicesResponse {
+  readonly tickets?: readonly AgentTicketChoice[];
+  readonly error?: string;
+}
+
+function AgentNumberDefault(props: {
   readonly parameter: AgentParameter;
   readonly onChange: (parameter: AgentParameter) => void;
-  readonly disabled: boolean;
-  readonly workspaceChoices: readonly AgentWorkspaceChoice[];
 }): React.ReactElement {
   const { t } = useTranslation();
-  if (props.parameter.type === "text") return <AgentTextDefault {...props} />;
-  if (props.parameter.type === "number")
-    return <AgentNumberDefault {...props} />;
-  if (props.parameter.type === "ticket")
-    return (
-      <AgentTicketValue
-        ticketId={
-          props.parameter.defaultValue?.type === "ticket"
-            ? props.parameter.defaultValue.ticketId
-            : ""
-        }
-        disabled={props.disabled}
-        onChange={(ticketId) =>
-          props.onChange({
-            ...props.parameter,
-            defaultValue: ticketId ? { type: "ticket", ticketId } : null,
-          })
+  const { parameter } = props;
+  const number =
+    parameter.defaultValue?.type === "number"
+      ? parameter.defaultValue.number
+      : null;
+  return (
+    <label className="block space-y-1.5 text-sm font-medium">
+      <span className="block">
+        {t("settings.agents.definition.defaultValue")}
+      </span>
+      <InputNumberField
+        number={number}
+        onChange={(next) =>
+          props.onChange({ ...parameter, defaultValue: next })
         }
       />
-    );
-  if (props.parameter.type === "workspace")
-    return <AgentWorkspaceDefault {...props} />;
+    </label>
+  );
+}
+
+function InputNumberField(props: {
+  readonly number: number | null;
+  readonly onChange: (value: AgentParameter["defaultValue"]) => void;
+}): React.ReactElement {
   return (
-    <p className="text-xs text-muted-foreground">
-      {t("settings.agents.definition.referenceLater")}
-    </p>
+    <input
+      className="flex h-11 w-full rounded-xl border border-border bg-surface px-3.5 text-sm text-foreground shadow-xs outline-none transition-shadow placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-primary xl:h-9"
+      type="number"
+      step="any"
+      value={
+        props.number !== null && Number.isFinite(props.number)
+          ? props.number
+          : ""
+      }
+      onChange={(event) =>
+        props.onChange(
+          event.target.value === "" && !event.target.validity.badInput
+            ? null
+            : { type: "number", number: event.target.valueAsNumber },
+        )
+      }
+    />
+  );
+}
+
+function AgentTicketValue(props: {
+  readonly ticketId: string;
+  readonly disabled: boolean;
+  readonly onChange: (ticketId: string) => void;
+}): React.ReactElement {
+  const { t } = useTranslation();
+  const fetcher = useFetcher<TicketChoicesResponse>();
+  const { load } = fetcher;
+  useEffect(() => {
+    void load("/agent-api/ticket-choices");
+  }, [load]);
+  const options = (fetcher.data?.tickets ?? []).map((ticket) => ({
+    value: ticket.id,
+    label: `${ticket.key}: ${ticket.title}`,
+    disabled: false,
+  }));
+  if (
+    props.ticketId &&
+    !options.some((option) => option.value === props.ticketId)
+  )
+    options.push({
+      value: props.ticketId,
+      label: t("settings.agents.definition.unavailableTicket"),
+      disabled: true,
+    });
+  return (
+    <div className="space-y-1.5">
+      <Select
+        size="default"
+        className="w-full"
+        ariaLabel={t("settings.agents.definition.ticket")}
+        value={props.ticketId}
+        disabled={props.disabled || fetcher.state !== "idle"}
+        options={[
+          { value: "", label: t("settings.agents.definition.chooseTicket") },
+          ...options,
+        ]}
+        onValueChange={props.onChange}
+      />
+      {fetcher.data?.error ? (
+        <p role="alert" className="text-sm text-destructive">
+          {t("settings.agents.error.parameter_ticket_unavailable")}
+        </p>
+      ) : null}
+    </div>
   );
 }
 
@@ -135,5 +204,42 @@ function AgentTextDefault(props: {
         </label>
       ) : null}
     </div>
+  );
+}
+
+/** Defaults retain workspace IDs; directory paths are resolved by the server at preparation. */
+export function AgentParameterDefault(props: {
+  readonly parameter: AgentParameter;
+  readonly onChange: (parameter: AgentParameter) => void;
+  readonly disabled: boolean;
+  readonly workspaceChoices: readonly AgentWorkspaceChoice[];
+}): React.ReactElement {
+  const { t } = useTranslation();
+  if (props.parameter.type === "text") return <AgentTextDefault {...props} />;
+  if (props.parameter.type === "number")
+    return <AgentNumberDefault {...props} />;
+  if (props.parameter.type === "ticket")
+    return (
+      <AgentTicketValue
+        ticketId={
+          props.parameter.defaultValue?.type === "ticket"
+            ? props.parameter.defaultValue.ticketId
+            : ""
+        }
+        disabled={props.disabled}
+        onChange={(ticketId) =>
+          props.onChange({
+            ...props.parameter,
+            defaultValue: ticketId ? { type: "ticket", ticketId } : null,
+          })
+        }
+      />
+    );
+  if (props.parameter.type === "workspace")
+    return <AgentWorkspaceDefault {...props} />;
+  return (
+    <p className="text-xs text-muted-foreground">
+      {t("settings.agents.definition.referenceLater")}
+    </p>
   );
 }

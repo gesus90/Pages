@@ -88,7 +88,7 @@ export const WIKI_READ_RANGE_TOOL: Tool = {
 export const TICKET_READ_DESCRIPTION_RANGE_TOOL: Tool = {
   name: "read_ticket_description_range",
   title: "Read ticket description range",
-  description: `Reads only one passage of the description of a visible ticket. ticketId is a ticket ID, a key such as PAGE-12, or a Pages address. ${POSITIONS} ${READ_COMMON} Also returns descriptionVersion (the first 128 bits of the SHA-256 of the stored description, 32 hex digits): pass it as expectedDescriptionVersion to patch_ticket_description.`,
+  description: `Reads only one passage of the description of a visible ticket. ticketId is a ticket ID, a key such as TICKET-12, or a Pages address. ${POSITIONS} ${READ_COMMON} Also returns descriptionVersion (the first 128 bits of the SHA-256 of the stored description, 32 hex digits): pass it as expectedDescriptionVersion to patch_ticket_description.`,
   inputSchema: readSchema("ticketId"),
   annotations: READ_ANNOTATIONS,
 };
@@ -106,7 +106,7 @@ export const WIKI_PATCH_CONTENT_TOOL: Tool = {
 export const TICKET_PATCH_DESCRIPTION_TOOL: Tool = {
   name: "patch_ticket_description",
   title: "Patch ticket description",
-  description: `Replaces exactly one range of the description of a ticket without sending the whole text; title, status, parent and milestone stay unchanged. ticketId is a ticket ID, a key such as PAGE-12, or a Pages address. expectedDescriptionVersion is the descriptionVersion from read_ticket_description_range; a description saved since then returns CONFLICT. Positions as in read_ticket_description_range. ${PATCH_COMMON} The description may not exceed 65,536 UTF-16 code units after the change and is stored as composed, not trimmed. Whether the change is published to GitHub follows the Pages setting of the project.`,
+  description: `Replaces exactly one range of the description of a ticket without sending the whole text; title, status, parent and milestone stay unchanged. ticketId is a ticket ID, a key such as TICKET-12, or a Pages address. expectedDescriptionVersion is the descriptionVersion from read_ticket_description_range; a description saved since then returns CONFLICT. Positions as in read_ticket_description_range. ${PATCH_COMMON} The description may not exceed 65,536 UTF-16 code units after the change and is stored as composed, not trimmed. Whether the change is published to GitHub follows the Pages setting of the project.`,
   inputSchema: patchSchema("ticketId", "expectedDescriptionVersion"),
   annotations: DESTRUCTIVE_ANNOTATIONS,
 };

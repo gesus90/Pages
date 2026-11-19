@@ -1,31 +1,42 @@
-import { Calendar, Plus } from "lucide-react";
+import { Calendar, ChevronDown, Plus } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import { useAssigneeOptions } from "@/app/components/tasks/assignee-options";
 import { TicketParentField } from "@/app/components/tasks/hierarchy/ticket-parent-field";
-import { TaskGitHubDetails } from "@/app/components/tasks/task-github-details";
 import { TaskTypeBadge } from "@/app/components/tasks/task-badges";
+import { TaskGitHubDetails } from "@/app/components/tasks/task-github-details";
 import { TaskLabelPill } from "@/app/components/tasks/task-labels";
+import { useTicketAccess } from "@/app/components/tasks/ticket-access";
 import { useTicketAssigneeSight } from "@/app/components/tasks/ticket-assignee-sight";
 import { TicketDepartmentSelect } from "@/app/components/tasks/ticket-department-select";
 import { TicketLifecycleControls } from "@/app/components/tasks/ticket-lifecycle-controls";
-import { useTicketAccess } from "@/app/components/tasks/ticket-access";
-import { usePriorityOptions } from "@/app/components/tasks/priority-options";
-import { TicketCollapsible } from "@/app/components/tasks/ticket/ticket-collapsible";
 import { Select } from "@/app/components/ui/select";
 import { toAssigneeValue } from "@/app/lib/assignee-value";
+import { WORK_ITEM_PRIORITY } from "@/definition/Task";
 
 import type { TaskPanelActions } from "@/app/components/tasks/detail/use-task-panel-actions";
 import type { GitHubPullRequest } from "@/definition/GitHub";
 import type { Project } from "@/definition/Project";
 import type {
-  Milestone,
   Label,
+  Milestone,
   WorkItemDescendants,
   WorkItemDetail,
+  WorkItemPriority,
   WorkflowStatus,
 } from "@/definition/Task";
 import type { User } from "@/definition/User";
+
+interface PriorityOption {
+  readonly value: WorkItemPriority;
+  readonly label: string;
+}
+
+interface TicketCollapsibleProps {
+  readonly title: string;
+  readonly isInitiallyOpen?: boolean;
+  readonly children: React.ReactNode;
+}
 
 interface RowProps {
   readonly label: string;
@@ -33,7 +44,76 @@ interface RowProps {
   readonly children: React.ReactNode;
 }
 
-/** Renders one labelled row of the ticket sidebar. */
+interface DateRowProps {
+  readonly label: string;
+  readonly inputId: string;
+  readonly value: string | null;
+  readonly isArchived: boolean;
+  readonly onChange: (value: string) => void;
+}
+
+interface SidebarProps {
+  readonly ticket: WorkItemDetail;
+  readonly actions: TaskPanelActions;
+  readonly isArchived: boolean;
+}
+
+interface PeopleRowsProps extends SidebarProps {
+  readonly statuses: readonly WorkflowStatus[];
+  readonly assignees: readonly User[];
+}
+
+interface PlacementRowsProps extends SidebarProps {
+  readonly project: Project;
+  readonly milestones: readonly Milestone[];
+  readonly taskLabels: readonly Label[];
+  /** Tickets of the project the parent may be chosen from. */
+  readonly projectWorkItems: readonly WorkItemDetail[];
+  readonly onOpenTicket: (key: string) => void;
+  readonly onMoveProject: () => void;
+  readonly onEditLabels: () => void;
+}
+
+interface TicketSidebarProps extends PeopleRowsProps, PlacementRowsProps {
+  readonly pullRequests: readonly GitHubPullRequest[];
+  /** Whether new tasks of the project reach GitHub without further action. */
+  readonly publishesNewTasks: boolean;
+  readonly isArchiving: boolean;
+  readonly isSyncing: boolean;
+  readonly redirectTo: string;
+  readonly descendants: WorkItemDescendants | null;
+}
+
+function usePriorityOptions(): readonly PriorityOption[] {
+  const { t } = useTranslation();
+
+  return [
+    { label: t("tasks.priority.low"), value: WORK_ITEM_PRIORITY.LOW },
+    { label: t("tasks.priority.normal"), value: WORK_ITEM_PRIORITY.NORMAL },
+    { label: t("tasks.priority.high"), value: WORK_ITEM_PRIORITY.HIGH },
+    { label: t("tasks.priority.urgent"), value: WORK_ITEM_PRIORITY.URGENT },
+  ];
+}
+
+function TicketCollapsible({
+  title,
+  isInitiallyOpen = true,
+  children,
+}: TicketCollapsibleProps): React.ReactElement {
+  return (
+    <details className="group rounded-xl bg-muted/40" open={isInitiallyOpen}>
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-2 rounded-xl px-4 py-3 text-sm font-semibold text-foreground outline-none focus-visible:ring-2 focus-visible:ring-primary [&::-webkit-details-marker]:hidden">
+        {title}
+        <ChevronDown
+          aria-hidden="true"
+          className="size-4 text-muted-foreground transition-transform group-open:rotate-180"
+        />
+      </summary>
+      <div className="flex flex-col gap-3 px-4 pb-4 text-xs">{children}</div>
+    </details>
+  );
+}
+
 function Row({ label, labelId, children }: RowProps): React.ReactElement {
   return (
     <div className="flex items-center justify-between gap-2">
@@ -48,15 +128,6 @@ function Row({ label, labelId, children }: RowProps): React.ReactElement {
   );
 }
 
-interface DateRowProps {
-  readonly label: string;
-  readonly inputId: string;
-  readonly value: string | null;
-  readonly isArchived: boolean;
-  readonly onChange: (value: string) => void;
-}
-
-/** Renders a date row with a calendar icon and a native date input. */
 function DateRow({
   label,
   inputId,
@@ -90,18 +161,6 @@ function DateRow({
   );
 }
 
-interface SidebarProps {
-  readonly ticket: WorkItemDetail;
-  readonly actions: TaskPanelActions;
-  readonly isArchived: boolean;
-}
-
-interface PeopleRowsProps extends SidebarProps {
-  readonly statuses: readonly WorkflowStatus[];
-  readonly assignees: readonly User[];
-}
-
-/** Renders type, priority, assignee and reporter of a ticket. */
 function PeopleRows({
   ticket,
   actions,
@@ -161,18 +220,6 @@ function PeopleRows({
   );
 }
 
-interface PlacementRowsProps extends SidebarProps {
-  readonly project: Project;
-  readonly milestones: readonly Milestone[];
-  readonly taskLabels: readonly Label[];
-  /** Tickets of the project the parent may be chosen from. */
-  readonly projectWorkItems: readonly WorkItemDetail[];
-  readonly onOpenTicket: (key: string) => void;
-  readonly onMoveProject: () => void;
-  readonly onEditLabels: () => void;
-}
-
-/** Renders project, parent, milestone and labels of a ticket. */
 function PlacementRows({
   ticket,
   actions,
@@ -248,7 +295,6 @@ function PlacementRows({
   );
 }
 
-/** Renders start date, due date and the progress bar of a ticket. */
 function ScheduleRows({
   ticket,
   actions,
@@ -292,17 +338,6 @@ function ScheduleRows({
   );
 }
 
-interface TicketSidebarProps extends PeopleRowsProps, PlacementRowsProps {
-  readonly pullRequests: readonly GitHubPullRequest[];
-  /** Whether new tasks of the project reach GitHub without further action. */
-  readonly publishesNewTasks: boolean;
-  readonly isArchiving: boolean;
-  readonly isSyncing: boolean;
-  readonly redirectTo: string;
-  readonly descendants: WorkItemDescendants | null;
-}
-
-/** The status of the ticket, on top of the right column as in Jira. */
 function StatusField({
   ticket,
   statuses,

@@ -1,5 +1,8 @@
 import { configurationForTargets } from "@/backend/agents/AgentConfigurationInput";
-import { agentSimulationModels } from "@/backend/agents/simulation/AgentSimulationModels";
+import {
+  agentSimulationModels,
+  resolveAgentSimulationModel,
+} from "@/backend/agents/simulation/AgentSimulationModels";
 import { currentAgentSimulationMode } from "@/backend/agents/simulation/AgentSimulationMode";
 import {
   agentProfilePriority,
@@ -8,6 +11,7 @@ import {
 import { UserPolicyService } from "@/backend/auth/UserPolicyService";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { AgentExecutionError } from "@/backend/error/AgentExecutionErrors";
+import { emptyAgentConfiguration } from "@/definition/AgentConfiguration";
 import {
   agentParameterIssues,
   scanAgentPlaceholders,
@@ -16,10 +20,9 @@ import { logCaughtError } from "@/backend/logging/Logger";
 
 import { resolveAgentAssignmentFor } from "./AgentAssignmentResolution";
 import { canUseAgentConnection } from "./AgentConnectionAccess";
-import { resolvePlanModel } from "./AgentPlanModel";
+import { requirePlanConsumerModel, resolvePlanModel } from "./AgentPlanModel";
 import { resolvePageAgentModel } from "./PageAgentModels";
 import { connectionModels } from "./AgentConnectionModels";
-import { resolveDirectPlanModel } from "./AgentPlanDirectModel";
 
 import type { PageAgentModel } from "@/definition/PageAgent";
 import type { AgentViewer } from "@/backend/auth/AgentProfilePolicy";
@@ -28,6 +31,7 @@ import type {
   AgentDefinitionChoice,
   AgentDefinitionSelection,
 } from "@/definition/AgentAvailability";
+import type { AgentPlanConfiguration } from "@/definition/AgentPlanConfiguration";
 import type { AgentProfile } from "@/definition/AgentProfile";
 import type { AgentConfiguration } from "@/definition/AgentConfiguration";
 import type { ProfileDependencies } from "./AgentProfileService";
@@ -446,4 +450,55 @@ function selectPersonalCandidate(
       : candidates.find((entry) => entry.id === selectedId);
   if (!chosen) throw new AgentError("personal_access_missing");
   return chosen;
+}
+
+async function resolveDirectPlanModel(
+  dependencies: ProfileDependencies,
+  viewer: AgentViewer,
+  selection: {
+    readonly agentId: string;
+    readonly configuration: AgentPlanConfiguration;
+  },
+): Promise<{
+  readonly profile: AgentProfile;
+  readonly accessAgentId: string;
+  readonly assignment: ResolvedAgentAssignment;
+}> {
+  const { configuration } = selection;
+  if (!configuration.connectionId)
+    throw new AgentError("model_assignment_missing");
+  const simulation = resolveAgentSimulationModel(
+    dependencies.simulation ?? currentAgentSimulationMode(),
+    configuration,
+  );
+  const assignment =
+    simulation ??
+    (await resolveAgentAssignmentFor(dependencies.connections, viewer, {
+      connectionId: configuration.connectionId,
+      model: configuration.model,
+      reasoningEffort: configuration.reasoningEffort,
+    }));
+  if (simulation === null)
+    await requirePlanConsumerModel(dependencies.connections, assignment);
+  if (assignment.connection.provider !== configuration.provider)
+    throw new AgentError("plan_context_changed");
+  return {
+    accessAgentId: configuration.connectionId,
+    assignment,
+    profile: {
+      id: selection.agentId,
+      name: configuration.name,
+      revision: configuration.revision,
+      connectionId: configuration.connectionId,
+      model: configuration.model,
+      reasoningEffort: configuration.reasoningEffort,
+      isActive: true,
+      purposes: ["agent"],
+      targets: [],
+      configuration: {
+        ...emptyAgentConfiguration(),
+        ...configuration.template,
+      },
+    },
+  };
 }

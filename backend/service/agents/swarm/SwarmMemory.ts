@@ -3,11 +3,11 @@ import { randomUUID } from "node:crypto";
 import { logCaughtError } from "@/backend/logging/Logger";
 import {
   PLAN_SWARM_MEMORY_LIMITS,
+  PLAN_SWARM_MEMORY_REDACTED,
   PLAN_SWARM_MEMORY_WORKER_KINDS,
   memoryCharacters,
 } from "@/definition/AgentPlanSwarmMemory";
 
-import { redactSwarmMemoryText } from "./SwarmMemoryRedaction";
 import {
   memoryEntryData,
   memoryTurnBlock,
@@ -497,4 +497,60 @@ export class SwarmMemory {
   private isoNow(): string {
     return new Date(this.options.now()).toISOString();
   }
+}
+
+interface SecretPattern {
+  readonly pattern: RegExp;
+  readonly replace: (match: string, ...groups: string[]) => string;
+}
+
+const REDACTED_MARK = PLAN_SWARM_MEMORY_REDACTED;
+const wholeSecret = (): string => REDACTED_MARK;
+const keepSecretName = (_: string, name: string): string =>
+  `${name}${REDACTED_MARK}`;
+
+const SECRET_PATTERNS: readonly SecretPattern[] = [
+  {
+    pattern:
+      /-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----[\s\S]*?(?:-----END [A-Z0-9 ]*PRIVATE KEY-----|$)/gu,
+    replace: wholeSecret,
+  },
+  {
+    pattern:
+      /\b(?:sk-(?:ant-|proj-)?[A-Za-z0-9_-]{16,}|gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|glpat-[A-Za-z0-9_-]{20,}|xox[abprs]-[A-Za-z0-9-]{10,}|AKIA[0-9A-Z]{16}|AIza[0-9A-Za-z_-]{35}|npm_[A-Za-z0-9]{30,})/gu,
+    replace: wholeSecret,
+  },
+  {
+    pattern: /\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}/gu,
+    replace: wholeSecret,
+  },
+  {
+    pattern: /\b((?:Bearer|Basic)\s+)[A-Za-z0-9._~+/=-]{16,}/gu,
+    replace: keepSecretName,
+  },
+  {
+    pattern: /(\b[a-z][a-z0-9+.-]*:\/\/)[^\s/:@]+:[^\s/@]+@/giu,
+    replace: (_: string, scheme: string): string =>
+      `${scheme}${REDACTED_MARK}@`,
+  },
+  {
+    pattern:
+      /\b([A-Z][A-Z0-9_]*(?:KEY|TOKEN|SECRET|PASSWORD|PASSWD|PASS|PWD|CREDENTIALS?|AUTH)[A-Z0-9_]*\s*=\s*)("[^"\n]*"|'[^'\n]*'|[^\s"']+)/gu,
+    replace: keepSecretName,
+  },
+  {
+    pattern:
+      /\b((?:password|passwort|passwd|pwd|secret|geheimnis|token|api[_-]?key|access[_-]?key|client[_-]?secret|private[_-]?key)\s*[:=]\s*)("[^"\n]*"|'[^'\n]*'|[^\s"',;]+)/giu,
+    replace: keepSecretName,
+  },
+];
+
+function redactSwarmMemoryText(text: string): {
+  readonly text: string;
+  readonly isRedacted: boolean;
+} {
+  let redacted = text;
+  for (const secret of SECRET_PATTERNS)
+    redacted = redacted.replace(secret.pattern, secret.replace);
+  return { text: redacted, isRedacted: redacted !== text };
 }

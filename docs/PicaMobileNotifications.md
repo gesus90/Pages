@@ -2,7 +2,7 @@
 
 Pages benachrichtigt die Android-App Pica Mobile über pausierte, abgebrochene, fehlgeschlagene oder erfolgreich beendete Plan-Läufe. Schrittstarts kommen nur mit der Konto-Wahl „Alle Statusänderungen“; die Pause zählt wie Fehler und Abbruch zu „Abbrüche und Blockaden“. Die gleichen Arten gelten für selbst gestartete Läufe und, auf Wunsch des Kontos, für Läufe anderer Teammitglieder. Der Nachrichtenvertrag (`notifications.v1`) steht in [PicaMobileWebSocket.md](./PicaMobileWebSocket.md#erweiterung-notificationsv1-android-fcm). Dieses Dokument beschreibt den Betrieb, die Datenhaltung, die Grenzen und die Übergabe an die echte Prüfung mit Firebase und einem Gerät.
 
-**Stand.** Das Backend ist umgesetzt, mit den statischen Gates (`pnpm run check`, `pnpm run lint`) geprüft und statisch mit dem Mobile-Vertrag und den Parsern der App abgeglichen (siehe [Abgleich](./PicaMobileWebSocket.md#abgleich-mit-dem-mobile-vertrag-pm-14-1)). Eine Zustellung über das echte FCM, das Verhalten auf einem Gerät und die gemeinsame Prüfung mit der laufenden App sind **nicht** erfolgt; sie sind Aufgabe von Igor (siehe [Übergabe](#übergabe-an-die-echte-prüfung)). Bis dahin ist die Ende-zu-Ende-Funktion unbestätigt.
+**Stand.** Das Backend ist umgesetzt, mit den statischen Gates (`pnpm run check`, `pnpm run lint`) geprüft und statisch mit dem Mobile-Vertrag und den Parsern der App abgeglichen (siehe [Abgleich](./PicaMobileWebSocket.md#abgleich-mit-dem-mobile-vertrag)). Eine Zustellung über das echte FCM, das Verhalten auf einem Gerät und die gemeinsame Prüfung mit der laufenden App sind **nicht** erfolgt; sie sind Aufgabe von Igor (siehe [Übergabe](#übergabe-an-die-echte-prüfung)). Bis dahin ist die Ende-zu-Ende-Funktion unbestätigt.
 
 ## Wie es zusammenhängt
 
@@ -165,7 +165,7 @@ Nicht erbracht und ausdrücklich Igor übergeben:
 
 - echte Zustellung über FCM mit einem echten Firebase-Projekt und Dienstkonto;
 - Verhalten auf einem Gerät (Vordergrund, Hintergrund, geschlossen, Sperrbildschirm, Tippen, Berechtigungen, Kanäle);
-- gemeinsame Integration mit der laufenden App. Der feldweise Abgleich mit dem Mobile-Vertrag liegt statisch vor (Stand `d72631b`, siehe [Abgleich](./PicaMobileWebSocket.md#abgleich-mit-dem-mobile-vertrag-pm-14-1)); offen sind `protocol.ts` (Hülle und `connected`-Parser) und `notificationController.ts`, die nicht im Quellabzug lagen, sowie jeder Stand von `main` nach `d72631b`;
+- gemeinsame Integration mit der laufenden App. Der feldweise Abgleich mit dem Mobile-Vertrag liegt statisch vor (Stand `d72631b`, siehe [Abgleich](./PicaMobileWebSocket.md#abgleich-mit-dem-mobile-vertrag)); offen sind `protocol.ts` (Hülle und `connected`-Parser) und `notificationController.ts`, die nicht im Quellabzug lagen, sowie jeder Stand von `main` nach `d72631b`;
 - Last- und Dauerverhalten.
 
 iOS und APNs gehören nicht zum Umfang.

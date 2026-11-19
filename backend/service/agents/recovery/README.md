@@ -31,11 +31,8 @@ closeout no longer blocks this explicit decision: it releases the predecessor's
 workspace and ACP reservations, including stale reservations held in the runner.
 Separate Release and automatic retry keep their stricter closeout policy.
 
-Targeted unit evidence lives in `page356-failed-plan-resume.unit.test.ts`,
-`page356-branch-group-resume.unit.test.ts`, `page356-session-resume.unit.test.ts`
-and `page356-resume-dialog.unit.test.tsx`. All external process, model, database
-and network boundaries are mocked. Lint, type checking, build and coverage are
-left to final QA for this ticket.
+The former targeted resume unit tests were removed with the previous test suite;
+behavior is verified against the source contracts in this document.
 
 The rules above supersede historical restrictions below.
 

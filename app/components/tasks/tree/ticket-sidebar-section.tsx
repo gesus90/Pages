@@ -1,6 +1,7 @@
 import { Columns3, ListTree } from "lucide-react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Link, useParams, useRouteLoaderData } from "react-router";
+import { Link, useFetcher, useParams, useRouteLoaderData } from "react-router";
 
 import {
   createLocalStateLayoutAnswers,
@@ -8,7 +9,11 @@ import {
 } from "@/app/components/common/use-local-state-layout";
 import { ScrollViewport } from "@/app/components/ui/scroll-viewport";
 import { cn } from "@/app/lib/cn";
-import { TICKET_LAYOUT_ROUTE_ID } from "@/app/lib/ticket-tree";
+import {
+  buildTicketTree,
+  findTreePath,
+  TICKET_LAYOUT_ROUTE_ID,
+} from "@/app/lib/ticket-tree";
 import {
   readTicketTree,
   TICKET_TREE_ENDPOINT,
@@ -16,12 +21,13 @@ import {
 } from "@/app/lib/ticket-tree-state";
 
 import { ProjectRow, TreeChildren } from "./ticket-tree-rows";
-import { useTicketTree } from "./use-ticket-tree";
 
 import type { LocalStateLayoutSource } from "@/app/components/common/use-local-state-layout";
 import type { WithLocalState } from "@/app/lib/local-state/local-state-loader";
-import type { loader as tasksLoader } from "@/app/routes/tasks-server";
+import type { TicketTreeProject } from "@/app/lib/ticket-tree";
 import type { TicketLayoutData } from "@/app/routes/tasks-layout";
+import type { loader as tasksLoader } from "@/app/routes/tasks-server";
+import type { TicketTreeEntry } from "@/definition/Task";
 import type { TreeRowContext } from "./ticket-tree-rows";
 
 /** The tree's kept answers do not depend on the address. */
@@ -36,14 +42,11 @@ interface TicketSidebarSectionProps {
   readonly onNavigate?: () => void;
 }
 
-/** The board view the address or the saved preferences show, if a board is open. */
-function useBoardView(): string | null {
-  const { ticketKey } = useParams();
-  const german = useRouteLoaderData<typeof tasksLoader>("aufgaben");
-  const english = useRouteLoaderData<typeof tasksLoader>("tasks");
-  const board = german ?? english;
-
-  return ticketKey === undefined && board ? board.board.view : null;
+interface TicketTreeState {
+  readonly projects: readonly TicketTreeProject<TicketTreeEntry>[];
+  readonly currentId: string | null;
+  readonly expandedKeys: ReadonlySet<string>;
+  readonly onToggle: (nodeKey: string) => void;
 }
 
 interface ViewLinkProps {
@@ -52,6 +55,59 @@ interface ViewLinkProps {
   readonly label: string;
   readonly isActive: boolean;
   readonly onNavigate?: () => void;
+}
+
+function useTicketTree(layout: TicketLayoutData): TicketTreeState {
+  const { ticketKey = null } = useParams();
+  const fetcher = useFetcher();
+  const current = layout.entries.find((entry) => entry.key === ticketKey);
+  const path = findTreePath(layout.entries, current?.id ?? null);
+  const pathKey = path.join("|");
+  const [opened, setOpened] = useState<ReadonlySet<string>>(
+    () => new Set([...layout.expandedKeys, ...path]),
+  );
+  const [shownPath, setShownPath] = useState(pathKey);
+
+  // Another ticket opened: show its path as well (state adjusted while
+  // rendering, as React recommends instead of an effect).
+  if (shownPath !== pathKey) {
+    setShownPath(pathKey);
+    setOpened((previous) => new Set([...previous, ...path]));
+  }
+
+  function handleToggle(nodeKey: string): void {
+    const isOpen = !opened.has(nodeKey);
+    const next = new Set(opened);
+
+    if (isOpen) {
+      next.add(nodeKey);
+    } else {
+      next.delete(nodeKey);
+    }
+
+    setOpened(next);
+    void fetcher.submit(
+      { expanded: isOpen ? "1" : "0", intent: "set-tree-expanded", nodeKey },
+      { action: "/aufgaben", method: "post" },
+    );
+  }
+
+  return {
+    currentId: current?.id ?? null,
+    expandedKeys: opened,
+    onToggle: handleToggle,
+    projects: buildTicketTree(layout.entries),
+  };
+}
+
+/** The board view the address or the saved preferences show, if a board is open. */
+function useBoardView(): string | null {
+  const { ticketKey } = useParams();
+  const german = useRouteLoaderData<typeof tasksLoader>("aufgaben");
+  const english = useRouteLoaderData<typeof tasksLoader>("tasks");
+  const board = german ?? english;
+
+  return ticketKey === undefined && board ? board.board.view : null;
 }
 
 function ViewLink({

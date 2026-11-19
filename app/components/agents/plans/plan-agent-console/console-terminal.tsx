@@ -1,16 +1,16 @@
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { ConsoleStatusLine } from "./console-status-line";
+import { formatMinuteTime, formatSecondTime } from "./console-time";
 import { ConsoleTerminalInput } from "./console-terminal-input";
 import { currentEnding, earlierAttempts } from "./console-step-state";
 import { renderTerminal, runningTerminalTool } from "./terminal-lines";
-import { terminalTexts } from "./terminal-texts";
 import { useTerminalSurface } from "./use-terminal-surface";
 import { useTerminalHistory } from "./use-terminal-history";
 import { useTerminalColumns, useTerminalText } from "./use-terminal-text";
-import { useExpandedCalls, useToolToggleLinks } from "./use-tool-toggles";
 
+import type { TFunction } from "i18next";
 import type { TerminalSurface } from "@/app/components/agents/workspaces/remote/console/terminal-surface";
 import type { AgentPlanStepResult } from "@/definition/AgentPlan";
 import type {
@@ -21,6 +21,8 @@ import type {
   TerminalAttempt,
   TerminalHistoryNote,
   TerminalInput,
+  TerminalRows,
+  TerminalTexts,
 } from "./terminal-lines";
 import type { AgentSessionData } from "./use-agent-session";
 import type { SessionCommands } from "./use-session-commands";
@@ -217,4 +219,128 @@ export function ConsoleTerminal(
       />
     </section>
   );
+}
+
+interface ToolToggles {
+  readonly expandedCalls: ReadonlySet<string>;
+  readonly toggle: (callId: string) => void;
+}
+
+function useExpandedCalls(): ToolToggles {
+  const [expandedCalls, setExpandedCalls] = useState<ReadonlySet<string>>(
+    () => new Set(),
+  );
+  function toggle(callId: string): void {
+    setExpandedCalls((current) => {
+      const next = new Set(current);
+      if (next.has(callId)) next.delete(callId);
+      else next.add(callId);
+      return next;
+    });
+  }
+  return { expandedCalls, toggle };
+}
+
+function useToolToggleLinks(
+  surface: TerminalSurface | null,
+  rows: TerminalRows,
+  toggle: (callId: string) => void,
+): void {
+  const latest = useRef({ rows, toggle });
+  useEffect(() => {
+    latest.current = { rows, toggle };
+  }, [rows, toggle]);
+  useEffect(() => {
+    if (!surface) return undefined;
+    const { terminal } = surface;
+    const provider = terminal.registerLinkProvider({
+      provideLinks(bufferLine, callback) {
+        const current = latest.current;
+        const dropped = Math.max(
+          0,
+          current.rows.rows.length - terminal.buffer.active.length,
+        );
+        const row = bufferLine - 1 + dropped;
+        const links = current.rows.toggles
+          .filter((entry) => entry.row === row)
+          .map((entry) => ({
+            range: {
+              start: { x: entry.startColumn, y: bufferLine },
+              end: { x: entry.endColumn, y: bufferLine },
+            },
+            text: entry.callId,
+            decorations: { pointerCursor: true, underline: true },
+            activate: () => latest.current.toggle(entry.callId),
+          }));
+        callback(links.length > 0 ? links : undefined);
+      },
+    });
+    return () => provider.dispose();
+  }, [surface]);
+}
+
+const TOOL_KINDS: ReadonlySet<string> = new Set([
+  "read",
+  "edit",
+  "delete",
+  "move",
+  "search",
+  "execute",
+  "fetch",
+]);
+
+function failureText(t: TFunction, code: string): string {
+  return t([`settings.agents.error.${code}`, code]);
+}
+
+function terminalTexts(t: TFunction, language: string): TerminalTexts {
+  const key = "plans.console.terminal";
+  const secondsFormat = new Intl.NumberFormat(language, {
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1,
+  });
+  const session = (isSameSession: boolean): string =>
+    t(`${key}.${isSameSession ? "sameSession" : "newSession"}`);
+  return {
+    attempt: (number) => t(`${key}.attempt`, { number }),
+    minute: (at) => formatMinuteTime(at, language),
+    clock: (at) => formatSecondTime(at, language),
+    toolKind: (kind) =>
+      TOOL_KINDS.has(kind) ? t(`${key}.toolKind.${kind}`) : null,
+    done: t(`${key}.done`),
+    aborted: t(`${key}.aborted`),
+    running: t(`${key}.toolRunning`),
+    exitCode: (code) => t(`${key}.toolExit`, { code }),
+    lineCount: (count) => t(`${key}.toolLines`, { count }),
+    duration: (milliseconds) =>
+      t(`${key}.toolDuration`, {
+        seconds: secondsFormat.format(milliseconds / 1000),
+      }),
+    showOutput: t(`${key}.toolShowOutput`),
+    hideOutput: t(`${key}.toolHideOutput`),
+    showJson: (lines) => t(`${key}.toolShowJson`, { count: lines }),
+    hideJson: t(`${key}.toolHideJson`),
+    outputLimited: t(`${key}.toolOutputLimited`),
+    history: (note) => t(`${key}.history.${note}`),
+    todo: (id, text) => t(`${key}.todo`, { id, text }),
+    turnEnded: t(`${key}.turnEnded`),
+    interrupted: t(`${key}.interrupted`),
+    reportReceived: (done, total) =>
+      t(`${key}.reportReceived`, { done, total }),
+    sessionClosed: t(`${key}.sessionClosed`),
+    abort: (reason) => t(`${key}.abort`, { reason: failureText(t, reason) }),
+    noReport: t(`${key}.noReport`),
+    resume: (seconds, restart, limit, isSameSession) =>
+      t(`${key}.resume`, {
+        seconds,
+        restart,
+        limit,
+        session: session(isSameSession),
+      }),
+    repair: (restart, limit, isSameSession) =>
+      t(`${key}.repair`, { restart, limit, session: session(isSameSession) }),
+    blocked: (reason, attempts) =>
+      t(`${key}.blocked`, { reason: failureText(t, reason), attempts }),
+    stopped: t(`${key}.stopped`),
+  };
 }

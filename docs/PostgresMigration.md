@@ -2,8 +2,10 @@
 
 Pages uses PostgreSQL through the required `databaseUrl`. The setup wizard
 accepts a PostgreSQL connection and initializes an empty database. DuckDB is
-not a runtime backend; its migrations and development-only driver remain for
-the explicit offline transfer command. The historical database and backups must
+not a runtime backend; its development-only driver remains for the explicit
+offline transfer command, which checks the frozen list of source migration
+names directly without keeping historical DuckDB SQL files. The historical
+database and backups must
 be retained. Returning to an old version after PostgreSQL writes would lose
 those writes unless an explicit reconciliation is performed.
 
@@ -59,7 +61,10 @@ no foreign keys; later PostgreSQL-only migrations add their own constraints.
 here.
 
 New schema migrations are added only to the PostgreSQL migration directory.
-The historical DuckDB migrations describe the source accepted by offline transfer.
+Offline transfer checks the source's `schema_migrations` against the frozen
+list of 93 DuckDB migration names directly; the retired DuckDB SQL files were
+removed after their end state was captured in `001_baseline.sql` and
+`004`–`009`.
 
 ## Types
 

@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+
 import { agentChannelPolicy } from "@/backend/auth/McpActorContext";
 import { AgentAssetRepository } from "@/backend/database/repositories/agents/AgentAssetRepository";
 import { AgentOperationKeyRepository } from "@/backend/database/repositories/agents/AgentOperationKeyRepository";
@@ -9,7 +11,6 @@ import { WikiPageReader } from "@/backend/service/wiki/WikiPageReader";
 import { recordPagesEvent } from "@/backend/service/events/PagesEventPublisher";
 import { WIKI_SCOPE } from "@/definition/Wiki";
 
-import { AgentOperationKeyService } from "./AgentOperationKeyService";
 import { agentTransactionScope } from "./AgentTransactionScope";
 import { createAgentWikiAccess } from "./AgentWikiAccess";
 
@@ -169,5 +170,45 @@ export class AgentWikiCreateTransaction {
       });
     }
     return linked;
+  }
+}
+
+class AgentOperationKeyService {
+  private readonly repository: AgentOperationKeyRepository;
+
+  public constructor(repository: AgentOperationKeyRepository) {
+    this.repository = repository;
+  }
+
+  /** Replays a matching creation result or rejects reuse with different input. */
+  public async replay(
+    userId: string,
+    input: AgentWikiCreateInput,
+  ): Promise<AgentWikiCreated | null> {
+    const previous = await this.repository.find(userId, input.operationId);
+    if (!previous) return null;
+    if (
+      previous.operation !== "wiki.page.create" ||
+      previous.fingerprint !== this.fingerprint(input)
+    )
+      throw new AgentOperationError("CONFLICT");
+    return JSON.parse(previous.resultJson) as AgentWikiCreated;
+  }
+
+  /** Stores a creation result for subsequent idempotent requests. */
+  public async save(
+    userId: string,
+    input: AgentWikiCreateInput,
+    result: AgentWikiCreated,
+  ): Promise<void> {
+    await this.repository.insert(userId, input.operationId, {
+      operation: "wiki.page.create",
+      fingerprint: this.fingerprint(input),
+      resultJson: JSON.stringify(result),
+    });
+  }
+
+  private fingerprint(input: AgentWikiCreateInput): string {
+    return createHash("sha256").update(JSON.stringify(input)).digest("hex");
   }
 }

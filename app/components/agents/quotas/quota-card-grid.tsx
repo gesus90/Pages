@@ -1,3 +1,4 @@
+import { GripHorizontal } from "lucide-react";
 import { useId } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -6,12 +7,13 @@ import { ClaudeQuotaCard } from "./claude-quota-card";
 import { CodexQuotaCard } from "./codex-quota-card";
 import { OpenRouterQuotaCard } from "./openrouter-quota-card";
 import { QuotaPlaceholderCard } from "./quota-placeholders";
-import { SortableQuotaCard } from "./sortable-quota-card";
 import { useQuotaCardSort } from "./use-quota-card-sort";
 import { ZaiQuotaCard } from "./zai-quota-card";
 
+import type { ReactNode } from "react";
 import type { SaveOpenRouterBalance } from "./quota-requests";
 import type { QuotaCard } from "./quota-state";
+import type { QuotaCardSort } from "./use-quota-card-sort";
 
 /** How many placeholder cards stand while the connections are unknown. */
 const PLACEHOLDER_CARDS = ["first", "second", "third"] as const;
@@ -145,5 +147,84 @@ export function QuotaCardGrid({
         {sort.announcement}
       </p>
     </>
+  );
+}
+
+function QuotaCardHandle({
+  connectionId,
+  name,
+  sort,
+  descriptionId,
+}: {
+  readonly connectionId: string;
+  readonly name: string;
+  readonly sort: QuotaCardSort;
+  readonly descriptionId: string;
+}): React.ReactElement {
+  const { t } = useTranslation();
+  const { session } = sort;
+  const isHeldByKeyboard =
+    session?.source === "keyboard" && session.activeId === connectionId;
+  const label = t("agentsPage.order.handle", { name });
+  return (
+    <button
+      type="button"
+      data-quota-handle={connectionId}
+      aria-label={label}
+      title={label}
+      aria-pressed={isHeldByKeyboard}
+      aria-describedby={descriptionId}
+      onPointerDown={(event) => sort.startPointerDrag(event, connectionId)}
+      onKeyDown={(event) => sort.handleKeyDown(event, connectionId)}
+      onBlur={() => sort.handleBlur(connectionId)}
+      className="absolute top-0.5 left-1/2 z-10 flex h-6 w-14 -translate-x-1/2 cursor-grab touch-none items-center justify-center rounded-lg text-muted-foreground outline-none select-none hover:bg-surface-hover hover:text-foreground focus-visible:ring-2 focus-visible:ring-primary active:cursor-grabbing"
+    >
+      <GripHorizontal className="size-4" aria-hidden="true" />
+    </button>
+  );
+}
+
+function SortableQuotaCard({
+  card,
+  index,
+  sort,
+  descriptionId,
+  isSortable,
+  children,
+}: {
+  readonly card: QuotaCard;
+  readonly index: number;
+  readonly sort: QuotaCardSort;
+  readonly descriptionId: string;
+  readonly isSortable: boolean;
+  readonly children: ReactNode;
+}): React.ReactElement {
+  const { connectionId, name } = card.account;
+  const { session } = sort;
+  const isInHand = session?.activeId === connectionId;
+  const isTarget =
+    session !== null && !isInHand && session.targetIndex === index;
+  return (
+    <div
+      data-sortable-card=""
+      data-in-hand={isInHand ? "true" : undefined}
+      className="relative h-full min-w-0 rounded-[20px] data-[in-hand=true]:z-20 data-[in-hand=true]:opacity-95 data-[in-hand=true]:shadow-floating data-[in-hand=true]:ring-2 data-[in-hand=true]:ring-primary md:rounded-3xl"
+    >
+      {children}
+      {isSortable ? (
+        <QuotaCardHandle
+          connectionId={connectionId}
+          name={name}
+          sort={sort}
+          descriptionId={descriptionId}
+        />
+      ) : null}
+      {isTarget ? (
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 z-10 rounded-[20px] border-2 border-dashed border-primary bg-primary-subtle/60 md:rounded-3xl"
+        />
+      ) : null}
+    </div>
   );
 }

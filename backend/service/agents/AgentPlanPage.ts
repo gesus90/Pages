@@ -3,11 +3,12 @@ import {
   AgentPlanReadDenied,
   withPlanReadOrigin,
 } from "@/backend/error/AgentPlanReadDenied";
+import { logCaughtError } from "@/backend/logging/Logger";
 
-import { readPlanHistory } from "./AgentPlanHistory";
+import { isPlanHistoryReadFailure } from "./AgentPlanControlAccess";
 
 import type { AgentPlanRunRepository } from "@/backend/database/repositories/agent/AgentPlanRunRepository";
-import type { AgentPlanPage } from "@/definition/AgentPlan";
+import type { AgentPlanPage, AgentPlanRun } from "@/definition/AgentPlan";
 import type { AgentPlanRemoteTargets } from "./AgentPlanRemoteTargets";
 import type { AgentPlanService } from "./AgentPlanService";
 
@@ -114,4 +115,21 @@ export async function readPlanPage(
         : undefined,
     };
   });
+}
+
+async function readPlanHistory(
+  plans: Pick<AgentPlanService, "run">,
+  runs: Pick<AgentPlanRunRepository, "entries">,
+  userId: string,
+  planId: string,
+): Promise<readonly AgentPlanRun[]> {
+  for (const entry of await runs.entries(userId, planId, "newest")) {
+    try {
+      return [await plans.run(userId, entry.id)];
+    } catch (error: unknown) {
+      logCaughtError("AgentPlanService", error);
+      if (!isPlanHistoryReadFailure(error)) throw error;
+    }
+  }
+  return [];
 }

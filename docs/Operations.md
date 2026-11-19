@@ -215,8 +215,10 @@ attachments are described in [Ticket attachments](TicketAssets.md).
 
 When Pages connects after setup, it applies numbered migrations from
 `backend/database/postgres/migrations/` and rejects changed applied migrations.
-Historical `backend/database/migrations/` files and the development-only DuckDB
-driver belong to offline transfer, not server startup. See
+The development-only DuckDB driver belongs solely to offline transfer, not
+server startup; the historical DuckDB SQL migration files were removed after
+`001_baseline.sql` and `004`–`009` captured their schema, and offline transfer
+checks the frozen source migration list directly. See
 [PostgreSQL migration](PostgresMigration.md) for the separate database backup and
 [Ticket attachments](TicketAssets.md) for application files. Back up the instance
 key, configuration, login folders and attachments along with PostgreSQL; a

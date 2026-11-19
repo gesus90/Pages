@@ -3,11 +3,10 @@ import { useTranslation } from "react-i18next";
 
 import { useHidePicaLauncher } from "@/app/components/chat/use-pica-launcher-visibility";
 import { ForegroundPanel } from "@/app/components/ui/foreground-panel";
+import { ScrollViewport } from "@/app/components/ui/scroll-viewport";
 
-import { ConsoleGroup } from "./plan-agent-console/console-group";
 import { ConsoleHeader } from "./plan-agent-console/console-header";
 import { ConsoleSession } from "./plan-agent-console/console-session";
-import { useKeyboardInset } from "./plan-agent-console/use-keyboard-inset";
 import {
   consoleSession,
   findConsoleNode,
@@ -15,6 +14,7 @@ import {
   sessionKeyText,
 } from "./plan-agent-console/console-target";
 import { planNodeLabel } from "./plan-layout";
+import { PlanStatusBadge } from "./plan-status";
 
 import type {
   AgentPlanInput,
@@ -22,6 +22,7 @@ import type {
   AgentPlanSources,
   AgentPlanStep,
 } from "@/definition/AgentPlan";
+import type { AgentPlanGroup } from "@/definition/AgentPlanGroup";
 import type { HeaderState } from "./plan-agent-console/console-header-badges";
 import type { ConsoleNode } from "./plan-agent-console/console-target";
 import type { usePlanRun } from "./use-plan-run";
@@ -211,5 +212,86 @@ export function PlanAgentConsole(
         </>
       ) : null}
     </ForegroundPanel>
+  );
+}
+
+function useKeyboardInset(): number {
+  const [inset, setInset] = useState(0);
+  useEffect(() => {
+    const viewport = window.visualViewport;
+    if (!viewport) return undefined;
+    const visible = viewport;
+    function update(): void {
+      setInset(
+        Math.max(
+          0,
+          Math.round(window.innerHeight - visible.height - visible.offsetTop),
+        ),
+      );
+    }
+    update();
+    visible.addEventListener("resize", update);
+    visible.addEventListener("scroll", update);
+    return () => {
+      visible.removeEventListener("resize", update);
+      visible.removeEventListener("scroll", update);
+    };
+  }, []);
+  return inset;
+}
+
+function ConsoleGroup({
+  group,
+  sources,
+  run,
+  onPick,
+}: {
+  readonly group: AgentPlanGroup;
+  readonly sources: AgentPlanSources;
+  readonly run: AgentPlanRun | null;
+  readonly onPick: (stepId: string) => void;
+}): React.ReactElement {
+  const { t } = useTranslation();
+  return (
+    <ScrollViewport
+      axis="vertical"
+      containerClassName="min-h-0 flex-1"
+      className="overflow-y-auto px-5 py-4"
+    >
+      <p className="mb-3 text-sm text-muted-foreground">
+        {t("plans.console.pickMember")}
+      </p>
+      {group.steps.length === 0 ? (
+        <p className="text-sm text-muted-foreground">
+          {t("plans.console.noMembers")}
+        </p>
+      ) : (
+        <ul className="space-y-2">
+          {group.steps.map((step) => {
+            const result = run?.steps.find((entry) => entry.id === step.id);
+            const label =
+              planNodeLabel(step, sources) || t("plans.missingAgent");
+            return (
+              <li key={step.id}>
+                <button
+                  type="button"
+                  onClick={() => onPick(step.id)}
+                  className="flex w-full items-center gap-2 rounded-lg border border-border bg-surface px-3 py-2 text-left text-sm hover:bg-muted focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none"
+                >
+                  <span className="min-w-0 flex-1 truncate">{label}</span>
+                  {result ? (
+                    <PlanStatusBadge
+                      compact
+                      status={result.status}
+                      isBlocked={result.isBlocked}
+                    />
+                  ) : null}
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </ScrollViewport>
   );
 }

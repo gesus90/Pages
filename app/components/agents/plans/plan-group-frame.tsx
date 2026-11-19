@@ -1,19 +1,23 @@
+import { Handle, Position, useUpdateNodeInternals } from "@xyflow/react";
 import { Boxes, ChevronDown, ChevronRight, TriangleAlert } from "lucide-react";
+import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 
 import { planGroupAdapter } from "@/definition/AgentPlanGroup";
 import { planGroupProgress } from "@/definition/AgentPlanGroupProgress";
 import { cn } from "@/app/lib/cn";
 
+import { usePlanFlowContext } from "./plan-flow-context";
 import { PlanGroupAdapterBadge } from "./plan-group-adapter";
 import { keepPlanControlKeys } from "./plan-flow-keys";
 import { PLAN_FRAME_FOOTER } from "./plan-layout";
+import { planGroupRouteLinks } from "./plan-group-routing";
 import { PlanGroupSessionValue } from "./plan-group-session";
+import { planLinkKey, planLinkLabel } from "./plan-links";
 import { PlanNodeActions, PlanNodeEditButton } from "./plan-node-actions";
 import { PLAN_NODE_TEXT } from "./plan-node-text";
 import { PlanPaletteButton } from "./plan-palette-button";
 import { PlanGroupCount, PlanGroupStatus } from "./plan-group-progress";
-import { PlanGroupRoutes } from "./plan-group-routes";
 import { PlanNodeWarning } from "./plan-node-warning";
 
 import type { AgentPlanRun, AgentPlanSources } from "@/definition/AgentPlan";
@@ -237,5 +241,60 @@ function GroupFooter(props: GroupFrameProps): React.ReactElement {
         </p>
       ) : null}
     </div>
+  );
+}
+
+function PlanGroupRoutes({
+  group,
+  isCollapsed,
+}: {
+  readonly group: AgentPlanGroup;
+  readonly isCollapsed: boolean;
+}): React.ReactElement {
+  const { draft, sources } = usePlanFlowContext();
+  const update = useUpdateNodeInternals();
+  const members = new Set(group.steps.map((step) => step.id));
+  const links = isCollapsed ? planGroupRouteLinks(draft, group) : [];
+  const signature = links.map(planLinkKey).join("|");
+  useEffect(() => {
+    update(group.id);
+  }, [group.id, isCollapsed, signature, update]);
+  return (
+    <>
+      {links.map((link) => {
+        const isSource = members.has(link.from);
+        const side = planGroupRouteLinks(
+          draft,
+          group,
+          isSource ? "from" : "to",
+        );
+        const index = side.findIndex(
+          (entry) => planLinkKey(entry) === planLinkKey(link),
+        );
+        return (
+          <Handle
+            key={`${planLinkKey(link)}:${isSource}`}
+            id={`route:${planLinkKey(link)}:${isSource ? "from" : "to"}`}
+            type={isSource ? "source" : "target"}
+            position={isSource ? Position.Right : Position.Left}
+            isConnectable={false}
+            isConnectableStart={false}
+            isConnectableEnd={false}
+            aria-hidden="true"
+            title={planLinkLabel(draft, sources, link)}
+            style={{
+              top: `${(100 * (index + 1)) / (side.length + 1)}%`,
+              width: 1,
+              height: 1,
+              minWidth: 0,
+              minHeight: 0,
+              border: 0,
+              background: "transparent",
+              pointerEvents: "none",
+            }}
+          />
+        );
+      })}
+    </>
   );
 }

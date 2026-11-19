@@ -11,8 +11,8 @@ a Pages instance or its private wiki. Some specialized guides are in German.
 - [Pica chat and models](Pica.md), [administrator operator](PicaAdminOperator.md),
   [administrator browser/files](PicaAdminTools.md) and [visual operator browser](PicaOperatorBrowser.md).
 - [Agent Plans](AgentPlanRunner.md): editor, ticket parameters, teams, plans that call each other, execution and recovery.
-- [Automations](Automations.md), [conversation content cards](PAGE-298.md), [code previews in the chat](PAGE-383.md), [video and audio in the chat](PAGE-384.md), [documents, tables and binary files in the chat](PAGE-385.md)
-  and [group observer/context](PAGE-296.md).
+- [Automations](Automations.md), [conversation content cards](ConversationContentCards.md), [code previews in the chat](ChatCodePreviews.md), [video and audio in the chat](ChatVideoAndAudio.md), [documents, tables and binary files in the chat](ChatDocumentsAndFiles.md)
+  and [group observer/context](GroupObserver.md).
 - [Storage API and Google Drive setup](StorageApi.md).
 
 ## Install and operate
@@ -26,8 +26,10 @@ a Pages instance or its private wiki. Some specialized guides are in German.
 - [Integrations](IntegrationsService.md): GitHub/FCM service, GitHub issue states and Discord setup.
 - [Logging and correlation](RequestCorrelation.md): log files, retention, errors and cross-process tracing.
 - [Agent runtime](AgentRuntime.md): tool manager, Linux provisioning, scheduling, worker units and ACP adapters.
-- [Worker memory](AgentWorkerMemory.md), [Claude tool generation](PAGE-293.md),
-  [reservation cleanup](PAGE-340.md) and [local session ownership](LocalAgentSessions.md).
+- [Worker memory](AgentWorkerMemory.md), [Claude tool generation](ManagedClaudeCli.md),
+  [reservation cleanup](AcpLeaseCleanup.md) and [local session ownership](LocalAgentSessions.md).
+- [Agent Plan control and Runner synchronization](AgentPlanControlAndRunnerSync.md) and
+  [background work and server stop](BackgroundWorkAndServerStop.md).
 - [Remote workspace and runner setup](RemoteSetup.md), [remote console](RemoteConsole.md)
   and [runner protocol/versions](PagesRunner.md).
 - [Pica Mobile WebSocket](PicaMobileWebSocket.md) and [push notifications](PicaMobileNotifications.md).
@@ -66,8 +68,7 @@ not claims that a current checkout passed those checks. Where an older descripti
 conflicts with a current contract, follow the current guide and linked code.
 
 - [Documentation inventory, source reconciliation and validation](PAGE-332.md).
-- [CI test-tag execution](PAGE-290.md), [background work/shutdown](PAGE-199.md),
-  [plan control and writer coordination](PAGE-184-185.md),
+- [CI test-tag execution](PAGE-290.md),
   [remote acceptance](PAGE-169.md) and [historical Pica inventory](PicaRuntimeInventory.md).
 - [Simulated remote runner stability check](reports/RemoteRunnerMockCheck.md):
   mocked runner, connection and model; no real remote evidence.

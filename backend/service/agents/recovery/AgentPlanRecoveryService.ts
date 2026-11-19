@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+
 import { AgentPlanRecoveryReplayed } from "@/backend/error/AgentPlanRecoveryReplayed";
 import { isPlanHistoryReadFailure } from "../AgentPlanControlAccess";
 import { readPlanRecoveryCommand } from "@/backend/agents/AgentPlanRecoveryInput";
@@ -14,7 +16,6 @@ import { hasUnconfirmedRunCloseout } from "../AgentPlanRunState";
 import { AgentPlanRecoveryActions } from "./AgentPlanRecoveryActions";
 import { classifyPlanFailure } from "./AgentPlanFailure";
 import { planCleanupResources } from "./AgentPlanCleanupResources";
-import { auditCleanupFailure } from "./AgentPlanCleanupAudit";
 import {
   continuedRun,
   nodeModes,
@@ -629,4 +630,44 @@ export class AgentPlanRecoveryService {
       return { ...command, note: sanitizeArtifactText(command.note) };
     return command;
   }
+}
+
+async function auditCleanupFailure(
+  repository: Pick<AgentPlanCleanupFailureRepository, "append"> | undefined,
+  run: AgentPlanRun,
+  command: AgentPlanRecoveryCommand,
+  error: unknown,
+): Promise<never> {
+  if (
+    !repository ||
+    !(error instanceof AgentPlanRecoveryError) ||
+    !error.cleanupFailure ||
+    (command.action !== "release" &&
+      command.action !== "restart" &&
+      command.action !== "resume")
+  )
+    throw error;
+  try {
+    await repository.append(run.userId, {
+      ...error.cleanupFailure,
+      id: randomUUID(),
+      createdAt: new Date().toISOString(),
+      planId: run.planId,
+      runId: run.id,
+      planRevision: run.continuation?.planRevision ?? run.planRevision,
+      recoveryRevision: command.expectedRevision ?? 0,
+      action: command.action,
+      attemptId: originalAttempt(run, error.cleanupFailure.stepId),
+    });
+  } catch (auditError: unknown) {
+    logCaughtError("AgentPlanCleanupAudit", auditError);
+    throw new AgentPlanRecoveryError("diagnostic_unavailable");
+  }
+  throw error;
+}
+
+function originalAttempt(run: AgentPlanRun, stepId: string): string | null {
+  const steps = allPlanRunResults(run).filter((step) => step.id === stepId);
+  const step = steps.length === 1 ? steps[0] : undefined;
+  return step?.script?.attemptId ?? step?.execution?.attemptId ?? null;
 }

@@ -6,7 +6,10 @@ import { allPlanRunResults } from "@/definition/AgentPlanLoopResults";
 import { isRemoteCloseoutUnconfirmed } from "@/definition/AgentPlanRemoteCloseout";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { planContentDigest } from "@/backend/agents/AgentPlanContentDigest";
-import { runnerExecutionSchema } from "@/definition/RunnerExecution";
+import {
+  MAX_RUNNER_PROMPT_CHARACTERS,
+  runnerExecutionSchema,
+} from "@/definition/RunnerExecution";
 
 import { AgentPlanRunnerDetachedError } from "./AgentPlanRunnerDetach";
 import { AgentPlanRunnerRemotePreparation } from "./AgentPlanRunnerRemotePreparation";
@@ -27,7 +30,7 @@ import {
 } from "./AgentPlanRemoteDispatch";
 import { claimRemoteJob } from "./AgentPlanRemoteClaim";
 import { remoteContinuationCommand } from "./AgentPlanRemoteContinuation";
-import { remoteRetryCommand } from "./AgentPlanRemoteRetryCommand";
+import { planRetryNotice } from "./AgentPlanRetryNotice";
 import {
   requireRemoteResultPayload,
   resolvedRemoteCommand,
@@ -606,4 +609,23 @@ export class AgentPlanRemoteExecution {
     );
     return command;
   }
+}
+
+function remoteRetryCommand(
+  command: RunnerExecution,
+  retry: RemoteRetryTerms | undefined,
+): RunnerExecution {
+  if (
+    !retry ||
+    command.program.kind === "script" ||
+    command.program.kind === "api"
+  )
+    return command;
+  const notice = retry.retry
+    ? planRetryNotice(retry.retry, retry.resumeSessionId !== null)
+    : "";
+  const prompt = `${notice}${command.program.prompt}`;
+  if (prompt.length > MAX_RUNNER_PROMPT_CHARACTERS)
+    throw new AgentError("plan_invalid");
+  return { ...command, program: { ...command.program, prompt } };
 }

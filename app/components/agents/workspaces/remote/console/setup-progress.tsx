@@ -3,11 +3,10 @@ import { useTranslation } from "react-i18next";
 
 import { cn } from "@/app/lib/cn";
 import {
+  INITIAL_SETUP_PROGRESS,
   SETUP_PHASES,
   SETUP_PREPARATION_STEPS,
 } from "@/definition/RemoteSetup";
-
-import { effectiveSetupProgress, shownPhaseIndex } from "./setup-view";
 
 import type { LucideIcon } from "lucide-react";
 import type { RemoteConsoleState } from "@/definition/RemoteConsole";
@@ -215,4 +214,36 @@ export function SetupProgressPanel(props: {
       <PreparationSteps progress={progress} />
     </section>
   );
+}
+
+const FAILED_FIRST_PHASE: SetupProgress = {
+  ...INITIAL_SETUP_PROGRESS,
+  phases: SETUP_PHASES.map((_, index) => (index === 0 ? "failed" : "pending")),
+  step: "rights",
+  outcome: "failed",
+};
+
+function effectiveSetupProgress(
+  state: RemoteConsoleState,
+  view: ConsoleView,
+): SetupProgress {
+  if (state.setup !== null) return state.setup;
+  const isStopped = state.status === "blocked" || state.status === "ended";
+  if (isStopped && state.message !== null && view !== "connecting")
+    return { ...FAILED_FIRST_PHASE, reason: state.message };
+  return {
+    ...INITIAL_SETUP_PROGRESS,
+    phases: ["running", ...INITIAL_SETUP_PROGRESS.phases.slice(1)],
+  };
+}
+
+function shownPhaseIndex(progress: SetupProgress): number {
+  const marked = progress.phases.findIndex(
+    (phase) => phase === "running" || phase === "waiting" || phase === "failed",
+  );
+  if (marked >= 0) return marked;
+  const open = progress.phases.findIndex(
+    (phase) => phase !== "done" && phase !== "skipped",
+  );
+  return open < 0 ? SETUP_PHASES.length : open;
 }

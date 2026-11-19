@@ -3,7 +3,6 @@ import { useEffect, useRef, useState } from "react";
 import { sessionAddress } from "./console-target";
 import { mergeEvents, readSessionPage } from "./session-client";
 import { useSessionStream } from "./session-stream";
-import { useSessionRefresh } from "./use-session-refresh";
 
 import type { SessionConnection } from "./session-stream";
 import type {
@@ -169,5 +168,29 @@ export function useAgentSession(
       following.current = false;
       setFollowing(false);
     },
+  };
+}
+
+function useSessionRefresh(
+  isEnabled: boolean,
+  refresh: () => void,
+): () => void {
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const latest = useRef(refresh);
+  useEffect(() => {
+    latest.current = refresh;
+  });
+  useEffect(
+    () => () => {
+      if (timer.current !== null) clearTimeout(timer.current);
+    },
+    [],
+  );
+  return () => {
+    if (!isEnabled || timer.current !== null) return;
+    timer.current = setTimeout(() => {
+      timer.current = null;
+      latest.current();
+    }, 1500);
   };
 }

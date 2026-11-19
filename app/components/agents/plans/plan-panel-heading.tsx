@@ -1,5 +1,5 @@
 import { PlanWorkspaceLocks } from "./plan-workspace-locks";
-import { ChevronDown, ChevronUp, Loader2 } from "lucide-react";
+import { ChevronDown, ChevronUp, Loader2, ShieldCheck } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import { isPlanEditLocked } from "@/definition/AgentPlanRunState";
@@ -8,7 +8,6 @@ import { canRunPlan } from "@/definition/AgentPlanTeam";
 import { Button } from "@/app/components/ui/button";
 
 import { PlanOneShotBadge, PlanOneShotNotice } from "./plan-one-shot-notice";
-import { PlanAccessBadges } from "./plan-access-badges";
 import { PlanPanelMenu } from "./plan-panel-menu";
 import { PlanRunActions } from "./plan-run-actions";
 import {
@@ -17,7 +16,11 @@ import {
 } from "./plan-resume-block-notice";
 
 import type { TFunction } from "i18next";
-import type { AgentPlanPage, AgentPlanRun } from "@/definition/AgentPlan";
+import type {
+  AgentPlanPage,
+  AgentPlanRun,
+  AgentPlanView,
+} from "@/definition/AgentPlan";
 import type {
   AgentPlanControl,
   AgentPlanResumeAction,
@@ -262,5 +265,29 @@ function PlanSaveStatus({
     >
       {t("plans.execution.editLocked")}
     </p>
+  );
+}
+
+const BADGE_CLASS =
+  "inline-flex w-fit shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold";
+
+function PlanAccessBadges({
+  plan,
+}: {
+  readonly plan: AgentPlanView;
+}): React.ReactElement | null {
+  const { t } = useTranslation();
+  const isAdminAccess = plan.rights?.isAdminAccess === true;
+  if (!isAdminAccess) return null;
+  return (
+    <div className="mt-1 flex flex-wrap gap-1">
+      <span
+        className={`${BADGE_CLASS} bg-primary-subtle text-primary`}
+        data-plan-admin-access
+      >
+        <ShieldCheck aria-hidden="true" className="size-3" />
+        {t("plans.access.adminBadge")}
+      </span>
+    </div>
   );
 }

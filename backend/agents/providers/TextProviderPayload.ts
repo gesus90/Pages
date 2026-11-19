@@ -164,7 +164,7 @@ function completionsRequest(
   };
 }
 
-/** Builds native text payloads from the same endpoint and effort contracts as A7. */
+/** Builds native text payloads using the configured provider endpoint and reasoning effort contracts. */
 export function createTextProviderRequest(
   provider: ApiProviderId,
   input: TextExecutionInput,

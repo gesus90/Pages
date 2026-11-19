@@ -7,7 +7,7 @@ import {
 import type { Tool } from "@modelcontextprotocol/server";
 
 const TICKET =
-  "ticketId is a ticket ID, a key such as PAGE-12, or a Pages address such as /tasks/PAGE-12.";
+  "ticketId is a ticket ID, a key such as TICKET-12, or a Pages address such as /tasks/TICKET-12.";
 
 /** Reads the checklist of one ticket as structured entries. */
 export const TICKET_CHECKLIST_READ_TOOL: Tool = {

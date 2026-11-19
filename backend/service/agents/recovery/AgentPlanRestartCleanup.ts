@@ -5,7 +5,6 @@ import { allPlanRunResults } from "@/definition/AgentPlanLoopResults";
 import { isRemoteCloseoutUnconfirmed } from "@/definition/AgentPlanRemoteCloseout";
 
 import { checkSessionProcesses } from "../AgentPlanRecovery";
-import { withoutProvenRestartSessions } from "./AgentPlanRestartEvidence";
 import {
   closeRecoverySessions,
   closeRecoveryScripts,
@@ -13,7 +12,7 @@ import {
 import { cleanupPlanStartOwner } from "../AgentPlanStartCleanup";
 
 import type { RecoveryActionDependencies } from "./AgentPlanRecoveryActions";
-import type { AgentPlanRun } from "@/definition/AgentPlan";
+import type { AgentPlanRun, AgentPlanStepResult } from "@/definition/AgentPlan";
 import type { AgentPlanStartResourceRepository } from "@/backend/database/repositories/agent/AgentPlanStartResourceRepository";
 
 /** Retries each restart cleanup phase three times; no later phase runs after a final failure. */
@@ -170,3 +169,34 @@ export type RestartOwners = Pick<
   AgentPlanStartResourceRepository,
   "localOwners"
 >;
+
+function withoutProvenRestartSessions(
+  run: AgentPlanRun,
+  proven: ReadonlySet<string>,
+): AgentPlanRun {
+  const checkStep = (step: AgentPlanStepResult): AgentPlanStepResult =>
+    step.session && proven.has(step.session.instanceId)
+      ? { ...step, session: null }
+      : step;
+  const loops = run.loops?.map((loop) => {
+    const sessions = loop.sessions.filter(
+      (session) =>
+        session.instanceId === null || !proven.has(session.instanceId),
+    );
+    const areAllProven = loop.sessions.length > 0 && sessions.length === 0;
+    return {
+      ...loop,
+      sessions,
+      cleanup: areAllProven ? ("confirmed" as const) : loop.cleanup,
+      iterations: loop.iterations.map((iteration) => ({
+        ...iteration,
+        nodes: iteration.nodes.map(checkStep),
+      })),
+    };
+  });
+  return {
+    ...run,
+    steps: run.steps.map(checkStep),
+    ...(loops ? { loops } : {}),
+  };
+}

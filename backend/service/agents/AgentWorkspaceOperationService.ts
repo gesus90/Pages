@@ -11,7 +11,6 @@ import {
 import { logCaughtError } from "@/backend/logging/Logger";
 
 import { pageAgentEntries } from "./AgentCursor";
-import { translateWorkspaceError } from "./AgentWorkspaceOperationErrors";
 import {
   readWorkspaceListRequest,
   readWorkspaceReadRequest,
@@ -398,4 +397,28 @@ export class AgentWorkspaceOperationService {
       recorder.asJournal(),
     );
   }
+}
+
+const NOT_FOUND_CODES: ReadonlySet<AgentErrorCode> = new Set([
+  "workspace_access_denied",
+  "workspace_not_found",
+]);
+
+const CONFLICT_CODES: ReadonlySet<AgentErrorCode> = new Set([
+  "workspace_conflict",
+  "workspace_path_conflict",
+  "workspace_in_use",
+  "workspace_running",
+]);
+
+function translateWorkspaceError(error: unknown): unknown {
+  if (!(error instanceof AgentError) || !error.code.startsWith("workspace_"))
+    return error;
+  if (NOT_FOUND_CODES.has(error.code))
+    return new AgentOperationError("NOT_FOUND");
+  if (error.code === "workspace_management_denied")
+    return new AgentOperationError("FORBIDDEN");
+  if (CONFLICT_CODES.has(error.code))
+    return new AgentOperationError("CONFLICT");
+  return new AgentOperationError("INVALID_REQUEST");
 }

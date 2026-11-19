@@ -1,9 +1,7 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { showSuccessToast } from "@/app/components/ui/toast";
-
-import { usePlanSaveShortcut } from "./use-plan-save-shortcut";
 
 import type { usePlanEditor } from "./use-plan-editor";
 
@@ -77,4 +75,25 @@ export function usePlanSave(
       setDismissed(editor.command.data);
     },
   };
+}
+
+function isSaveShortcut(event: KeyboardEvent): boolean {
+  return (
+    (event.ctrlKey || event.metaKey) &&
+    !event.altKey &&
+    !event.shiftKey &&
+    event.key.toLowerCase() === "s"
+  );
+}
+
+function usePlanSaveShortcut(onSave: () => void): void {
+  const handleKeyDown = useEffectEvent((event: KeyboardEvent): void => {
+    if (event.isComposing || !isSaveShortcut(event)) return;
+    event.preventDefault();
+    if (!event.repeat) onSave();
+  });
+  useEffect(() => {
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
 }

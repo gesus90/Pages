@@ -1,19 +1,21 @@
+import { planContentDigest } from "@/backend/agents/AgentPlanContentDigest";
 import { PAGES_AGENT_LIMITS } from "@/definition/PagesAgentOperations";
 import { AgentOperationError } from "@/backend/error/AgentOperationError";
 import {
   AGENT_PLAN_COMMAND_OPERATIONS,
   AGENT_PLAN_RECOVERY_COMMAND_OPERATIONS,
-} from "@/definition/AgentPlanOperations";
-import {
   AGENT_PLAN_READ_OPERATIONS,
   AGENT_PLAN_WRITE_OPERATIONS,
 } from "@/definition/AgentPlanOperations";
-import { readParameterRecord } from "./AgentParameterReader";
+import {
+  readIdentifier,
+  readParameterRecord,
+  requireParameterKeys,
+} from "./AgentParameterReader";
 import { logCaughtError } from "@/backend/logging/Logger";
 
 import { AgentPlanCommandOperations } from "./AgentPlanCommandOperations";
 import { readPlanResources } from "./AgentPlanResourceReads";
-import { releasePlanRun } from "./AgentPlanRecoveryOperation";
 import { startRecoveredPlanRun } from "./AgentPlanRecoveryStartOperation";
 import { translatePlanError } from "./AgentPlanOperationErrors";
 import { AgentPlanReadOperations } from "./AgentPlanReadOperations";
@@ -24,11 +26,14 @@ import type { Database } from "@/backend/database/Database";
 import type {
   AgentPlanReadOperation,
   AgentPlanRecoveryCommandOperation,
+  AgentPlanRecoveryCommandResult,
   AgentPlanWriteOperation,
 } from "@/definition/AgentPlanOperations";
 import type { AgentIdentity } from "@/definition/McpAuthorization";
 import type { PagesAgentReadResponse } from "@/definition/PagesAgentOperations";
 import type { PagesAgentWriteResponse } from "@/definition/PagesAgentWrites";
+import type { AgentPlanService } from "./AgentPlanService";
+import type { AgentPlanRecoveryService } from "./recovery/AgentPlanRecoveryService";
 import type { AgentPlanReads } from "./AgentPlanReadOperations";
 import type { AgentPlanWriteDependencies } from "./AgentPlanWriteOperations";
 
@@ -182,4 +187,44 @@ function resourceResponse(
   )
     throw new AgentOperationError("PAYLOAD_TOO_LARGE");
   return response;
+}
+
+async function releasePlanRun(
+  services: {
+    readonly plans: Pick<AgentPlanService, "run">;
+    readonly recovery?: Pick<AgentPlanRecoveryService, "control">;
+  },
+  userId: string,
+  input: unknown,
+): Promise<AgentPlanRecoveryCommandResult> {
+  const parameters = readParameterRecord(input);
+  requireParameterKeys(
+    parameters,
+    ["operationId", "planId", "runId"],
+    ["expectedRecoveryRevision"],
+  );
+  const operationId = readIdentifier(parameters.operationId);
+  const planId = readIdentifier(parameters.planId);
+  const runId = readIdentifier(parameters.runId);
+  const run = await services.plans.run(userId, runId);
+  if (run.planId !== planId) throw new AgentOperationError("NOT_FOUND");
+  if (!services.recovery)
+    throw new AgentOperationError("INVALID_REQUEST", {
+      reason: "plan_recovery_action_unavailable",
+    });
+  const result = await services.recovery.control(userId, runId, {
+    action: "release",
+    idempotencyKey: planContentDigest(["agent-api-release", operationId]),
+  });
+  if (result.outcome !== "released")
+    throw new AgentOperationError("INVALID_REQUEST", {
+      reason: "plan_recovery_action_unavailable",
+    });
+  return {
+    planId,
+    runId,
+    commandId: result.commandId,
+    recoveryRevision: result.revision,
+    outcome: "released",
+  };
 }

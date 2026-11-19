@@ -185,7 +185,7 @@ export function createChatInstructions(input: ChatInstructionInput): string {
     ].join("\n"),
     [
       `\`\`\`${CHAT_ACTION_FENCE}`,
-      '{"operation": "ticket.read", "parameters": {"ticketId": "PAGE-1"}}',
+      '{"operation": "ticket.read", "parameters": {"ticketId": "TICKET-1"}}',
       "```",
     ].join("\n"),
     [

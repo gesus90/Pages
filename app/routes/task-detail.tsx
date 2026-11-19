@@ -1,17 +1,26 @@
-import { useLoaderData, useNavigate, useNavigation } from "react-router";
+import {
+  Link,
+  useActionData,
+  useLoaderData,
+  useNavigate,
+  useNavigation,
+} from "react-router";
+import { useTranslation } from "react-i18next";
 
+import { useLocalStateRoute } from "@/app/components/common/use-local-state-route";
 import { getAncestorChain } from "@/app/components/tasks/detail/detail-path-section";
 import { useTaskPanelActions } from "@/app/components/tasks/detail/use-task-panel-actions";
 import { GitHubSyncBadge } from "@/app/components/tasks/github-sync-badge";
-import { TicketDialogs } from "@/app/components/tasks/ticket/ticket-dialogs";
-import { TicketBreadcrumb } from "@/app/components/tasks/ticket/ticket-breadcrumb";
+import { LabelPicker } from "@/app/components/tasks/label-picker";
+import { TaskFormDialog } from "@/app/components/tasks/task-form-dialog";
+import { TaskMoveDialog } from "@/app/components/tasks/task-move-dialog";
+import { TicketAccessProvider } from "@/app/components/tasks/ticket-access";
 import { TicketMainColumn } from "@/app/components/tasks/ticket/ticket-main-column";
 import { TicketSidebar } from "@/app/components/tasks/ticket/ticket-sidebar";
 import { TicketTop } from "@/app/components/tasks/ticket/ticket-top";
 import { useTicketDialogs } from "@/app/components/tasks/ticket/use-ticket-dialogs";
-import { TicketAccessProvider } from "@/app/components/tasks/ticket-access";
-import { useLocalStateRoute } from "@/app/components/common/use-local-state-route";
 import { PageContent } from "@/app/components/ui/card";
+import { sendToBackend } from "@/app/lib/backend-request";
 import {
   isCurrentLocalStateAudience,
   isLocalStateAudience,
@@ -21,17 +30,19 @@ import {
   localStateRoute,
 } from "@/app/lib/local-state/local-state-loader";
 import { readRouteData } from "@/app/lib/local-state/route-data";
-import { sendToBackend } from "@/app/lib/backend-request";
 import { WORK_ITEM_CHILD_TYPE } from "@/definition/Task";
 
 import type { LocalStateRouteKind } from "@/app/components/common/use-local-state-route";
+import type { TicketDialogs as TicketDialogState } from "@/app/components/tasks/ticket/use-ticket-dialogs";
 import type { LocalStateAudience } from "@/app/lib/local-state/local-state-audience";
 import type { WithLocalState } from "@/app/lib/local-state/local-state-loader";
+import type { loader } from "@/app/routes/task-detail-server";
+import type { action } from "@/app/routes/tasks-server";
 import type { GitHubPullRequest } from "@/definition/GitHub";
 import type { Project } from "@/definition/Project";
 import type {
-  Milestone,
   Label,
+  Milestone,
   TaskActionPermissions,
   TicketDepartmentChoices,
   WorkItemAttachment,
@@ -42,9 +53,9 @@ import type {
   WorkItemLink,
   WorkflowStatus,
 } from "@/definition/Task";
-import type { WorkItemTemplateView } from "@/definition/WorkItemTemplate";
-import type { GroupSummary } from "@/definition/UserGroup";
 import type { User } from "@/definition/User";
+import type { GroupSummary } from "@/definition/UserGroup";
+import type { WorkItemTemplateView } from "@/definition/WorkItemTemplate";
 import type { Route } from "./+types/task-detail";
 
 /** The task view the visitor came from. */
@@ -87,6 +98,32 @@ export interface TaskDetailLoaderData {
   readonly audience: LocalStateAudience;
 }
 
+interface TicketBreadcrumbProps {
+  readonly backTarget: string;
+  readonly project: Project;
+  readonly ticket: WorkItemDetail;
+  readonly ancestors: readonly WorkItemDetail[];
+  readonly hrefOf: (key: string) => string;
+}
+
+interface TicketDialogsProps {
+  readonly loaderData: Awaited<ReturnType<typeof loader>>;
+  readonly dialogs: TicketDialogState;
+  readonly isSubmittingForm: boolean;
+  readonly isSyncing: boolean;
+}
+
+interface TaskDetailViewProps {
+  readonly loaderData: TaskDetailLoaderData;
+}
+
+interface TicketFooterProps {
+  readonly loaderData: TaskDetailLoaderData;
+  readonly dialogs: ReturnType<typeof useTicketDialogs>;
+  readonly isSyncing: boolean;
+  readonly isSubmittingForm: boolean;
+}
+
 function isTaskDetailLoaderData(value: unknown): value is TaskDetailLoaderData {
   return (
     typeof value === "object" &&
@@ -112,34 +149,6 @@ const TASK_DETAIL_STATE: LocalStateRouteKind<TaskDetailLoaderData> = {
   isRefused: () => false,
 };
 
-/**
- * Opens the ticket from the account's kept answer at once and asks the endpoint behind it.
- * @remarks
- * The endpoint runs the server loader with its permission checks; a missing
- * or refused ticket shows the same error page as before.
- */
-export async function clientLoader({
-  params,
-  request,
-}: Route.ClientLoaderArgs): Promise<WithLocalState<TaskDetailLoaderData>> {
-  const url = new URL(request.url);
-  return loadLocalFirst(localStateRoute(url), TASK_DETAIL_STATE, () =>
-    readRouteData({
-      endpoint: `/aufgaben-api/tickets/${encodeURIComponent(params.ticketKey)}${url.search}`,
-      signal: request.signal,
-      isPayload: isTaskDetailLoaderData,
-    }),
-  );
-}
-
-/** Sends a change of the ticket to the API, which runs the board's action. */
-export async function clientAction({
-  request,
-}: Route.ClientActionArgs): Promise<unknown> {
-  return sendToBackend(request);
-}
-
-/** Tells whether a form with one of the intents is being submitted. */
 function isSubmittingIntent(
   navigation: ReturnType<typeof useNavigation>,
   ...intents: readonly string[]
@@ -153,15 +162,148 @@ function isSubmittingIntent(
   );
 }
 
-interface TaskDetailViewProps {
-  readonly loaderData: TaskDetailLoaderData;
+function TicketBreadcrumb({
+  backTarget,
+  project,
+  ticket,
+  ancestors,
+  hrefOf,
+}: TicketBreadcrumbProps): React.ReactElement {
+  const { t } = useTranslation();
+
+  return (
+    <nav aria-label={t("tasks.detail.breadcrumb")}>
+      <ol className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+        <li>
+          <Link
+            className="hover:text-foreground hover:underline"
+            to={backTarget}
+            prefetch="intent"
+          >
+            {t("tasks.title")}
+          </Link>
+        </li>
+        <li aria-hidden="true">›</li>
+        <li>
+          <Link
+            className="hover:text-foreground hover:underline"
+            to={`/projekte/${project.id}`}
+            prefetch="intent"
+          >
+            {project.name}
+          </Link>
+        </li>
+        {ancestors.map((ancestor) => (
+          <li key={ancestor.id} className="flex min-w-0 items-center gap-1.5">
+            <span aria-hidden="true">›</span>
+            <Link
+              className="max-w-48 truncate hover:text-foreground hover:underline"
+              title={`${ancestor.key}: ${ancestor.title}`}
+              to={hrefOf(ancestor.key)}
+              prefetch="intent"
+            >
+              {ancestor.title}
+            </Link>
+          </li>
+        ))}
+        <li aria-hidden="true">›</li>
+        <li aria-current="page" className="font-semibold text-foreground">
+          {ticket.key}
+        </li>
+      </ol>
+    </nav>
+  );
 }
 
-/**
- * Renders the ticket as in Jira: path and actions on top, the
- * large description with the content of the ticket on the left, status and
- * the detail areas on the right; stacked on small screens.
- */
+function TicketDialogs({
+  loaderData,
+  dialogs,
+  isSubmittingForm,
+  isSyncing,
+}: TicketDialogsProps): React.ReactElement {
+  const actionData = useActionData<typeof action>();
+  const { ticket, assignees, milestones, statuses } = loaderData;
+
+  return (
+    <>
+      <TaskFormDialog
+        assignees={assignees}
+        defaultParentId={dialogs.formDialog.defaultParentId}
+        defaultProjectId={dialogs.formDialog.defaultProjectId}
+        defaultStatusId={dialogs.formDialog.defaultStatusId}
+        defaultType={dialogs.formDialog.defaultType}
+        error={actionData && !actionData.ok ? actionData.error : null}
+        existingWorkItems={loaderData.projectWorkItems}
+        initialTask={dialogs.formDialog.task}
+        isOpen={dialogs.formDialog.isOpen}
+        isSubmitting={isSubmittingForm}
+        milestones={milestones}
+        mode={dialogs.formDialog.mode}
+        onOpenChange={dialogs.setFormDialogOpen}
+        projects={loaderData.projects}
+        statuses={statuses}
+        templates={loaderData.templates}
+      />
+
+      <LabelPicker
+        assignedLabelIds={
+          new Set(loaderData.taskLabels.map((label) => label.id))
+        }
+        isOpen={dialogs.isLabelPickerOpen}
+        isSubmitting={isSyncing}
+        labelUsage={loaderData.labelUsage}
+        onOpenChange={dialogs.setIsLabelPickerOpen}
+        labels={loaderData.labels}
+        workItemId={ticket.id}
+      />
+
+      {dialogs.isMoveDialogOpen ? (
+        <TaskMoveDialog
+          assigneesByProject={loaderData.assigneesByProject}
+          isOpen={dialogs.isMoveDialogOpen}
+          isSubmitting={isSyncing}
+          milestones={milestones}
+          onOpenChange={dialogs.setIsMoveDialogOpen}
+          projects={loaderData.projects}
+          task={ticket}
+          taskLabels={loaderData.taskLabels}
+          workItems={loaderData.projectWorkItems}
+        />
+      ) : null}
+    </>
+  );
+}
+
+function TicketFooter({
+  loaderData,
+  dialogs,
+  isSyncing,
+  isSubmittingForm,
+}: TicketFooterProps): React.ReactElement {
+  const { ticket } = loaderData;
+
+  return (
+    <>
+      <div className="mt-4 flex items-center gap-2 text-xs text-muted-foreground">
+        <GitHubSyncBadge
+          githubConflict={ticket.githubConflict}
+          githubIssueNumber={ticket.githubIssueNumber}
+          githubLastError={ticket.githubLastError}
+          githubLastSyncAt={ticket.githubLastSyncAt}
+          isSyncing={isSyncing}
+          updatedAt={ticket.updatedAt}
+        />
+      </div>
+      <TicketDialogs
+        loaderData={loaderData}
+        dialogs={dialogs}
+        isSubmittingForm={isSubmittingForm}
+        isSyncing={isSyncing}
+      />
+    </>
+  );
+}
+
 function TaskDetailView({
   loaderData,
 }: TaskDetailViewProps): React.ReactElement {
@@ -267,42 +409,31 @@ function TaskDetailView({
   );
 }
 
-interface TicketFooterProps {
-  readonly loaderData: TaskDetailLoaderData;
-  readonly dialogs: ReturnType<typeof useTicketDialogs>;
-  readonly isSyncing: boolean;
-  readonly isSubmittingForm: boolean;
+/**
+ * Opens the ticket from the account's kept answer at once and asks the endpoint behind it.
+ * @remarks
+ * The endpoint runs the server loader with its permission checks; a missing
+ * or refused ticket shows the same error page as before.
+ */
+export async function clientLoader({
+  params,
+  request,
+}: Route.ClientLoaderArgs): Promise<WithLocalState<TaskDetailLoaderData>> {
+  const url = new URL(request.url);
+  return loadLocalFirst(localStateRoute(url), TASK_DETAIL_STATE, () =>
+    readRouteData({
+      endpoint: `/aufgaben-api/tickets/${encodeURIComponent(params.ticketKey)}${url.search}`,
+      signal: request.signal,
+      isPayload: isTaskDetailLoaderData,
+    }),
+  );
 }
 
-/** The GitHub state below the ticket and the dialogs of the ticket page. */
-function TicketFooter({
-  loaderData,
-  dialogs,
-  isSyncing,
-  isSubmittingForm,
-}: TicketFooterProps): React.ReactElement {
-  const { ticket } = loaderData;
-
-  return (
-    <>
-      <div className="mt-4 flex items-center gap-2 text-xs text-muted-foreground">
-        <GitHubSyncBadge
-          githubConflict={ticket.githubConflict}
-          githubIssueNumber={ticket.githubIssueNumber}
-          githubLastError={ticket.githubLastError}
-          githubLastSyncAt={ticket.githubLastSyncAt}
-          isSyncing={isSyncing}
-          updatedAt={ticket.updatedAt}
-        />
-      </div>
-      <TicketDialogs
-        loaderData={loaderData}
-        dialogs={dialogs}
-        isSubmittingForm={isSubmittingForm}
-        isSyncing={isSyncing}
-      />
-    </>
-  );
+/** Sends a change of the ticket to the API, which runs the board's action. */
+export async function clientAction({
+  request,
+}: Route.ClientActionArgs): Promise<unknown> {
+  return sendToBackend(request);
 }
 
 /** Provides the access hints of the loader to the ticket view. */

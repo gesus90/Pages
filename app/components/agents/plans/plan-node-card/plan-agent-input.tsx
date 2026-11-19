@@ -1,17 +1,25 @@
-import { Link2, Link2Off, X } from "lucide-react";
+import { History, Link2, Link2Off, X } from "lucide-react";
 import { useId } from "react";
 import { useTranslation } from "react-i18next";
 
+import { Button } from "@/app/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/app/components/ui/dropdown-menu";
 import { cn } from "@/app/lib/cn";
 import { placeholderNames } from "@/definition/AgentParameters";
 import { planStepTemplate } from "@/definition/AgentPlanConfiguration";
+import { planLoopOf } from "@/definition/AgentPlanLoop";
 
 import { usePlanFlowContext } from "../plan-flow-context";
 import { PlanFlowHandle } from "../plan-flow-handle";
 import { planInTargetClass } from "../plan-flow-ports";
+import { planNodeLabel } from "../plan-layout";
 import { PLAN_NODE_TEXT } from "../plan-node-text";
 import { disconnectPlanInput } from "../plan-ports";
-import { PlanPreviousMenu } from "./plan-previous-menu";
 import { PlanValueInput } from "./plan-value-input";
 import {
   isEmptyPlanValue,
@@ -20,11 +28,14 @@ import {
 } from "./plan-value-preview";
 
 import type { TFunction } from "i18next";
-import type { AgentParameter } from "@/definition/AgentParameters";
+import type {
+  AgentParameter,
+  AgentParameterValue,
+} from "@/definition/AgentParameters";
 import type { AgentPlanBinding, AgentPlanStep } from "@/definition/AgentPlan";
 import type { AgentPlanGitCloseout } from "@/definition/AgentPlanGitCloseout";
+import type { AgentPlanLoopMember } from "@/definition/AgentPlanLoop";
 import type { AgentPlanScript } from "@/definition/AgentPlanScript";
-import type { AgentParameterValue } from "@/definition/AgentParameters";
 import type { PlanValueContext } from "./plan-value-preview";
 
 interface PlanAgentInputProps {
@@ -274,5 +285,56 @@ function ScriptLiteralDisconnect(
     >
       <X className="size-3.5" aria-hidden="true" />
     </button>
+  );
+}
+
+function PlanPreviousMenu(props: {
+  readonly step: AgentPlanLoopMember;
+  readonly parameter: string;
+  readonly label: string;
+}): React.ReactElement | null {
+  const { t } = useTranslation();
+  const { draft, sources, graph, canEdit } = usePlanFlowContext();
+  const loop = planLoopOf(draft, props.step.id);
+  if (!loop) return null;
+  const title = t("plans.loops.previousChoose");
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          size="icon-sm"
+          variant="ghost"
+          className="nodrag nopan size-7 min-h-7 shrink-0 text-muted-foreground"
+          disabled={!canEdit}
+          aria-label={`${title}: ${props.parameter} · ${props.label}`}
+          title={title}
+        >
+          <History className="size-3.5" aria-hidden="true" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent
+        align="end"
+        onKeyDown={(event) => event.stopPropagation()}
+      >
+        {loop.steps.map((member) => (
+          <DropdownMenuItem
+            key={member.id}
+            onSelect={() =>
+              graph.replaceNode({
+                ...props.step,
+                bindings: {
+                  ...props.step.bindings,
+                  [props.parameter]: { kind: "previous", stepId: member.id },
+                },
+              })
+            }
+          >
+            {t("plans.loops.previousOf", {
+              name: planNodeLabel(member, sources),
+            })}
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }

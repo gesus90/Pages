@@ -3,8 +3,10 @@ import { AgentProviderError } from "@/backend/error/AgentProviderError";
 import { agentToolFailureEvents } from "@/backend/service/agents/tools/AgentToolSession";
 
 import { closePlanSession } from "./AgentPlanSessionCloseout";
-import { retiredPlanGroupSession } from "./AgentPlanGroupRetirement";
-import { closedSessionChanges } from "./AgentPlanSessionRecords";
+import {
+  closedSessionChanges,
+  closeoutFailureCode,
+} from "./AgentPlanSessionRecords";
 import { failureCloseout, planNodeFailureResult } from "./AgentPlanStepFailure";
 
 import type {
@@ -133,4 +135,25 @@ export async function failPlanStepNode(
       events: agentToolFailureEvents(error, node.record.events),
     });
   return planNodeFailureResult(node, error);
+}
+
+function retiredPlanGroupSession(
+  record: AgentPlanSessionRecord | null,
+  closed: PlanSessionClosed,
+  reason: string,
+): Partial<AgentPlanSessionRecord> {
+  let resultCode: AgentPlanSessionRecord["resultCode"] = -1;
+  if (closeoutFailureCode(closed) === null)
+    resultCode =
+      record?.resultCode ??
+      (record?.acceptance?.verdict === "accepted" ? 0 : -1);
+  return {
+    closeout: closed.isConfirmed ? "confirmed" : "failed",
+    containment: closed.isConfirmed ? closed.containment : undefined,
+    endedAt: closed.endedAt,
+    exit: closed.exit,
+    leftoverProcesses: closed.leftovers,
+    resultCode,
+    events: [...(record?.events ?? []), `resource session retired: ${reason}`],
+  };
 }

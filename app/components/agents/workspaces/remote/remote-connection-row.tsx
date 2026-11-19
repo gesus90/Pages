@@ -4,16 +4,24 @@ import {
   RefreshCw,
   Terminal,
   Trash2,
+  Wrench,
 } from "lucide-react";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useFetcher, useRevalidator } from "react-router";
 
 import { Button } from "@/app/components/ui/button";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+} from "@/app/components/ui/dialog";
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/app/components/ui/dropdown-menu";
@@ -23,9 +31,8 @@ import {
   connectionSetupTarget,
 } from "./console/console-target";
 import { RemoteConsolePanel } from "./console/remote-console-panel";
-import { RemoteConnectionDelete } from "./remote-connection-delete";
+import { RemoteActionMessage } from "./remote-action-message";
 import { RemoteConnectionStatus } from "./remote-connection-status";
-import { RemoteSetupMenuItem } from "./remote-setup-menu";
 
 import type {
   RemoteActionResult,
@@ -216,5 +223,84 @@ export function RemoteConnectionRow(props: {
         </td>
       ) : null}
     </tr>
+  );
+}
+
+function menuTextKey(install: RemoteInstallView | undefined): string {
+  if (install?.state === "confirmed") return "remote.setup.menu.installed";
+  if (install?.state === "running") return "remote.setup.menu.running";
+  return "remote.setup.menu.runner";
+}
+
+function RemoteSetupMenuItem(props: {
+  readonly install: RemoteInstallView | undefined;
+  readonly onSetup: () => void;
+}): React.ReactElement {
+  const { t } = useTranslation();
+  const isOff =
+    props.install?.state === "confirmed" || props.install?.state === "running";
+  return (
+    <>
+      <DropdownMenuLabel className="px-3 pt-2 pb-1 text-xs font-medium text-muted-foreground">
+        {t("remote.setup.menu.heading")}
+      </DropdownMenuLabel>
+      <DropdownMenuItem disabled={isOff} onSelect={props.onSetup}>
+        <Wrench className="mr-2 size-4" aria-hidden="true" />
+        {t(menuTextKey(props.install))}
+      </DropdownMenuItem>
+    </>
+  );
+}
+
+function RemoteConnectionDelete(props: {
+  readonly connection: RemoteConnectionView;
+  readonly onClose: () => void;
+}): React.ReactElement {
+  const { t } = useTranslation();
+  const fetcher = useFetcher<RemoteActionResult>();
+  const { onClose, connection } = props;
+  const isPending = fetcher.state !== "idle";
+  const isUsed = connection.workspaceCount > 0;
+  useEffect(() => {
+    if (fetcher.state === "idle" && fetcher.data?.ok) onClose();
+  }, [fetcher.state, fetcher.data, onClose]);
+  return (
+    <Dialog open onOpenChange={onClose}>
+      <DialogContent size="md">
+        <DialogTitle className="text-lg font-semibold">
+          {t("remote.connections.removeTitle", { name: connection.name })}
+        </DialogTitle>
+        <DialogDescription className="mt-1.5 text-sm text-muted-foreground">
+          {t(
+            isUsed
+              ? "remote.connections.removeBlocked"
+              : "remote.connections.removeDescription",
+          )}
+        </DialogDescription>
+        <div className="mt-3">
+          <RemoteActionMessage result={fetcher.data} />
+        </div>
+        <fetcher.Form
+          method="post"
+          action="/agents/workspaces/remote"
+          className="mt-6 flex justify-end gap-2"
+        >
+          <input type="hidden" name="intent" value="delete-connection" />
+          <input type="hidden" name="connectionId" value={connection.id} />
+          <input type="hidden" name="revision" value={connection.revision} />
+          <Button variant="ghost" disabled={isPending} onClick={onClose}>
+            {t("remote.dialog.cancel")}
+          </Button>
+          <Button
+            type="submit"
+            variant="destructive"
+            disabled={isUsed}
+            isPending={isPending}
+          >
+            {t("remote.connections.remove")}
+          </Button>
+        </fetcher.Form>
+      </DialogContent>
+    </Dialog>
   );
 }

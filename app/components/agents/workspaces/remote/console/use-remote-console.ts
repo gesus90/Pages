@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { INITIAL_CONSOLE_STATE, RemoteConsoleClient } from "./console-client";
-import { resolveScreenReaderMode } from "./screen-reader-mode";
 import { createTerminalSurface } from "./terminal-surface";
 
 import type { Terminal } from "@xterm/xterm";
@@ -131,4 +130,27 @@ export function useRemoteConsole(
       setSessionNumber((previous) => previous + 1);
     },
   };
+}
+
+let lastInteraction: "pointer" | "keyboard" | null = null;
+
+if (typeof document !== "undefined") {
+  document.addEventListener(
+    "pointerdown",
+    () => {
+      lastInteraction = "pointer";
+    },
+    { capture: true, passive: true },
+  );
+  document.addEventListener(
+    "keydown",
+    () => {
+      lastInteraction = "keyboard";
+    },
+    { capture: true, passive: true },
+  );
+}
+
+function resolveScreenReaderMode(): boolean {
+  return lastInteraction !== "pointer";
 }

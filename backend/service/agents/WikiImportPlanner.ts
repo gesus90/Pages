@@ -11,7 +11,6 @@ import {
 } from "@/definition/Wiki";
 import { logCaughtError } from "@/backend/logging/Logger";
 
-import { duplicateImportPaths, isValidImportPath } from "./ImportPathValidator";
 import { readImportTitle } from "./ImportMarkdownTitle";
 import { scanRelativeLinks } from "./RelativeLinkScanner";
 import { wikiImportFingerprint } from "./WikiImportFingerprint";
@@ -451,4 +450,37 @@ export class WikiImportPlanner {
     );
     return { parents, children, canWrite: viewer.canWrite, isTemplate };
   }
+}
+
+function isValidImportPath(sourceKey: string): boolean {
+  if (
+    !/\.md$/i.test(sourceKey) ||
+    /[\\:%?#\u0000-\u001f\u007f]/u.test(sourceKey) ||
+    sourceKey !== sourceKey.normalize("NFC")
+  )
+    return false;
+  return sourceKey.split("/").every((segment) => {
+    return (
+      segment.length > 0 &&
+      segment !== "." &&
+      segment !== ".." &&
+      segment.trim() === segment
+    );
+  });
+}
+
+function duplicateImportPaths(
+  sourceKeys: readonly string[],
+): AgentImportIssue[] {
+  const seen = new Set<string>();
+  const duplicates = new Set<string>();
+  for (const key of sourceKeys) {
+    if (seen.has(key)) duplicates.add(key);
+    seen.add(key);
+  }
+  return [...duplicates].sort().map((sourceKey) => ({
+    code: "CONFLICT",
+    reason: "duplicate_source",
+    sourceKeys: [sourceKey],
+  }));
 }

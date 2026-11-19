@@ -20,7 +20,7 @@ export async function requireAgentTicket(
 
 /**
  * Builds the Pages address of a ticket.
- * @param key - The key of the ticket, such as `PAGE-12`.
+ * @param key - The key of the ticket, such as `TICKET-12`.
  * @returns The address below the server.
  */
 export function agentTicketLink(key: string): string {

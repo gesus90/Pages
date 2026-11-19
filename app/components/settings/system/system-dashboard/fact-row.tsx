@@ -1,11 +1,15 @@
 import { useTranslation } from "react-i18next";
 
-import { MISSING_VALUE, useDashboardFormat } from "./use-dashboard-format";
-import { VersionFact } from "./version-fact";
+import { useRegionFormat } from "@/app/components/common/region-provider";
 
+import { MISSING_VALUE, useDashboardFormat } from "./use-dashboard-format";
+
+import type {
+  DashboardBuild,
+  DashboardFacts,
+} from "@/definition/SystemDashboard";
 import type { TFunction } from "i18next";
 import type { ReactNode } from "react";
-import type { DashboardFacts } from "@/definition/SystemDashboard";
 import type { DashboardFormat } from "./use-dashboard-format";
 
 /** The facts in their order. */
@@ -35,6 +39,63 @@ const NO_FACTS: MeasuredFacts = {
   tools: MISSING_VALUE,
 };
 
+interface VersionFactProps {
+  readonly version: string;
+  readonly build: DashboardBuild | null;
+}
+
+interface FactRowProps {
+  /** `null` before the first measurement. */
+  readonly facts: DashboardFacts | null;
+  /** When the base backup last succeeded, from the service status. */
+  readonly lastBackup: number | null;
+  /** When the last answer arrived; running times count to it. */
+  readonly now: number;
+}
+
+function formatBuildDate(
+  builtAt: string,
+  language: string,
+  timeZone: string,
+): string {
+  const instant = new Date(builtAt);
+  const date = new Intl.DateTimeFormat(language, {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    timeZone,
+  }).format(instant);
+  const time = new Intl.DateTimeFormat(language, {
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+    timeZone,
+  }).format(instant);
+  return `${date} ${time}`;
+}
+
+function VersionFact({ version, build }: VersionFactProps): React.ReactElement {
+  const { t, i18n } = useTranslation();
+  const { timeZone } = useRegionFormat();
+  const unknown = t("settings.system.dashboard.facts.unknown");
+  const commit = build?.commit.slice(0, 8) ?? unknown;
+  const builtAt = build
+    ? formatBuildDate(build.builtAt, i18n.language, timeZone)
+    : unknown;
+
+  return (
+    <>
+      <span className="whitespace-nowrap">
+        {version} ·{" "}
+        <span title={build?.commit}>
+          {t("settings.system.dashboard.facts.build", { commit })}
+        </span>
+      </span>{" "}
+      <span className="whitespace-nowrap">· {builtAt}</span>
+    </>
+  );
+}
+
 function readMeasuredFacts(
   facts: DashboardFacts,
   context: {
@@ -62,15 +123,6 @@ function readMeasuredFacts(
         ? MISSING_VALUE
         : t("settings.system.dashboard.facts.toolsValue", { ...tools }),
   };
-}
-
-interface FactRowProps {
-  /** `null` before the first measurement. */
-  readonly facts: DashboardFacts | null;
-  /** When the base backup last succeeded, from the service status. */
-  readonly lastBackup: number | null;
-  /** When the last answer arrived; running times count to it. */
-  readonly now: number;
 }
 
 /**

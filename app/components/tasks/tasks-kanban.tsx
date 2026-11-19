@@ -1,16 +1,24 @@
-import { useState } from "react";
+import { useId, useState } from "react";
+import { useTranslation } from "react-i18next";
 
 import { ScrollViewport } from "@/app/components/ui/scroll-viewport";
-import { KanbanScrollArea } from "@/app/components/tasks/kanban-scroll-area";
 import { groupWorkItems } from "@/app/lib/board-groups";
 
-import { KanbanGroupSection } from "./kanban/kanban-group-section";
-import { KanbanStatusColumns } from "./kanban/kanban-status-columns";
+import { KanbanColumn } from "./kanban/kanban-column";
 import { useKanbanDrag } from "./kanban/use-kanban-drag";
 
-import type { BoardGroupLookups } from "@/app/lib/board-groups";
+import type {
+  BoardGroupLookups,
+  BoardGroupSection,
+} from "@/app/lib/board-groups";
 import type { BoardGroup } from "@/definition/BoardPreferences";
 import type { Label, WorkItemDetail, WorkflowStatus } from "@/definition/Task";
+import type { ReactNode } from "react";
+import type { KanbanDrag } from "./kanban/use-kanban-drag";
+
+// Cards rendered per kanban column before progressive disclosure; column
+// headers always show the true totals from the full item list.
+const KANBAN_COLUMN_PAGE_SIZE = 50;
 
 interface TasksKanbanProps {
   readonly statuses: readonly WorkflowStatus[];
@@ -30,9 +38,109 @@ interface TasksKanbanProps {
   ) => void;
 }
 
-// Cards rendered per kanban column before progressive disclosure; column
-// headers always show the true totals from the full item list.
-const KANBAN_COLUMN_PAGE_SIZE = 50;
+interface KanbanStatusColumnsProps {
+  readonly statuses: readonly WorkflowStatus[];
+  readonly items: readonly WorkItemDetail[];
+  readonly groupKey: string;
+  readonly drag: KanbanDrag;
+  readonly draggedItem: WorkItemDetail | null;
+  readonly visibleCount: number;
+  readonly selectedTaskId: string | null;
+  readonly labelsByWorkItem?: Readonly<Record<string, readonly Label[]>>;
+  readonly onSelectTask: (key: string) => void;
+  readonly onOpenTask: (key: string) => void;
+  readonly onQuickCreate: (statusId: string) => void;
+  readonly onShowMore: () => void;
+  readonly onChangeStatus: (taskId: string, statusId: string) => void;
+}
+
+interface KanbanGroupSectionProps {
+  readonly section: BoardGroupSection;
+  readonly children: ReactNode;
+}
+
+function sectionTitle(
+  section: BoardGroupSection,
+  translate: (key: string) => string,
+): string {
+  if (section.kind === "priority") {
+    return translate(`tasks.priority.${section.key}`);
+  }
+
+  return section.title ?? translate(`tasks.groupEmpty.${section.kind}`);
+}
+
+function KanbanScrollArea({
+  children,
+}: {
+  readonly children: ReactNode;
+}): React.ReactElement {
+  return (
+    <ScrollViewport
+      axis="horizontal"
+      containerClassName="h-full min-h-48 w-full"
+      className="overscroll-x-contain"
+      id="tasks-kanban-viewport"
+    >
+      <div className="flex h-full w-max min-w-full items-stretch gap-4 px-1 py-2 md:gap-5">
+        {children}
+      </div>
+    </ScrollViewport>
+  );
+}
+
+function KanbanStatusColumns({
+  statuses,
+  items,
+  groupKey,
+  ...columnProps
+}: KanbanStatusColumnsProps): React.ReactElement {
+  return (
+    <>
+      {statuses.map((status) => (
+        <KanbanColumn
+          key={status.id}
+          {...columnProps}
+          columnId={`${groupKey}:${status.id}`}
+          items={items.filter((item) => item.statusId === status.id)}
+          status={status}
+          statuses={statuses}
+        />
+      ))}
+    </>
+  );
+}
+
+function KanbanGroupSection({
+  section,
+  children,
+}: KanbanGroupSectionProps): React.ReactElement {
+  const { t } = useTranslation();
+  const headingId = useId();
+
+  return (
+    <section aria-labelledby={headingId} className="min-w-0">
+      <h2
+        className="mb-2 flex items-center gap-2 px-1 text-sm font-semibold text-foreground"
+        id={headingId}
+      >
+        {sectionTitle(section, t)}
+        <span className="inline-flex min-w-5 items-center justify-center rounded-full bg-muted px-1.5 text-[11px] font-semibold text-muted-foreground">
+          {section.items.length}
+        </span>
+      </h2>
+      {/* The lane is as tall as its fullest column up to a cap, and every column stretches to it; taller columns scroll inside. */}
+      <ScrollViewport
+        axis="horizontal"
+        className="overflow-x-auto overflow-y-hidden pb-2"
+      >
+        <div className="flex max-h-[34rem] w-max min-w-full items-stretch gap-4 px-1 md:gap-5 [&>section]:h-auto">
+          {children}
+        </div>
+      </ScrollViewport>
+    </section>
+  );
+}
 
 /** Renders the drag-and-drop Kanban board spanning all five standard workflow phases, optionally in sections per group. */
 export function TasksKanban({
