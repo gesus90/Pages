@@ -24,6 +24,7 @@ import { AuthorizationRepository } from "@/backend/database/repositories/Authori
 import { UserGroupRepository } from "@/backend/database/repositories/UserGroupRepository";
 import { AgentConnectionAccess } from "@/backend/service/agents/AgentConnectionAccess";
 import { AgentQuotaCardOrderRepository } from "@/backend/database/repositories/agent/AgentQuotaCardOrderRepository";
+import { QuotaMeasurementRepository } from "@/backend/database/repositories/agent/QuotaMeasurementRepository";
 import { AgentQuotaCardOrderService } from "@/backend/service/agents/AgentQuotaCardOrderService";
 import { AgentQuotaService } from "@/backend/service/agents/AgentQuotaService";
 import { AntigravityQuotaProbe } from "@/backend/service/agents/AntigravityQuotaProbe";
@@ -34,6 +35,7 @@ import { CodexQuotaProbe } from "@/backend/service/agents/CodexQuotaProbe";
 import { CodexQuotaService } from "@/backend/service/agents/CodexQuotaService";
 import { OpenRouterQuotaProbe } from "@/backend/service/agents/OpenRouterQuotaProbe";
 import { OpenRouterQuotaService } from "@/backend/service/agents/OpenRouterQuotaService";
+import { QuotaMeasurementService } from "@/backend/service/agents/QuotaMeasurementService";
 import { ZaiQuotaProbe } from "@/backend/service/agents/ZaiQuotaProbe";
 import { ZaiQuotaService } from "@/backend/service/agents/ZaiQuotaService";
 import { LocalSessions } from "@/backend/agents/local/LocalSessions";
@@ -138,6 +140,9 @@ function createAccessServices(
 } & ChatDecisionApplicationServices {
   const groups = new UserGroupRepository(database);
   const authorization = new AuthorizationRepository(database);
+  const measurements = new QuotaMeasurementService(
+    new QuotaMeasurementRepository(database),
+  );
   return {
     access: new AgentConnectionAccess({
       connections: repository,
@@ -148,11 +153,13 @@ function createAccessServices(
       groups,
     }),
     quotaService: new AgentQuotaService({
+      measurements,
       claude: new ClaudeQuotaService({
         connections: repository,
         authorization,
         groups,
         probe: new ClaudeQuotaProbe({
+          measurements,
           reader: runtime,
           repository: repository.quotas(),
         }),
@@ -162,6 +169,7 @@ function createAccessServices(
         authorization,
         groups,
         probe: new CodexQuotaProbe({
+          measurements,
           reader: runtime,
           repository: repository.codexQuotas(),
         }),
@@ -171,6 +179,7 @@ function createAccessServices(
         authorization,
         groups,
         probe: new AntigravityQuotaProbe({
+          measurements,
           reader: runtime,
           repository: repository.antigravityQuotas(),
         }),
@@ -194,6 +203,7 @@ function createAccessServices(
         authorization,
         groups,
         probe: new ZaiQuotaProbe({
+          measurements,
           connections: repository,
           cipher,
           provider: new ZaiProvider(

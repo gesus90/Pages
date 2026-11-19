@@ -81,6 +81,7 @@ import { defaultAgentTemplateTexts } from "./agent-template-texts.server";
 import { isSafeSvg } from "./settings-actions/svg-safety.server";
 
 import type { AgentChatTools } from "@/definition/AgentChat";
+import type { ChatCallSetting } from "@/backend/config/ChatCallConfig";
 import type { SpeechRecognitionSetting } from "@/backend/config/SpeechRecognitionConfig";
 import type { ServerCache } from "@/backend/cache/ServerCache";
 import type { AutomationService } from "@/backend/service/automation/AutomationService";
@@ -177,6 +178,8 @@ export interface EmployeeServicesInput {
     readonly events: PagesEventPublisher;
     /** The speech model and the longest recording of `config.toml`. */
     readonly speech?: SpeechRecognitionSetting;
+    /** The STUN and TURN servers of audio calls of `config.toml`. */
+    readonly chatCalls?: ChatCallSetting;
     /** The origin users reach Pages at; links to it embed. */
     readonly publicUrl?: string;
   };

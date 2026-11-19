@@ -17,7 +17,7 @@ interface ZaiQuotaDependencies {
   readonly authorization: Pick<AuthorizationRepository, "snapshot">;
   readonly groups: Pick<UserGroupRepository, "findIdsByMember">;
   /** Asks the usage monitor of Z.AI anew for the quota of each connection. */
-  readonly probe: Pick<ZaiQuotaProbe, "refresh" | "stored">;
+  readonly probe: Pick<ZaiQuotaProbe, "refresh" | "stored" | "latestFailure">;
   readonly clock?: () => Date;
 }
 
@@ -118,7 +118,9 @@ export class ZaiQuotaService {
         this.account(
           connection,
           {
-            outcome: outcomes.get(connection.id) ?? null,
+            outcome:
+              outcomes.get(connection.id) ??
+              this.dependencies.probe.latestFailure(connection.id),
             reading: await this.dependencies.probe.stored(connection.id),
           },
           now,

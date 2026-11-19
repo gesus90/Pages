@@ -15,7 +15,6 @@ import {
   runOpenCodeAttemptIds,
 } from "./AgentSessionRunUsage";
 import { decideContinuation } from "./AgentSessionContinuation";
-import { attemptContext } from "./AgentSessionResumedContext";
 import { antigravityUsage } from "./AntigravityUsage";
 import { AgentSessionRecorder } from "./AgentSessionRecorder";
 import { sumOpenCodeUsage } from "./OpenCodeUsage";
@@ -284,7 +283,6 @@ export class AgentSessionService {
         step: attempt.step,
         record: attempt.record,
         stored: stored?.workspace ?? null,
-        checkedAt: this.clock(),
       })),
       model,
       ...(await describeSessionIdentity(
@@ -292,7 +290,7 @@ export class AgentSessionService {
         model,
         this.dependencies.catalog,
       )),
-      context: await attemptContext(store, attempt.record, stored),
+      context: stored?.context ?? UNKNOWN_CONTEXT,
       turns,
       totals: sumTurnUsage(turns),
       runTotals: sumTurnUsage(runTurns),
@@ -530,7 +528,7 @@ export class AgentSessionService {
 
   private record(start: AgentSessionStart): AgentSessionRecorder {
     const existing = this.recorders.get(start.instanceId);
-    // A later member continues the same native session: its last reports hold, with their time.
+    // A later member uses the same native configuration and records its own usage.
     const shared = existing?.current;
     const attempt: AgentSessionAttemptRecord = {
       connectionId: start.connectionId,
@@ -542,7 +540,10 @@ export class AgentSessionService {
       instanceId: start.instanceId,
       groupId: start.groupId,
       state: "running",
-      context: shared?.context ?? UNKNOWN_CONTEXT,
+      context:
+        shared?.key.attemptId === start.key.attemptId
+          ? shared.context
+          : UNKNOWN_CONTEXT,
       confirmedModel: shared?.confirmedModel ?? UNKNOWN_VALUE,
       confirmedReasoning: shared?.confirmedReasoning ?? UNKNOWN_VALUE,
       workspace: null,

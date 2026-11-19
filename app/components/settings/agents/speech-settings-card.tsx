@@ -35,8 +35,6 @@ import type { SpeechTest } from "./speech-settings/speech-test";
 
 interface SpeechSettingsCardProps {
   readonly administration: SpeechAdministration;
-  /** Whether the last server refresh of a catalog failed; the model choice then warns. */
-  readonly isCatalogFailed?: boolean;
 }
 
 /**
@@ -49,7 +47,6 @@ interface SpeechSettingsCardProps {
  */
 export function SpeechSettingsCard({
   administration,
-  isCatalogFailed,
 }: SpeechSettingsCardProps): React.ReactElement {
   const { t } = useTranslation();
   const fetcher = useFetcher<AgentActionResult>({ key: "speech-settings" });
@@ -69,7 +66,6 @@ export function SpeechSettingsCard({
       <SpeechSettingsForm
         key={administration.settings.revision}
         administration={administration}
-        isCatalogFailed={isCatalogFailed === true}
         fetcher={fetcher}
       />
     </SettingsCard>
@@ -118,11 +114,9 @@ function useSpeechDraft(
 
 function SpeechSettingsForm({
   administration,
-  isCatalogFailed,
   fetcher,
 }: {
   readonly administration: SpeechAdministration;
-  readonly isCatalogFailed: boolean;
   readonly fetcher: FetcherWithComponents<AgentActionResult>;
 }): React.ReactElement {
   const { t } = useTranslation();
@@ -157,7 +151,6 @@ function SpeechSettingsForm({
           label={t("speechSettings.model")}
           placeholder={t("speechSettings.chooseModel")}
           emptyLabel={t("speechSettings.noModels")}
-          isCatalogFailed={isCatalogFailed}
           onChange={draft.setModelKey}
         />
         <SpeechDurationField

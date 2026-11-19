@@ -1,5 +1,9 @@
 import { z } from "zod";
 
+import { quotaPaceSchema } from "@/definition/QuotaForecast";
+
+import type { QuotaPace } from "@/definition/QuotaForecast";
+
 /** The usage windows of a claude.ai subscription, in the order a card lists them. */
 export const CLAUDE_QUOTA_WINDOWS = ["five_hour", "seven_day"] as const;
 export type ClaudeQuotaWindowKind = (typeof CLAUDE_QUOTA_WINDOWS)[number];
@@ -19,6 +23,7 @@ const SUCCESS_FROM = 25;
 
 /** One window as Claude Code last reported it for a connection. */
 export interface ClaudeQuotaWindow {
+  readonly pace?: QuotaPace;
   readonly kind: ClaudeQuotaWindowKind;
   /** Share of the window used, 0 to 100. */
   readonly usedPercentage: number;
@@ -94,6 +99,7 @@ export interface ClaudeQuotaSnapshot {
 }
 
 const windowSchema = z.object({
+  pace: quotaPaceSchema.optional(),
   kind: z.enum(CLAUDE_QUOTA_WINDOWS),
   usedPercentage: z.number().min(0).max(100),
   resetsAt: z.string().min(1).max(40),

@@ -1,9 +1,11 @@
 import { z } from "zod";
 
 import { quotaStatusSchema } from "@/definition/ClaudeQuota";
+import { quotaPaceSchema } from "@/definition/QuotaForecast";
 
 import type { ZaiAccountType } from "@/definition/AgentConnection";
 import type { ClaudeQuotaStatus } from "@/definition/ClaudeQuota";
+import type { QuotaPace } from "@/definition/QuotaForecast";
 
 /**
  * The quota entries Z.AI reports for a key, in the order a card lists them.
@@ -67,6 +69,7 @@ export interface ZaiQuotaCounts {
  * used and total numbers.
  */
 export interface ZaiQuotaWindow {
+  readonly pace?: QuotaPace;
   readonly kind: ZaiQuotaKind;
   readonly usedPercent: number;
   readonly length: ZaiWindowLength | null;
@@ -143,6 +146,7 @@ export interface ZaiQuotaAccount {
 export const ZAI_MAX_WINDOWS = 8;
 
 const windowSchema = z.object({
+  pace: quotaPaceSchema.optional(),
   kind: z.enum(ZAI_QUOTA_KINDS),
   usedPercent: z.number().min(0).max(100),
   length: z
@@ -159,6 +163,18 @@ const windowSchema = z.object({
       remaining: z.number().finite().nonnegative().nullable(),
     })
     .nullable(),
+});
+
+/** Validates the latest successful Z.AI reading stored for the current key. */
+export const zaiQuotaReadingSchema = z.object({
+  plan: z.enum(ZAI_PLANS).nullable(),
+  windows: z.array(windowSchema).max(ZAI_MAX_WINDOWS),
+  tally: z.object({
+    delivered: z.number().int().nonnegative(),
+    unsupportedType: z.number().int().nonnegative(),
+    withoutUsage: z.number().int().nonnegative(),
+    evaluated: z.number().int().nonnegative(),
+  }),
 });
 
 /** Validates the Z.AI card of a quota answer before the browser shows it. */
@@ -253,4 +269,25 @@ export function zaiQuotaAbsence(
   if (tally === null || shownCount > 0) return null;
   if (tally.delivered === 0) return "none_reported";
   return tally.evaluated === 0 ? "unusable" : "elapsed";
+}
+
+/**
+ * Converts the reported unit and count to minutes. Monthly allowances use
+ * the calendar interval ending at the reported reset, in UTC.
+ */
+export function zaiWindowDurationMinutes(
+  window: ZaiQuotaWindow,
+): number | null {
+  const { length, resetsAt } = window;
+  if (length === null) return null;
+  if (length.unit !== "months") return lengthRank(length) * 60;
+  const reset = new Date(resetsAt ?? "");
+  const start = new Date(reset);
+  start.setUTCDate(1);
+  start.setUTCMonth(reset.getUTCMonth() - length.count);
+  const monthEnd = new Date(start);
+  monthEnd.setUTCMonth(start.getUTCMonth() + 1, 0);
+  start.setUTCDate(Math.min(reset.getUTCDate(), monthEnd.getUTCDate()));
+  const duration = (reset.getTime() - start.getTime()) / 60_000;
+  return Number.isFinite(duration) && duration > 0 ? duration : null;
 }

@@ -163,23 +163,20 @@ the view reports them as unavailable instead of offering them.
   also through a link) and reads the Git state from `.git`/`HEAD` (including `gitdir:` pointers of worktrees):
   `branch`, `detached` with the commit, `no_repository` or `unreadable`. No Git
   command and no command of the model runs; no repository path is exposed. It
-  is read again at every turn start. A Claude Code session of a runner records
-  no workspace in its journal; its view checks the directory the plan assigned
-  to the node instead, and the run branch of exactly that workspace shows also
-  without session metadata. This holds for a local node and the local runner,
-  whose files lie on the Pages host; a node on another runner host shows no
-  workspace and no run branch, because a local path of the same name would
-  name another machine's state.
+  is read again at every turn start. The terminal uses that snapshot for Git
+  state. The prepared branch of a workspace on the Pages host is available
+  for attempts without a Git snapshot. The assigned workplace comes from the
+  attempt's execution target or working directory.
 
 ## Usage
 
 Context occupancy and token counts are separate values:
 
-- `contextUsed` and `contextLimit` come only from `usage_update.used` and
-  `.size` with source and time; the newest report replaces the one before. A
-  zero `used` names no value (Claude reports 0 after an unmeasured
-  compaction): the last reported value stays until a new one comes, also
-  after a compaction. Without a limit there is no percentage.
+- ACP emits `contextUsed` and `contextLimit` through `usage_update.used` and
+  `.size`. The latest reported value of each field stays for that model and
+  attempt. Claude's zero after an unmeasured compaction leaves the previous
+  occupancy in place. The runner uses the ACP session and its confirmed
+  selector to attribute Antigravity, OpenCode, OpenRouter and Z.AI readings.
 - A Claude Code CLI job of a runner sends its own session readings instead of
   `usage_update`, kept apart from its token counters: `cli_assistant_usage` is
   input, output, cache read and cache write of the latest top-level answer
@@ -190,21 +187,15 @@ Context occupancy and token counts are separate values:
   values. A reading without a measurement, also a compaction without a kept
   count, keeps the last valid one of the same model, also after the end, on
   reopening and into the next turn; a reading older than the stored one
-  changes nothing. The CLI names the window only in the `result` at the end
-  of a turn, and a plan step is one turn: until then the window is the one an
-  earlier Claude Code CLI job of the same model stored, so a running step
-  shows its occupancy against the window. A window an ACP adapter guessed
-  from the model name never counts for this. The `stream_event` `message_delta`
+  changes nothing. The CLI names the window in the `result` at the end of a
+  turn, so a running step can display just its occupancy. The
+  `stream_event` `message_delta`
   of an answer completes the reading of its `assistant` event, which holds the
   output tokens counted while the answer was still streaming.
-- A restart that resumes the native session of an earlier attempt (the earlier
-  attempt reported a session and it did not fail to resume) continues with the
-  last occupancy that attempt reported, until the new attempt reports its own;
-  the window of the new attempt wins where it has one. A restart into a new
-  session starts empty. "Not reported yet" therefore appears only while no
-  attempt of the session reported a value. The sidebar reads the session view
-  again after activity, at most once per 1.5 seconds, also for a node on a
-  runner, so the value grows during the run and stays on reopening.
+- Every new attempt starts with empty context readings. The sidebar refreshes
+  the selected attempt's view after activity, at most once per 1.5 seconds.
+  It displays either reported field on its own and shows the bar once both
+  fields are present. Reopening reads the last stored values of that attempt.
 - A Codex CLI job of a runner sends the same session readings with the
   source `codex_token_count`: the occupancy and window of the latest
   `token_count` in the rollout of its thread, the model of its
@@ -220,10 +211,9 @@ Context occupancy and token counts are separate values:
   is `isPartial` when a turn lacked a count or the adapter reports partial
   turns, and lists every confirmed model it contains.
 - OpenCode additionally reads its native SQLite session and child sessions.
-  Each assistant message ID has one durable owner across turns and retries;
-  updated counters replace that message. The OpenCode step and run panel uses
-  these native message totals, including reasoning and cache, while the ACP
-  prompt total remains diagnostic. Missing message usage is shown as unreported.
+  Each assistant message ID has one durable owner across turns and retries.
+  Updated counters replace that message. Step and run projections use these
+  native message totals, including reasoning and cache.
   Free models cost zero; other models use the saved daily OpenRouter catalogue,
   an administrator's model ID mapping where present, then native message cost.
   Each message keeps the catalogue timestamp used for its price.
@@ -262,8 +252,7 @@ options of a runner job (`-p --output-format stream-json --verbose
 `get_context_usage` answers before the first model call (`maxTokens`
 1,000,000 for Haiku 5.5), but only a CLI started with `--input-format
 stream-json` reads control requests. A runner job passes its prompt as plain
-text, so Pages takes the window from the `result` and from the window an
-earlier job of the same model stored.
+text, so Pages takes the window from that job's `result`.
 
 The path to the sidebar: the runner emits a `usage` event whose text is
 `{"session":{"model","context":{"used","limit","source"}}}` for every change;
@@ -340,9 +329,8 @@ Reopening, resuming and switching the model:
   last value, also after the step ended.
 - `codex exec resume` appends to the rollout of the recorded thread (Pica's
   codex-acp sessions show the same: one rollout with up to 53 turns across
-  resumes and compactions). The runner reads the existing history of the
-  resumed thread before the child starts and reports context with the new
-  turn. Each attempt displays the readings attributed to its own runner jobs.
+  resumes and compactions). The runner skips the existing records before
+  the child starts and reports context from records the new attempt writes.
 - A `turn_context` with another model drops occupancy and window. The window
   of the new model comes from its `task_started` or `token_count` in the same
   rollout. Pages keeps the last recorded values for the same model and
@@ -715,15 +703,10 @@ The formula in USD is:
 
 Absent cache/reasoning rates fall back to prompt/completion. Absent breakdowns
 use the corresponding base rate without inventing a reported count. Unknown
-prices remain null. The run projection keeps all four kinds (subscription
-with the equivalent USD amount, unknown price, or not reported). Like a Claude
-Code session, a Codex session's console shows no costs, token sums or cache;
-its usage is the context occupancy last reported, which stays after the step
-ended, and model, reasoning and access stand as the shared badges. An
-Antigravity session shows model, reasoning and access as the same badges, its
-model under the tool name "Antigravity", and keeps its usage and reference
-values. An
-incomplete run total is marked explicitly. The run projection reads every persisted
+prices remain null. The run projection retains the accounting and marks
+incomplete totals. In the terminal, every provider uses the same context
+section and the same session rows for runtime, model, reasoning, access,
+branch, workplace and restarts. The run projection reads every persisted
 attempt, including replaced retries, and every loop iteration; its step sums
 and run sum use the same rows. The mounted panel polls the authorized session
 projection every two seconds and releases its timer on unmount.

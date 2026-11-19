@@ -215,6 +215,10 @@ export class QuotaRequests {
         CLAUDE_QUOTA_ENDPOINT,
         controller.signal,
       );
+      if (controller.signal.aborted) {
+        this.dispatch({ type: "listSettled" });
+        return;
+      }
       this.dispatch({ type: "listed", snapshot, requestNumber });
       for (const account of snapshot.accounts) this.query(account.connectionId);
     } catch {

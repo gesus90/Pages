@@ -28,8 +28,6 @@ const STATUS_CLASSES: Readonly<Record<ChatDecisionStatus, string>> = {
 
 interface ChatDecisionCardProps {
   readonly administration: ChatDecisionAdministration;
-  /** Whether the last server refresh of a catalog failed; the model choice then warns. */
-  readonly isCatalogFailed?: boolean;
 }
 
 /**
@@ -48,7 +46,6 @@ interface ChatDecisionCardProps {
  */
 export function ChatDecisionCard({
   administration,
-  isCatalogFailed,
 }: ChatDecisionCardProps): React.ReactElement {
   const { t } = useTranslation();
   const fetcher = useFetcher<AgentActionResult>({ key: "chat-decision" });
@@ -61,7 +58,6 @@ export function ChatDecisionCard({
       <ChatDecisionForm
         key={administration.settings.revision}
         administration={administration}
-        isCatalogFailed={isCatalogFailed === true}
         fetcher={fetcher}
       />
     </SettingsCard>
@@ -111,11 +107,9 @@ function useChatDecisionDraft(
 
 function ChatDecisionForm({
   administration,
-  isCatalogFailed,
   fetcher,
 }: {
   readonly administration: ChatDecisionAdministration;
-  readonly isCatalogFailed: boolean;
   readonly fetcher: FetcherWithComponents<AgentActionResult>;
 }): React.ReactElement {
   const { t } = useTranslation();
@@ -156,7 +150,6 @@ function ChatDecisionForm({
           label={t("chatDecision.model")}
           placeholder={t("chatDecision.chooseModel")}
           emptyLabel={t("chatDecision.noModels")}
-          isCatalogFailed={isCatalogFailed}
           onChange={draft.selectModel}
         />
       </ModelFieldRow>

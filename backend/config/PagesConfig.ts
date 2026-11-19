@@ -7,6 +7,7 @@ import { PICA_MOBILE_REPLAY_TTL_RANGE_SECONDS } from "@/definition/PicaMobileNot
 import { logCaughtError } from "@/backend/logging/Logger";
 
 import { readAgentGitBridges } from "./AgentGitBridgeConfig";
+import { CHAT_CALLS_KEY, readChatCallConfig } from "./ChatCallConfig";
 import { readPublicAddressConfig } from "./PublicAddressConfig";
 import { readAcpResourceSettings } from "./AcpResourceSettings";
 import {
@@ -16,6 +17,7 @@ import {
 import { parseTrustedProxyEntry } from "./TrustedProxies";
 
 import type { AgentGitBridgeSetting } from "./AgentGitBridgeConfig";
+import type { ChatCallSetting } from "./ChatCallConfig";
 import type { SpeechRecognitionSetting } from "./SpeechRecognitionConfig";
 import type { InterpreterProfile } from "@/definition/InterpreterProfile";
 import type { AcpResourceOptions } from "@/definition/AcpResource";
@@ -99,6 +101,11 @@ interface BaseConfig extends Partial<AcpResourceOptions> {
    * missing: no recognition, at most 300 seconds.
    */
   readonly speechRecognition?: SpeechRecognitionSetting;
+  /**
+   * The STUN and TURN servers of audio calls in the chat; missing: the
+   * browsers connect with their own addresses only.
+   */
+  readonly chatCalls?: ChatCallSetting;
 }
 
 /**
@@ -334,6 +341,7 @@ export function readPagesConfig(table: TomlTable, source: string): PagesConfig {
   const gitBridges = readGitBridgeConfig(table, source);
   const pagesCore = readPagesCoreConfig(table, source, port);
   const speech = readSpeechConfig(table, source);
+  const chatCalls = readChatCallsConfig(table, source);
 
   if (firstRun) {
     return {
@@ -350,6 +358,7 @@ export function readPagesConfig(table: TomlTable, source: string): PagesConfig {
       ...picaBrowser,
       ...pagesCore,
       ...speech,
+      ...chatCalls,
       databasePath,
       firstRun,
       port,
@@ -381,6 +390,7 @@ export function readPagesConfig(table: TomlTable, source: string): PagesConfig {
     ...picaBrowser,
     ...pagesCore,
     ...speech,
+    ...chatCalls,
     ...databaseUrl,
     databasePath,
     firstRun,
@@ -488,6 +498,34 @@ function readSpeechConfig(
       caughtError instanceof Error
         ? caughtError.message
         : '"speechRecognition" is invalid.',
+    );
+  }
+}
+
+function writeChatCallSettings(document: TomlTable, config: BaseConfig): void {
+  if (config.chatCalls === undefined) return;
+  const { stunUrls, turnUrls, ...rest } = config.chatCalls;
+  document[CHAT_CALLS_KEY] = {
+    ...rest,
+    ...(stunUrls === undefined ? {} : { stunUrls: [...stunUrls] }),
+    ...(turnUrls === undefined ? {} : { turnUrls: [...turnUrls] }),
+  };
+}
+
+function readChatCallsConfig(
+  table: TomlTable,
+  source: string,
+): Pick<BaseConfig, "chatCalls"> {
+  try {
+    return readChatCallConfig(table);
+  } catch (caughtError: unknown) {
+    logCaughtError("PagesConfig", caughtError);
+
+    throw invalidConfig(
+      source,
+      caughtError instanceof Error
+        ? caughtError.message
+        : `"${CHAT_CALLS_KEY}" is invalid.`,
     );
   }
 }
@@ -673,6 +711,7 @@ export function writePagesConfig(
     document.picaMobileRelayPort = config.picaMobileRelayPort;
   if (config.speechRecognition !== undefined)
     document[SPEECH_RECOGNITION_KEY] = { ...config.speechRecognition };
+  writeChatCallSettings(document, config);
 
   writeResourceSettings(document, config);
   if (!config.firstRun && config.databaseUrl !== undefined)

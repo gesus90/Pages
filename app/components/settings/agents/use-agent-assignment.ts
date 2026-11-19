@@ -3,7 +3,6 @@ import { useTranslation } from "react-i18next";
 
 import { reasoningOptions } from "@/app/lib/reasoning-options";
 import { catalogModelChoice } from "@/definition/AgentModelChoice";
-import { hasFailedCatalog } from "@/definition/AgentModelCatalog";
 import { resolveClaudeModelAlias } from "@/definition/AgentModelVersion";
 import { agentModelKey } from "@/definition/AgentPlanConfiguration";
 import { hasLevelPicker } from "@/definition/AgentReasoningChoice";
@@ -32,8 +31,6 @@ export interface AssignmentChoices {
   readonly choices: readonly PageAgentModel[];
   /** The selection key of connection and model; empty while none is chosen. */
   readonly modelKey: string;
-  /** Whether the last refresh of a catalog failed; the model choice then warns. */
-  readonly isCatalogFailed: boolean;
   readonly effort: string;
   /** The family alias the saved model was stored under and this choice resolved to a version. */
   readonly savedAlias: string | null;
@@ -147,7 +144,6 @@ export function useAgentAssignment(input: {
     models,
     choices,
     modelKey: selectionKey(connectionId, modelId),
-    isCatalogFailed: hasFailedCatalog(input.catalogs),
     effort,
     savedAlias,
     error,

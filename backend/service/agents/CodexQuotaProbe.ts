@@ -4,10 +4,12 @@ import type { AgentCliRuntime } from "@/backend/agents/cli/AgentCliRuntime";
 import type { AgentConnectionRecord } from "@/backend/database/repositories/agent/AgentConnectionRows";
 import type { CodexQuotaRepository } from "@/backend/database/repositories/agent/CodexQuotaRepository";
 import type { QuotaProbeOutcome } from "./ProviderQuotaProbe";
+import type { QuotaMeasurementService } from "./QuotaMeasurementService";
 
 interface CodexQuotaProbeDependencies {
   readonly reader: Pick<AgentCliRuntime, "readCodexUsage">;
   readonly repository: Pick<CodexQuotaRepository, "replaceReading">;
+  readonly measurements: Pick<QuotaMeasurementService, "record">;
   readonly clock?: () => Date;
 }
 
@@ -45,17 +47,25 @@ export class CodexQuotaProbe {
     return this.probe.refresh(connection);
   }
 
+  /** Returns the last failed query while stored figures are being reopened. */
+  public latestFailure(connectionId: string): QuotaProbeOutcome | null {
+    return this.probe.latestFailure(connectionId);
+  }
+
   private async query(
     connection: AgentConnectionRecord,
     signal: AbortSignal,
   ): Promise<void> {
     const { reader, repository } = this.dependencies;
     const reading = await reader.readCodexUsage(connection, signal);
-    await repository.replaceReading(
-      connection.id,
-      reading,
-      this.now().toISOString(),
-    );
+    const observedAt = this.now().toISOString();
+    await this.dependencies.measurements.record({
+      connectionId: connection.id,
+      credentialRevision: connection.cliLoggedInAt,
+      at: observedAt,
+      reading: { provider: "codex_cli", windows: reading.windows },
+    });
+    await repository.replaceReading(connection.id, reading, observedAt);
   }
 
   private now(): Date {

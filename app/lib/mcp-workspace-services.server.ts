@@ -135,6 +135,23 @@ function laterService<T>(read: () => T | undefined, message: string): () => T {
   };
 }
 
+/** Starts the hourly wiki, asset and outbox cleanup when this process owns none of it. */
+function startWorkspaceMaintenance(
+  context: McpWorkspaceContext,
+  assets: ReturnType<typeof createWorkspaceServices>["agentAssetService"],
+  deletions: ReturnType<typeof createEmployeeServices>["agentDeletionService"],
+): void {
+  if (isLocalSessionOwner() || isPagesRunsProcess()) return;
+  startWikiMaintenanceScheduler(
+    context.wiki,
+    assets,
+    new PagesEventRetention(
+      new PagesEventOutboxReaderRepository(context.database),
+    ),
+    deletions,
+  );
+}
+
 /**
  * Builds the agent write services and the chat on the same operation catalog,
  * and shares the existing maintenance scheduler.
@@ -213,6 +230,7 @@ export async function startMcpWorkspace(context: McpWorkspaceContext): Promise<
       directory,
       events: context.tasks.pagesEventPublisher,
       speech: runtime.getConfig().speechRecognition,
+      chatCalls: runtime.getConfig().chatCalls,
       publicUrl: runtime.getConfig().publicUrl,
     },
   });
@@ -226,15 +244,11 @@ export async function startMcpWorkspace(context: McpWorkspaceContext): Promise<
   managementSlot.service = managementService;
   managementSlot.agentEmployees = employees.agentEmployeeAdministration;
   chat.picaAcpService?.setAgentDeletions(employees.agentDeletionService);
-  if (!isLocalSessionOwner() && !isPagesRunsProcess())
-    startWikiMaintenanceScheduler(
-      context.wiki,
-      services.agentAssetService,
-      new PagesEventRetention(
-        new PagesEventOutboxReaderRepository(context.database),
-      ),
-      employees.agentDeletionService,
-    );
+  startWorkspaceMaintenance(
+    context,
+    services.agentAssetService,
+    employees.agentDeletionService,
+  );
   return {
     ...services,
     managementService,

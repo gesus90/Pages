@@ -36,8 +36,6 @@ const INTENT = "save-speech-synthesis";
 
 interface SpeechSynthesisCardProps {
   readonly administration: SpeechSynthesisAdministration;
-  /** Whether the last server refresh of a catalog failed; the model choice then warns. */
-  readonly isCatalogFailed?: boolean;
 }
 
 interface SpeechSynthesisDraft {
@@ -155,11 +153,9 @@ function SpeechSynthesisFeedback({
 
 function SpeechSynthesisForm({
   administration,
-  isCatalogFailed,
   fetcher,
 }: {
   readonly administration: SpeechSynthesisAdministration;
-  readonly isCatalogFailed: boolean;
   readonly fetcher: FetcherWithComponents<AgentActionResult>;
 }): React.ReactElement {
   const { t } = useTranslation();
@@ -191,7 +187,6 @@ function SpeechSynthesisForm({
           label={t("speechSynthesis.model")}
           placeholder={t("speechSynthesis.chooseModel")}
           emptyLabel={t("speechSynthesis.noModels")}
-          isCatalogFailed={isCatalogFailed}
           onChange={draft.setModelKey}
         />
         <SpeechSynthesisDurationField
@@ -228,7 +223,6 @@ function SpeechSynthesisForm({
  */
 export function SpeechSynthesisCard({
   administration,
-  isCatalogFailed,
 }: SpeechSynthesisCardProps): React.ReactElement {
   const { t } = useTranslation();
   const fetcher = useFetcher<AgentActionResult>({ key: INTENT });
@@ -251,7 +245,6 @@ export function SpeechSynthesisCard({
       <SpeechSynthesisForm
         key={administration.settings.revision}
         administration={administration}
-        isCatalogFailed={isCatalogFailed === true}
         fetcher={fetcher}
       />
     </SettingsCard>

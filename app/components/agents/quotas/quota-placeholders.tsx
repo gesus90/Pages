@@ -34,7 +34,7 @@ function QuotaWindowPlaceholder(): React.ReactElement {
     <div
       aria-hidden="true"
       data-quota-placeholder="window"
-      className={QUOTA_WINDOW_SLOT_CLASS}
+      className={cn(QUOTA_WINDOW_SLOT_CLASS, "gap-2 md:gap-2.5")}
     >
       <div className="flex h-5 items-center justify-between gap-3">
         <PlaceholderFace className="h-3 w-[84px]" />
@@ -65,14 +65,18 @@ export function QuotaWindowsPlaceholder(): React.ReactElement {
 /** The placeholder of one column of a group: label and figure, the bar and the reset line. */
 function QuotaGroupColumnPlaceholder(): React.ReactElement {
   return (
-    <div className="flex min-w-0 flex-col gap-1.5 md:gap-1">
-      <div className="flex h-[18px] items-center justify-between gap-2 md:h-4">
+    <div className="flex min-w-0 flex-col">
+      <div className="mb-1.5 flex h-4 shrink-0 items-center justify-between gap-2">
         <PlaceholderFace className="h-3 w-14" />
         <PlaceholderFace className="h-3.5 w-12" />
       </div>
       <PlaceholderFace className="h-2 w-full" />
-      <div className="flex h-3.5 items-center">
+      <div className="mt-[5px] flex h-3.5 items-center">
         <PlaceholderFace className="h-2.5 w-24" />
+      </div>
+      <div className="mt-[3px] flex h-3.5 items-center justify-between gap-1">
+        <PlaceholderFace className="h-2 w-12" />
+        <PlaceholderFace className="h-2 w-12" />
       </div>
     </div>
   );

@@ -62,8 +62,7 @@ const ROW_BADGE_WIDTH_CLASS: Readonly<Record<RowBadgeWidth, string>> = {
 
 /**
  * The value of a session row, capped by its width so the label always keeps
- * its room; a long value ends with "…" inside its badge. A model and its
- * separate Free badge sit beside each other with a gap.
+ * its room; a long value ends with "…" inside its badge.
  */
 export function RowBadge(props: {
   readonly children: React.ReactNode;
@@ -73,10 +72,7 @@ export function RowBadge(props: {
   return (
     <span
       data-row-badge={width}
-      className={cn(
-        "flex min-w-0 justify-end gap-1.5",
-        ROW_BADGE_WIDTH_CLASS[width],
-      )}
+      className={cn("flex min-w-0 justify-end", ROW_BADGE_WIDTH_CLASS[width])}
     >
       {props.children}
     </span>

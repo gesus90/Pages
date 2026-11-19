@@ -1,6 +1,13 @@
-import { useEffect } from "react";
+import { useCallback, useEffect } from "react";
 import { useLoaderData, useRevalidator } from "react-router";
 
+import { AudioSettingsProvider } from "@/app/components/chat-call/audio-settings-context";
+import { ChatIncomingCall } from "@/app/components/chat-call/chat-incoming-call";
+import { CallAudioProvider } from "@/app/components/chat-call/use-call-audio";
+import {
+  ChatCallsContext,
+  useChatCallsState,
+} from "@/app/components/chat-call/use-chat-calls";
 import { AppShell } from "@/app/components/common/app-shell";
 import { ChatLauncher } from "@/app/components/chat/chat-launcher";
 import { RegionProvider } from "@/app/components/common/region-provider";
@@ -72,22 +79,35 @@ export default function AuthenticatedRoute(): React.ReactElement {
     [revalidate],
   );
   const refreshChatNotifications = useChatNotifications(user.id);
-  const isLive = useLiveChanges(authorizationVersion, refreshChatNotifications);
+  const chatCalls = useChatCallsState();
+  const { refresh: refreshChatCalls } = chatCalls;
+  const refreshChat = useCallback(() => {
+    refreshChatNotifications();
+    refreshChatCalls();
+  }, [refreshChatNotifications, refreshChatCalls]);
+  const isLive = useLiveChanges(authorizationVersion, refreshChat);
   const isOffline =
     useAuthorizationRefresh(authorizationVersion, isLive) ||
     keptState?.state === "offline";
 
   return (
     <RegionProvider region={region}>
-      <AppShell
-        branding={branding}
-        canViewProjects={canViewProjects}
-        canViewUsers={canViewUsers}
-        user={user}
-        account={account}
-        isOffline={isOffline}
-        calendarInvitations={calendarInvitations ?? 0}
-      />
+      <ChatCallsContext value={chatCalls}>
+        <CallAudioProvider>
+          <AudioSettingsProvider>
+            <AppShell
+              branding={branding}
+              canViewProjects={canViewProjects}
+              canViewUsers={canViewUsers}
+              user={user}
+              account={account}
+              isOffline={isOffline}
+              calendarInvitations={calendarInvitations ?? 0}
+            />
+            <ChatIncomingCall />
+          </AudioSettingsProvider>
+        </CallAudioProvider>
+      </ChatCallsContext>
       {isPicaEnabled ? <ChatLauncher /> : null}
     </RegionProvider>
   );

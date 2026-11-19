@@ -22,7 +22,7 @@ interface ClaudeQuotaDependencies {
   readonly authorization: Pick<AuthorizationRepository, "snapshot">;
   readonly groups: Pick<UserGroupRepository, "findIdsByMember">;
   /** Asks Claude anew for the usage of each connection. */
-  readonly probe: Pick<ClaudeQuotaProbe, "refresh">;
+  readonly probe: Pick<ClaudeQuotaProbe, "refresh" | "latestFailure">;
   readonly clock?: () => Date;
 }
 
@@ -150,7 +150,9 @@ export class ClaudeQuotaService {
         this.account(
           connection,
           {
-            outcome: outcomes.get(connection.id) ?? null,
+            outcome:
+              outcomes.get(connection.id) ??
+              this.dependencies.probe.latestFailure(connection.id),
             record: records.get(connection.id) ?? EMPTY_RECORD,
           },
           now,

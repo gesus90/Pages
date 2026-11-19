@@ -1,10 +1,13 @@
-import { ChevronDown } from "lucide-react";
-import { useId } from "react";
+import { ChevronDown, TriangleAlert } from "lucide-react";
+import { useEffect, useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { Tooltip } from "@/app/components/ui/tooltip";
 import { cn } from "@/app/lib/cn";
-import { modelConsumerRefusal } from "@/definition/AgentModelConsumers";
+import {
+  consumerRunsProvider,
+  modelConsumerRefusal,
+} from "@/definition/AgentModelConsumers";
 
 import { FreeBadge } from "./badges/free-badge";
 import {
@@ -16,6 +19,7 @@ import {
   findModelChoice,
   modelChoiceSource,
   modelGroups,
+  savedSelection,
 } from "./model-picker/model-catalog";
 import {
   MODEL_BADGE_FIELD_ARROW_CLASS,
@@ -26,6 +30,7 @@ import {
 } from "./model-picker/model-field";
 import { ModelPickerPanel } from "./model-picker/model-picker-panel";
 import { ToolMark } from "./model-picker/tool-mark";
+import { useCatalogStatuses } from "./model-picker/use-catalog-statuses";
 import { useModelPicker } from "./model-picker/use-model-picker";
 
 import type { AgentEmployeeAccess } from "@/definition/AgentEmployee";
@@ -33,7 +38,9 @@ import type { AgentModelConsumer } from "@/definition/AgentModelConsumers";
 import type { PageAgentModel } from "@/definition/PageAgent";
 import type { TFunction } from "i18next";
 import type { ModelChoiceBadgeProps } from "./badges/model-choice-badge";
-import type { ModelGroup } from "./model-picker/model-catalog";
+import type { ConnectionCatalogStatus } from "@/definition/AgentModelCatalogStatus";
+import type { ModelChoice, ModelGroup } from "./model-picker/model-catalog";
+import type { CatalogStatusState } from "./model-picker/use-catalog-statuses";
 import type {
   ModelPickerMode,
   ModelPickerState,
@@ -72,13 +79,15 @@ interface ModelPickerProps {
   readonly refusalOf?: (model: PageAgentModel) => string | null;
   /** What the open panel says when the place offers no model; a general note by default. */
   readonly emptyLabel?: string;
+  /**
+   * Whether the panel lists every connection the person may use with its
+   * catalog state. A place whose connections follow another account, such as
+   * the chat of an agent, passes `false`: it lists the connections of its own
+   * models only.
+   */
+  readonly hasCatalogStatus?: boolean;
   /** `floating` where the trigger sits on a zoomable canvas. */
   readonly mode?: ModelPickerMode;
-  /**
-   * Whether the last server refresh of a catalog failed; only then the panel
-   * warns. A listed model whose catalog failed warns as well.
-   */
-  readonly isCatalogFailed?: boolean;
   /**
    * How the closed trigger names the chosen model: `detail` with its tool,
    * source and ID (the default), `badge` as a model badge in the fixed field
@@ -90,14 +99,33 @@ interface ModelPickerProps {
 /** How the closed trigger of a model choice names its model. */
 type ModelPickerValueStyle = "detail" | "badge";
 
+// "Werkzeug · Verbindung · Zugang"; a part that only repeats an earlier one,
+// such as a connection named like its tool, adds nothing.
+function fieldDetail(group: ModelGroup, choice: ModelChoice): string {
+  const parts = [
+    group.label,
+    choice.connectionName,
+    choice.access || (choice.source ?? ""),
+    choice.detail ?? "",
+  ];
+  return parts
+    .filter(
+      (part, index) =>
+        part !== "" &&
+        !parts
+          .slice(0, index)
+          .some((earlier) => earlier.toLowerCase() === part.toLowerCase()),
+    )
+    .join(" · ");
+}
+
 // The trigger names the chosen model by its short name, its free mark and
-// the tool it is listed under.
+// the tool, connection and access it is listed under.
 function TriggerValue(props: {
   readonly groups: readonly ModelGroup[];
   readonly value: string;
-  readonly savedModel: string | undefined;
+  readonly savedId: string | null;
   readonly placeholder: string | undefined;
-  readonly unusableReason: string | null;
 }): React.ReactElement {
   const { t } = useTranslation();
   if (props.value === "" && props.placeholder !== undefined)
@@ -107,24 +135,22 @@ function TriggerValue(props: {
       </span>
     );
   const selected = findModelChoice(props.groups, props.value);
-  if (!selected) {
-    const reason = props.unusableReason ?? t("pageAgents.missingModel");
+  if (!selected)
     return (
-      <span
-        className="min-w-0 flex-1 truncate text-warning"
-        title={props.savedModel ? `${props.savedModel} · ${reason}` : reason}
-      >
-        {props.savedModel ? `${props.savedModel} · ` : ""}
-        {reason}
-      </span>
+      <>
+        <TriangleAlert
+          className="size-4 shrink-0 text-warning"
+          aria-hidden="true"
+        />
+        <span className="min-w-0 flex-1 truncate text-warning">
+          {props.savedId ?? t("pageAgents.missingModel")}
+        </span>
+        <span className="shrink-0 text-xs text-warning">
+          {t("plans.modelPicker.saved.unavailableShort")}
+        </span>
+      </>
     );
-  }
   const { choice, group } = selected;
-  // A source named like its tool adds nothing.
-  const source = choice.source === group.label ? null : choice.source;
-  const detail = [group.label, source, choice.detail]
-    .filter((part) => part !== null)
-    .join(" · ");
   return (
     <>
       <ToolMark mark={group.mark} />
@@ -132,7 +158,7 @@ function TriggerValue(props: {
       <span className="ml-auto flex min-w-0 shrink-[2] items-center gap-2.5">
         {choice.isFree ? <FreeBadge /> : null}
         <span className="min-w-0 truncate text-xs text-muted-foreground">
-          {detail}
+          {fieldDetail(group, choice)}
         </span>
       </span>
     </>
@@ -142,7 +168,7 @@ function TriggerValue(props: {
 function badgeChoice(
   selected: ReturnType<typeof findModelChoice>,
   props: ModelPickerProps,
-  context: { readonly t: TFunction; readonly unusableReason: string | null },
+  context: { readonly t: TFunction; readonly reason: string },
 ): ModelChoiceBadgeProps | null {
   const { t } = context;
   if (selected)
@@ -161,7 +187,7 @@ function badgeChoice(
       mark: "openrouter",
       name: props.savedModel,
       tool: "OpenRouter",
-      unavailableHint: context.unusableReason ?? t("pageAgents.missingModel"),
+      unavailableHint: context.reason,
     };
   return null;
 }
@@ -170,9 +196,9 @@ function badgeChoice(
 function BadgeTriggerValue(props: {
   readonly choice: ModelChoiceBadgeProps | null;
   readonly value: string;
-  readonly savedModel: string | undefined;
+  readonly savedId: string | null;
   readonly placeholder: string | undefined;
-  readonly unusableReason: string | null;
+  readonly reason: string;
 }): React.ReactElement {
   const { t } = useTranslation();
   if (props.value === "" && props.placeholder !== undefined)
@@ -184,15 +210,14 @@ function BadgeTriggerValue(props: {
       </span>
     );
   if (props.choice) return <ModelChoiceBadge {...props.choice} />;
-  const reason = props.unusableReason ?? t("pageAgents.missingModel");
   return (
     <span
       className={cn(MODEL_BADGE_FIELD_TEXT_CLASS, "text-warning")}
-      title={props.savedModel ? `${props.savedModel} · ${reason}` : reason}
+      title={
+        props.savedId ? `${props.savedId} · ${props.reason}` : props.reason
+      }
     >
-      {props.unusableReason === null
-        ? t("pageAgents.modelMissingShort")
-        : t("pageAgents.modelUnusableShort")}
+      {t("plans.modelPicker.saved.unavailableShort")}
     </span>
   );
 }
@@ -203,6 +228,8 @@ function PickerTrigger(props: {
   readonly disabled: boolean;
   readonly valueStyle: ModelPickerValueStyle;
   readonly choice: ModelChoiceBadgeProps | null;
+  /** A saved model that is no longer available: the field gets a 1 px warning ring. */
+  readonly isUnavailable: boolean;
   readonly children: React.ReactNode;
 }): React.ReactElement {
   const { state } = props;
@@ -222,10 +249,12 @@ function PickerTrigger(props: {
           ? cn(
               MODEL_BADGE_FIELD_CLASS,
               modelChoiceFieldClass(props.choice?.mark ?? null),
+              props.isUnavailable && "ring-1 ring-warning",
             )
           : cn(
               MODEL_FIELD_CLASS,
               "flex items-center gap-2.5 text-left hover:bg-surface-hover",
+              props.isUnavailable && "ring-1 ring-warning",
             )
       }
       onClick={state.toggle}
@@ -267,6 +296,51 @@ function PickerTrigger(props: {
   );
 }
 
+// The closed trigger's content: the badge form or the detail form.
+function PickerTriggerValue(props: {
+  readonly groups: readonly ModelGroup[];
+  readonly value: string;
+  readonly savedId: string | null;
+  readonly placeholder: string | undefined;
+  readonly valueStyle: ModelPickerValueStyle;
+  readonly choice: ModelChoiceBadgeProps | null;
+  readonly reason: string;
+}): React.ReactElement {
+  if (props.valueStyle === "badge")
+    return (
+      <BadgeTriggerValue
+        choice={props.choice}
+        value={props.value}
+        savedId={props.savedId}
+        placeholder={props.placeholder}
+        reason={props.reason}
+      />
+    );
+  return (
+    <TriggerValue
+      groups={props.groups}
+      value={props.value}
+      savedId={props.savedId}
+      placeholder={props.placeholder}
+    />
+  );
+}
+
+// The note under the field when a saved model is no longer available.
+function SavedModelNote(props: {
+  readonly isSavedGone: boolean;
+  readonly isDetail: boolean;
+  readonly reason: string;
+}): React.ReactElement | null {
+  const { t } = useTranslation();
+  if (!props.isSavedGone || !props.isDetail) return null;
+  return (
+    <p className="mt-1.5 text-xs text-warning">
+      {t("plans.modelPicker.saved.note", { reason: props.reason })}
+    </p>
+  );
+}
+
 /**
  * Chooses a model from the shared catalog: the one model choice of Pages.
  *
@@ -284,15 +358,23 @@ function PickerTrigger(props: {
  */
 export function ModelPicker(props: ModelPickerProps): React.ReactElement {
   const { t } = useTranslation();
+  const consumer = props.consumer ?? "plan";
   const { listed, refusals } = usableModels(props.models, (model) =>
     modelRefusalText(props, model, t),
   );
+  const saved = savedSelection(props.value);
+  const isSavedGone =
+    props.value !== "" && !listed.some((model) => model.id === props.value);
+  const [openCount, setOpenCount] = useState(0);
+  const catalog = useCatalogStatuses({
+    requestKey: catalogRequestKey(openCount, isSavedGone),
+    savedConnectionId: saved?.connectionId ?? null,
+  });
   const groups = modelGroups(listed, {
     translate: t,
     selectedId: props.value,
+    statuses: placeStatuses(props, consumer, catalog),
   });
-  // A saved model the place can no longer use is named at the field, never listed.
-  const unusableReason = refusals.get(props.value) ?? null;
   const state = useModelPicker({
     value: props.value,
     groups,
@@ -300,22 +382,17 @@ export function ModelPicker(props: ModelPickerProps): React.ReactElement {
     disabled: props.disabled,
     mode: props.mode ?? "inline",
   });
+  useEffect(() => {
+    if (state.isOpen) setOpenCount((count) => count + 1);
+  }, [state.isOpen]);
   const labelId = `${useId()}-label`;
   const valueStyle = props.valueStyle ?? "detail";
+  const savedId = savedModelId(props, saved);
+  const reason = savedReason(refusals.get(props.value), catalog, t);
   const choice =
     valueStyle === "badge"
-      ? badgeChoice(findModelChoice(groups, props.value), props, {
-          t,
-          unusableReason,
-        })
+      ? badgeChoice(findModelChoice(groups, props.value), props, { t, reason })
       : null;
-  const triggerValue = {
-    groups,
-    value: props.value,
-    savedModel: props.savedModel,
-    placeholder: props.placeholder,
-    unusableReason,
-  };
   return (
     <div className="relative min-w-0" onBlur={state.handleBlur}>
       <span
@@ -331,27 +408,79 @@ export function ModelPicker(props: ModelPickerProps): React.ReactElement {
           disabled={props.disabled}
           valueStyle={valueStyle}
           choice={choice}
+          isUnavailable={isSavedGone}
         >
-          {valueStyle === "badge" ? (
-            <BadgeTriggerValue {...triggerValue} choice={choice} />
-          ) : (
-            <TriggerValue {...triggerValue} />
-          )}
+          <PickerTriggerValue
+            groups={groups}
+            value={props.value}
+            savedId={savedId}
+            placeholder={props.placeholder}
+            valueStyle={valueStyle}
+            choice={choice}
+            reason={reason}
+          />
         </PickerTrigger>
         {state.isOpen ? (
           <ModelPickerPanel
             state={state}
             value={props.value}
+            catalog={catalog}
             emptyLabel={props.emptyLabel}
-            isCatalogFailed={
-              props.isCatalogFailed === true ||
-              props.models.some((model) => model.isCatalogFailed === true)
-            }
+            savedUnavailableId={isSavedGone ? (savedId ?? props.value) : null}
           />
         ) : null}
       </div>
+      <SavedModelNote
+        isSavedGone={isSavedGone}
+        isDetail={valueStyle === "detail"}
+        reason={reason}
+      />
     </div>
   );
+}
+
+// The counter a newly opened or newly missing saved model advances, so the catalog reloads.
+function catalogRequestKey(openCount: number, isSavedGone: boolean): number {
+  return isSavedGone ? openCount + 1 : openCount;
+}
+
+// The model id the field keeps: the place's own saved name, else the saved key's model.
+function savedModelId(
+  props: ModelPickerProps,
+  saved: ReturnType<typeof savedSelection>,
+): string | null {
+  return props.savedModel ?? saved?.model ?? null;
+}
+
+// A place that lists models of a remote target never owns a local connection's state.
+function placeStatuses(
+  props: ModelPickerProps,
+  consumer: AgentModelConsumer,
+  catalog: CatalogStatusState,
+): readonly ConnectionCatalogStatus[] | undefined {
+  if (
+    props.hasCatalogStatus === false ||
+    props.models.some((model) => model.runnerRoute !== undefined)
+  )
+    return undefined;
+  return catalog.statuses?.connections.filter((status) =>
+    consumerRunsProvider(consumer, status.provider),
+  );
+}
+
+// Why a saved model is gone: the place's own refusal, otherwise what the
+// connection's relation to this account says.
+function savedReason(
+  refusal: string | undefined,
+  catalog: CatalogStatusState,
+  t: TFunction,
+): string {
+  if (refusal !== undefined) return refusal;
+  const relation = catalog.statuses?.savedConnection;
+  if (relation === "missing")
+    return t("plans.modelPicker.saved.reason.connectionGone");
+  if (relation === "denied") return t("plans.modelPicker.saved.reason.denied");
+  return t("plans.modelPicker.saved.reason.modelGone");
 }
 
 interface ModelUsageRule {

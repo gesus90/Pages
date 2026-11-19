@@ -5,6 +5,7 @@ import {
   Diamond,
   FolderOpen,
   Globe,
+  Headphones,
   Layers,
   MessageCircleQuestionMark,
   NotebookText,
@@ -93,6 +94,18 @@ export interface ChatMenuCommonInput {
   /** `null` where there is nothing to mute, as with an agent. */
   readonly isMuted: boolean | null;
   readonly onToggleMute: () => void;
+  /**
+   * "Audio-Einstellungen" for the calls of a direct chat; absent shows no
+   * entry, as in a group.
+   */
+  readonly audio?: ChatMenuAudio;
+}
+
+/** What the entry "Audio-Einstellungen" shows and does. */
+export interface ChatMenuAudio {
+  /** The chosen device, or "Standardgerät" without a choice. */
+  readonly note: string;
+  readonly onOpen: () => void;
 }
 
 /** The dialogs of a group the menu opens. */
@@ -146,10 +159,23 @@ function mediaEntry(input: ChatMenuCommonInput): ChatMenuAction {
   };
 }
 
-/** The switches "Vertraulich" and "Stummschalten"; each only where the chat has it. */
+/**
+ * "Audio-Einstellungen" first, where the chat has calls, then the switches
+ * "Vertraulich" and "Stummschalten"; each only where the chat has it.
+ */
 function settingsSection(input: ChatMenuCommonInput): ChatMenuSection {
-  const { t } = input;
+  const { t, audio } = input;
   const entries: ChatMenuEntry[] = [];
+  if (audio !== undefined)
+    entries.push({
+      kind: "action",
+      id: "audio",
+      icon: Headphones,
+      label: t("chatCall.audio.menuEntry"),
+      note: audio.note,
+      opensMore: true,
+      onSelect: audio.onOpen,
+    });
   if (input.isConfidential !== null)
     entries.push({
       kind: "toggle",
@@ -362,8 +388,8 @@ function agentEntries(input: DirectChatMenuInput): readonly ChatMenuAction[] {
 /**
  * The chat menu of a direct chat: "Medien & Dateien", with a
  * person "Eingebettete Webseiten", with an agent "Modell für diesen Chat"
- * and "Neue Sitzung", then the switches "Vertraulich" and "Stummschalten"
- * where the chat has them.
+ * and "Neue Sitzung", then "Audio-Einstellungen" and the switches
+ * "Vertraulich" and "Stummschalten" where the chat has them.
  */
 export function directChatMenu(input: DirectChatMenuInput): ChatMenuModel {
   const { t, participant } = input;

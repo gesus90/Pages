@@ -50,7 +50,14 @@ function findCatalogModel(
   return models.find((entry) => entry.id === resolved);
 }
 
-async function requireVerifiedConnection(
+/**
+ * Requires an active connection with confirmed access.
+ * @param connections - Connection persistence.
+ * @param connectionId - The connection that would run a model.
+ * @returns The connection record.
+ * @throws {AgentExecutionError} `connectionUnavailable` or `accessUnverified`.
+ */
+export async function requireVerifiedConnection(
   connections: AgentConnectionRepository,
   connectionId: string,
 ): Promise<AgentConnectionRecord> {

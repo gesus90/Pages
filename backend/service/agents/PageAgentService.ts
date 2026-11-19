@@ -10,13 +10,18 @@ import { AgentExecutionError } from "@/backend/error/AgentExecutionErrors";
 import { agentParameterIssues } from "@/definition/AgentParameters";
 import { requireCredentialFreeText } from "@/backend/security/AgentTextSafety";
 
-import { connectionModels } from "./AgentConnectionModels";
+import {
+  connectionCatalogStatuses,
+  connectionModels,
+  savedConnectionState,
+} from "./AgentConnectionModels";
 
 import { requireAllowedRunOptions } from "./AgentProfileValidation";
 import { pageAgentModels, resolvePageAgentModel } from "./PageAgentModels";
 
 import type { AgentViewer } from "@/backend/auth/AgentProfilePolicy";
 import type { AgentTicketChoice } from "@/definition/AgentParameters";
+import type { ModelCatalogStatuses } from "@/definition/AgentModelCatalogStatus";
 import type {
   AgentProfile,
   AgentProfileDirectory,
@@ -96,6 +101,31 @@ export class PageAgentService {
       this.dependencies.connections,
       await this.viewer(userId),
     );
+  }
+
+  /**
+   * Lists the catalog state of every connection the person may use.
+   * @param userId - Authenticated requester.
+   * @param savedConnectionId - The connection of a saved model whose state the
+   * person asks about, or `null`.
+   * @remarks
+   * Reads stored catalogs only, so opening a model choice asks no provider.
+   * Only administrators may reload a catalog.
+   */
+  public async catalogStatuses(
+    userId: string,
+    savedConnectionId: string | null,
+  ): Promise<ModelCatalogStatuses> {
+    const viewer = await this.viewer(userId);
+    const { connections } = this.dependencies;
+    return {
+      connections: await connectionCatalogStatuses(connections, viewer),
+      canReload: new UserPolicyService().isAdministrator(viewer.actor),
+      savedConnection:
+        savedConnectionId === null
+          ? null
+          : await savedConnectionState(connections, viewer, savedConnectionId),
+    };
   }
 
   /** Supplies only currently accessible tickets for definition and plan parameter pickers. */

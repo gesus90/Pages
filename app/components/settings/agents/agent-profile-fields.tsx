@@ -30,7 +30,6 @@ function AgentModelField({
       label={t("settings.agents.modelSelection.model")}
       placeholder={t("settings.agents.modelSelection.chooseModel")}
       refusalOf={selection.refusalOf}
-      isCatalogFailed={selection.isCatalogFailed}
       onChange={selection.chooseModel}
     />
   );

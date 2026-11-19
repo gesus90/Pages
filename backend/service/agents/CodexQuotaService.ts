@@ -18,7 +18,7 @@ interface CodexQuotaDependencies {
   readonly authorization: Pick<AuthorizationRepository, "snapshot">;
   readonly groups: Pick<UserGroupRepository, "findIdsByMember">;
   /** Asks Codex anew for the quota of each connection. */
-  readonly probe: Pick<CodexQuotaProbe, "refresh">;
+  readonly probe: Pick<CodexQuotaProbe, "refresh" | "latestFailure">;
   readonly clock?: () => Date;
 }
 
@@ -128,7 +128,9 @@ export class CodexQuotaService {
         this.account(
           connection,
           {
-            outcome: outcomes.get(connection.id) ?? null,
+            outcome:
+              outcomes.get(connection.id) ??
+              this.dependencies.probe.latestFailure(connection.id),
             record: records.get(connection.id) ?? null,
           },
           now,

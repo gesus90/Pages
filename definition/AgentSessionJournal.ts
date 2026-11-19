@@ -225,7 +225,7 @@ export interface AgentSessionView {
   /** The group of the node; members share the process, never the attempt. */
   readonly groupId: string | null;
   readonly workspace: AgentSessionWorkspace | null;
-  /** The run branch of the workspace against its Git state read for this view; `null` without a checked workspace. */
+  /** The prepared branch and the Git state recorded for the selected attempt. */
   readonly runBranch?: AgentSessionRunBranch | null;
   readonly model: AgentSessionModelReport;
   /**

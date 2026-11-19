@@ -229,10 +229,18 @@ export function createCodexSessionReader(home, resumeThreadId) {
   };
 }
 
-/** Reads the resumed thread's existing context silently before the child can append a new turn. */
+/** Skips the resumed thread's existing records before the child can append a new turn. */
 export async function prepareCodexSession(session) {
   if (session.isConfirmed) return;
   await scan(session).next();
+  session.model = null;
+  session.window = null;
+  session.used = null;
+  session.limit = null;
+  if (session.pending !== "") {
+    session.pending = "";
+    session.isSkipping = true;
+  }
 }
 
 /**

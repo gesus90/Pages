@@ -328,12 +328,15 @@ export class LocalOwnerSession {
       launch,
       await this.bearerFor(launch),
     );
-    const shared = this.recorder?.current;
     await this.listener?.drained();
+    const shared = this.recorder?.current;
     const attempt = {
       ...prepared.recording,
       state: "running" as const,
-      context: shared?.context ?? UNKNOWN_CONTEXT,
+      context:
+        shared?.key.attemptId === launch.attemptId
+          ? shared.context
+          : UNKNOWN_CONTEXT,
       confirmedModel: shared?.confirmedModel ?? {
         value: null,
         source: null,

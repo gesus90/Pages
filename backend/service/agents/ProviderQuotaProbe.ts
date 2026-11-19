@@ -112,6 +112,12 @@ export class ProviderQuotaProbe {
     return probe;
   }
 
+  /** Keeps the failed status of the latest query when a card reopens. */
+  public latestFailure(connectionId: string): QuotaProbeOutcome | null {
+    const outcome = this.finished.get(connectionId)?.outcome;
+    return outcome?.status === "failed" ? outcome : null;
+  }
+
   private async probe(
     connection: AgentConnectionRecord,
   ): Promise<QuotaProbeOutcome> {

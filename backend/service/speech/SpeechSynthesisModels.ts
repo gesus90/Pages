@@ -53,9 +53,8 @@ async function openRouterEntries(
   connection: AgentConnectionRecord,
 ): Promise<readonly SpeechSynthesisModelEntry[]> {
   const catalog = await connections.catalogs().find(connection.id);
-  const failure = catalog.errorCode ? { isCatalogFailed: true } : {};
   return catalog.models.filter(isSpeechSynthesisModel).map((model) => ({
-    choice: { ...speechOutputChoice(connection, model), ...failure },
+    choice: speechOutputChoice(connection, model),
     connection,
     voices: model.supportedVoices ?? null,
   }));

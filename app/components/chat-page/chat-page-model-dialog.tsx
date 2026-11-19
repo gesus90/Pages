@@ -1,6 +1,8 @@
-import { Check, Search } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
+import { ModelPicker } from "@/app/components/agents/model-picker";
+import { MODEL_FIELD_LABEL_CLASS } from "@/app/components/agents/model-picker/model-field";
+import { PlanReasoningField } from "@/app/components/agents/plans/plan-node-card/plan-agent-fields";
 import { Button } from "@/app/components/ui/button";
 import {
   Dialog,
@@ -8,7 +10,10 @@ import {
   DialogDescription,
   DialogTitle,
 } from "@/app/components/ui/dialog";
-import { cn } from "@/app/lib/cn";
+import { reasoningOptions } from "@/app/lib/reasoning-options";
+import { AGENT_PROVIDERS } from "@/definition/AgentConnection";
+import { agentModelKey } from "@/definition/AgentPlanConfiguration";
+import { modelsOfSameTarget } from "@/definition/AgentReasoningChoice";
 
 import { targetFields } from "./agent-control-api";
 import { useAgentControl } from "./use-agent-control";
@@ -19,6 +24,7 @@ import type {
   AgentChatModelChoice,
   AgentChatModelOverview,
 } from "@/definition/AgentChatControl";
+import type { PageAgentModel } from "@/definition/PageAgent";
 import type { ModelChoiceState } from "./use-model-choice";
 
 /**
@@ -34,121 +40,31 @@ export function effortLabel(
   return t(`chatPage.modelChoice.effort.${effort}`, { defaultValue: effort });
 }
 
-/** The models of the choice by connection, in the order the catalog lists them. */
-function byConnection(
-  choices: readonly AgentChatModelChoice[],
-): [string, AgentChatModelChoice[]][] {
-  const groups = new Map<string, AgentChatModelChoice[]>();
-  for (const choice of choices) {
-    const list = groups.get(choice.connectionName) ?? [];
-    list.push(choice);
-    groups.set(choice.connectionName, list);
-  }
-  return [...groups.entries()];
+/** One model of the chat's choice as an entry of the shared model choice. */
+function chatPickerModel(choice: AgentChatModelChoice): PageAgentModel {
+  return {
+    id: agentModelKey(choice.connectionId, choice.model),
+    connectionId: choice.connectionId,
+    name: `${choice.name} · ${choice.connectionName}`,
+    modelName: choice.name,
+    connectionName: choice.connectionName,
+    location: AGENT_PROVIDERS[choice.provider].location,
+    model: choice.model,
+    contextWindow: choice.contextWindow,
+    provider: choice.provider,
+    reasoning: choice.reasoningEfforts.length > 0 ? "levels" : "unknown",
+    reasoningEfforts: choice.reasoningEfforts,
+    catalogDefaultReasoningEffort: choice.defaultReasoningEffort,
+    reasoningEffort: null,
+    aliases: choice.aliases,
+    ...(choice.isFree === undefined ? {} : { isFree: choice.isFree }),
+  };
 }
 
-function ModelList({
-  choice,
-  overview,
-}: {
-  readonly choice: ModelChoiceState;
-  readonly overview: AgentChatModelOverview;
-}): React.ReactElement {
-  const { t } = useTranslation();
-  if (choice.visible.length === 0)
-    return (
-      <p className="px-2 py-3 text-sm text-muted-foreground">
-        {t("chatPage.modelChoice.none")}
-      </p>
-    );
-  return (
-    <div className="flex flex-col gap-2">
-      {byConnection(choice.visible).map(([connection, models]) => (
-        <section key={connection}>
-          <h3 className="px-2 py-1 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
-            {connection}
-          </h3>
-          <ul>
-            {models.map((model) => {
-              const isPicked = choice.picked === model;
-              const isStandard =
-                model.connectionId === overview.standard.connectionId &&
-                model.model === overview.standard.model;
-              return (
-                <li key={`${model.connectionId}:${model.model}`}>
-                  <button
-                    type="button"
-                    aria-pressed={isPicked}
-                    className={cn(
-                      "flex min-h-9 w-full items-center gap-2 rounded-lg px-2 text-left text-sm hover:bg-surface-hover focus-visible:outline-2 focus-visible:outline-primary",
-                      isPicked && "bg-primary-subtle font-semibold",
-                    )}
-                    disabled={!overview.canControl}
-                    onClick={() => choice.choose(model)}
-                  >
-                    <Check
-                      aria-hidden="true"
-                      className={cn("size-3.5", !isPicked && "invisible")}
-                    />
-                    <span className="flex-1 truncate">{model.name}</span>
-                    {isStandard ? (
-                      <span className="text-xs text-muted-foreground">
-                        {t("chatPage.modelChoice.standard")}
-                      </span>
-                    ) : null}
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-        </section>
-      ))}
-    </div>
-  );
-}
-
-function EffortChoice({
-  choice,
-  isDisabled,
-}: {
-  readonly choice: ModelChoiceState;
-  readonly isDisabled: boolean;
-}): React.ReactElement | null {
-  const { t } = useTranslation();
-  const efforts = choice.picked?.reasoningEfforts ?? [];
-  if (efforts.length === 0) return null;
-  const current = choice.pick?.reasoningEffort ?? null;
-  const options: (string | null)[] = [null, ...efforts];
-  return (
-    <fieldset className="mt-3">
-      <legend className="text-xs text-muted-foreground">
-        {t("chatPage.modelChoice.effortLabel")}
-      </legend>
-      <div className="mt-1 flex flex-wrap gap-1 rounded-lg border border-border p-1">
-        {options.map((effort) => (
-          <button
-            key={effort ?? "default"}
-            type="button"
-            aria-pressed={current === effort}
-            disabled={isDisabled}
-            className={cn(
-              "min-h-9 rounded-md px-3 text-sm",
-              current === effort
-                ? "bg-primary text-primary-foreground"
-                : "hover:bg-surface-hover",
-            )}
-            onClick={() => choice.chooseEffort(effort)}
-          >
-            {effort === null
-              ? t("chatPage.modelChoice.effortDefault")
-              : effortLabel(t, effort)}
-          </button>
-        ))}
-      </div>
-    </fieldset>
-  );
-}
-
+/**
+ * Model and reasoning as two separate fields, like the footer of an agent
+ * node: the shared model choice and the level choice of the chosen model.
+ */
 function ModelSearchBody({
   agentName,
   choice,
@@ -161,29 +77,55 @@ function ModelSearchBody({
   readonly canControl: boolean;
 }): React.ReactElement {
   const { t } = useTranslation();
+  const { pick } = choice;
+  const models = overview.choices.map(chatPickerModel);
+  const key = pick ? agentModelKey(pick.connectionId, pick.model) : "";
+  const model = models.find((entry) => entry.id === key);
+  const effortOptions = reasoningOptions({
+    model,
+    modelName: model?.modelName ?? pick?.model ?? "",
+    siblings: modelsOfSameTarget(models, model),
+    current: pick?.reasoningEffort ?? null,
+    defaultLabel: t("pageAgents.defaultReasoning"),
+    translate: t,
+  });
+
+  function pickModel(id: string): void {
+    const picked = overview.choices.find(
+      (entry) => agentModelKey(entry.connectionId, entry.model) === id,
+    );
+    if (picked) choice.choose(picked);
+  }
+
   return (
     <>
-      <label className="relative mt-4 block">
-        <span className="sr-only">{t("chatPage.modelChoice.search")}</span>
-        <Search
-          aria-hidden="true"
-          className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
+      <div className="mt-4 grid grid-cols-2 items-start gap-2">
+        <ModelPicker
+          value={key}
+          models={models}
+          savedModel={pick?.model}
+          savedProvider={model?.provider}
+          disabled={!canControl}
+          valueStyle="badge"
+          hasCatalogStatus={false}
+          onChange={pickModel}
         />
-        <input
-          className="h-10 w-full rounded-xl border border-border bg-surface pr-3 pl-9 text-sm outline-none placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-primary"
-          onChange={(event) => choice.setQuery(event.target.value)}
-          placeholder={t("chatPage.modelChoice.search")}
-          type="search"
-          value={choice.query}
-        />
-      </label>
-      <div className="mt-3 max-h-[40dvh] overflow-y-auto">
-        <ModelList choice={choice} overview={overview} />
+        <div className="min-w-0">
+          <span className={MODEL_FIELD_LABEL_CLASS}>
+            {t("pageAgents.reasoning")}
+          </span>
+          <PlanReasoningField
+            value={pick?.reasoningEffort ?? ""}
+            options={effortOptions}
+            onChange={(effort) =>
+              choice.chooseEffort(effort === "" ? null : effort)
+            }
+          />
+        </div>
       </div>
       <p className="mt-2 text-xs text-muted-foreground">
         {t("chatPage.modelChoice.onlyText", { agent: agentName })}
       </p>
-      <EffortChoice choice={choice} isDisabled={!canControl} />
     </>
   );
 }
@@ -241,9 +183,9 @@ interface ChatPageModelDialogProps {
 }
 
 /**
- * The choice "Modell in diesem Chat …" of an agent: the text
- * models of the connections the agent may use, the reasoning level of the
- * chosen model, "Auf Standard zurücksetzen" and "Wechseln".
+ * The choice "Modell in diesem Chat …" of an agent: the shared model choice
+ * with the text models of the connections the agent may use, the reasoning
+ * field of the chosen model, "Auf Standard zurücksetzen" and "Wechseln".
  *
  * @remarks
  * Switching ends the session of the agent in this chat on purpose: the

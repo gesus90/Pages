@@ -4,10 +4,12 @@ import type { AgentCliRuntime } from "@/backend/agents/cli/AgentCliRuntime";
 import type { AntigravityQuotaRepository } from "@/backend/database/repositories/agent/AntigravityQuotaRepository";
 import type { AgentConnectionRecord } from "@/backend/database/repositories/agent/AgentConnectionRows";
 import type { QuotaProbeOutcome } from "./ProviderQuotaProbe";
+import type { QuotaMeasurementService } from "./QuotaMeasurementService";
 
 interface AntigravityQuotaProbeDependencies {
   readonly reader: Pick<AgentCliRuntime, "readAntigravityUsage">;
   readonly repository: Pick<AntigravityQuotaRepository, "replaceReading">;
+  readonly measurements: Pick<QuotaMeasurementService, "record">;
   readonly clock?: () => Date;
 }
 
@@ -44,17 +46,25 @@ export class AntigravityQuotaProbe {
     return this.probe.refresh(connection);
   }
 
+  /** Returns the last failed query while stored figures are being reopened. */
+  public latestFailure(connectionId: string): QuotaProbeOutcome | null {
+    return this.probe.latestFailure(connectionId);
+  }
+
   private async query(
     connection: AgentConnectionRecord,
     signal: AbortSignal,
   ): Promise<void> {
     const { reader, repository } = this.dependencies;
     const groups = await reader.readAntigravityUsage(connection, signal);
-    await repository.replaceReading(
-      connection.id,
-      groups,
-      this.now().toISOString(),
-    );
+    const observedAt = this.now().toISOString();
+    await this.dependencies.measurements.record({
+      connectionId: connection.id,
+      credentialRevision: connection.cliLoggedInAt,
+      at: observedAt,
+      reading: { provider: "antigravity", groups },
+    });
+    await repository.replaceReading(connection.id, groups, observedAt);
   }
 
   private now(): Date {

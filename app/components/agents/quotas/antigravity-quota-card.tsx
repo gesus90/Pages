@@ -222,7 +222,7 @@ function AntigravityGroupArea({
           data-quota-group-list="scroll"
           className={cn(
             styles.groupList,
-            "-mr-[14px] h-[172px] shrink-0 snap-y snap-mandatory overflow-y-auto overscroll-contain pr-[10px] focus-visible:-outline-offset-2 focus-visible:outline-2 focus-visible:outline-ring md:-mr-[18px] md:h-[148px] md:pr-[14px]",
+            "-mr-[14px] h-[188px] shrink-0 snap-y snap-mandatory overflow-y-auto overscroll-contain pr-[10px] focus-visible:-outline-offset-2 focus-visible:outline-2 focus-visible:outline-ring md:-mr-[18px] md:pr-[14px]",
           )}
         >
           {items}

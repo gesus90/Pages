@@ -1,8 +1,10 @@
 import { z } from "zod";
 
 import { quotaStatusSchema } from "@/definition/ClaudeQuota";
+import { quotaPaceSchema } from "@/definition/QuotaForecast";
 
 import type { ClaudeQuotaStatus } from "@/definition/ClaudeQuota";
+import type { QuotaPace } from "@/definition/QuotaForecast";
 
 /** The windows of the general Codex quota in the order a card lists them. */
 export const CODEX_QUOTA_WINDOWS = ["primary", "secondary"] as const;
@@ -61,6 +63,7 @@ const PLAN_BY_REPORTED_TYPE: ReadonlyMap<string, CodexPlan> = new Map([
  * which it resets, `null` when none was named.
  */
 export interface CodexQuotaWindow {
+  readonly pace?: QuotaPace;
   readonly kind: CodexQuotaWindowKind;
   readonly usedPercent: number;
   readonly durationMinutes: number | null;
@@ -89,6 +92,7 @@ export interface CodexQuotaAccount {
 }
 
 const windowSchema = z.object({
+  pace: quotaPaceSchema.optional(),
   kind: z.enum(CODEX_QUOTA_WINDOWS),
   usedPercent: z.number().min(0).max(100),
   durationMinutes: z.number().int().positive().nullable(),

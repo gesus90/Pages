@@ -61,6 +61,7 @@
   --color-primary-foreground: #ffffff;
   --color-destructive: #c5322b;
   --color-destructive-subtle: #fef2f2;
+  --color-quota-pace: #b88200;
   --color-success: #047857;
   --color-success-dot: #10b981;
   --color-success-subtle: #ecfdf5;
@@ -674,6 +675,7 @@
     --color-primary-foreground: #1a0f05;
     --color-destructive: #f87171;
     --color-destructive-subtle: #2d1618;
+    --color-quota-pace: #facc15;
     --color-success: #34d399;
     --color-success-dot: #10b981;
     --color-success-subtle: #0f2a20;

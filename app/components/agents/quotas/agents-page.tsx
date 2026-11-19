@@ -29,7 +29,7 @@ import type { SortedQuotaCards } from "./use-quota-card-order";
  * the current figures replace card by card as each query answers. The
  * figures stay while a query runs or fails, so the page never falls back to
  * an empty state once it has cards; the empty state appears only when it is
- * certain that no card is available. All cards have the same height, 308 px
+ * certain that no card is available. All cards have the same height, 340 px
  * on a wide screen and 344 px in the single column of a phone, also in a row
  * with fewer cards. A person arranges the cards by drag and drop or by
  * keyboard; Pages stores that order per account, so it holds after a reload

@@ -3,6 +3,7 @@ import { SendHorizontal } from "lucide-react";
 import { useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 
+import { ChatCallButton } from "@/app/components/chat-call/chat-call-button";
 import styles from "@/app/components/chat/chat-composer.module.css";
 import { Button } from "@/app/components/ui/button";
 import { cn } from "@/app/lib/cn";
@@ -39,6 +40,13 @@ export interface ComposerAnswering {
   readonly isGroup?: boolean;
 }
 
+/** What the direct chat offers as "Anruf starten". */
+export interface ComposerCall {
+  /** Whether a call runs in this chat, so the button starts nothing. */
+  readonly isRunning: boolean;
+  readonly onStart: () => void;
+}
+
 interface ChatPageComposerProps {
   /** Hint of the empty field, for a participant or a group. */
   readonly placeholder: string;
@@ -64,6 +72,8 @@ interface ChatPageComposerProps {
   readonly voice?: ComposerVoice;
   /** Attachments; missing where no file can be attached. */
   readonly attachments?: ComposerAttachments;
+  /** The call button of a direct chat; missing in a group. */
+  readonly call?: ComposerCall;
   /** Receives what puts `@username ` into the field, for the menu of an agent in the chat head. */
   readonly mentionRef?: React.RefObject<((username: string) => void) | null>;
 }
@@ -145,6 +155,7 @@ interface ComposerFooterActionsProps {
   readonly uploads: ReturnType<typeof useAttachmentUploads>;
   readonly onInsert: (text: string) => void;
   readonly voice: ChatPageComposerProps["voice"];
+  readonly call: ComposerCall | undefined;
   readonly recordRef: React.RefObject<(() => void) | null>;
   readonly answering: ComposerAnswering | undefined;
   readonly canSend: boolean;
@@ -152,7 +163,8 @@ interface ComposerFooterActionsProps {
 }
 
 /**
- * The foot of the input: "+" and the microphone at the left, at the right
+ * The foot of the input: "+", the microphone, the audio file and, in a direct
+ * chat, the camera button for a call at the left, at the right
  * the buttons in an area of a fixed 248 px.
  * @remarks
  * The area holds "Senden" or, while agents answer, stop, the main button and
@@ -165,6 +177,7 @@ function ComposerFooterActions({
   uploads,
   onInsert,
   voice,
+  call,
   recordRef,
   answering,
   canSend,
@@ -188,6 +201,9 @@ function ComposerFooterActions({
           maximumMs={voice.maximumMs}
           recordRef={recordRef}
         />
+      ) : null}
+      {call ? (
+        <ChatCallButton isRunning={call.isRunning} onStart={call.onStart} />
       ) : null}
       <div
         className="ml-auto flex max-w-full min-w-0 items-center gap-2"
@@ -300,6 +316,7 @@ export function ChatPageComposer({
   label,
   onSend,
   voice,
+  call,
   attachments,
   mentionRef,
   answering,
@@ -376,6 +393,7 @@ export function ChatPageComposer({
         recordRef={record}
         uploads={uploads}
         voice={voice}
+        call={call}
       />
     </footer>
   );

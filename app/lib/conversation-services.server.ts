@@ -57,6 +57,8 @@ import { ConversationObserverMonitor } from "@/backend/service/conversation/Conv
 import { ConversationOversight } from "@/backend/service/conversation/ConversationOversight";
 import { ConversationReader } from "@/backend/service/conversation/ConversationReader";
 import { ConversationReplySettingsService } from "@/backend/service/conversation/ConversationReplySettingsService";
+import { createChatCallIce } from "@/backend/service/conversation/ChatCallIce";
+import { ChatCallService } from "@/backend/service/conversation/ChatCallService";
 import { ConversationService } from "@/backend/service/conversation/ConversationService";
 import { createConversationTranscriber } from "@/backend/service/conversation/ConversationTranscriber";
 import { ConversationVoiceRecognition } from "@/backend/service/conversation/ConversationVoiceRecognition";
@@ -64,6 +66,7 @@ import { ConversationVoiceStore } from "@/backend/service/conversation/Conversat
 import { WikiFileStore } from "@/backend/storage/WikiFileStore";
 import { voiceMaximumDurationMs } from "@/backend/config/SpeechRecognitionConfig";
 
+import type { ChatCallSetting } from "@/backend/config/ChatCallConfig";
 import type { SpeechRecognitionSetting } from "@/backend/config/SpeechRecognitionConfig";
 import type { PlanExecution } from "@/backend/agents/AgentPlanExecution";
 import type { SimulatedConversationObserver } from "@/backend/agents/simulation/SimulatedConversationObserver";
@@ -83,6 +86,8 @@ export interface ConversationApplicationServices {
   readonly conversationDirectory: ConversationDirectory;
   readonly conversationReader: ConversationReader;
   readonly conversationService: ConversationService;
+  /** The calls of the direct chat between two people. */
+  readonly chatCallService: ChatCallService;
   /** The answers of agents in conversations. */
   readonly conversationAgentReplies: ConversationAgentReplies;
   /** The stored context of groups. */
@@ -127,6 +132,8 @@ export interface ConversationServicesInput {
   readonly runner: ConversationAgentRunner;
   /** The speech model and the longest recording of `config.toml`. */
   readonly speech?: SpeechRecognitionSetting;
+  /** The STUN and TURN servers of audio calls of `config.toml`. */
+  readonly chatCalls?: ChatCallSetting;
   /** The group observer on Pica's chat model. */
   readonly observer: ConversationObserverInput;
   /** The origin users reach Pages at; links to it embed. */
@@ -322,6 +329,12 @@ function assembleConversationServices(parts: {
       publisher: input.events,
     }),
     ...messaging,
+    chatCallService: new ChatCallService({
+      conversations: messaging.conversationService,
+      directory,
+      publisher: input.events,
+      ice: createChatCallIce(input.chatCalls),
+    }),
     conversationAttachments: content.attachments,
     conversationAttachmentLibrary: content.library,
     conversationLinks: content.links,

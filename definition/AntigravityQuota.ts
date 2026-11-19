@@ -1,8 +1,10 @@
 import { z } from "zod";
 
 import { quotaStatusSchema } from "@/definition/ClaudeQuota";
+import { quotaPaceSchema } from "@/definition/QuotaForecast";
 
 import type { ClaudeQuotaStatus } from "@/definition/ClaudeQuota";
+import type { QuotaPace } from "@/definition/QuotaForecast";
 
 /** The windows of a quota group, in the columns a card shows them: left, right. */
 export const ANTIGRAVITY_QUOTA_WINDOWS = ["five_hour", "seven_day"] as const;
@@ -20,6 +22,7 @@ export const ANTIGRAVITY_QUOTA_GROUP_LIMIT = 50;
  * Antigravity named none.
  */
 export interface AntigravityQuotaWindow {
+  readonly pace?: QuotaPace;
   readonly kind: AntigravityQuotaWindowKind;
   readonly remainingFraction: number;
   readonly resetsAt: string | null;
@@ -55,6 +58,7 @@ export interface AntigravityQuotaAccount {
 }
 
 const windowSchema = z.object({
+  pace: quotaPaceSchema.optional(),
   kind: z.enum(ANTIGRAVITY_QUOTA_WINDOWS),
   remainingFraction: z.number().min(0).max(1),
   resetsAt: z.string().min(1).max(40).nullable(),

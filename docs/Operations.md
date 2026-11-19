@@ -98,6 +98,31 @@ apiKeyFile = "/etc/pages/speech-key"
 maximumRecordingSeconds = 300
 ```
 
+The optional table `[chatCalls]` tells the browsers of an audio call in the
+direct chat how to find each other. Voice runs directly between the two
+browsers (WebRTC); Pages only passes on offers, answers and ICE candidates of
+the two accounts of a running call. `stunUrls` lists `stun:` or `stuns:`
+addresses. `turnUrls` lists `turn:` or `turns:` addresses of a
+[coturn](https://github.com/coturn/coturn) server that runs with
+`use-auth-secret`; `turnSecretFile` is the absolute path of a file with its
+`static-auth-secret`, which Pages reads for every call and never logs.
+Pages issues temporary TURN credentials (`turnCredentialSeconds`, 60–86400,
+default 3600) only to the two accounts of the running call. `relayOnly = true`
+forces the audio over the TURN relay, to check that path; the browser then
+reports `relay` in the connection statistics and the bar of the call carries
+`data-call-route="relay"`. Without the table the browsers use their own
+addresses only, which works inside one network. Browsers open the microphone
+only over HTTPS (or `localhost`).
+
+```toml
+[chatCalls]
+stunUrls = ["stun:turn.example.org:3478"]
+turnUrls = ["turn:turn.example.org:3478?transport=udp", "turns:turn.example.org:5349?transport=tcp"]
+turnSecretFile = "/etc/pages/turn-secret"
+turnCredentialSeconds = 3600
+relayOnly = false
+```
+
 The production server (`pnpm run start`) listens on port 3000 by default.
 Start parameters win over the file:
 

@@ -19,7 +19,7 @@ const MAXIMUM_CALL_TITLE = 600;
 const MAXIMUM_CALL_IDENTITY = 200;
 const MAXIMUM_OPEN_CODE_TOOL_FIELD = 200;
 const CALL_WINDOW = 256;
-const MODEL_NAME = /^[A-Za-z0-9._:@/[\]-]{1,200}$/u;
+const MODEL_NAME = /^[A-Za-z0-9._:@~/[\]-]{1,200}$/u;
 
 function textEnd(bytes, start, limit) {
   let end = Math.min(start + limit, bytes.length);
@@ -309,7 +309,7 @@ async function openCodeCall(state, kind, update) {
   const identity = callIdentity(update.toolCallId);
   const title = update.title ?? state.calls.get(identity) ?? "";
   if (identity && update.title) rememberCall(state, identity, update.title);
-  if (!state.openCodeSelection)
+  if (state.tool !== "opencode" || !state.acpSelection)
     return noteCall(state, kind, { title, identity });
   const facts = openCodeToolFacts(update, kind);
   if (identity && isDuplicate(state, `${identity}:${kind}`, [title, facts]))
@@ -325,12 +325,18 @@ function contextCount(value, minimum) {
   return Number.isSafeInteger(value) && value >= minimum ? value : null;
 }
 
-async function noteOpenCodeContext(state, model, context) {
+async function noteAcpSession(state, model, context, reasoningEffort) {
   if (typeof model !== "string" || !MODEL_NAME.test(model)) return;
-  await note(state, "usage", JSON.stringify({ session: { model, context } }));
+  const session = { model, context };
+  if (
+    typeof reasoningEffort === "string" &&
+    /^[\w-]{1,80}$/u.test(reasoningEffort)
+  )
+    session.reasoning = reasoningEffort;
+  await note(state, "usage", JSON.stringify({ session }));
 }
 
-async function readOpenCodeModelChange(state, selection, update) {
+async function readAcpModelChange(state, selection, update) {
   const options = Array.isArray(update.configOptions)
     ? update.configOptions
     : [];
@@ -341,20 +347,20 @@ async function readOpenCodeModelChange(state, selection, update) {
   // The unlabelled usage of an already dispatched prompt cannot follow selector drift.
   selection.hasModelChanged = true;
   selection.model = model;
-  await noteOpenCodeContext(state, model, null);
+  await noteAcpSession(state, model, null);
 }
 
 /** The ACP usage reading belongs to the confirmed prompt model of the same native session. */
-async function readOpenCodeContext(event, state) {
+async function readAcpContext(event, state) {
   if (event.type === "pages.configuration") {
-    state.openCodeSelection = {
+    state.acpSelection = {
       sessionId: event.sessionId,
       model: event.model,
       hasModelChanged: false,
     };
-    return noteOpenCodeContext(state, event.model, null);
+    return noteAcpSession(state, event.model, null, event.reasoningEffort);
   }
-  const selection = state.openCodeSelection;
+  const selection = state.acpSelection;
   if (
     !selection ||
     event.type !== "pages.update" ||
@@ -363,13 +369,13 @@ async function readOpenCodeContext(event, state) {
     return;
   const update = event.update;
   if (update?.sessionUpdate === "config_option_update")
-    return readOpenCodeModelChange(state, selection, update);
+    return readAcpModelChange(state, selection, update);
   if (update?.sessionUpdate !== "usage_update" || selection.hasModelChanged)
     return;
   const used = contextCount(update.used, 0);
   const limit = contextCount(update.size, 1);
   if (used !== null || limit !== null)
-    await noteOpenCodeContext(state, selection.model, {
+    await noteAcpSession(state, selection.model, {
       used,
       limit,
       source: "acp_usage_update",
@@ -403,7 +409,8 @@ async function readOpenCode(event, state) {
 
 async function readAcpToolUpdate(state, update) {
   if (
-    state.openCodeSelection &&
+    state.tool === "opencode" &&
+    state.acpSelection &&
     update.status === "in_progress" &&
     update.rawInput
   )
@@ -439,6 +446,7 @@ export function createLiveHistory(command, redact, emit) {
     emit,
     isManaged: Boolean(command.managed),
     progressVersion: command.progressVersion,
+    tool: command.program.route.tool,
     usageMessages: new Map(),
     claudeSession: createClaudeSessionReader(),
     codexSession: codexSessionReader(command),
@@ -448,9 +456,12 @@ export function createLiveHistory(command, redact, emit) {
       await prepareCodexSession(state.codexSession);
     },
     async receive(event) {
-      const tool = command.program.route.tool;
-      if (state.progressVersion === 1 && tool === "opencode")
-        await readOpenCodeContext(event, state);
+      const { tool } = state;
+      if (
+        state.progressVersion === 1 &&
+        (tool === "opencode" || tool === "antigravity")
+      )
+        await readAcpContext(event, state);
       if (state.progressVersion === 1) await receiveUsage(event, tool, state);
       if (state.progressVersion === 1 && tool === "claude")
         await receiveClaudeSession(event, state.claudeSession, state.emit);

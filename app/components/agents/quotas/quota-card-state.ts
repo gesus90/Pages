@@ -5,6 +5,7 @@ import {
 import { visibleClaudeQuotaWindows } from "@/definition/ClaudeQuota";
 import {
   codexLimitResetsAt,
+  isCodexWindowExhausted,
   visibleCodexQuotaWindows,
 } from "@/definition/CodexQuota";
 import { visibleZaiQuotaWindows } from "@/definition/ZaiQuota";
@@ -44,10 +45,24 @@ export type QuotaCardBody =
     }
   | { readonly kind: "notice"; readonly notice: QuotaNoticeKind };
 
+interface QuotaLimit {
+  readonly resetsAt: string | null;
+}
+
+function quotaLimit(
+  status: ClaudeQuotaStatus,
+  windows: readonly QuotaLimit[],
+): QuotaLimit | null {
+  if (status.kind !== "reported" && status.kind !== "stored") return null;
+  if (windows.length === 0) return null;
+  return { resetsAt: windows.length === 1 ? windows[0].resetsAt : null };
+}
+
 /** What a card shows at a moment: its status line and its window area. */
 export interface QuotaCardView {
   readonly status: ClaudeQuotaStatus;
   readonly body: QuotaCardBody;
+  readonly limit: QuotaLimit | null;
 }
 
 /** The notice of a status without windows to show. */
@@ -109,6 +124,7 @@ export function quotaCardView(
     return {
       status,
       body: { kind: "notice", notice: NOTICE_BY_STATUS[status.kind] },
+      limit: null,
     };
   return {
     status,
@@ -118,6 +134,10 @@ export function quotaCardView(
       isStale: status.kind === "failed",
       staleSince: status.kind === "failed" ? status.lastSuccessAt : null,
     },
+    limit: quotaLimit(
+      status,
+      windows.filter((window) => window.usedPercentage >= 100),
+    ),
   };
 }
 
@@ -187,7 +207,8 @@ export function codexCardView(
       staleSince: status.kind === "failed" ? status.lastSuccessAt : null,
     },
     limit:
-      status.kind === "reported" && account.isLimitReached
+      (status.kind === "reported" || status.kind === "stored") &&
+      (account.isLimitReached || windows.some(isCodexWindowExhausted))
         ? { resetsAt: codexLimitResetsAt(windows) }
         : null,
   };
@@ -247,7 +268,9 @@ export function antigravityCardView(
     status,
     body: { kind: "groups", groups, isStale: status.kind === "failed" },
     limit:
-      status.kind === "reported" ? firstAntigravityQuotaLimit(groups) : null,
+      status.kind === "reported" || status.kind === "stored"
+        ? firstAntigravityQuotaLimit(groups)
+        : null,
   };
 }
 
@@ -287,6 +310,7 @@ function zaiCardAbsence(
 export interface ZaiCardView {
   readonly status: ClaudeQuotaStatus;
   readonly body: ZaiCardBody;
+  readonly limit: QuotaLimit | null;
 }
 
 /**
@@ -316,6 +340,7 @@ export function zaiCardView(account: ZaiQuotaAccount, now: Date): ZaiCardView {
         notice: NOTICE_BY_STATUS[status.kind],
         absence: zaiCardAbsence(account, windows.length),
       },
+      limit: null,
     };
   return {
     status,
@@ -325,5 +350,9 @@ export function zaiCardView(account: ZaiQuotaAccount, now: Date): ZaiCardView {
       isStale: status.kind === "failed",
       staleSince: status.kind === "failed" ? status.lastSuccessAt : null,
     },
+    limit: quotaLimit(
+      status,
+      windows.filter((window) => window.usedPercent >= 100),
+    ),
   };
 }

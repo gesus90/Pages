@@ -228,7 +228,9 @@ export function statusPresentation(
   const { t } = format;
   switch (status.kind) {
     case "stored":
-      return storedPresentation(status.at, format);
+      return status.at !== null && (format.limit || format.generalLimit)
+        ? reportedPresentation(status.at, format)
+        : storedPresentation(status.at, format);
     case "reported":
       return reportedPresentation(status.at, format);
     case "no_windows":

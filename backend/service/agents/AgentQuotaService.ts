@@ -7,9 +7,11 @@ import type {
   OpenRouterBalanceUpdate,
   OpenRouterQuotaService,
 } from "./OpenRouterQuotaService";
+import type { QuotaMeasurementService } from "./QuotaMeasurementService";
 import type { ZaiQuotaService } from "./ZaiQuotaService";
 
 interface AgentQuotaDependencies {
+  readonly measurements: Pick<QuotaMeasurementService, "addPace">;
   readonly claude: Pick<
     ClaudeQuotaService,
     "listStoredForUser" | "listForUser" | "refreshForUser"
@@ -69,7 +71,7 @@ export class AgentQuotaService {
    */
   public async listStoredForUser(userId: string): Promise<QuotaSnapshot> {
     const { claude, codex, antigravity, openRouter, zai } = this.dependencies;
-    return mergeSnapshots(
+    return this.withPace(
       await Promise.all([
         claude.listStoredForUser(userId),
         codex.listStoredForUser(userId),
@@ -95,7 +97,7 @@ export class AgentQuotaService {
         zai.listForUser(userId),
         openRouter.refreshForUser(userId),
       ]);
-    return mergeSnapshots([
+    return this.withPace([
       claudeSnapshot,
       codexSnapshot,
       antigravitySnapshot,
@@ -124,7 +126,7 @@ export class AgentQuotaService {
         zai.refreshForUser(userId, connectionId),
         openRouter.refreshForUser(userId, connectionId),
       ]);
-    return mergeSnapshots([
+    return this.withPace([
       claudeSnapshot,
       codexSnapshot,
       antigravitySnapshot,
@@ -144,5 +146,11 @@ export class AgentQuotaService {
       connectionId,
       display,
     );
+  }
+
+  private withPace(
+    snapshots: readonly QuotaSnapshot[],
+  ): Promise<QuotaSnapshot> {
+    return this.dependencies.measurements.addPace(mergeSnapshots(snapshots));
   }
 }

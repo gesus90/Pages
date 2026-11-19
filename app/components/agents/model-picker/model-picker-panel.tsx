@@ -1,7 +1,8 @@
-import { Search } from "lucide-react";
-import { useEffect } from "react";
+import { Search, X } from "lucide-react";
+import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
+import { Link } from "react-router";
 
 import { ScrollViewport } from "@/app/components/ui/scroll-viewport";
 import { cn } from "@/app/lib/cn";
@@ -11,6 +12,7 @@ import { MODEL_FIELD_CLASS } from "./model-field";
 import { ModelGroupRows } from "./model-picker-rows";
 
 import type { MouseEvent } from "react";
+import type { CatalogStatusState } from "./use-catalog-statuses";
 import type { ModelPickerState } from "./use-model-picker";
 
 // Clicks inside the panel leave the focus in the search field, so the panel
@@ -19,16 +21,24 @@ function keepSearchFocus(event: MouseEvent<HTMLDivElement>): void {
   if (!(event.target instanceof HTMLInputElement)) event.preventDefault();
 }
 
-function CatalogWarning(): React.ReactElement {
+function useHitAnnouncement(state: ModelPickerState): string {
   const { t } = useTranslation();
-  return (
-    <p
-      role="alert"
-      className="border-b border-border px-3 py-1.5 text-xs text-warning"
-    >
-      {t("plans.modelPicker.catalog.failed")}
-    </p>
-  );
+  const [announcement, setAnnouncement] = useState("");
+  const message =
+    state.matchCount === 0
+      ? t("plans.modelPicker.noHits")
+      : t("plans.modelPicker.hits", { count: state.matchCount });
+  const { isSearching } = state;
+  // A screen reader hears the count once the person stops typing.
+  useEffect(() => {
+    if (!isSearching) {
+      setAnnouncement("");
+      return undefined;
+    }
+    const timer = window.setTimeout(() => setAnnouncement(message), 300);
+    return () => window.clearTimeout(timer);
+  }, [isSearching, message]);
+  return announcement;
 }
 
 function EmptyState({
@@ -39,11 +49,68 @@ function EmptyState({
   readonly emptyLabel: string | undefined;
 }): React.ReactElement {
   const { t } = useTranslation();
+  if (state.isSearching)
+    return (
+      <div className="px-3 py-6 text-center">
+        <p className="text-sm text-muted-foreground">
+          {t("plans.modelPicker.noMatch", { query: state.query.trim() })}
+        </p>
+        <p className="mt-1 text-xs text-muted-foreground">
+          {t("plans.modelPicker.noMatchHint")}
+        </p>
+      </div>
+    );
   return (
-    <p className="px-3 py-6 text-center text-sm text-muted-foreground">
-      {state.isSearching
-        ? t("plans.modelPicker.noMatch", { query: state.query.trim() })
-        : (emptyLabel ?? t("plans.modelPicker.noModels"))}
+    <div className="px-3 py-6 text-center">
+      <p className="text-sm text-muted-foreground">
+        {emptyLabel ?? t("plans.modelPicker.noModels")}
+      </p>
+      <p className="mt-1 text-xs text-muted-foreground">
+        {t("plans.modelPicker.noModelsHintBefore")}
+        <Link
+          to="/agents"
+          className="text-primary underline underline-offset-2"
+        >
+          {t("plans.modelPicker.noModelsLink")}
+        </Link>
+        {t("plans.modelPicker.noModelsHintAfter")}
+      </p>
+    </div>
+  );
+}
+
+// Three rows of the size of a model row, so nothing jumps when the list comes.
+function LoadingRows(): React.ReactElement {
+  const { t } = useTranslation();
+  return (
+    <div
+      role="status"
+      aria-label={t("plans.modelPicker.loading")}
+      className="px-1.5 py-1"
+    >
+      {[0, 1, 2].map((row) => (
+        <div
+          key={row}
+          className="flex min-h-9 items-center gap-2.5 px-2.5 pointer-coarse:min-h-11"
+        >
+          <span className="size-5 shrink-0 rounded-[5px] bg-muted" />
+          <span className="h-3.5 w-[90px] rounded bg-muted" />
+          <span className="ml-auto h-3 w-[70px] rounded bg-muted" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function SavedUnavailableRow({
+  savedId,
+}: {
+  readonly savedId: string;
+}): React.ReactElement {
+  const { t } = useTranslation();
+  return (
+    <p className="mx-2 mt-2 rounded-lg bg-warning-subtle px-2.5 py-1 text-xs leading-4 text-warning">
+      {t("plans.modelPicker.saved.row", { id: savedId })}
     </p>
   );
 }
@@ -55,6 +122,7 @@ function SearchField({
 }): React.ReactElement {
   const { t } = useTranslation();
   const { active } = state;
+  const announcement = useHitAnnouncement(state);
   return (
     <div className="relative border-b border-border p-2">
       <Search
@@ -76,11 +144,32 @@ function SearchField({
         autoComplete="off"
         className={cn(
           MODEL_FIELD_CLASS,
-          "pl-9 placeholder:text-muted-foreground",
+          "pl-9 placeholder:text-muted-foreground [&::-webkit-search-cancel-button]:appearance-none",
+          state.query === "" ? "pr-3" : "pr-28",
         )}
         onChange={(event) => state.search(event.currentTarget.value)}
         onKeyDown={state.handleSearchKeyDown}
       />
+      {state.query === "" ? null : (
+        <div className="absolute top-1/2 right-5 flex -translate-y-1/2 items-center gap-1.5">
+          <span className="text-xs text-muted-foreground" aria-hidden="true">
+            {state.matchCount === 0
+              ? t("plans.modelPicker.noHits")
+              : t("plans.modelPicker.hits", { count: state.matchCount })}
+          </span>
+          <button
+            type="button"
+            aria-label={t("plans.modelPicker.clearSearch")}
+            className="inline-flex size-6 items-center justify-center rounded-md text-muted-foreground outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-primary"
+            onClick={state.clearSearch}
+          >
+            <X className="size-3.5" aria-hidden="true" />
+          </button>
+        </div>
+      )}
+      <span role="status" className="sr-only">
+        {announcement}
+      </span>
     </div>
   );
 }
@@ -92,25 +181,29 @@ function SearchField({
  * each tool with a match while it holds text. The list scrolls within the
  * height that fits the visible part of the page or dialog. A floating panel
  * lies above the page, so a canvas neither clips nor zooms it. The keys
- * work as before without a footer naming them; a warning appears only after
- * a failed catalog refresh.
+ * work as before without a footer naming them. Each connection explains its
+ * own missing models inside its tool; the panel has no collective warning.
  */
 export function ModelPickerPanel({
   state,
   value,
-  isCatalogFailed,
+  catalog,
   emptyLabel,
+  savedUnavailableId,
 }: {
   readonly state: ModelPickerState;
   readonly value: string;
-  readonly isCatalogFailed: boolean;
+  readonly catalog: CatalogStatusState;
   /** The place's own note for an empty catalog; a search without match keeps its own. */
   readonly emptyLabel?: string;
+  /** The saved model ID that is no longer available, named at the top of the panel; `null` otherwise. */
+  readonly savedUnavailableId: string | null;
 }): React.ReactElement {
   const { t } = useTranslation();
   const { panel, layout } = state;
   const rowCount = state.items.length;
   const isFloating = layout.anchor !== null;
+  const isLoading = catalog.isLoading && state.groups.length === 0;
   // The panel grows with a search or an opened tool; a scrolling dialog
   // follows, so the search field stays in view.
   useEffect(() => {
@@ -141,7 +234,9 @@ export function ModelPickerPanel({
       onMouseDown={keepSearchFocus}
     >
       <SearchField state={state} />
-      {isCatalogFailed ? <CatalogWarning /> : null}
+      {savedUnavailableId === null ? null : (
+        <SavedUnavailableRow savedId={savedUnavailableId} />
+      )}
       <ScrollViewport
         ref={state.list}
         axis="vertical"
@@ -157,12 +252,12 @@ export function ModelPickerPanel({
             <ModelGroupRows
               key={group.key}
               group={group}
-              state={state}
-              value={value}
+              context={{ state, catalog, value }}
             />
           ))}
         </ul>
-        {state.groups.length === 0 ? (
+        {isLoading ? <LoadingRows /> : null}
+        {!isLoading && state.matchCount === 0 ? (
           <EmptyState state={state} emptyLabel={emptyLabel} />
         ) : null}
       </ScrollViewport>

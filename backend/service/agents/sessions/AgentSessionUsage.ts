@@ -1,4 +1,5 @@
 import type { Usage, UsageUpdate } from "@agentclientprotocol/sdk";
+import type { AcpProviderId } from "@/definition/AgentConfiguration";
 import type {
   AgentSessionContextUsage,
   AgentSessionTokenUsage,
@@ -52,16 +53,16 @@ export const UNKNOWN_CONTEXT: AgentSessionContextUsage = {
  * Reads the context occupancy of a `usage_update`.
  * @param update - The update as the adapter sent it.
  * @param reportedAt - When Pages received it.
- * @returns The occupancy; a zero occupancy reads as unknown, because
- * claude-agent-acp reports 0 after a compaction it could not measure.
+ * @param provider - Claude Code reports zero after an unmeasured compaction.
  */
 export function readContextUsage(
   update: Pick<UsageUpdate, "used" | "size">,
   reportedAt: string,
+  provider: AcpProviderId,
 ): AgentSessionContextUsage {
   const used = count(update.used);
   const limit = count(update.size);
-  const contextUsed = used === 0 ? null : used;
+  const contextUsed = provider === "claude_code" && used === 0 ? null : used;
   const contextLimit = limit === 0 ? null : limit;
   return {
     contextUsed,

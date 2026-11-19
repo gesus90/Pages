@@ -44,10 +44,9 @@ async function openRouterEntries(
   connection: AgentConnectionRecord,
 ): Promise<readonly PageAgentModel[]> {
   const catalog = await connections.catalogs().find(connection.id);
-  const failure = catalog.errorCode ? { isCatalogFailed: true } : {};
   return catalog.models
     .filter(isDecisionModel)
-    .map((model) => ({ ...decisionChoice(connection, model), ...failure }));
+    .map((model) => decisionChoice(connection, model));
 }
 
 function simulationEntry(): PageAgentModel {

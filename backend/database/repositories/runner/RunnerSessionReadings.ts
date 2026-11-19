@@ -4,7 +4,10 @@ import {
   readTextColumn,
 } from "@/backend/database/RowValue";
 
-import type { DatabaseTransaction } from "@/backend/database/Database";
+import type {
+  DatabaseTransaction,
+  SqlParameters,
+} from "@/backend/database/Database";
 import type { RunnerSessionReading } from "@/definition/RunnerSessionReading";
 
 interface SessionReadingInput {
@@ -19,7 +22,10 @@ interface SessionReadingInput {
 const READING_SOURCES = {
   claude_code: ["cli_assistant_usage", "cli_compact_boundary"],
   codex_cli: ["codex_token_count"],
+  antigravity: ["acp_usage_update"],
   opencode: ["acp_usage_update"],
+  openrouter: ["acp_usage_update"],
+  zai: ["acp_usage_update"],
 } as const;
 
 type ReadingProvider = keyof typeof READING_SOURCES;
@@ -60,7 +66,8 @@ async function readStored(
         context_source,
         context_at
     FROM agent_session_attempts
-    WHERE attempt_id = $attempt_id;
+    WHERE attempt_id = $attempt_id
+    FOR UPDATE;
   `,
     { attempt_id: attemptId },
   );
@@ -79,49 +86,12 @@ async function readStored(
 }
 
 /**
- * The window Claude Code last reported for a model in any attempt.
- * @remarks
- * The Claude Code CLI names a window only in the result at the end of a
- * turn, and a plan step is one turn. A window is a property of the model, so
- * the one an earlier attempt of the same model stored lets a running step
- * show its occupancy against the window before its own result arrives. Only
- * a window a CLI job reported counts: an ACP adapter guesses one from the
- * model name until its first result.
+ * Keeps each reported value for the same model and attempt.
  */
-async function knownModelWindow(
-  transaction: DatabaseTransaction,
-  model: string,
-): Promise<number | null> {
-  const [row] = await transaction.query(
-    `
-    SELECT context_limit
-    FROM agent_session_attempts
-    WHERE provider = 'claude_code'
-        AND confirmed_model = $model
-        AND context_limit IS NOT NULL
-        AND context_source = ANY(string_to_array($sources, ','))
-    ORDER BY context_at DESC NULLS LAST
-    LIMIT 1;
-  `,
-    { model, sources: READING_SOURCES.claude_code.join(",") },
-  );
-  return row ? readNullableCountColumn(row, 0, "context_limit") : null;
-}
-
-/**
- * The context to store after a reading.
- * @remarks
- * The last reported value stays until a new one comes: a reading without a
- * measurement, also a compaction that kept no count, keeps the last valid
- * occupancy of the same model, also into the next turn, and another model
- * drops it. Claude Code can use an earlier attempt's window for the same
- * model until it reports its own. Codex supplies the window of its session.
- */
-async function nextContext(
-  transaction: DatabaseTransaction,
+function nextContext(
   stored: StoredSession,
   input: SessionReadingInput,
-): Promise<NextContext> {
+): NextContext {
   const { reading } = input;
   const isSameModel = stored.model === reading.model;
   const kept: NextContext = isSameModel
@@ -133,17 +103,11 @@ async function nextContext(
       }
     : { used: null, limit: null, source: null, at: null };
   const { context } = reading;
-  if (stored.provider === "opencode")
-    return context === null ? kept : { ...context, at: input.reportedAt };
-  const limit = context?.limit ?? kept.limit;
-  const window =
-    limit === null && stored.provider === "claude_code"
-      ? await knownModelWindow(transaction, reading.model)
-      : limit;
-  if (!context || context.used === null) return { ...kept, limit: window };
+  if (!context || (context.used === null && context.limit === null))
+    return kept;
   return {
-    used: context.used,
-    limit: window,
+    used: context.used ?? kept.used,
+    limit: context.limit ?? kept.limit,
     source: context.source,
     at: input.reportedAt,
   };
@@ -153,6 +117,30 @@ function isLate(stored: StoredSession, reportedAt: string): boolean {
   return [stored.modelAt, stored.contextAt].some(
     (time) => time !== null && time > reportedAt,
   );
+}
+
+/** The model and reasoning columns of a reading, keeping older values where nothing changed. */
+function modelColumns(
+  stored: StoredSession,
+  input: SessionReadingInput,
+  isAcp: boolean,
+  isSameModel: boolean,
+): SqlParameters {
+  const reportedReasoning = isAcp ? input.reading.reasoning : undefined;
+  return {
+    confirmed_model: input.reading.model,
+    confirmed_model_source: isAcp ? "adapter_selector" : "cli_stream_event",
+    confirmed_model_at:
+      isSameModel && stored.modelAt !== null
+        ? stored.modelAt
+        : input.reportedAt,
+    updates_reasoning:
+      isAcp && (reportedReasoning !== undefined || !isSameModel),
+    reasoning: reportedReasoning ?? null,
+    reasoning_source:
+      reportedReasoning === undefined ? null : "adapter_selector",
+    reasoning_at: reportedReasoning === undefined ? null : input.reportedAt,
+  };
 }
 
 /**
@@ -171,20 +159,28 @@ export async function persistRunnerSessionReading(
   const sources: readonly string[] = READING_SOURCES[stored.provider];
   const source = input.reading.context?.source;
   if (source !== undefined && !sources.includes(source)) return;
-  if (
-    stored.provider === "opencode" &&
-    source !== undefined &&
-    stored.model !== input.reading.model
-  )
-    return;
-  const context = await nextContext(transaction, stored, input);
   const isSameModel = stored.model === input.reading.model;
+  if (source === "acp_usage_update" && !isSameModel) return;
+  const context = nextContext(stored, input);
+  const isAcp = sources.includes("acp_usage_update");
   await transaction.execute(
     `
     UPDATE agent_session_attempts
     SET confirmed_model = $confirmed_model,
         confirmed_model_source = $confirmed_model_source,
         confirmed_model_at = $confirmed_model_at,
+        confirmed_reasoning = CASE
+            WHEN $updates_reasoning THEN $reasoning
+            ELSE confirmed_reasoning
+        END,
+        confirmed_reasoning_source = CASE
+            WHEN $updates_reasoning THEN $reasoning_source
+            ELSE confirmed_reasoning_source
+        END,
+        confirmed_reasoning_at = CASE
+            WHEN $updates_reasoning THEN $reasoning_at
+            ELSE confirmed_reasoning_at
+        END,
         context_used = $context_used,
         context_limit = $context_limit,
         context_source = $context_source,
@@ -193,15 +189,7 @@ export async function persistRunnerSessionReading(
   `,
     {
       attempt_id: input.attemptId,
-      confirmed_model: input.reading.model,
-      confirmed_model_source:
-        stored.provider === "opencode"
-          ? "adapter_selector"
-          : "cli_stream_event",
-      confirmed_model_at:
-        isSameModel && stored.modelAt !== null
-          ? stored.modelAt
-          : input.reportedAt,
+      ...modelColumns(stored, input, isAcp, isSameModel),
       context_used: context.used,
       context_limit: context.limit,
       context_source: context.source,

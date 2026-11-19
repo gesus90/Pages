@@ -505,6 +505,7 @@ export async function executeAntigravity(job, prompt, base = process.env) {
       });
     await publish({
       type: "pages.configuration",
+      sessionId: session.sessionId,
       model: options.find((entry) => entry.id === "model")?.currentValue,
       reasoningEffort: options.find((entry) => entry.id === EFFORT_OPTION)
         ?.currentValue,

@@ -200,6 +200,8 @@ function CodexQuotaWindow({
         label: codexWindowLabel(quotaWindow.durationMinutes, t),
         usedPercentage: quotaWindow.usedPercent,
         resetsAt: quotaWindow.resetsAt,
+        durationMinutes: quotaWindow.durationMinutes,
+        pace: quotaWindow.pace,
       }}
       now={now}
       isStale={isStale}

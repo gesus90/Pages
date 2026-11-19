@@ -94,6 +94,37 @@ export function hasChatAdapter(
 }
 
 /**
+ * The providers whose adapters run a place that is not a chat or a plan.
+ * @remarks
+ * Speech recognition goes through OpenRouter and Z.AI, speech output and the
+ * decisions of group chats through OpenRouter. A place without an entry
+ * runs every provider's models.
+ */
+const PLACE_PROVIDERS: Partial<
+  Record<AgentModelConsumer, readonly AgentProviderId[]>
+> = {
+  stt: ["openrouter", "zai"],
+  tts: ["openrouter"],
+  decision: ["openrouter"],
+};
+
+/**
+ * Whether a place has an adapter that can run models of the provider.
+ * @param consumer - The place that chooses the model.
+ * @param provider - The provider of a connection.
+ * @returns `false` for a connection the place could never run a model of,
+ * which its choice then does not list, not even without models.
+ */
+export function consumerRunsProvider(
+  consumer: AgentModelConsumer,
+  provider: AgentProviderId,
+): boolean {
+  if (consumer === "pica" || consumer === "employee")
+    return hasChatAdapter(provider);
+  return PLACE_PROVIDERS[consumer]?.includes(provider) ?? true;
+}
+
+/**
  * Whether a model is one of the free OpenCode Zen models Pica cannot run.
  * @param model - Provider, model ID and free mark of a catalog model.
  * @returns `true` for a free model of OpenCode's own provider; plans keep it.

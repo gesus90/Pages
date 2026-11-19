@@ -28,8 +28,6 @@ import type { FetcherWithComponents } from "react-router";
 interface PicaSettingsCardProps {
   readonly settings: PicaAdministration;
   readonly models: readonly PageAgentModel[];
-  /** Whether the last server refresh of a catalog failed; the model choice then warns. */
-  readonly isCatalogFailed?: boolean;
 }
 
 /**
@@ -42,7 +40,6 @@ interface PicaSettingsCardProps {
 export function PicaSettingsCard({
   settings,
   models,
-  isCatalogFailed,
 }: PicaSettingsCardProps): React.ReactElement {
   const { t } = useTranslation();
   const fetcher = useFetcher<AgentActionResult>({ key: "pica-settings" });
@@ -56,7 +53,6 @@ export function PicaSettingsCard({
         key={settings.revision}
         settings={settings}
         models={models}
-        isCatalogFailed={isCatalogFailed}
         fetcher={fetcher}
       />
     </SettingsCard>
@@ -66,7 +62,6 @@ export function PicaSettingsCard({
 function PicaSettingsForm({
   settings,
   models,
-  isCatalogFailed,
   fetcher,
 }: PicaSettingsCardProps & {
   readonly fetcher: FetcherWithComponents<AgentActionResult>;
@@ -119,7 +114,6 @@ function PicaSettingsForm({
         modelKey={modelKey}
         effort={effort}
         savedModel={settings.selection?.model ?? ""}
-        isCatalogFailed={isCatalogFailed === true}
         disabled={!isEnabled || isPending}
         onModel={selectModel}
         onEffort={setEffort}
@@ -158,7 +152,6 @@ interface PicaModelFieldsProps {
   readonly modelKey: string;
   readonly savedModel: string;
   readonly effort: string;
-  readonly isCatalogFailed: boolean;
   readonly disabled: boolean;
   readonly onModel: (key: string) => void;
   readonly onEffort: (effort: string) => void;
@@ -197,7 +190,6 @@ function PicaModelFields(props: PicaModelFieldsProps): React.ReactElement {
         disabled={props.disabled}
         placeholder={t("picaSettings.chooseModel")}
         emptyLabel={t("picaSettings.noModels")}
-        isCatalogFailed={props.isCatalogFailed}
         onChange={props.onModel}
       />
       <ReasoningField

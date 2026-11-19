@@ -120,13 +120,14 @@ function reading(session) {
   return {
     session: {
       model: session.model,
-      context: session.context
-        ? {
-            used: session.context.used,
-            limit: session.limit,
-            source: session.context.source,
-          }
-        : null,
+      context:
+        session.context || session.limit !== null
+          ? {
+              used: session.context?.used ?? null,
+              limit: session.limit,
+              source: session.context?.source ?? "cli_assistant_usage",
+            }
+          : null,
     },
   };
 }

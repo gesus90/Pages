@@ -58,15 +58,21 @@ function failedUpTo(
 }
 
 /**
- * How many automatic restarts after technical failures the node had.
- * @param step - The node in the run.
- * @returns The count of `infrastructure` failures, at most the budget.
+ * Counts automatic restarts that preceded the attempt shown in the console.
+ * @param step - The selected node result.
+ * @returns The count of earlier infrastructure failures, capped at the budget.
  */
 export function infrastructureRestarts(step: AgentPlanStepResult): number {
   const attempts = step.session?.retry?.attempts ?? [];
+  const current = attempts.findIndex(
+    (attempt) => attempt.attemptId === step.session?.attemptId,
+  );
   return Math.min(
-    attempts.filter((attempt) => attempt.failureClass === "infrastructure")
-      .length,
+    failedUpTo(
+      attempts,
+      current < 0 ? attempts.length - 1 : current - 1,
+      "infrastructure",
+    ),
     PLAN_BLOCKER_RETRIES.infrastructure,
   );
 }

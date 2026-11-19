@@ -1,6 +1,9 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
+import { useAudioSettings } from "@/app/components/chat-call/audio-settings-context";
+import { useAudioPreferences } from "@/app/components/chat-call/audio-preferences";
+
 import { targetFields } from "../agent-control-api";
 import { ChatPageEmbedDomainsDialog } from "../chat-page-embed-domains";
 import { useChatContent } from "../content/chat-content-context";
@@ -14,6 +17,10 @@ import {
 import { useChatMenuAnchor } from "./chat-menu-request";
 import { ChatPageChatMenu } from "./chat-page-chat-menu";
 
+import type {
+  AudioPreferences,
+  ChosenAudioDevice,
+} from "@/app/components/chat-call/audio-preferences";
 import type { AgentChatControlTarget } from "@/definition/AgentChatControl";
 import type {
   VirtualGroup,
@@ -65,6 +72,18 @@ function switchInput(switches: ChatMenuSwitches): {
     isMuted: switches.isMuted,
     onToggleMute: switches.onToggleMute,
   };
+}
+
+/** The name a chosen device contributes; `null` without a choice or a name. */
+function deviceLabel(device: ChosenAudioDevice | null): string | null {
+  return device !== null && device.label !== "" ? device.label : null;
+}
+
+/** The value of "Audio-Einstellungen": the chosen device, or the default without a choice. */
+function audioNote(preferences: AudioPreferences, defaultNote: string): string {
+  const label =
+    deviceLabel(preferences.microphone) ?? deviceLabel(preferences.speaker);
+  return label ?? defaultNote;
 }
 
 /** The ☰ of a group in its head, also opened by a right click on it in the list. */
@@ -141,6 +160,8 @@ export function DirectChatMenu({
   const content = useChatContent();
   const request = useAgentControl();
   const [isEmbedOpen, setIsEmbedOpen] = useState(false);
+  const audioSettings = useAudioSettings();
+  const audioPreferences = useAudioPreferences();
   const anchor = useChatMenuAnchor({ kind: "participant", id: participant.id });
   const conversationId = participant.conversationId ?? null;
   const media = useMenuMediaNote(conversationId, anchor.stamp);
@@ -154,6 +175,10 @@ export function DirectChatMenu({
     mediaNote: media.note,
     onOpenMedia: content.openMedia,
     ...switchInput(switches),
+    audio: {
+      note: audioNote(audioPreferences, t("chatCall.audio.defaultDevice")),
+      onOpen: audioSettings.open,
+    },
     onOpenEmbedDomains:
       content.conversationId === null ? undefined : () => setIsEmbedOpen(true),
     onOpenModel: () => onOpenModel(participant, target),

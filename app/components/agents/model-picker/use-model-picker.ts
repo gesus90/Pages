@@ -2,7 +2,12 @@ import { useEffect, useId, useRef, useState } from "react";
 
 import { visibleBand } from "@/app/components/ui/searchable-select/use-searchable-select";
 
-import { filterModelGroups, findModelChoice } from "./model-catalog";
+import {
+  countChoices,
+  filterModelGroups,
+  findModelChoice,
+  searchTerms,
+} from "./model-catalog";
 
 import type { FocusEvent, KeyboardEvent, RefObject } from "react";
 import type { ModelChoice, ModelGroup } from "./model-catalog";
@@ -50,6 +55,10 @@ export interface ModelPickerState {
   readonly isOpen: boolean;
   readonly query: string;
   readonly isSearching: boolean;
+  /** The folded words of the search, for highlighting. */
+  readonly terms: readonly string[];
+  /** The models that match the search, or all listed ones without a search. */
+  readonly matchCount: number;
   readonly layout: ModelPickerLayout;
   /** The groups and models that match the search, collapsed groups included. */
   readonly groups: readonly ModelGroup[];
@@ -67,6 +76,8 @@ export interface ModelPickerState {
   readonly itemId: (key: string) => string;
   readonly toggle: () => void;
   readonly search: (query: string) => void;
+  /** Empties the search and shows the person's own open tools again. */
+  readonly clearSearch: () => void;
   readonly toggleGroup: (groupKey: string) => void;
   readonly highlight: (key: string) => void;
   readonly choose: (choice: ModelChoice) => void;
@@ -227,18 +238,24 @@ function toggled(keys: ReadonlySet<string>, key: string): ReadonlySet<string> {
   return next;
 }
 
-/** Closes the panel on Escape before a surrounding dialog hears the key. */
-function useEscapeClose(isOpen: boolean, close: () => void): void {
+/**
+ * Handles Escape before a surrounding dialog hears the key: the first one
+ * empties the search, the next one closes the panel.
+ */
+function useEscapeClose(
+  isOpen: boolean,
+  onEscape: RefObject<() => void>,
+): void {
   useEffect(() => {
     if (!isOpen) return undefined;
     function closeOnEscape(event: globalThis.KeyboardEvent): void {
       if (event.key !== "Escape") return;
       event.preventDefault();
-      close();
+      onEscape.current();
     }
     window.addEventListener("keydown", closeOnEscape, true);
     return () => window.removeEventListener("keydown", closeOnEscape, true);
-  }, [isOpen, close]);
+  }, [isOpen, onEscape]);
 }
 
 /**
@@ -268,6 +285,37 @@ function useFloatingClose(input: {
       window.removeEventListener("resize", close);
     };
   }, [isOpen, mode, panel, close]);
+}
+
+/**
+ * Closes the panel by Escape, by a moving trigger or by the person's choice.
+ * @returns Closes the panel and returns the focus to the trigger.
+ */
+function usePanelDismissal(input: {
+  readonly isOpen: boolean;
+  readonly mode: ModelPickerMode;
+  readonly panel: RefObject<HTMLDivElement | null>;
+  readonly trigger: RefObject<HTMLButtonElement | null>;
+  readonly query: string;
+  readonly setIsOpen: (isOpen: boolean) => void;
+  readonly clearSearch: () => void;
+}): () => void {
+  const { isOpen, mode, panel, trigger, query, setIsOpen, clearSearch } = input;
+  const closeRef = useRef(() => {
+    setIsOpen(false);
+    trigger.current?.focus();
+  });
+  const escapeRef = useRef<() => void>(() => undefined);
+  useEffect(() => {
+    escapeRef.current = () => {
+      if (query === "") closeRef.current();
+      else clearSearch();
+    };
+  });
+  useEscapeClose(isOpen, escapeRef);
+  const dismissRef = useRef(() => setIsOpen(false));
+  useFloatingClose({ isOpen, mode, panel, close: dismissRef.current });
+  return closeRef.current;
 }
 
 /** The open and collapsed groups: the person's own choice, and a separate one while searching. */
@@ -330,22 +378,12 @@ export function useModelPicker(input: ModelPickerInput): ModelPickerState {
   const isSearching = query.trim() !== "";
   const groups = filterModelGroups(input.groups, query);
   const { value } = input;
+  // A tool without a listed model holds only its state lines, which stay in view.
   const isExpanded = (groupKey: string): boolean =>
+    groups.some((group) => group.key === groupKey && group.count === 0) ||
     isGroupExpanded(groupKey, isSearching, expansion);
   const items = listedItems(groups, isExpanded);
   const active = activeItem({ items, activeKey, isSearching, value });
-  const closeRef = useRef(() => {
-    setIsOpen(false);
-    trigger.current?.focus();
-  });
-  useEscapeClose(isOpen, closeRef.current);
-  const dismissRef = useRef(() => setIsOpen(false));
-  useFloatingClose({
-    isOpen,
-    mode: input.mode,
-    panel,
-    close: dismissRef.current,
-  });
 
   function open(): void {
     const selected = findModelChoice(input.groups, input.value);
@@ -358,6 +396,23 @@ export function useModelPicker(input: ModelPickerInput): ModelPickerState {
     setIsOpen(true);
   }
 
+  function search(next: string): void {
+    list.current?.scrollTo({ top: 0 });
+    setQuery(next);
+    expansion.setSearchClosed(new Set());
+    setActiveKey(null);
+  }
+
+  const closePanel = usePanelDismissal({
+    isOpen,
+    mode: input.mode,
+    panel,
+    trigger,
+    query,
+    setIsOpen,
+    clearSearch: () => search(""),
+  });
+
   function toggleGroup(groupKey: string): void {
     if (isSearching)
       expansion.setSearchClosed(toggled(expansion.searchClosed, groupKey));
@@ -367,13 +422,15 @@ export function useModelPicker(input: ModelPickerInput): ModelPickerState {
 
   function choose(choice: ModelChoice): void {
     input.onChange(choice.model.id);
-    closeRef.current();
+    closePanel();
   }
 
   return {
     isOpen,
     query,
     isSearching,
+    terms: searchTerms(query),
+    matchCount: countChoices(groups),
     layout,
     groups,
     items,
@@ -385,12 +442,8 @@ export function useModelPicker(input: ModelPickerInput): ModelPickerState {
     isExpanded,
     itemId: (key) => `${treeId}-${items.findIndex((item) => item.key === key)}`,
     toggle: () => (isOpen ? setIsOpen(false) : open()),
-    search: (next) => {
-      list.current?.scrollTo({ top: 0 });
-      setQuery(next);
-      expansion.setSearchClosed(new Set());
-      setActiveKey(null);
-    },
+    search,
+    clearSearch: () => search(""),
     toggleGroup,
     highlight: setActiveKey,
     choose,

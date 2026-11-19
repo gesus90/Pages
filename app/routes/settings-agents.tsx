@@ -24,7 +24,6 @@ import {
 } from "@/app/lib/local-state/local-state-loader";
 import { readRouteData } from "@/app/lib/local-state/route-data";
 import { sendToBackend } from "@/app/lib/backend-request";
-import { hasFailedCatalog } from "@/definition/AgentModelCatalog";
 
 import type { LocalStateRouteKind } from "@/app/components/common/use-local-state-route";
 import type { LocalStateAudience } from "@/app/lib/local-state/local-state-audience";
@@ -183,25 +182,15 @@ export default function SettingsAgentsRoute(): React.ReactElement {
         <AgentSessionLimitsCard administration={result.sessionLimits} />
       ) : null}
       <div className="grid min-w-0 grid-cols-1 items-stretch gap-4 xl:grid-cols-2">
-        <SpeechSettingsCard
-          administration={result.speech}
-          isCatalogFailed={hasFailedCatalog(result.catalogs)}
-        />
-        <SpeechSynthesisCard
-          administration={result.speechSynthesis}
-          isCatalogFailed={hasFailedCatalog(result.catalogs)}
-        />
+        <SpeechSettingsCard administration={result.speech} />
+        <SpeechSynthesisCard administration={result.speechSynthesis} />
       </div>
-      <ChatDecisionCard
-        administration={result.chatDecision}
-        isCatalogFailed={hasFailedCatalog(result.catalogs)}
-      />
+      <ChatDecisionCard administration={result.chatDecision} />
       <AgentChatSettingsCard settings={result.agentChat} />
       <RunDiagnosisSettingsCard settings={result.runDiagnosis} />
       <PicaSettingsCard
         settings={result.pica.settings}
         models={result.pica.models}
-        isCatalogFailed={hasFailedCatalog(result.catalogs)}
       />
       <Link
         className="inline-flex rounded-lg border border-border bg-surface px-3 py-2 text-sm font-medium text-primary-text hover:bg-surface-hover"

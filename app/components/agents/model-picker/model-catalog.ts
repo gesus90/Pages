@@ -5,6 +5,7 @@ import {
 } from "@/definition/AgentConnection";
 
 import type { AgentProviderId } from "@/definition/AgentConnection";
+import type { ConnectionCatalogStatus } from "@/definition/AgentModelCatalogStatus";
 import type { PageAgentModel } from "@/definition/PageAgent";
 import type { TFunction } from "i18next";
 
@@ -47,7 +48,11 @@ export interface ModelChoice {
   readonly source: string | null;
   /** Whether the catalog states a price of zero for exactly this access. */
   readonly isFree: boolean;
-  /** Lower-case words the search matches: name, ID, tool, access, source, target and "free". */
+  /** The administrators' name of the connection the model is chosen through. */
+  readonly connectionName: string;
+  /** The kind of access, such as "API-Key"; empty where the tool names none. */
+  readonly access: string;
+  /** Folded words the search matches: name, ID, tool, connection, access, source, target and "free". */
   readonly searchText: string;
 }
 
@@ -57,6 +62,11 @@ export interface ModelSource {
   /** The heading above the source's models; `null` in a tool with one source. */
   readonly label: string | null;
   readonly choices: readonly ModelChoice[];
+  /**
+   * The catalog state of the source's connection; `null` where the place
+   * received none. A source without a listed model still stands in its tool.
+   */
+  readonly status: ConnectionCatalogStatus | null;
 }
 
 /** One tool, such as Claude Code or OpenRouter, on one execution target, with its sources and models. */
@@ -68,7 +78,10 @@ export interface ModelGroup {
   /** The mark key registered for the tool. */
   readonly mark: string;
   readonly sources: readonly ModelSource[];
+  /** The models the place lists in this tool. */
   readonly count: number;
+  /** The models the tool's connections offer in total, before the place filters; 0 where unknown. */
+  readonly catalogTotal: number;
 }
 
 /** How a place names and limits the shared catalog. */
@@ -76,6 +89,12 @@ export interface ModelGroupOptions {
   readonly translate: TFunction;
   /** The chosen model, which stays the listed entry where one model has several accesses. */
   readonly selectedId?: string;
+  /**
+   * The catalog state of every connection the place may use and can run.
+   * A connection without a listed model still gets its tool and source, so
+   * its state is never missing.
+   */
+  readonly statuses?: readonly ConnectionCatalogStatus[];
 }
 
 interface SourceDraft {
@@ -90,6 +109,8 @@ interface GroupDraft {
   /** The remote target's name; `null` on this host. */
   readonly targetName: string | null;
   readonly models: PageAgentModel[];
+  /** Connections of this tool the place may use that list no model for it. */
+  readonly emptyConnections: ConnectionCatalogStatus[];
 }
 
 function catalogName(model: PageAgentModel): string {
@@ -272,6 +293,14 @@ function groupContext(
   return draft.targetName === null ? access : `${draft.targetName} · ${access}`;
 }
 
+// OpenCode names its upstream sources instead of one kind of access.
+function modelAccess(model: PageAgentModel, translate: TFunction): string {
+  if (model.provider === "opencode") return "";
+  return translate(`plans.modelPicker.access.${model.provider}`, {
+    defaultValue: "",
+  });
+}
+
 function choicesOf(
   source: SourceDraft,
   input: {
@@ -291,21 +320,23 @@ function choicesOf(
     detail: (names.get(shortName(model)) ?? 0) > 1 ? model.model : null,
     source: input.badge,
     isFree: model.isFree === true,
-    searchText: [
-      catalogName(model),
-      model.model,
-      input.group,
-      input.context,
-      source.name,
-      model.connectionName ?? "",
-      model.targetName ?? "",
-      translate(AGENT_PROVIDERS[model.provider].labelKey),
-      model.isFree === true
-        ? `free ${translate("plans.modelPicker.free")}`
-        : "",
-    ]
-      .join(" ")
-      .toLowerCase(),
+    connectionName: model.connectionName ?? source.name,
+    access: modelAccess(model, translate),
+    searchText: foldText(
+      [
+        catalogName(model),
+        model.model,
+        input.group,
+        input.context,
+        source.name,
+        model.connectionName ?? "",
+        model.targetName ?? "",
+        translate(AGENT_PROVIDERS[model.provider].labelKey),
+        model.isFree === true
+          ? `free ${translate("plans.modelPicker.free")}`
+          : "",
+      ].join(" "),
+    ),
   }));
 }
 
@@ -319,28 +350,53 @@ function buildGroup(draft: GroupDraft, options: ModelGroupOptions): ModelGroup {
     sourceDraft.models.push(model);
     drafts.set(source.key, sourceDraft);
   }
+  for (const connection of draft.emptyConnections)
+    drafts.set(connection.connectionId, {
+      key: connection.connectionId,
+      name: connection.connectionName,
+      models: [],
+    });
   const ordered = [...drafts.values()].toSorted(compareSources(draft.tool));
   const label = modelToolLabel(draft.tool, translate);
   const context = groupContext(draft, ordered, translate);
   const hasSeveral = ordered.length > 1;
+  const sources = ordered.map((source) => ({
+    key: source.key,
+    label: hasSeveral ? source.name : null,
+    choices: choicesOf(source, {
+      group: label,
+      // OpenCode's context names all its sources; each model matches only its own.
+      context: draft.tool === "opencode" ? (draft.targetName ?? "") : context,
+      badge: hasSeveral ? source.name : null,
+      options,
+    }),
+    status: sourceStatus(source, options),
+  }));
   return {
     key: draft.key,
     label,
     context,
     mark: AGENT_PROVIDERS[draft.tool].mark,
     count: models.length,
-    sources: ordered.map((source) => ({
-      key: source.key,
-      label: hasSeveral ? source.name : null,
-      choices: choicesOf(source, {
-        group: label,
-        // OpenCode's context names all its sources; each model matches only its own.
-        context: draft.tool === "opencode" ? (draft.targetName ?? "") : context,
-        badge: hasSeveral ? source.name : null,
-        options,
-      }),
-    })),
+    catalogTotal: sources.reduce(
+      (sum, source) => sum + (source.status?.modelCount ?? 0),
+      0,
+    ),
+    sources,
   };
+}
+
+// A source's models all come through one connection, except OpenCode's upstream
+// sources, which name the first one.
+function sourceStatus(
+  source: SourceDraft,
+  options: ModelGroupOptions,
+): ConnectionCatalogStatus | null {
+  const connectionId = source.models.at(0)?.connectionId ?? source.key;
+  return (
+    options.statuses?.find((entry) => entry.connectionId === connectionId) ??
+    null
+  );
 }
 
 function toolRank(tool: AgentProviderId): number {
@@ -364,6 +420,30 @@ function compareGroups(
   );
 }
 
+// A connection the place may use stands in its tool even without a listed
+// model, so its state is never missing.
+function addEmptyConnections(
+  drafts: Map<string, GroupDraft>,
+  models: readonly PageAgentModel[],
+  options: ModelGroupOptions,
+): void {
+  const listedConnections = new Set(
+    models.map((model) => model.connectionId ?? ""),
+  );
+  for (const status of options.statuses ?? []) {
+    if (listedConnections.has(status.connectionId)) continue;
+    const draft = drafts.get(status.provider) ?? {
+      key: status.provider,
+      tool: status.provider,
+      targetName: null,
+      models: [],
+      emptyConnections: [],
+    };
+    draft.emptyConnections.push(status);
+    drafts.set(status.provider, draft);
+  }
+}
+
 /**
  * Orders the models of the shared catalog under their execution target, tool and source.
  *
@@ -378,8 +458,9 @@ function compareGroups(
  * other. Models of a remote target never share a group with this host's.
  *
  * @param models - The models the place may offer.
- * @param options - Translation and the chosen model.
- * @returns One group per target and tool that offers at least one model.
+ * @param options - Translation, the chosen model and the catalog states.
+ * @returns One group per target and tool that offers at least one model or
+ * holds a connection the place may use.
  */
 export function modelGroups(
   models: readonly PageAgentModel[],
@@ -398,10 +479,12 @@ export function modelGroups(
       tool,
       targetName: target === LOCAL_TARGET ? null : (model.targetName ?? target),
       models: [],
+      emptyConnections: [],
     };
     draft.models.push(model);
     drafts.set(key, draft);
   }
+  addEmptyConnections(drafts, models, options);
   return [...drafts.values()]
     .map((draft) => ({
       ...draft,
@@ -428,6 +511,7 @@ function simulationGroup(
     context,
     mark: "simulation",
     count: models.length,
+    catalogTotal: 0,
     sources: [
       {
         key: "simulation",
@@ -436,37 +520,174 @@ function simulationGroup(
           { key: "simulation", name: label, models: [...models] },
           { group: label, context, badge: null, options },
         ),
+        status: null,
       },
     ],
   };
 }
 
 /**
- * Keeps the models whose name, ID, tool, access, source or target contain every word of the query.
+ * Folds text for matching: lower case, without accents.
+ * @param text - Any text of a model, tool or connection.
+ * @returns The text with case and accents removed.
+ */
+export function foldText(text: string): string {
+  return foldedWithMap(text).text;
+}
+
+// Folds each character alone, so every folded position names the character it came from.
+function foldedWithMap(text: string): {
+  readonly text: string;
+  readonly origins: readonly number[];
+} {
+  let folded = "";
+  const origins: number[] = [];
+  let position = 0;
+  for (const character of text) {
+    const piece = character
+      .normalize("NFD")
+      .replace(/\p{M}/gu, "")
+      .toLowerCase();
+    for (let offset = 0; offset < piece.length; offset += 1)
+      origins.push(position);
+    folded += piece;
+    position += character.length;
+  }
+  origins.push(position);
+  return { text: folded, origins };
+}
+
+/**
+ * The words of a search, folded; every one of them must match.
+ * @param query - The typed search.
+ * @returns The folded words; none for an empty search.
+ */
+export function searchTerms(query: string): readonly string[] {
+  return foldText(query).split(/\s+/u).filter(Boolean);
+}
+
+/** A stretch of a text, marked or plain, as the highlight splits it. */
+export interface TextPart {
+  readonly text: string;
+  readonly isMatch: boolean;
+}
+
+/**
+ * Splits a text into the stretches the search words match and the rest.
+ * @param text - A model name, tool name or connection name.
+ * @param terms - The folded words of the search.
+ * @returns The stretches in order; the whole text as one plain stretch when
+ * no word matches or there are none.
+ */
+export function highlightParts(
+  text: string,
+  terms: readonly string[],
+): readonly TextPart[] {
+  if (terms.length === 0) return [{ text, isMatch: false }];
+  const { text: folded, origins } = foldedWithMap(text);
+  const marked = new Array<boolean>(text.length).fill(false);
+  for (const term of terms) {
+    for (
+      let index = folded.indexOf(term);
+      index !== -1;
+      index = folded.indexOf(term, index + term.length)
+    )
+      for (let at = origins[index]; at < origins[index + term.length]; at += 1)
+        marked[at] = true;
+  }
+  const parts: TextPart[] = [];
+  for (let at = 0; at < text.length; at += 1) {
+    const last = parts.at(-1);
+    if (last && last.isMatch === marked[at])
+      parts[parts.length - 1] = { ...last, text: last.text + text[at] };
+    else parts.push({ text: text[at], isMatch: marked[at] });
+  }
+  return parts;
+}
+
+/** The catalog states that explain why a model is missing. */
+type WarningCatalogState = "empty" | "failed" | "unverified";
+
+/**
+ * Whether a connection's state explains why a model is missing.
+ * @param status - The catalog state of one connection.
+ * @returns `true` for an empty, failed or unverified catalog.
+ */
+export function isWarningStatus(
+  status: ConnectionCatalogStatus | null,
+): status is ConnectionCatalogStatus & { readonly state: WarningCatalogState } {
+  return status !== null && status.state !== "loaded";
+}
+
+/**
+ * Keeps the models whose name, ID, tool, connection, access, source or target contain every word of the query.
  *
  * @param groups - All groups of the choice, collapsed ones included.
- * @param query - The typed search, matched without regard to case.
- * @returns The groups and sources with at least one match, counting only the matches.
+ * @param query - The typed search, matched without regard to case or accents.
+ * @returns The groups and sources with at least one match, counting only the
+ * matches. A source whose catalog is empty, failed or unverified stays, so
+ * the search keeps explaining why a model is missing.
  */
 export function filterModelGroups(
   groups: readonly ModelGroup[],
   query: string,
 ): readonly ModelGroup[] {
-  const terms = query.toLowerCase().split(/\s+/u).filter(Boolean);
+  const terms = searchTerms(query);
   if (terms.length === 0) return groups;
   return groups.flatMap((group) => {
     const sources = group.sources.flatMap((source) => {
       const choices = source.choices.filter((choice) =>
         terms.every((term) => choice.searchText.includes(term)),
       );
-      return choices.length === 0 ? [] : [{ ...source, choices }];
+      return choices.length === 0 && !isWarningStatus(source.status)
+        ? []
+        : [{ ...source, choices }];
     });
-    const count = sources.reduce(
-      (sum, source) => sum + source.choices.length,
-      0,
-    );
-    return count === 0 ? [] : [{ ...group, sources, count }];
+    return sources.length === 0
+      ? []
+      : [
+          {
+            ...group,
+            sources,
+            count: sources.reduce(
+              (sum, source) => sum + source.choices.length,
+              0,
+            ),
+          },
+        ];
   });
+}
+
+/**
+ * Counts the models the groups list.
+ * @param groups - The groups of the choice, searched or not.
+ * @returns The number of model rows.
+ */
+export function countChoices(groups: readonly ModelGroup[]): number {
+  return groups.reduce((sum, group) => sum + group.count, 0);
+}
+
+/**
+ * Reads the connection and model ID a selection key names.
+ * @param value - A selection key, `["connection","model"]` as JSON.
+ * @returns Both parts, or `null` for an empty or unreadable key.
+ */
+export function savedSelection(
+  value: string,
+): { readonly connectionId: string; readonly model: string } | null {
+  if (value === "") return null;
+  try {
+    const parsed: unknown = JSON.parse(value);
+    if (
+      Array.isArray(parsed) &&
+      typeof parsed[0] === "string" &&
+      typeof parsed[1] === "string"
+    )
+      return { connectionId: parsed[0], model: parsed[1] };
+  } catch {
+    return null;
+  }
+  return null;
 }
 
 /**

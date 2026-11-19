@@ -9,6 +9,7 @@ import claudeUrl from "@/assets/providers/logo-claude.png?no-inline";
 
 import { cn } from "@/app/lib/cn";
 import { claudePlanTier } from "@/definition/ClaudeQuota";
+import { FIXED_QUOTA_MINUTES } from "@/definition/QuotaForecast";
 
 import { QuotaCardFrame } from "./quota-card-frame";
 import { QUOTA_WINDOWS_AREA_CLASS } from "./quota-card-layout";
@@ -33,8 +34,8 @@ import type { QuotaCardBody } from "./quota-card-state";
  * The window area of a card: the windows, or the notice in their place.
  * @remarks
  * The area takes the height the card leaves between head and status line,
- * 172 px on a wide card, with 15 px above and below. Two windows fill both
- * 62 px slots with an 18 px gap, five hours first; on a phone the slots are
+ * 204 px on a wide card. Two windows fill both
+ * 66 px slots with a 28 px gap, five hours first; on a phone the slots are
  * 76 px with 24 px above and below and 20 px between. A single window and a
  * notice stand centred, so nothing greyed holds the place of a missing
  * window.
@@ -153,7 +154,7 @@ export function ClaudeQuotaCard({
       <QuotaStatusLine
         status={view.status}
         now={now}
-        source={{ provider: "claude_code" }}
+        source={{ provider: "claude_code", generalLimit: view.limit }}
         progress={{ isQuerying, isHintShown }}
         onRetry={handleRetry}
       />
@@ -180,6 +181,8 @@ function ClaudeQuotaWindow({
         label: t(`agentsPage.window.${quotaWindow.kind}`),
         usedPercentage: quotaWindow.usedPercentage,
         resetsAt: quotaWindow.resetsAt,
+        durationMinutes: FIXED_QUOTA_MINUTES[quotaWindow.kind],
+        pace: quotaWindow.pace,
       }}
       now={now}
       isStale={isStale}

@@ -436,7 +436,7 @@ export class AgentSessionRecorder implements AcpSessionListener {
     update: Extract<SessionUpdate, { sessionUpdate: "usage_update" }>,
   ): void {
     const reportedAt = this.clock();
-    const context = readContextUsage(update, reportedAt);
+    const context = readContextUsage(update, reportedAt, this.attempt.provider);
     const model = reportedModel(update);
     // Only the first model counts; a later report may belong to a subagent.
     const confirmedModel =

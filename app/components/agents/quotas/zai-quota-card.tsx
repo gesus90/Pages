@@ -9,6 +9,7 @@ import zaiUrl from "@/assets/providers/logo-zai.png?no-inline";
 
 import { cn } from "@/app/lib/cn";
 
+import { zaiWindowDurationMinutes } from "@/definition/ZaiQuota";
 import { QuotaCardFrame } from "./quota-card-frame";
 import {
   QUOTA_COMPACT_WINDOWS_AREA_CLASS,
@@ -173,7 +174,7 @@ export function ZaiQuotaCard({
       <QuotaStatusLine
         status={view.status}
         now={now}
-        source={{ provider: "zai" }}
+        source={{ provider: "zai", generalLimit: view.limit }}
         progress={{ isQuerying, isHintShown }}
         onRetry={handleRetry}
       />
@@ -213,6 +214,8 @@ function ZaiQuotaWindow({
         label: zaiWindowLabel(quotaWindow, t),
         usedPercentage: quotaWindow.usedPercent,
         resetsAt: quotaWindow.resetsAt,
+        durationMinutes: zaiWindowDurationMinutes(quotaWindow),
+        pace: quotaWindow.pace,
         usedLabel: counts
           ? t("agentsPage.zai.counts", {
               used: counts.used,

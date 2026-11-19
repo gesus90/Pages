@@ -19,15 +19,11 @@ export interface ModelPick {
 /** The state of the model choice of an agent in a chat. */
 export interface ModelChoiceState {
   readonly overview: AgentChatModelOverview | null;
-  readonly query: string;
-  setQuery(query: string): void;
   readonly pick: ModelPick | null;
   /** The chosen model of the choice, for its reasoning levels. */
   readonly picked: AgentChatModelChoice | undefined;
   choose(choice: AgentChatModelChoice): void;
   chooseEffort(effort: string | null): void;
-  /** The models whose name, ID or connection matches the search. */
-  readonly visible: readonly AgentChatModelChoice[];
 }
 
 function sameModel(
@@ -50,16 +46,6 @@ function initialPick(overview: AgentChatModelOverview): ModelPick {
   };
 }
 
-function matchesQuery(choice: AgentChatModelChoice, query: string): boolean {
-  const needle = query.trim().toLocaleLowerCase();
-  return (
-    needle === "" ||
-    [choice.name, choice.model, choice.connectionName].some((text) =>
-      text.toLocaleLowerCase().includes(needle),
-    )
-  );
-}
-
 /**
  * Reads the model choice of an agent in a chat when the dialog opens and
  * keeps what the person picks.
@@ -69,7 +55,6 @@ export function useModelChoice(
   target: AgentChatControlTarget | null,
 ): ModelChoiceState {
   const [overview, setOverview] = useState<AgentChatModelOverview | null>(null);
-  const [query, setQuery] = useState("");
   const [pick, setPick] = useState<ModelPick | null>(null);
   const kind = target?.kind;
   const agentId = target?.agentId;
@@ -79,7 +64,6 @@ export function useModelChoice(
     if (kind === undefined || agentId === undefined) return undefined;
     let isCurrent = true;
     setOverview(null);
-    setQuery("");
     sendAgentControl({
       intent: "models",
       ...targetFields({ kind, agentId, conversationId }),
@@ -114,12 +98,9 @@ export function useModelChoice(
 
   return {
     overview,
-    query,
-    setQuery,
     pick,
     picked,
     choose,
     chooseEffort,
-    visible: choices.filter((choice) => matchesQuery(choice, query)),
   };
 }

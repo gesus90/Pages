@@ -4,6 +4,7 @@ import type { AgentCliRuntime } from "@/backend/agents/cli/AgentCliRuntime";
 import type { ClaudeQuotaRepository } from "@/backend/database/repositories/agent/ClaudeQuotaRepository";
 import type { AgentConnectionRecord } from "@/backend/database/repositories/agent/AgentConnectionRows";
 import type { QuotaProbeOutcome } from "./ProviderQuotaProbe";
+import type { QuotaMeasurementService } from "./QuotaMeasurementService";
 
 /** The result of one usage query of a Claude connection, see {@link QuotaProbeOutcome}. */
 export type ClaudeQuotaProbeOutcome = QuotaProbeOutcome;
@@ -14,6 +15,7 @@ interface ClaudeQuotaProbeDependencies {
     ClaudeQuotaRepository,
     "replaceWindows" | "savePlan"
   >;
+  readonly measurements: Pick<QuotaMeasurementService, "record">;
   readonly clock?: () => Date;
 }
 
@@ -52,6 +54,11 @@ export class ClaudeQuotaProbe {
     return this.probe.refresh(connection);
   }
 
+  /** Returns the last failed query while stored figures are being reopened. */
+  public latestFailure(connectionId: string): QuotaProbeOutcome | null {
+    return this.probe.latestFailure(connectionId);
+  }
+
   private async query(
     connection: AgentConnectionRecord,
     signal: AbortSignal,
@@ -60,12 +67,14 @@ export class ClaudeQuotaProbe {
     const reading = await reader.readClaudeUsage(connection, signal);
     const observedAt = this.now().toISOString();
     await repository.savePlan(connection.id, reading.plan, observedAt);
-    if (reading.windows !== null)
-      await repository.replaceWindows(
-        connection.id,
-        reading.windows,
-        observedAt,
-      );
+    if (reading.windows === null) return;
+    await this.dependencies.measurements.record({
+      connectionId: connection.id,
+      credentialRevision: connection.cliLoggedInAt,
+      at: observedAt,
+      reading: { provider: "claude_code", windows: reading.windows },
+    });
+    await repository.replaceWindows(connection.id, reading.windows, observedAt);
   }
 
   private now(): Date {

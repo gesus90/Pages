@@ -254,6 +254,8 @@ function workspaceResources(routes: RouteBuilder): RouteConfigEntry[] {
     ),
     resource("chat-page-api/page", "routes/chat-page-data.ts"),
     resource("chat-page-api/presence", "routes/chat-page-presence.ts"),
+    resource("chat-page-api/calls", "routes/chat-page-calls.ts"),
+    resource("chat-page-api/call-media", "routes/chat-page-call-media.ts"),
     resource(
       "chat-page-api/notifications",
       "routes/chat-page-notifications.ts",
@@ -349,6 +351,7 @@ function agentWorkspaceRoutes(routes: RouteBuilder): RouteConfigEntry[] {
       browser: "routes/page-agents.tsx",
       server: "routes/page-agents-server.ts",
     }),
+    resource("agent-api/model-catalogs", "routes/agent-model-catalogs.ts"),
     resource("agent-api/quotas", "routes/agent-quotas.ts"),
     resource("agent-api/quotas/events", "routes/agent-quota-events.ts"),
     resource("agent-api/quotas/order", "routes/agent-quota-order.ts"),

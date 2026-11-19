@@ -1,13 +1,13 @@
 import { z } from "zod";
 
 /** The characters a CLI model identifier may have; anything else is refused, never cut. */
-const MODEL_NAME = /^[A-Za-z0-9._:@/[\]-]{1,200}$/u;
+const MODEL_NAME = /^[A-Za-z0-9._:@~/[\]-]{1,200}$/u;
 const tokenCount = z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER);
 
 /**
  * Where the occupancy of a CLI session's context comes from: the latest
  * top-level answer or a compaction of Claude Code, the `token_count` record
- * of a Codex rollout, or an ACP `usage_update` from OpenCode.
+ * of a Codex rollout, or an ACP `usage_update`.
  */
 export const RUNNER_CONTEXT_SOURCES = [
   "cli_assistant_usage",
@@ -27,8 +27,9 @@ export const RUNNER_CONTEXT_SOURCES = [
  * `model_context_window` of the rollout, the model is the one of its
  * `turn_context`; a reading with a window but no occupancy names a window
  * before the first model response of a turn.
- * For OpenCode, the model is the confirmed ACP selector and the two values
- * come from `usage_update.used` and `usage_update.size` of the same session.
+ * For ACP jobs, the model and optional reasoning are confirmed selectors.
+ * The two context values come from `usage_update.used` and
+ * `usage_update.size` of the same session.
  * A value the CLI did not report is `null`; none is derived from summed
  * tokens. The attempt, workspace and time come from the authenticated
  * binding and the event, never from this text.
@@ -38,6 +39,10 @@ export const runnerSessionReadingSchema = z
     session: z
       .object({
         model: z.string().regex(MODEL_NAME),
+        reasoning: z
+          .string()
+          .regex(/^[\w-]{1,80}$/u)
+          .optional(),
         context: z
           .object({
             used: tokenCount.nullable(),

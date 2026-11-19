@@ -84,9 +84,8 @@ async function openRouterEntries(
   connection: AgentConnectionRecord,
 ): Promise<readonly SpeechModelEntry[]> {
   const catalog = await connections.catalogs().find(connection.id);
-  const failure = catalog.errorCode ? { isCatalogFailed: true } : {};
   return catalog.models.filter(isTranscriptionModel).map((model) => ({
-    choice: { ...speechChoice(connection, model), ...failure },
+    choice: speechChoice(connection, model),
     connection,
     limitMs: null,
   }));

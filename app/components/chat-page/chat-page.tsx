@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
+import { ChatCallBar } from "@/app/components/chat-call/chat-call-bar";
+import { useDirectCall } from "@/app/components/chat-call/use-direct-call";
 import { ChatBrowserPanel } from "@/app/components/chat/browser/chat-browser-panel";
 import { ChatBrowsersProvider } from "@/app/components/chat/browser/chat-browsers-context";
 import { Button } from "@/app/components/ui/button";
@@ -46,6 +48,7 @@ import type {
   VirtualChatMessage,
   VirtualChatSelection,
 } from "@/definition/VirtualChat";
+import type { DirectCall } from "@/app/components/chat-call/use-direct-call";
 import type { ComposerAnswering } from "./chat-page-composer";
 import type { ChatPageState, OpenedConversation } from "./use-chat-page";
 
@@ -119,10 +122,13 @@ function composerAnswering(page: ChatPageState): ComposerAnswering | undefined {
 function ConversationFoot({
   page,
   opened,
+  call,
   mentionRef,
 }: {
   readonly page: ChatPageState;
   readonly opened: OpenedConversation;
+  /** The call of a direct chat; `null` in a group. */
+  readonly call: DirectCall | null;
   /** Receives what the menu of an agent in the head uses to mention it. */
   readonly mentionRef: React.RefObject<((username: string) => void) | null>;
 }): React.ReactElement {
@@ -182,6 +188,9 @@ function ConversationFoot({
         memberIds={memberIds}
         attachments={input.attachments}
         voice={input.voice}
+        call={
+          call ? { isRunning: call.isRunning, onStart: call.start } : undefined
+        }
         mentionRef={mentionRef}
       />
     </div>
@@ -222,6 +231,9 @@ function ChatPageConversation({
   const { besideBrowserId, openBrowserBeside } = useChatContent();
   const confidential = useConfidential(opened);
   const mentionRef = useRef<((username: string) => void) | null>(null);
+  const call = useDirectCall(
+    opened?.kind === "participant" ? opened.participant : null,
+  );
   if (!opened)
     return (
       <p className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
@@ -249,6 +261,14 @@ function ChatPageConversation({
         onToggleMute={page.toggleMute}
         confidential={confidential}
       />
+      {call?.phase ? (
+        <ChatCallBar
+          phase={call.phase}
+          name={name}
+          onEnd={call.end}
+          audio={call.audio}
+        />
+      ) : null}
       <ChatDecisionHealth
         status={status}
         opened={opened}
@@ -287,6 +307,7 @@ function ChatPageConversation({
         key={conversationKey(opened)}
         page={page}
         opened={opened}
+        call={call}
         mentionRef={mentionRef}
       />
     </ChatPageDropZone>

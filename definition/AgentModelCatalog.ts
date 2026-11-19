@@ -110,17 +110,3 @@ export function emptyModelCatalog(): AgentModelCatalog {
     errorCode: null,
   };
 }
-
-/**
- * Whether the last refresh of any catalog failed.
- * @remarks
- * The server keeps the catalogs current; a model choice shows the models it
- * loaded with the page and warns only after a failed refresh.
- * @param catalogs - The catalogs of the page, by connection.
- * @returns `true` when a catalog keeps an error of its last refresh.
- */
-export function hasFailedCatalog(
-  catalogs: Readonly<Record<string, AgentModelCatalog>>,
-): boolean {
-  return Object.values(catalogs).some((catalog) => catalog.errorCode !== null);
-}

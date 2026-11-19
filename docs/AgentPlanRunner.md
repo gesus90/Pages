@@ -884,12 +884,26 @@ the ticket names (`openai/gpt-oss-safeguard-20b`, `meta-llama/llama-guard-4-12b`
 also under an OpenCode provider prefix) are left out by their exact ID; the
 safeguard model states text in and out and tool calls like a chat model. A
 saved assignment to a hidden model stays and shows as unavailable. The search
-covers name, model ID, tool, access and source of every model, also in closed
-tools, opens the tools with matches and restores the previous collapsed state
-when cleared. Arrow keys move, Enter chooses or folds, Left/Right fold while
-the search is empty, Escape closes the panel. The models come complete with
-the page; the server keeps the catalogs current, a change appears with the
-next page load, and the panel warns only after a failed catalog refresh. The
+covers name, model ID, tool, connection, access and source of every model,
+without regard to case or accents, also in closed tools. It opens the tools
+with matches, names their matches ("n Treffer"), highlights the matching text
+and restores the previous collapsed state when cleared. The field shows the
+match count and a clear button. Arrow keys move, Enter chooses or folds,
+Left/Right fold while the search is empty, the first Escape clears the search
+and the second closes the panel. The models come complete with the page. The
+panel also reads the stored catalog state of every connection the person may
+use (`GET /agent-api/model-catalogs`, no provider is asked): each such
+connection stands as a source in its tool, also with no listed model. An empty,
+failed or unconfirmed catalog gets a status line in its source, which the
+search keeps; a catalog that offers models of which none fits the place gets a
+neutral line instead. Only administrators see "Erneut laden", which reloads
+exactly that connection (`POST /agent-api/model-catalogs`); other accounts see
+the note that an administrator can reload. A saved model that is no longer
+available shows a warning ring, its ID, the reason and a row at the top of the
+panel; it stays saved until another model is chosen. Z.AI, OpenRouter and the
+other API connections have no chat adapter, so they appear for plan nodes and
+(Z.AI and OpenRouter for speech recognition; OpenRouter for speech output and
+decisions), but not for Pica and agent profiles. The
 selection stores the listed model's full connection, route, model and
 provider. Every model choice, the list and its search alike, holds only the
 models its place can use, judged by the one rule the server applies when it

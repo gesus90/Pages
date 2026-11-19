@@ -4,6 +4,11 @@ const MINUTE_MILLISECONDS = 60_000;
 const HOUR_MINUTES = 60;
 const DAY_MINUTES = 24 * HOUR_MINUTES;
 
+interface QuotaResetText {
+  readonly full: string;
+  readonly short: string;
+}
+
 function timeFormat(language: string): Intl.DateTimeFormat {
   return new Intl.DateTimeFormat(language, {
     hour: "2-digit",
@@ -113,20 +118,54 @@ export function formatQuotaCountdown(
   milliseconds: number,
   t: TFunction,
 ): string {
+  return t("agentsPage.quota.countdown", {
+    duration: formatQuotaDuration(milliseconds, t),
+  });
+}
+
+/** A quota duration in its two largest units, without a leading preposition. */
+export function formatQuotaDuration(
+  milliseconds: number,
+  t: TFunction,
+  useFullUnits = false,
+): string {
   const minutes = Math.max(1, Math.ceil(milliseconds / MINUTE_MILLISECONDS));
   const days = Math.floor(minutes / DAY_MINUTES);
   const hours = Math.floor((minutes % DAY_MINUTES) / HOUR_MINUTES);
   const restMinutes = minutes % HOUR_MINUTES;
+  const units = useFullUnits ? "forecasts.duration" : "duration";
   const parts: string[] = [];
   if (days > 0) {
-    parts.push(t("agentsPage.duration.days", { count: days }));
-    if (hours > 0) parts.push(t("agentsPage.duration.hours", { count: hours }));
+    parts.push(t(`agentsPage.${units}.days`, { count: days }));
+    if (hours > 0) parts.push(t(`agentsPage.${units}.hours`, { count: hours }));
   } else if (hours > 0) {
-    parts.push(t("agentsPage.duration.hours", { count: hours }));
+    parts.push(t(`agentsPage.${units}.hours`, { count: hours }));
     if (restMinutes > 0)
-      parts.push(t("agentsPage.duration.minutes", { count: restMinutes }));
+      parts.push(t(`agentsPage.${units}.minutes`, { count: restMinutes }));
   } else {
-    parts.push(t("agentsPage.duration.minutes", { count: restMinutes }));
+    parts.push(t(`agentsPage.${units}.minutes`, { count: restMinutes }));
   }
-  return t("agentsPage.quota.countdown", { duration: parts.join(" ") });
+  return parts.join(" ");
+}
+
+/** Formats the reported reset for both regular and narrow window rows. */
+export function formatQuotaReset(
+  resetsAt: string | null,
+  now: Date,
+  context: { readonly t: TFunction; readonly language: string },
+): QuotaResetText {
+  const { t } = context;
+  const reset = Date.parse(resetsAt ?? "");
+  if (!Number.isFinite(reset)) {
+    const unknown = t("agentsPage.forecasts.resetUnknown");
+    return { full: unknown, short: unknown };
+  }
+  const moment = formatQuotaMoment(new Date(reset), now, context);
+  return {
+    full: t("agentsPage.quota.resets", {
+      moment,
+      countdown: formatQuotaCountdown(reset - now.getTime(), t),
+    }),
+    short: t("agentsPage.quota.resetsShort", { moment }),
+  };
 }

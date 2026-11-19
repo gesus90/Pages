@@ -88,7 +88,7 @@ function QuotaCardOfConnection({
  * While the connections are unknown (`cards` is `null`) three placeholder
  * cards of the full card size stand in the grid; the cards of the connections
  * replace them in place and surplus placeholders leave. All cards have the
- * same height, 308 px on a wide screen and 344 px in the single column of a
+ * same height, 340 px on a wide screen and 344 px in the single column of a
  * phone, also in a row with fewer cards. The cards arrive in the order the
  * person arranged; a handle at the top of each card moves it by mouse, finger
  * or keyboard, and `onMove` receives the place the card is put down at.
@@ -116,7 +116,7 @@ export function QuotaCardGrid({
       <div
         ref={sort.gridRef}
         aria-busy={cards === null}
-        className="grid auto-rows-[344px] grid-cols-1 gap-5 md:auto-rows-[308px] md:grid-cols-2 xl:max-w-[1594px] xl:grid-cols-3"
+        className="grid auto-rows-[344px] grid-cols-1 gap-5 md:auto-rows-[340px] md:grid-cols-2 xl:max-w-[1594px] xl:grid-cols-3"
       >
         {cards === null
           ? PLACEHOLDER_CARDS.map((position) => (

@@ -4,11 +4,23 @@ import { useTranslation } from "react-i18next";
 import { cn } from "@/app/lib/cn";
 
 import { FreeBadge } from "../badges/free-badge";
+import { highlightParts } from "./model-catalog";
+import { ModelSourceStatus } from "./model-source-status";
 import { ToolMark } from "./tool-mark";
 import { groupRowKey, modelRowKey } from "./use-model-picker";
 
+import type { TFunction } from "i18next";
 import type { ModelChoice, ModelGroup, ModelSource } from "./model-catalog";
+import type { CatalogStatusState } from "./use-catalog-statuses";
 import type { ModelPickerState } from "./use-model-picker";
+
+/** What the rows of the open choice need beyond the picker's own state. */
+export interface ModelRowContext {
+  readonly state: ModelPickerState;
+  readonly catalog: CatalogStatusState;
+  /** The key of the chosen model. */
+  readonly value: string;
+}
 
 // Every row is 36 px high with 14 px text; on a touch screen only the row
 // grows, never the text.
@@ -21,6 +33,37 @@ const TEXT_COLUMN = "pl-10";
 // Scrolls the highlighted row into view inside the list.
 function revealRow(element: HTMLElement | null): void {
   element?.scrollIntoView({ block: "nearest" });
+}
+
+/**
+ * A text with the stretches the search words match set apart.
+ * @remarks
+ * A match is `primary` at 26 % opacity behind the text with a 3 px radius and
+ * weight 700, the same in the model name, the tool and the connection.
+ */
+function Highlighted({
+  text,
+  terms,
+}: {
+  readonly text: string;
+  readonly terms: readonly string[];
+}): React.ReactElement {
+  return (
+    <>
+      {highlightParts(text, terms).map((part, index) =>
+        part.isMatch ? (
+          <mark
+            key={index}
+            className="rounded-[3px] bg-primary/26 font-bold text-inherit"
+          >
+            {part.text}
+          </mark>
+        ) : (
+          <span key={index}>{part.text}</span>
+        ),
+      )}
+    </>
+  );
 }
 
 function ModelRow({
@@ -62,7 +105,9 @@ function ModelRow({
       onMouseEnter={() => state.highlight(key)}
     >
       <span className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2.5">
-        <span className="min-w-0 truncate">{choice.label}</span>
+        <span className="min-w-0 truncate">
+          <Highlighted text={choice.label} terms={state.terms} />
+        </span>
         {choice.detail === null ? null : (
           <span className="min-w-0 truncate text-xs text-muted-foreground">
             {choice.detail}
@@ -83,13 +128,12 @@ function ModelRow({
 
 function SourceRows({
   source,
-  state,
-  value,
+  context,
 }: {
   readonly source: ModelSource;
-  readonly state: ModelPickerState;
-  readonly value: string;
+  readonly context: ModelRowContext;
 }): React.ReactElement {
+  const { state, catalog, value } = context;
   return (
     <>
       {source.label === null ? null : (
@@ -100,10 +144,17 @@ function SourceRows({
             TEXT_COLUMN,
           )}
         >
-          <span className="shrink-0">{source.label}</span>
+          <span className="shrink-0">
+            <Highlighted text={source.label} terms={state.terms} />
+          </span>
           <span className="h-px flex-1 bg-border" aria-hidden="true" />
         </li>
       )}
+      <ModelSourceStatus
+        source={source}
+        catalog={catalog}
+        isSearching={state.isSearching}
+      />
       {source.choices.map((choice) => (
         <ModelRow
           key={choice.model.id}
@@ -116,6 +167,22 @@ function SourceRows({
   );
 }
 
+// "Zugang · Anzahl" ("API-Key · 0 von 6" where the connection offers models
+// but none fits the place); a search names its matches instead.
+function groupCountText(
+  group: ModelGroup,
+  isSearching: boolean,
+  t: TFunction,
+): string {
+  if (isSearching) return t("plans.modelPicker.hits", { count: group.count });
+  if (group.count === 0 && group.catalogTotal > 0)
+    return `${group.context} · ${t("plans.modelPicker.countOf", {
+      shown: group.count,
+      total: group.catalogTotal,
+    })}`;
+  return `${group.context} · ${group.count}`;
+}
+
 /**
  * One tool of the model choice: its header opens and closes the tool, its models follow while it is open.
  * @remarks
@@ -126,14 +193,13 @@ function SourceRows({
  */
 export function ModelGroupRows({
   group,
-  state,
-  value,
+  context,
 }: {
   readonly group: ModelGroup;
-  readonly state: ModelPickerState;
-  readonly value: string;
+  readonly context: ModelRowContext;
 }): React.ReactElement {
   const { t } = useTranslation();
+  const { state } = context;
   const key = groupRowKey(group.key);
   const isActive = state.active?.key === key;
   const isExpanded = state.isExpanded(group.key);
@@ -157,10 +223,10 @@ export function ModelGroupRows({
       >
         <ToolMark mark={group.mark} />
         <span className="max-w-[60%] min-w-0 shrink-0 truncate font-bold text-foreground">
-          {group.label}
+          <Highlighted text={group.label} terms={state.terms} />
         </span>
         <span className="min-w-0 flex-1 truncate text-right text-xs text-muted-foreground">
-          {group.context} · {group.count}
+          {groupCountText(group, state.isSearching, t)}
         </span>
         <ChevronRight
           className={cn(
@@ -173,12 +239,7 @@ export function ModelGroupRows({
       {isExpanded ? (
         <ul role="group">
           {group.sources.map((source) => (
-            <SourceRows
-              key={source.key}
-              source={source}
-              state={state}
-              value={value}
-            />
+            <SourceRows key={source.key} source={source} context={context} />
           ))}
         </ul>
       ) : null}

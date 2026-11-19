@@ -115,13 +115,6 @@ export interface PageAgentModel {
    * with it in a chat generates sounds with it.
    */
   readonly isAudioOutputCapable?: boolean;
-  /**
-   * `true` when the last server refresh of the model's catalog failed.
-   * @remarks
-   * The model choice then warns that the list may be outdated;
-   * absent while the catalog is current.
-   */
-  readonly isCatalogFailed?: boolean;
   /** For a remote OpenCode model: the connection and workspace it runs on, such as "homeNAS / pageNAS". */
   readonly targetName?: string;
   /**

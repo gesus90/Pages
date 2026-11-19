@@ -11,14 +11,16 @@ import type { AgentConnectionRecord } from "@/backend/database/repositories/agen
 import type { InstanceSecretCipher } from "@/backend/security/InstanceSecretCipher";
 import type { ZaiQuotaReading } from "@/definition/ZaiQuota";
 import type { QuotaProbeOutcome } from "./ProviderQuotaProbe";
-
-/** How many readings the probe keeps; the oldest one goes first. */
-const MAX_STORED_READINGS = 500;
+import type { QuotaMeasurementService } from "./QuotaMeasurementService";
 
 interface ZaiQuotaProbeDependencies {
   readonly connections: Pick<AgentConnectionRepository, "findSecretEncrypted">;
   readonly cipher: Pick<InstanceSecretCipher, "decrypt">;
   readonly provider: Pick<ZaiProvider, "readQuota">;
+  readonly measurements: Pick<
+    QuotaMeasurementService,
+    "record" | "readZaiReading" | "clearZaiReading"
+  >;
   readonly clock?: () => Date;
 }
 
@@ -33,7 +35,7 @@ export interface ZaiStoredReading extends ZaiQuotaReading {
  * The query is one authenticated `GET` with the key of the connection. It
  * starts no model turn and so uses none of the allowance it reads, and a
  * running answer of the same connection is neither waited for nor
- * interrupted. The last good answer stays in memory beside the stored key's
+ * interrupted. The last good answer is stored beside the key's
  * fingerprint, so a failed query keeps the figures with the time of the last
  * answer, and a replaced key never shows the figures of the old one. A key
  * the monitor rejects drops its answer, because nothing it said holds any
@@ -46,7 +48,6 @@ export interface ZaiStoredReading extends ZaiQuotaReading {
 export class ZaiQuotaProbe {
   private readonly dependencies: ZaiQuotaProbeDependencies;
   private readonly probe: ProviderQuotaProbe;
-  private readonly readings = new Map<string, ZaiStoredReading>();
   private readonly lastCounts = new Map<string, string>();
 
   public constructor(dependencies: ZaiQuotaProbeDependencies) {
@@ -78,9 +79,15 @@ export class ZaiQuotaProbe {
     const encrypted =
       await this.dependencies.connections.findSecretEncrypted(connectionId);
     if (encrypted === null) return null;
-    return (
-      this.readings.get(credentialRevision(connectionId, encrypted)) ?? null
+    return this.dependencies.measurements.readZaiReading(
+      connectionId,
+      credentialRevision(connectionId, encrypted),
     );
+  }
+
+  /** Returns the last failed query while stored figures are being reopened. */
+  public latestFailure(connectionId: string): QuotaProbeOutcome | null {
+    return this.probe.latestFailure(connectionId);
   }
 
   private async query(
@@ -96,7 +103,13 @@ export class ZaiQuotaProbe {
       signal,
     );
     if (result.ok) {
-      this.keep(revision, { ...result.value, at: this.now().toISOString() });
+      const at = this.now().toISOString();
+      await this.dependencies.measurements.record({
+        connectionId: connection.id,
+        credentialRevision: revision,
+        at,
+        reading: { provider: "zai", ...result.value },
+      });
       this.logAnswer(connection.id, result.value);
       return;
     }
@@ -104,7 +117,10 @@ export class ZaiQuotaProbe {
       result.errorCode === "provider_auth_failed" ||
       result.errorCode === "provider_permission_denied"
     )
-      this.readings.delete(revision);
+      await this.dependencies.measurements.clearZaiReading(
+        connection.id,
+        revision,
+      );
     throw new AgentError(result.errorCode);
   }
 
@@ -141,15 +157,6 @@ export class ZaiQuotaProbe {
       message: "Z.AI usage monitor answered",
       metadata: { connectionId, ...counts },
     });
-  }
-
-  private keep(revision: string, reading: ZaiStoredReading): void {
-    this.readings.delete(revision);
-    if (this.readings.size >= MAX_STORED_READINGS) {
-      const oldest = this.readings.keys().next().value;
-      if (oldest !== undefined) this.readings.delete(oldest);
-    }
-    this.readings.set(revision, reading);
   }
 
   private now(): Date {
