@@ -38,15 +38,16 @@ export async function loader({
     const search = new URL(request.url).searchParams;
     const key = readSessionKey(params, search);
     const sessions = (await getApplicationServices()).agentSessionService;
-    const view =
-      search.get("history") === "only"
-        ? null
-        : await sessions.view(user.id, key);
+    // The view must include context readings already covered by the page cursor.
     const page = await sessions.history(
       user.id,
       key,
       readSessionHistoryWindow(search, PAGE_LIMIT),
     );
+    const view =
+      search.get("history") === "only"
+        ? null
+        : await sessions.view(user.id, key);
     return Response.json({ ok: true, view, page }, { headers: AGENT_NO_STORE });
   } catch (error: unknown) {
     logCaughtError("agent_plan_session", error);

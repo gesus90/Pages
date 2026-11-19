@@ -5913,10 +5913,14 @@
           "name": "Antigravity CLI"
         },
         "opencode": {
-          "name": "OpenCode"
+          "name": "OpenCode CLI",
+          "account": "Verbindung"
         },
         "zai": {
           "name": "Z.AI"
+        },
+        "openrouter": {
+          "name": "OpenRouter"
         }
       },
       "manualInput": "Manuell eingegriffen",
@@ -5968,8 +5972,9 @@
           "activityWaiting": "Wartet auf Neustart",
           "usage": "Verbrauch",
           "context": "Kontext",
-          "contextNotReported": "noch nicht gemeldet",
+          "contextNotReported": "Kontext noch nicht gemeldet",
           "contextTokens": "{{used}} Tokens",
+          "contextWindowTokens": "Fenster {{limit}} Tokens",
           "tokens": "Tokens gesamt",
           "afterTurn": "nach Turn-Ende",
           "antigravity": {
@@ -9539,6 +9544,21 @@
       "live": "live",
       "refresh": "Kontingente aktualisieren"
     },
+    "order": {
+      "handle": "Karte {{name}} verschieben",
+      "instructions": "Zum Sortieren den Griff einer Karte mit Maus oder Finger ziehen. Mit der Tastatur nehmen Eingabetaste oder Leertaste die Karte auf, die Pfeiltasten sowie Pos1 und Ende verschieben sie, Eingabetaste oder Leertaste legt sie ab und Escape bricht ab.",
+      "announcement": {
+        "pickedUp": "{{name}} aufgenommen, Position {{position}} von {{count}}. Pfeiltasten verschieben, Eingabetaste legt ab, Escape bricht ab.",
+        "moved": "{{name}}, Position {{position}} von {{count}}.",
+        "dropped": "{{name}} auf Position {{position}} von {{count}} abgelegt.",
+        "cancelled": "Verschieben abgebrochen. {{name}} bleibt auf Position {{position}} von {{count}}."
+      },
+      "saveFailed": "Die neue Reihenfolge ist nicht gespeichert und gilt nur, bis die Seite neu geladen wird. Gespeichert ist weiterhin die vorherige Reihenfolge.",
+      "saveFailedUnknown": "Die neue Reihenfolge ist nicht gespeichert und gilt nur, bis die Seite neu geladen wird.",
+      "retry": "Erneut speichern",
+      "showSaved": "Gespeicherte Reihenfolge anzeigen",
+      "loadFailed": "Die gespeicherte Reihenfolge konnte nicht geladen werden. Die Karten stehen in der Standardreihenfolge; eine neue Reihenfolge wird beim Sortieren gespeichert."
+    },
     "card": {
       "subscription": "claude.ai-Abo",
       "antigravity": "Antigravity CLI",
@@ -9548,6 +9568,19 @@
       "subtitle": "OpenRouter · API-Schlüssel",
       "refresh": "Aktualisieren",
       "balance": "Guthaben übrig",
+      "balanceSettings": "Guthabenanzeige einstellen",
+      "balanceSettingsHint": "Wähle die Guthabenanzeige für „{{name}}“.",
+      "accountBalanceMode": "Gesamtes OpenRouter-Kontoguthaben",
+      "manualBalanceMode": "Manueller Startbetrag",
+      "manualStartAmount": "Startbetrag in USD",
+      "manualStartAmountDetail": "Startbetrag {{amount}}",
+      "manualBalance": "Rest vom manuellen Startbetrag",
+      "manualBalanceExhausted": "Manueller Startbetrag aufgebraucht · {{amount}} übrig",
+      "manualBaselineMissing": "Management-Key geändert · Startbetrag neu speichern",
+      "invalidStartAmount": "Gib einen gültigen Betrag ab 0 USD ein.",
+      "baselineUnavailable": "OpenRouter hat mit dem hinterlegten Management-Key keinen gültigen Verbrauch gemeldet. Prüfe den Key oder versuche es erneut.",
+      "balanceConnectionChanged": "Die Verbindung wurde geändert. Prüfe die Verbindung und versuche es erneut.",
+      "balanceSaveFailed": "Die Guthabenanzeige konnte nicht gespeichert werden.",
       "creditTotals": "Gekauft {{purchased}} · Verbraucht {{used}}",
       "usage": "Verbrauch gesamt",
       "remaining": "Restbudget des Schlüssels",
@@ -9721,6 +9754,47 @@
         "signedOut": {
           "title": "Für diese Verbindung fehlt die Anmeldung bei ChatGPT.",
           "detail": "Ohne Anmeldung kann Pages weder Tarif noch Werte abrufen."
+        }
+      }
+    },
+    "zai": {
+      "subtitle": {
+        "coding-plan": "Z.AI · GLM Coding Plan",
+        "api": "Z.AI · Standard-API"
+      },
+      "plan": {
+        "lite": "Lite",
+        "pro": "Pro",
+        "max": "Max"
+      },
+      "window": {
+        "tokens": "Token-Kontingent",
+        "mcp": "MCP-Nutzung",
+        "named": "{{name}} · {{length}}"
+      },
+      "length": {
+        "hours_one": "{{count}} Stunde",
+        "hours_other": "{{count}} Stunden",
+        "weeks_one": "{{count}} Woche",
+        "weeks_other": "{{count}} Wochen",
+        "months_one": "{{count}} Monat",
+        "months_other": "{{count}} Monate"
+      },
+      "counts": "{{used}} von {{total}} genutzt",
+      "reported": "Von Z.AI gemeldet · {{time}}",
+      "signedOut": "Schlüssel fehlt oder abgelehnt",
+      "notice": {
+        "noWindows": {
+          "title": "Z.AI hat für diesen Schlüssel keine Kontingente gemeldet.",
+          "detail": "Pages hat erfolgreich abgefragt."
+        },
+        "failed": {
+          "title": "Pages konnte noch keine Werte abrufen.",
+          "detail": "Der Tarif ist unbekannt, bis Z.AI ihn meldet."
+        },
+        "signedOut": {
+          "title": "Für diese Verbindung fehlt ein gültiger Z.AI-Schlüssel.",
+          "detail": "Ohne gültigen Schlüssel kann Pages weder Tarif noch Werte abrufen."
         }
       }
     }

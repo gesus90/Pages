@@ -7,6 +7,7 @@ import {
   AGENT_QUESTION_TIMEOUT_RANGE_MINUTES,
 } from "@/definition/AgentChatQuestion";
 
+import { isTicketArchiveOperation } from "../PicaArchiveConfirmation";
 import { PICA_TOOL_OUTCOME } from "../PicaToolSchemas";
 
 import { toolkitRefusal, toolkitResult } from "./AgentToolkitOutcome";
@@ -18,6 +19,7 @@ import type {
   AgentQuestionConfirmation,
   AgentQuestionOutcome,
 } from "@/definition/AgentChatQuestion";
+import type { PicaArchiveConfirmation } from "../PicaArchiveConfirmation";
 import type { PicaPlanConfirmation } from "../PicaPlanConfirmation";
 import type { PicaToolOutcome } from "../PicaToolSchemas";
 
@@ -119,6 +121,7 @@ export interface AgentChatInteractionParts {
   readonly interactions: AgentChatInteractions;
   /** The approvals of consequential steps the confirmation of a question grants. */
   readonly approvals: PicaPlanConfirmation;
+  readonly archiveConfirmations?: PicaArchiveConfirmation | undefined;
   /** The human message of the turn; its ID binds a granted approval to the turn. */
   readonly turnId: string | undefined;
   readonly admit: (context: RuntimeExecutionContext) => Promise<boolean>;
@@ -150,25 +153,29 @@ async function say(
   }
 }
 
-/** Checks the confirmation of a question before it is asked; `null` lets it be asked. */
-function confirmationProblem(
+/** Reserves a held call for this card and returns how its answer settles the call. */
+function claimConfirmation(
   parts: AgentChatInteractionParts,
-  parameters: AskParameters,
+  confirmation: AgentQuestionConfirmation,
   context: RuntimeExecutionContext,
-): PicaToolOutcome | null {
-  const { confirms } = parameters;
-  if (!confirms) return null;
-  if (parameters.questions.length !== 1 || parameters.questions[0]?.multiple)
-    return toolkitRefusal("INVALID_REQUEST", {
-      reason: "A confirmation asks exactly one single-choice question.",
-    });
-  const action = { operation: confirms.tool, parameters: confirms.parameters };
-  return parts.approvals.isHeld(action, context)
-    ? null
-    : toolkitRefusal("NOT_HELD", {
-        reason:
-          "Pages holds back no such step. Make the call first; ask for confirmation only after it answered CONFIRMATION_REQUIRED, with its tool and parameters unchanged.",
-      });
+): ((isApproved: boolean) => boolean) | null {
+  const action = {
+    operation: confirmation.tool,
+    parameters: confirmation.parameters,
+  };
+  if (parts.archiveConfirmations && isTicketArchiveOperation(action.operation))
+    return parts.archiveConfirmations.claimQuestion(action, context);
+  if (!parts.approvals.isHeld(action, context)) return null;
+  return (isApproved: boolean): boolean =>
+    isApproved &&
+    parts.approvals.grant(action, context, parts.turnId ?? context.runId);
+}
+
+function isInvalidConfirmation(parameters: AskParameters): boolean {
+  return Boolean(
+    parameters.confirms &&
+    (parameters.questions.length !== 1 || parameters.questions[0]?.multiple),
+  );
 }
 
 async function ask(
@@ -177,14 +184,19 @@ async function ask(
   context: RuntimeExecutionContext,
 ): Promise<PicaToolOutcome> {
   if (!(await parts.admit(context))) return toolkitRefusal("STEP_LIMIT");
-  const problem = confirmationProblem(parts, parameters, context);
-  if (problem) return problem;
-  const confirmation: AgentQuestionConfirmation | null = parameters.confirms
-    ? {
-        tool: parameters.confirms.tool,
-        parameters: parameters.confirms.parameters,
-      }
+  const confirmation = parameters.confirms ?? null;
+  if (isInvalidConfirmation(parameters))
+    return toolkitRefusal("INVALID_REQUEST", {
+      reason: "A confirmation asks exactly one single-choice question.",
+    });
+  const settleConfirmation = confirmation
+    ? claimConfirmation(parts, confirmation, context)
     : null;
+  if (confirmation && !settleConfirmation)
+    return toolkitRefusal("NOT_HELD", {
+      reason:
+        "No matching call is waiting for a new confirmation card. Use the exact tool and parameters from CONFIRMATION_REQUIRED. If you already asked for this call, do not ask again.",
+    });
   let outcome: AgentQuestionOutcome;
   try {
     outcome = await parts.interactions.ask(
@@ -202,16 +214,10 @@ async function ask(
       context.signal,
     );
   } catch (error: unknown) {
+    settleConfirmation?.(false);
     return refusalOf(error);
   }
-  const isApproved =
-    confirmation !== null &&
-    isApproving(outcome) &&
-    parts.approvals.grant(
-      { operation: confirmation.tool, parameters: confirmation.parameters },
-      context,
-      parts.turnId ?? context.runId,
-    );
+  const isApproved = settleConfirmation?.(isApproving(outcome)) ?? false;
   return toolkitResult({
     ...outcome,
     ...(confirmation ? { confirmed: isApproved } : {}),

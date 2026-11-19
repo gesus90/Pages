@@ -309,12 +309,13 @@ counters, a single `usage` event at the end of the turn, and no session
 reading; the attempt kept `context_used` and `context_limit` empty, and the
 sidebar showed "Kontext noch nicht gemeldet" for the whole step.
 
-The runner now follows the rollout of the thread `thread.started` names
-(`scripts/runner/codex-session.mjs`), reading only new bytes with every Codex
-event and once more after the process ended. It sends a session reading
-`{"session":{"model","context":{"used","limit","source":"codex_token_count"}}}`
-when the model, the occupancy or the window changed. Replayed with the
-recorded events and rollouts of both jobs, the runner sent the window alone
+Runner 1.24.0 introduced the rollout reader for the thread `thread.started`
+names (`scripts/runner/codex-session.mjs`). Runner 1.25.0 reads new bytes with
+every Codex event, once a second while stdout is quiet, and after the process
+ends. It sends each distinct model or context update as
+`{"session":{"model","context":{"used","limit","source":"codex_token_count"}}}`.
+Replayed with the recorded events and rollouts of both jobs, the original
+reader sent the window alone
 at the start of the turn and then exactly the 21 (first job) and 16 (second
 job) distinct pairs of the rollout, in order. `persistRunnerSessionReading`
 stores them on Codex attempts as on Claude Code attempts.
@@ -326,8 +327,8 @@ Missing and partial values:
   never used instead.
 - A `token_count` without `info` (Codex sends rate limits alone) names no
   usage and keeps the last value. A `task_started` names the window before the
-  first model response, so the sidebar knows the window before the occupancy;
-  it shows "not reported" until the first response.
+  first model response, so the sidebar can show the window while it waits
+  for the first occupancy.
 - A compaction (`compacted`, followed by `turn_context`) keeps the window; the
   next `token_count` names what the compaction kept.
 - A rollout that cannot be read stops the reader of that job; the job goes on
@@ -339,23 +340,19 @@ Reopening, resuming and switching the model:
   last value, also after the step ended.
 - `codex exec resume` appends to the rollout of the recorded thread (Pica's
   codex-acp sessions show the same: one rollout with up to 53 turns across
-  resumes and compactions). The runner reads the existing history of a
-  resumed thread silently and reports its state with the first record of the
-  new turn; until then the view shows the last occupancy of the resumed
-  attempt.
-- A window belongs to its model (`gpt-6.1-terra`, `gpt-6.1-sol` and
-  `gpt-6.2-sol` 475,000, `gpt-6-sol` and `gpt-6-luna` 258,400 in all rollouts
-  of the connection). A `turn_context` with another model drops occupancy and
-  window, and the window of its own `task_started` follows. The view carries
-  the occupancy of a resumed attempt over only when both attempts ran the same
-  model, so a window always matches the current model.
+  resumes and compactions). The runner reads the existing history of the
+  resumed thread before the child starts and reports context with the new
+  turn. Each attempt displays the readings attributed to its own runner jobs.
+- A `turn_context` with another model drops occupancy and window. The window
+  of the new model comes from its `task_started` or `token_count` in the same
+  rollout. Pages keeps the last recorded values for the same model and
+  session when a later event omits them.
 
-The checks replayed the recorded jobs through `createLiveHistory` and fed
+The original checks replayed the recorded jobs through `createLiveHistory` and fed
 constructed rollouts for resume, model switch, missing `info`, a line written
 in two parts, a line beyond 8 MiB and a job without rollout; the readings then
 went through `readRunnerSessionReading`, `persistRunnerSessionReading` and
-`attemptContext` with a stand-in database. The values take effect with the
-next runner release (1.24.0) and the next Pages deploy.
+`attemptContext` with a stand-in database.
 
 ### Codex terminal events for the design reference
 

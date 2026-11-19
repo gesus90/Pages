@@ -27,6 +27,7 @@ import {
 import { CHAT_MAXIMUM_ACTIONS } from "./ChatExecutionLimits";
 import { ChatAnswerFileError } from "./ChatAnswerFileService";
 import { isChatOperation, isChatWriteOperation } from "./ChatToolCatalog";
+import { PicaArchiveConfirmation } from "./PicaArchiveConfirmation";
 import {
   PICA_FILE_EXTENSIONS,
   PICA_FILE_SCHEMA,
@@ -43,6 +44,7 @@ import {
   guardBrowserCall,
   registerAgentToolkitTools,
 } from "./toolkit/AgentToolkit";
+import { toolkitRefusal } from "./toolkit/AgentToolkitOutcome";
 
 import type { AgentBrowserService } from "./browser/AgentBrowserService";
 import type { z } from "zod";
@@ -213,6 +215,7 @@ export interface PicaToolState {
   readonly budget: ToolBudget;
   readonly failedWrites: Set<string>;
   readonly results: ChatResultBudget;
+  readonly archiveConfirmations: PicaArchiveConfirmation;
 }
 
 /** Creates fresh limits for a new turn. */
@@ -221,6 +224,7 @@ export function createPicaToolState(): PicaToolState {
     budget: { calls: 0 },
     failedWrites: new Set<string>(),
     results: new ChatResultBudget(),
+    archiveConfirmations: new PicaArchiveConfirmation(),
   };
 }
 
@@ -451,6 +455,7 @@ async function guardPicaPagesOperation(
   call: {
     readonly parameters: ToolParameters;
     readonly context: RuntimeExecutionContext;
+    readonly archiveConfirmations: PicaArchiveConfirmation | undefined;
   },
 ): Promise<PicaToolOutcome | null> {
   const { toolkit } = input;
@@ -505,12 +510,14 @@ function registerToolkit(
   registry: RuntimeToolRegistry,
   input: PicaToolsInput,
   budget: ToolBudget,
+  archiveConfirmations: PicaArchiveConfirmation | undefined,
 ): void {
   const { toolkit } = input;
   if (!toolkit) return;
   registerAgentToolkitTools(registry, {
     binding: toolkit,
     turn: toolkitTurn(input),
+    archiveConfirmations,
     admit: async (context) => {
       await input.authorize();
       context.signal.throwIfAborted();
@@ -541,34 +548,38 @@ function registerReadTools(
     });
 }
 
-/**
- * Creates the native tools with fixed service dispatch and fresh rights.
- * @remarks
- * Reads find and read projects, tickets, milestones and the wiki. Writes
- * create and change them on user level when the person asks for it. Deletion
- * follows the explicit request in the current human message. The services
- * check the person's rights on every call. A write that failed is not sent
- * again unchanged in the same turn.
- */
-export function createPicaTools(
+/** Dispatches an admitted operation and exposes its bounded tool response. */
+function createPicaOperationExecutor(
   input: PicaToolsInput,
-  state: PicaToolState = createPicaToolState(),
-): RuntimeToolRegistry {
-  const registry = new RuntimeToolRegistry(input.adminTools?.gate());
-  const { budget, failedWrites, results } = state;
-  const execute: PicaExecute = async (binding, parameters, context) => {
+  state: PicaToolState,
+  archiveConfirmations: PicaArchiveConfirmation | undefined,
+): PicaExecute {
+  const { budget, results } = state;
+  return async (binding, parameters, context) => {
     await input.authorize();
     context.signal.throwIfAborted();
     const held = await guardPicaPagesOperation(input, binding, {
       parameters,
       context,
+      archiveConfirmations,
     });
     if (held) return held;
     if (!spend(input, budget)) return refused("STEP_LIMIT");
-    const outcome = results.consume(
-      await dispatchAction(input, binding, parameters, context),
+    const dispatched = await dispatchAction(
+      input,
+      binding,
+      parameters,
+      context,
     );
     context.signal.throwIfAborted();
+    const archiveHold = archiveConfirmations?.holdPreview(
+      { operation: binding.operation, parameters },
+      context,
+      dispatched,
+    );
+    const outcome = results.consume(archiveHold ?? dispatched);
+    if (outcome === archiveHold)
+      return toolkitRefusal(outcome.error ?? "FAILED", outcome.result);
     if (!outcome.ok)
       return {
         ...refused(outcome.error ?? "FAILED"),
@@ -585,6 +596,33 @@ export function createPicaTools(
     const result = redactCredentials(JSON.stringify(outcome.result ?? null));
     return { ok: true, result, error: null };
   };
+}
+
+/**
+ * Creates the native tools with fixed service dispatch and fresh rights.
+ * @remarks
+ * Reads find and read projects, tickets, milestones and the wiki. Writes
+ * create and change them on user level when the person asks for it. Deletion
+ * follows the explicit request in the current human message. The services
+ * check the person's rights on every call. A write that failed is not sent
+ * again unchanged in the same turn.
+ */
+export function createPicaTools(
+  input: PicaToolsInput,
+  state: PicaToolState = createPicaToolState(),
+): RuntimeToolRegistry {
+  const registry = new RuntimeToolRegistry(input.adminTools?.gate());
+  const { budget, failedWrites } = state;
+  const job = input.toolkit?.job;
+  const archiveConfirmations =
+    job?.interactions && job.policy.chat !== "off"
+      ? state.archiveConfirmations
+      : undefined;
+  const execute = createPicaOperationExecutor(
+    input,
+    state,
+    archiveConfirmations,
+  );
   const write = async (
     tool: PicaWriteTool,
     parameters: ToolParameters,
@@ -598,7 +636,8 @@ export function createPicaTools(
     if (
       !outcome.ok &&
       outcome.error !== "STEP_LIMIT" &&
-      outcome.error !== "CONFIRMATION_REQUIRED"
+      outcome.error !== "CONFIRMATION_REQUIRED" &&
+      outcome.error !== "CONFIRMATION_ALREADY_ASKED"
     )
       failedWrites.add(attempt);
     return outcome;
@@ -638,7 +677,8 @@ export function createPicaTools(
     observePicaToolUse(registry, input.recipes);
   }
   registerOwnBrowserTools(registry, input, budget);
-  if (input.toolkit) registerToolkit(registry, input, budget);
+  if (input.toolkit)
+    registerToolkit(registry, input, budget, archiveConfirmations);
   if (input.adminTools)
     registerAdministratorTools(registry, {
       input,

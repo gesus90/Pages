@@ -157,7 +157,7 @@ export function ModelBadge({
     <span
       title={hasKeyboardTooltip ? undefined : title}
       aria-label={label}
-      role={vendor === "openrouter" ? "img" : undefined}
+      role={isVendorHidden || vendor === "openrouter" ? "img" : undefined}
       tabIndex={hasKeyboardTooltip ? 0 : undefined}
       data-model-badge={style.mark}
       data-value-status={status}

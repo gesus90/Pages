@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { cn } from "@/app/lib/cn";
@@ -10,48 +9,9 @@ import type {
   AgentSessionView,
 } from "@/definition/AgentSessionJournal";
 
-/** The occupancy the console shows: the last one that named a value. */
-interface ShownContext {
-  readonly used: number | null;
-  readonly limit: number | null;
-}
-
-interface KeptContext extends ShownContext {
-  /** The attempt the values belong to; another attempt starts empty. */
-  readonly attemptId: string;
-}
-
-/**
- * Keeps the last reported occupancy until a new one arrives.
- * @param context - The occupancy of the current session view.
- * @param attemptId - The attempt the view belongs to.
- * @returns The occupancy to show: the current values, or for a value a
- * report left out, the last one of the same attempt.
- * @remarks
- * The server keeps the last value as well; this keeps it also across a view
- * that arrives without it, such as a refresh between two readings.
- */
-function useReportedContext(
-  context: AgentSessionContextUsage,
-  attemptId: string,
-): ShownContext {
-  const [kept, setKept] = useState<KeptContext | null>(null);
-  const previous = kept?.attemptId === attemptId ? kept : null;
-  const shown: ShownContext = {
-    used: context.contextUsed ?? previous?.used ?? null,
-    limit: context.contextLimit ?? previous?.limit ?? null,
-  };
-  const hasChanged =
-    previous === null
-      ? shown.used !== null || shown.limit !== null
-      : previous.used !== shown.used || previous.limit !== shown.limit;
-  if (hasChanged) setKept({ attemptId, ...shown });
-  return shown;
-}
-
 /** The share of the window in use, from 0 to 100; `null` without both values. */
-function contextShare(context: ShownContext): number | null {
-  const { used, limit } = context;
+function contextShare(context: AgentSessionContextUsage): number | null {
+  const { contextUsed: used, contextLimit: limit } = context;
   if (used === null || limit === null || limit <= 0) return null;
   return Math.min(100, (used / limit) * 100);
 }
@@ -66,7 +26,7 @@ function barFillClass(share: number): string {
   return share >= WARNING_SHARE ? "bg-warning" : "bg-primary";
 }
 
-/** The bar of the occupancy: 6 px high with a 3 px radius, at least 3 px filled. */
+/** The occupancy bar with a minimum 3 px fill when usage is positive. */
 function ContextBar({
   share,
   label,
@@ -86,23 +46,28 @@ function ContextBar({
     >
       <div
         className={cn("h-full rounded-[3px]", barFillClass(share))}
-        style={{ width: `max(3px, ${share}%)` }}
+        style={{ width: share > 0 ? `max(3px, ${share}%)` : 0 }}
       />
     </div>
   );
 }
 
-/** The value at the right of the title: nothing reported yet, only the occupancy, or occupancy and window. */
+/** Formats whichever parts of the context the provider has reported. */
 function contextValue(
-  context: ShownContext,
+  context: AgentSessionContextUsage,
   options: {
     readonly numbers: Intl.NumberFormat;
     readonly t: ReturnType<typeof useTranslation>["t"];
   },
 ): string {
   const key = "plans.console.terminal.sidebar";
-  const { used, limit } = context;
-  if (used === null) return options.t(`${key}.contextNotReported`);
+  const { contextUsed: used, contextLimit: limit } = context;
+  if (used === null) {
+    if (limit === null) return options.t(`${key}.contextNotReported`);
+    return options.t(`${key}.contextWindowTokens`, {
+      limit: options.numbers.format(limit),
+    });
+  }
   if (limit === null)
     return options.t(`${key}.contextTokens`, {
       used: options.numbers.format(used),
@@ -113,12 +78,8 @@ function contextValue(
 /**
  * The block "Kontext", fixed 76 px high: how much of the model's window the session occupies.
  * @remarks
- * The title stands left, the value right, in three states. Without a
- * reported value it reads "noch nicht gemeldet" and draws no bar, so an
- * empty bar never reads as 0 %. With only the occupancy, such as
- * "233 Tokens", the window is unknown and no bar is drawn. With both, such
- * as "233 / 476.000", a 6 px bar shows the share. The last reported value
- * stays until a new one comes, also after a report without one.
+ * The session view holds the last reported values of the attempt's model.
+ * The bar is shown once both occupancy and window are available.
  */
 export function ConsoleContextSection({
   view,
@@ -127,7 +88,7 @@ export function ConsoleContextSection({
 }): React.ReactElement {
   const { t, i18n } = useTranslation();
   const title = t("plans.console.terminal.sidebar.context");
-  const context = useReportedContext(view.context, view.key.attemptId);
+  const { context } = view;
   const numbers = new Intl.NumberFormat(i18n.language);
   const share = contextShare(context);
   return (

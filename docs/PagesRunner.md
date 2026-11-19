@@ -53,7 +53,7 @@ Der Worker läuft in einer getrennten Prozessgruppe weiter, wenn der Transport e
 
 ## OpenRouter auf dem Runner
 
-Ab Runner-Version `1.2.0` (aktuell `1.24.0`) unterstützt der Runner OpenRouter einschließlich der Modell-IDs mit `~`-Präfix; `node ~/.local/share/pages-runner/runner.mjs --version` zeigt die Version ohne Kopplung. Aktualisierungen erfolgen über den unten beschriebenen authentifizierten Paketvertrag; neue Installationen verwenden bereits dessen Startschicht.
+Ab Runner-Version `1.2.0` (aktuell `1.25.0`) unterstützt der Runner OpenRouter einschließlich der Modell-IDs mit `~`-Präfix; `node ~/.local/share/pages-runner/runner.mjs --version` zeigt die Version ohne Kopplung. Aktualisierungen erfolgen über den unten beschriebenen authentifizierten Paketvertrag; neue Installationen verwenden bereits dessen Startschicht.
 
 `POST /settings-api/runners` mit `intent=store-provider-key`, `connectionId`, `provider=openrouter` und `apiKey` verlangt eine aktive Administrator-Sitzung, Admin-Modus, denselben Origin sowie einen online gekoppelten Runner mit aktueller SSH-Revision. Pages übergibt den Schlüssel ausschließlich im authentifizierten Runner-Kanal, ohne ihn in DuckDB oder dem Jobjournal zu speichern. Pro Verbindung ist eine Provider-Anfrage gleichzeitig zulässig, mit 90 Sekunden Antwortfrist. Bei fehlendem Kanal erfolgt keine ersatzweise SSH-Übertragung.
 
@@ -631,8 +631,8 @@ einem privaten Release, spätere Pages-Versionen bieten ihn über den lokalen,
 authentifizierten Kanal an. Der Installer startet einen bereits aktiven Runner
 nicht pauschal neu. Die lokale Loopback-Adresse bleibt unverändert.
 
-Unterstützt werden die aktuelle Version `1.24.0` und die unmittelbar vorherige
-Version `1.23.0`, jeweils nur für ihre tatsächlich gemeldeten Fähigkeiten.
+Unterstützt werden die aktuelle Version `1.25.0` und die vorherigen Versionen
+`1.24.0` und `1.24.1`, jeweils nur für ihre tatsächlich gemeldeten Fähigkeiten.
 Noch ältere Runner können ihre vorhandenen Aufträge und Historien abgleichen,
 aber keine neue Arbeit erhalten. Ein Runner ohne den Updateempfänger benötigt
 einmal die aktuelle Installation mit Startschicht; die vorhandene Kopplung wird

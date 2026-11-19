@@ -56,6 +56,7 @@ const ERROR_STATUS: Partial<Record<AgentErrorCode, number>> = {
   plan_payload_corrupt: 500,
   profile_management_retired: 410,
   connection_not_found: 404,
+  openrouter_balance_changed: 409,
   check_in_progress: 409,
   login_in_progress: 409,
   login_limit_reached: 409,

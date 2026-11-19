@@ -1,8 +1,10 @@
 import { useTranslation } from "react-i18next";
 
 import { QuotaCardGrid } from "./quota-card-grid";
+import { QuotaOrderNotice } from "./quota-order-notice";
 import { QuotaSectionHeader } from "./quota-section-header";
 import { useClaudeQuotas } from "./use-claude-quotas";
+import { useQuotaCardOrder } from "./use-quota-card-order";
 import { useQuotaClock } from "./use-quota-clock";
 
 /**
@@ -18,13 +20,18 @@ import { useQuotaClock } from "./use-quota-clock";
  * an empty state once it has cards; the empty state appears only when it is
  * certain that no card is available. All cards have the same height, 308 px
  * on a wide screen and 344 px in the single column of a phone, also in a row
- * with fewer cards.
+ * with fewer cards. A person arranges the cards by drag and drop or by
+ * keyboard; Pages stores that order per account, so it holds after a reload
+ * and on every device, and a list, a query or the push of the minute never
+ * changes it. Until the person sorts, the cards stand in the default order,
+ * and a card the order does not know yet stands at the end.
  */
 export function AgentsPage(): React.ReactElement {
   const { t } = useTranslation();
   const quotas = useClaudeQuotas();
   const now = useQuotaClock();
   const { cards, hasListFailed, isLive } = quotas.state;
+  const order = useQuotaCardOrder(cards);
   const hasNoCards = cards !== null && cards.length === 0;
   return (
     <div className="flex w-full flex-col">
@@ -56,7 +63,16 @@ export function AgentsPage(): React.ReactElement {
           </p>
         ) : null}
         {hasNoCards || hasListFailed ? null : (
-          <QuotaCardGrid cards={cards} now={now} onRetry={quotas.retryCard} />
+          <>
+            <QuotaOrderNotice order={order} />
+            <QuotaCardGrid
+              cards={order.cards}
+              now={now}
+              onRetry={quotas.retryCard}
+              onMove={order.move}
+              onSaveOpenRouterBalance={quotas.saveOpenRouterBalance}
+            />
+          </>
         )}
       </section>
     </div>

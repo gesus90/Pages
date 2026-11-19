@@ -28,6 +28,7 @@ import runnerInterpreters from "@/scripts/runner/interpreters.mjs?raw";
 import runnerRevocation from "@/scripts/runner/revocation.mjs?raw";
 import runnerTemporary from "@/scripts/runner/temporary.mjs?raw";
 import runnerCgroups from "@/scripts/runner/cgroups.mjs?raw";
+import runnerNative from "@/scripts/runner/native.mjs?raw";
 import runnerLocalAccounts from "@/scripts/runner/local-accounts.mjs?raw";
 import runnerAccounts from "@/scripts/runner/accounts.mjs?raw";
 import runnerBrowser from "@/scripts/runner/browser.mjs?raw";
@@ -80,6 +81,7 @@ export const setupScript = setupTemplate
   .replace("__PAGES_RUNNER_INTERPRETERS__", () => runnerInterpreters)
   .replace("__PAGES_RUNNER_TEMPORARY__", () => runnerTemporary)
   .replace("__PAGES_RUNNER_CGROUPS__", () => runnerCgroups)
+  .replace("__PAGES_RUNNER_NATIVE__", () => runnerNative)
   .replace("__PAGES_RUNNER_ACCOUNTS__", () => runnerAccounts)
   .replace("__PAGES_RUNNER_LOCAL_ACCOUNTS__", () => runnerLocalAccounts)
   .replace("__PAGES_RUNNER_BROWSER__", () => runnerBrowser)
@@ -121,6 +123,7 @@ const files = {
   "revocation.mjs": runnerRevocation,
   "temporary.mjs": runnerTemporary,
   "cgroups.mjs": runnerCgroups,
+  "native.mjs": runnerNative,
   "local-accounts.mjs": runnerLocalAccounts,
   "accounts.mjs": runnerAccounts,
   "browser.mjs": runnerBrowser,

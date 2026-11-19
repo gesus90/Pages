@@ -30,7 +30,7 @@ interface StructuredProgressInput {
 }
 
 /**
- * Stores a session reading of a Claude CLI job.
+ * Stores the model and context reading of a native runner job.
  * @returns Whether the event was a session reading, valid or dropped, and
  * therefore no token counters.
  */

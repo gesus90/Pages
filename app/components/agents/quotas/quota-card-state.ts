@@ -7,6 +7,7 @@ import {
   codexLimitResetsAt,
   visibleCodexQuotaWindows,
 } from "@/definition/CodexQuota";
+import { visibleZaiQuotaWindows } from "@/definition/ZaiQuota";
 
 import type {
   AntigravityQuotaAccount,
@@ -23,6 +24,7 @@ import type {
   CodexQuotaAccount,
   CodexQuotaWindow,
 } from "@/definition/CodexQuota";
+import type { ZaiQuotaAccount, ZaiQuotaWindow } from "@/definition/ZaiQuota";
 
 /** The notices a card shows in place of windows. */
 export type QuotaNoticeKind = "noWindows" | "skipped" | "failed" | "signedOut";
@@ -242,5 +244,56 @@ export function antigravityCardView(
     body: { kind: "groups", groups, isStale: status.kind === "failed" },
     limit:
       status.kind === "reported" ? firstAntigravityQuotaLimit(groups) : null,
+  };
+}
+
+/** What the window area of a Z.AI card holds. */
+export type ZaiCardBody =
+  | {
+      readonly kind: "windows";
+      readonly windows: readonly ZaiQuotaWindow[];
+      /** After a failed query the figures stay, greyed. */
+      readonly isStale: boolean;
+      readonly staleSince: string | null;
+    }
+  | { readonly kind: "notice"; readonly notice: QuotaNoticeKind };
+
+/** What a Z.AI card shows at a moment. */
+export interface ZaiCardView {
+  readonly status: ClaudeQuotaStatus;
+  readonly body: ZaiCardBody;
+}
+
+/**
+ * What a Z.AI card shows at a moment.
+ * @param account - The card as the server answered it.
+ * @param now - The moment of display.
+ * @returns The status line and the window area.
+ * @remarks
+ * An entry leaves the card once its reset passed. When the last entry of a
+ * reported card leaves, Z.AI has none to report any more, so the card reads
+ * "Keine Fenster gemeldet" at the time of the answer. After a failed query
+ * the entries stay greyed with the time of the last answer. A connection
+ * without a usable key shows no entries.
+ */
+export function zaiCardView(account: ZaiQuotaAccount, now: Date): ZaiCardView {
+  const windows = visibleZaiQuotaWindows(account.windows, now);
+  const status: ClaudeQuotaStatus =
+    account.status.kind === "reported" && windows.length === 0
+      ? { kind: "no_windows", at: account.status.at }
+      : account.status;
+  if (status.kind === "signed_out" || windows.length === 0)
+    return {
+      status,
+      body: { kind: "notice", notice: NOTICE_BY_STATUS[status.kind] },
+    };
+  return {
+    status,
+    body: {
+      kind: "windows",
+      windows,
+      isStale: status.kind === "failed",
+      staleSince: status.kind === "failed" ? status.lastSuccessAt : null,
+    },
   };
 }

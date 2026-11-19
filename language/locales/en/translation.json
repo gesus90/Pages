@@ -5913,10 +5913,14 @@
           "name": "Antigravity CLI"
         },
         "opencode": {
-          "name": "OpenCode"
+          "name": "OpenCode CLI",
+          "account": "Connection"
         },
         "zai": {
           "name": "Z.AI"
+        },
+        "openrouter": {
+          "name": "OpenRouter"
         }
       },
       "manualInput": "Manually intervened",
@@ -5968,8 +5972,9 @@
           "activityWaiting": "Waiting for the restart",
           "usage": "Usage",
           "context": "Context",
-          "contextNotReported": "not reported yet",
+          "contextNotReported": "Context not reported yet",
           "contextTokens": "{{used}} tokens",
+          "contextWindowTokens": "Window {{limit}} tokens",
           "tokens": "Total tokens",
           "afterTurn": "after the turn",
           "antigravity": {
@@ -9532,6 +9537,21 @@
       "live": "live",
       "refresh": "Refresh quotas"
     },
+    "order": {
+      "handle": "Move card {{name}}",
+      "instructions": "To sort, drag the handle of a card with the mouse or a finger. With the keyboard, Enter or Space picks the card up, the arrow keys, Home and End move it, Enter or Space puts it down and Escape cancels.",
+      "announcement": {
+        "pickedUp": "{{name}} picked up, position {{position}} of {{count}}. Arrow keys move it, Enter puts it down, Escape cancels.",
+        "moved": "{{name}}, position {{position}} of {{count}}.",
+        "dropped": "{{name}} put down at position {{position}} of {{count}}.",
+        "cancelled": "Move cancelled. {{name}} stays at position {{position}} of {{count}}."
+      },
+      "saveFailed": "The new order is not saved and holds only until the page is reloaded. The earlier order is still the saved one.",
+      "saveFailedUnknown": "The new order is not saved and holds only until the page is reloaded.",
+      "retry": "Save again",
+      "showSaved": "Show saved order",
+      "loadFailed": "The saved order could not be loaded. The cards stand in the default order; a new order is saved when you sort."
+    },
     "card": {
       "subscription": "claude.ai subscription",
       "antigravity": "Antigravity CLI",
@@ -9541,6 +9561,19 @@
       "subtitle": "OpenRouter · API key",
       "refresh": "Refresh",
       "balance": "Credits remaining",
+      "balanceSettings": "Balance display settings",
+      "balanceSettingsHint": "Choose the balance to display for “{{name}}”.",
+      "accountBalanceMode": "Total OpenRouter account balance",
+      "manualBalanceMode": "Manual starting amount",
+      "manualStartAmount": "Starting amount in USD",
+      "manualStartAmountDetail": "Starting amount {{amount}}",
+      "manualBalance": "Manual balance remaining",
+      "manualBalanceExhausted": "Manual balance exhausted · {{amount}} remaining",
+      "manualBaselineMissing": "Management key changed · Save the starting amount again",
+      "invalidStartAmount": "Enter a valid amount of at least 0 USD.",
+      "baselineUnavailable": "OpenRouter did not report valid usage for the stored management key. Check the key or try again.",
+      "balanceConnectionChanged": "The connection changed. Check the connection and try again.",
+      "balanceSaveFailed": "The balance display could not be saved.",
       "creditTotals": "Purchased {{purchased}} · Used {{used}}",
       "usage": "Total usage",
       "remaining": "Remaining key budget",
@@ -9714,6 +9747,47 @@
         "signedOut": {
           "title": "This connection is not signed in to ChatGPT.",
           "detail": "Without a sign-in Pages can retrieve neither the plan nor values."
+        }
+      }
+    },
+    "zai": {
+      "subtitle": {
+        "coding-plan": "Z.AI · GLM Coding Plan",
+        "api": "Z.AI · Standard API"
+      },
+      "plan": {
+        "lite": "Lite",
+        "pro": "Pro",
+        "max": "Max"
+      },
+      "window": {
+        "tokens": "Token allowance",
+        "mcp": "MCP usage",
+        "named": "{{name}} · {{length}}"
+      },
+      "length": {
+        "hours_one": "{{count}} hour",
+        "hours_other": "{{count}} hours",
+        "weeks_one": "{{count}} week",
+        "weeks_other": "{{count}} weeks",
+        "months_one": "{{count}} month",
+        "months_other": "{{count}} months"
+      },
+      "counts": "{{used}} of {{total}} used",
+      "reported": "Reported by Z.AI · {{time}}",
+      "signedOut": "Key missing or rejected",
+      "notice": {
+        "noWindows": {
+          "title": "Z.AI reported no allowances for this key.",
+          "detail": "Pages queried successfully."
+        },
+        "failed": {
+          "title": "Pages could not retrieve any values yet.",
+          "detail": "The plan stays unknown until Z.AI reports it."
+        },
+        "signedOut": {
+          "title": "This connection has no valid Z.AI key.",
+          "detail": "Without a valid key Pages can retrieve neither the plan nor values."
         }
       }
     }

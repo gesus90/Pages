@@ -9,6 +9,7 @@ import {
 
 import {
   QUOTA_BAR_CLASSES,
+  QUOTA_COMPACT_WINDOW_SLOT_CLASS,
   QUOTA_FIGURES_RUN_MILLISECONDS,
   QUOTA_WINDOW_SLOT_CLASS,
 } from "./quota-card-layout";
@@ -39,13 +40,16 @@ function remainingClass(tone: ClaudeQuotaTone, isStale: boolean): string {
  * counting, and stand still at once where the reader asks for less motion.
  * After a failed query the figures stay, greyed, and `staleSince` names the
  * time of the last answer beside the used share. A window without a reset
- * shows no reset line.
+ * shows no reset line. A compact window is 48 px high, for a card that lists
+ * three windows; `usedLabel` replaces "x % genutzt" where the provider
+ * reports its own counts.
  */
 export function QuotaWindow({
   figures,
   now,
   isStale = false,
   staleSince = null,
+  isCompact = false,
 }: {
   readonly figures: {
     /** Names the window in the markup, such as `five_hour` or `primary`. */
@@ -55,10 +59,13 @@ export function QuotaWindow({
     readonly usedPercentage: number;
     /** ISO time at which the window resets, `null` when none was named. */
     readonly resetsAt: string | null;
+    /** Names the used amount in the provider's own counts instead of the share. */
+    readonly usedLabel?: string;
   };
   readonly now: Date;
   readonly isStale?: boolean;
   readonly staleSince?: string | null;
+  readonly isCompact?: boolean;
 }): React.ReactElement {
   const { t, i18n } = useTranslation();
   const { label } = figures;
@@ -77,7 +84,8 @@ export function QuotaWindow({
             t,
           ),
         });
-  const usedText = t("agentsPage.quota.used", { percent: shownUsed });
+  const usedText =
+    figures.usedLabel ?? t("agentsPage.quota.used", { percent: shownUsed });
   const sideText =
     isStale && staleSince !== null
       ? t("agentsPage.quota.staleUsed", {
@@ -88,7 +96,9 @@ export function QuotaWindow({
 
   return (
     <section
-      className={QUOTA_WINDOW_SLOT_CLASS}
+      className={
+        isCompact ? QUOTA_COMPACT_WINDOW_SLOT_CLASS : QUOTA_WINDOW_SLOT_CLASS
+      }
       data-quota-window={figures.kind}
       data-quota-stale={isStale ? "true" : "false"}
       aria-label={label}

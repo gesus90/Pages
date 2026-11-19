@@ -52,14 +52,12 @@ export function SidebarRow(props: {
  * The width a session row's value may take.
  * - `default`: 144 px at most.
  * - `wide`: 176 px at most, for the compact model badge.
- * - `fill`: no cap, the space beside the row label, for OpenRouter model names.
  */
-type RowBadgeWidth = "default" | "wide" | "fill";
+type RowBadgeWidth = "default" | "wide";
 
 const ROW_BADGE_WIDTH_CLASS: Readonly<Record<RowBadgeWidth, string>> = {
   default: "max-w-36",
   wide: "max-w-44",
-  fill: "",
 };
 
 /**

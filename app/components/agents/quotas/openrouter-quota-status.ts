@@ -44,7 +44,12 @@ function creditStatus(
       icon: TriangleAlert,
       tone: "destructive",
       action: "none",
-      text: t("agentsPage.openRouter.creditsExhausted", { amount: money(0) }),
+      text: t(
+        credits.mode === "manual"
+          ? "agentsPage.openRouter.manualBalanceExhausted"
+          : "agentsPage.openRouter.creditsExhausted",
+        { amount: money(0) },
+      ),
     };
   if (credits?.status === "missing_key" || credits?.status === "invalid_key")
     return {
@@ -63,6 +68,13 @@ function creditStatus(
       tone: "muted",
       action: "retry",
       text: t("agentsPage.openRouter.creditsUnknown"),
+    };
+  if (credits?.status === "baseline_missing")
+    return {
+      icon: Info,
+      tone: "muted",
+      action: "none",
+      text: t("agentsPage.openRouter.manualBaselineMissing"),
     };
   return null;
 }

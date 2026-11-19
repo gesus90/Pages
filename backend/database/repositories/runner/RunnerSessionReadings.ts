@@ -19,12 +19,13 @@ interface SessionReadingInput {
 const READING_SOURCES = {
   claude_code: ["cli_assistant_usage", "cli_compact_boundary"],
   codex_cli: ["codex_token_count"],
+  opencode: ["acp_usage_update"],
 } as const;
 
 type ReadingProvider = keyof typeof READING_SOURCES;
 
 function isReadingProvider(provider: string): provider is ReadingProvider {
-  return provider === "claude_code" || provider === "codex_cli";
+  return Object.hasOwn(READING_SOURCES, provider);
 }
 
 interface StoredSession {
@@ -78,33 +79,31 @@ async function readStored(
 }
 
 /**
- * The window the CLI last reported for a model in any attempt of the provider.
+ * The window Claude Code last reported for a model in any attempt.
  * @remarks
  * The Claude Code CLI names a window only in the result at the end of a
  * turn, and a plan step is one turn. A window is a property of the model, so
  * the one an earlier attempt of the same model stored lets a running step
  * show its occupancy against the window before its own result arrives. Only
  * a window a CLI job reported counts: an ACP adapter guesses one from the
- * model name until its first result. Codex names the window with every turn,
- * so for Codex this only covers a reading before that.
+ * model name until its first result.
  */
 async function knownModelWindow(
   transaction: DatabaseTransaction,
-  provider: ReadingProvider,
   model: string,
 ): Promise<number | null> {
   const [row] = await transaction.query(
     `
     SELECT context_limit
     FROM agent_session_attempts
-    WHERE provider = $provider
+    WHERE provider = 'claude_code'
         AND confirmed_model = $model
         AND context_limit IS NOT NULL
         AND context_source = ANY(string_to_array($sources, ','))
     ORDER BY context_at DESC NULLS LAST
     LIMIT 1;
   `,
-    { provider, model, sources: READING_SOURCES[provider].join(",") },
+    { model, sources: READING_SOURCES.claude_code.join(",") },
   );
   return row ? readNullableCountColumn(row, 0, "context_limit") : null;
 }
@@ -115,9 +114,8 @@ async function knownModelWindow(
  * The last reported value stays until a new one comes: a reading without a
  * measurement, also a compaction that kept no count, keeps the last valid
  * occupancy of the same model, also into the next turn, and another model
- * drops it. A window is a property of the model, so a measurement without
- * one keeps the known window of the same model, else the window an earlier
- * attempt of that model stored.
+ * drops it. Claude Code can use an earlier attempt's window for the same
+ * model until it reports its own. Codex supplies the window of its session.
  */
 async function nextContext(
   transaction: DatabaseTransaction,
@@ -134,16 +132,19 @@ async function nextContext(
         at: stored.contextAt,
       }
     : { used: null, limit: null, source: null, at: null };
-  const limit =
-    reading.context?.limit ??
-    kept.limit ??
-    (await knownModelWindow(transaction, stored.provider, reading.model));
-  if (reading.context?.used === null || reading.context?.used === undefined)
-    return { ...kept, limit };
+  const { context } = reading;
+  if (stored.provider === "opencode")
+    return context === null ? kept : { ...context, at: input.reportedAt };
+  const limit = context?.limit ?? kept.limit;
+  const window =
+    limit === null && stored.provider === "claude_code"
+      ? await knownModelWindow(transaction, reading.model)
+      : limit;
+  if (!context || context.used === null) return { ...kept, limit: window };
   return {
-    used: reading.context.used,
-    limit,
-    source: reading.context.source,
+    used: context.used,
+    limit: window,
+    source: context.source,
     at: input.reportedAt,
   };
 }
@@ -155,14 +156,11 @@ function isLate(stored: StoredSession, reportedAt: string): boolean {
 }
 
 /**
- * Stores the model and context a Claude Code or Codex CLI job reported on its attempt.
+ * Stores the model and context a native job reported on its attempt.
  * @remarks
  * Runs in the receipt transaction after the runner binding of plan, run,
- * step, attempt and instance was checked. Only Claude Code and Codex
- * attempts take a reading. A reading older than the stored values never replaces them, so a
- * repeated or late batch changes nothing. The model counts as reported by
- * the CLI; a reasoning level is never confirmed here, because the CLI echoes
- * none.
+ * step, attempt and instance was checked. A reading can only use a context
+ * source of its provider. Older readings never replace newer values.
  */
 export async function persistRunnerSessionReading(
   transaction: DatabaseTransaction,
@@ -170,13 +168,22 @@ export async function persistRunnerSessionReading(
 ): Promise<void> {
   const stored = await readStored(transaction, input.attemptId);
   if (stored === null || isLate(stored, input.reportedAt)) return;
+  const sources: readonly string[] = READING_SOURCES[stored.provider];
+  const source = input.reading.context?.source;
+  if (source !== undefined && !sources.includes(source)) return;
+  if (
+    stored.provider === "opencode" &&
+    source !== undefined &&
+    stored.model !== input.reading.model
+  )
+    return;
   const context = await nextContext(transaction, stored, input);
   const isSameModel = stored.model === input.reading.model;
   await transaction.execute(
     `
     UPDATE agent_session_attempts
     SET confirmed_model = $confirmed_model,
-        confirmed_model_source = 'cli_stream_event',
+        confirmed_model_source = $confirmed_model_source,
         confirmed_model_at = $confirmed_model_at,
         context_used = $context_used,
         context_limit = $context_limit,
@@ -187,6 +194,10 @@ export async function persistRunnerSessionReading(
     {
       attempt_id: input.attemptId,
       confirmed_model: input.reading.model,
+      confirmed_model_source:
+        stored.provider === "opencode"
+          ? "adapter_selector"
+          : "cli_stream_event",
       confirmed_model_at:
         isSameModel && stored.modelAt !== null
           ? stored.modelAt

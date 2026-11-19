@@ -70,15 +70,13 @@ function isSameModel(
  * @param store - Where the attempts are kept.
  * @param record - The record of the node's current attempt.
  * @param stored - The stored state of the current attempt, `null` before it has one.
- * @returns The occupancy of the attempt itself once it reported one; until
- * then, for a restart that resumes the native session of an earlier attempt,
- * the last occupancy that attempt reported, with the window of the new one
- * where it has it. Unknown only while no attempt of the session reported one,
- * or when the earlier attempt ran another model.
+ * @returns The occupancy of this attempt. For a resumed Claude Code session,
+ * an earlier occupancy can fill in until this attempt reports it, provided
+ * the model matches.
  * @remarks
- * A resumed Claude Code or Codex session still holds everything it held
- * before the restart, so the occupancy does not start over until the new
- * attempt reports its own.
+ * A resumed Claude Code session still holds its context before the restart.
+ * A Codex runner reads that context from the confirmed native thread itself.
+ * OpenCode displays only the selected attempt's own reading.
  */
 export async function attemptContext(
   store: Pick<AgentSessionStore, "findAttempt">,
@@ -86,6 +84,7 @@ export async function attemptContext(
   stored: AgentSessionAttemptRecord | null,
 ): Promise<AgentSessionContextUsage> {
   const own = stored?.context ?? UNKNOWN_CONTEXT;
+  if (record.runner === "opencode" || record.runner === "codex_cli") return own;
   if (own.contextUsed !== null) return own;
   const resumed = resumedAttemptIds(record);
   if (resumed.length === 0) return own;

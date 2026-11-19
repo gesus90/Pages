@@ -5,6 +5,7 @@ import {
   isChatOperation,
   isChatWriteOperation,
 } from "../ChatToolCatalog";
+import { isTicketArchiveOperation } from "../PicaArchiveConfirmation";
 import { PicaPlanConfirmation } from "../PicaPlanConfirmation";
 import { PICA_TOOL_OUTCOME } from "../PicaToolSchemas";
 
@@ -29,6 +30,7 @@ import type { AgentChatHistory } from "@/definition/AgentChatHistory";
 import type { AgentChatInteractions } from "@/definition/AgentChatQuestion";
 import type { AgentChatTasks } from "@/definition/AgentChatTask";
 import type { AgentToolPolicy } from "@/definition/AgentToolGroups";
+import type { PicaArchiveConfirmation } from "../PicaArchiveConfirmation";
 import type { PicaToolOutcome } from "../PicaToolSchemas";
 import type {
   AgentToolkitJob,
@@ -117,13 +119,6 @@ function approvalPrompt(
   });
 }
 
-/** Operations that preview without `confirmed` and act only with it. */
-const PREVIEWING_OPERATIONS: ReadonlySet<string> = new Set([
-  "calendar.event.delete",
-  "ticket.archive",
-  "ticket.archiveSelection",
-]);
-
 /**
  * Whether a Pages operation is a consequential step: deleting or archiving.
  * @remarks
@@ -135,7 +130,10 @@ export function isConsequentialOperation(
   operation: string,
   parameters: AgentToolkitParameters,
 ): boolean {
-  if (PREVIEWING_OPERATIONS.has(operation))
+  if (
+    operation === "calendar.event.delete" ||
+    isTicketArchiveOperation(operation)
+  )
     return parameters.confirmed === true;
   return isChatOperation(operation) && isChatDeleteOperation(operation);
 }
@@ -176,6 +174,7 @@ export function guardPagesOperation(
     readonly context: RuntimeExecutionContext;
     readonly turn: AgentToolkitTurn;
     readonly canWritePages?: boolean;
+    readonly archiveConfirmations?: PicaArchiveConfirmation | undefined;
   },
 ): PicaToolOutcome | null {
   const mode = binding.job.policy.pages;
@@ -185,6 +184,8 @@ export function guardPagesOperation(
   if (mode === "read" && isWrite && !call.canWritePages)
     return toolkitRefusal("READ_ONLY_ACCESS");
   if (!isConsequentialOperation(call.operation, call.parameters)) return null;
+  if (call.archiveConfirmations && isTicketArchiveOperation(call.operation))
+    return call.archiveConfirmations.guardExecution(call, call.context);
   return requireApproval(binding, {
     tool: call.operation,
     parameters: call.parameters,
@@ -265,6 +266,7 @@ export function registerAgentToolkitTools(
     readonly binding: AgentToolkitBinding;
     readonly turn: AgentToolkitTurn;
     readonly admit: (context: RuntimeExecutionContext) => Promise<boolean>;
+    readonly archiveConfirmations?: PicaArchiveConfirmation | undefined;
   },
 ): void {
   const { binding, turn, admit } = parts;
@@ -273,6 +275,7 @@ export function registerAgentToolkitTools(
     registerAgentChatInteractionTools(registry, {
       interactions,
       approvals: binding.approvals ?? CONSEQUENTIAL_APPROVALS,
+      archiveConfirmations: parts.archiveConfirmations,
       turnId: turn.id,
       admit,
     });

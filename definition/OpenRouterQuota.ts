@@ -18,7 +18,35 @@ export const openRouterCreditsSchema = z.object({
 
 export type OpenRouterCredits = z.infer<typeof openRouterCreditsSchema>;
 
+const accountBalanceSchema = z.object({ mode: z.literal("account") });
+const manualBalanceSchema = z.object({
+  mode: z.literal("manual"),
+  startAmount: z.number().finite().nonnegative(),
+});
+
+/** The balance display a connection administrator can choose for a card. */
+export const openRouterBalanceDisplaySchema = z.discriminatedUnion("mode", [
+  accountBalanceSchema,
+  manualBalanceSchema,
+]);
+
+export type OpenRouterBalanceDisplay = z.infer<
+  typeof openRouterBalanceDisplaySchema
+>;
+
 const readingTime = z.iso.datetime();
+const creditStatusSchema = z.enum([
+  "stored",
+  "reported",
+  "failed",
+  "invalid_key",
+  "missing_key",
+  "unknown",
+]);
+const creditBalanceReadingSchema = z.object({
+  remaining: z.number().finite().nonnegative(),
+  at: readingTime,
+});
 
 /** The two independent readings of a connection, gated by their respective permissions. */
 export const openRouterQuotaAccountSchema = z.object({
@@ -30,22 +58,18 @@ export const openRouterQuotaAccountSchema = z.object({
     reading: openRouterUsageSchema.extend({ at: readingTime }).nullable(),
   }),
   credits: z
-    .object({
-      status: z.enum([
-        "stored",
-        "reported",
-        "failed",
-        "invalid_key",
-        "missing_key",
-        "unknown",
-      ]),
-      reading: openRouterCreditsSchema
-        .extend({
-          remaining: z.number().finite().nonnegative(),
-          at: readingTime,
-        })
-        .nullable(),
-    })
+    .discriminatedUnion("mode", [
+      accountBalanceSchema.extend({
+        status: creditStatusSchema,
+        reading: openRouterCreditsSchema
+          .extend(creditBalanceReadingSchema.shape)
+          .nullable(),
+      }),
+      manualBalanceSchema.extend({
+        status: z.union([creditStatusSchema, z.literal("baseline_missing")]),
+        reading: creditBalanceReadingSchema.nullable(),
+      }),
+    ])
     .optional(),
 });
 

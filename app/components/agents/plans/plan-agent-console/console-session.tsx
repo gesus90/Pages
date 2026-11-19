@@ -5,7 +5,7 @@ import { modelBadgeDisplay } from "@/app/components/agents/model-picker/model-ca
 
 import { ConsoleComposer } from "./console-composer";
 import { ConsoleFailure } from "./console-failure";
-import { openRouterSessionBadges } from "./console-session-badges";
+import { providerBadgeKey } from "./console-header-badges";
 import { ConsoleSidebar } from "./console-sidebar";
 import { consoleStepState, hasSessionEnded } from "./console-step-state";
 import { ConsoleTerminal } from "./console-terminal";
@@ -14,7 +14,6 @@ import { useSessionCommands } from "./use-session-commands";
 import { useNow } from "./use-terminal-surface";
 import { PlanRemoteHistoryNotice } from "../plan-remote-history";
 
-import type { AgentModelBadgeValues } from "@/app/components/agents/badges/agent-model-badges";
 import type { AgentPlanStepResult } from "@/definition/AgentPlan";
 import type {
   AgentSessionKey,
@@ -33,11 +32,11 @@ interface ConsoleSessionProps {
   /** The instruction of the node, the plan prompt of its first attempt. */
   readonly prompt: string | null;
   readonly onClose: () => void;
-  /** Draws the header with the translated state and the stop of the run. */
+  /** Draws the header with the provider badge, the translated state and the stop of the run. */
   readonly header: (
+    provider: string | null,
     state: HeaderState | null,
     onStopRun: (() => Promise<void>) | undefined,
-    model: AgentModelBadgeValues | undefined,
   ) => React.ReactNode;
 }
 
@@ -180,6 +179,19 @@ function inputModeOf(facts: {
   return facts.canType && !facts.isCompact ? "line" : "none";
 }
 
+function sessionProvider(
+  step: AgentPlanStepResult,
+  view: AgentSessionView | null,
+): string | null {
+  if (!step.session) return null;
+  return providerBadgeKey(step.session.runner, [
+    step.session.requested.model,
+    view?.model.requestedModel.value,
+    view?.model.confirmedModel.value,
+    view?.modelIdentity?.modelId,
+  ]);
+}
+
 /**
  * The session of one node: the Pages terminal on the left, the sidebar on the right.
  *
@@ -193,7 +205,10 @@ export function ConsoleSession(props: ConsoleSessionProps): React.ReactElement {
   const { t } = useTranslation();
   const { step } = props;
   const session = useAgentSession(props.sessionKey, {
-    isLive: props.isLive || step.remote?.liveHistoryVersion === 1,
+    isLive:
+      props.isLive ||
+      step.session?.runnerOwned === true ||
+      step.remote?.liveHistoryVersion === 1,
     status: step.status,
   });
   const commands = useSessionCommands(props.sessionKey, session.refresh);
@@ -203,9 +218,9 @@ export function ConsoleSession(props: ConsoleSessionProps): React.ReactElement {
   return (
     <>
       {props.header(
+        sessionProvider(step, view),
         headerState(consoleStepState(step, view?.state ?? null, now), t),
         canStop ? () => commands.cancel("run") : undefined,
-        openRouterSessionBadges(view),
       )}
       <SessionNotice session={session} hasView={view !== null} />
       {view && step.session ? (

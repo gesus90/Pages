@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto";
+import { credentialRevision } from "./QuotaCredentialRevision";
 
 import type { OpenRouterProvider } from "@/backend/agents/providers/OpenRouterProvider";
 import type { AgentConnectionRepository } from "@/backend/database/repositories/AgentConnectionRepository";
@@ -10,25 +10,21 @@ const READ_TIMEOUT_MILLISECONDS = 15_000;
 const MAX_CACHED_REVISIONS = 500;
 
 type KeyQuota = OpenRouterQuotaAccount["key"];
-type CreditQuota = NonNullable<OpenRouterQuotaAccount["credits"]>;
+type AccountCredits = Extract<
+  OpenRouterQuotaAccount["credits"],
+  { mode: "account" }
+>;
+type CreditQuota = Omit<AccountCredits, "mode">;
 
 interface OpenRouterQuotaProbeDependencies {
-  readonly connections: Pick<
-    AgentConnectionRepository,
-    "findSecretEncrypted" | "findOpenRouterManagementSecret"
-  >;
+  readonly connections: Pick<AgentConnectionRepository, "findSecretEncrypted">;
   readonly cipher: Pick<InstanceSecretCipher, "decrypt">;
   readonly provider: Pick<OpenRouterProvider, "readUsage" | "readCredits">;
 }
 
 interface ReadingCache<Reading> {
-  readonly pending: Map<string, Promise<void>>;
+  readonly pending: Map<string, Promise<Reading>>;
   readonly latest: Map<string, Reading>;
-}
-
-function credentialRevision(id: string, encrypted: string): string {
-  const fingerprint = createHash("sha256").update(encrypted).digest("hex");
-  return `${id}:${fingerprint}`;
 }
 
 function isRejectedKey(errorCode: AgentErrorCode): boolean {
@@ -42,7 +38,7 @@ function refreshReading<Reading>(
   cache: ReadingCache<Reading>,
   revision: string,
   read: (previous: Reading | undefined) => Promise<Reading>,
-): Promise<void> {
+): Promise<Reading> {
   const pending = cache.pending.get(revision);
   if (pending) return pending;
   const request = read(cache.latest.get(revision)).then((reading) => {
@@ -52,6 +48,7 @@ function refreshReading<Reading>(
       if (oldest !== undefined) cache.latest.delete(oldest);
     }
     cache.latest.set(revision, reading);
+    return reading;
   });
   const completed = request.finally(() => {
     cache.pending.delete(revision);
@@ -90,9 +87,7 @@ export class OpenRouterQuotaProbe {
   }
 
   /** Returns cached credits to the authorized quota service. */
-  public async creditQuota(id: string): Promise<CreditQuota> {
-    const encrypted =
-      await this.dependencies.connections.findOpenRouterManagementSecret(id);
+  public creditQuota(id: string, encrypted: string | null): CreditQuota {
     if (encrypted === null) return { status: "missing_key", reading: null };
     const cached = this.credits.latest.get(credentialRevision(id, encrypted));
     if (!cached) return { status: "stored", reading: null };
@@ -113,15 +108,21 @@ export class OpenRouterQuotaProbe {
   }
 
   /** Refreshes credits with the dedicated management credential. */
-  public async refreshCredits(id: string): Promise<void> {
-    const encrypted =
-      await this.dependencies.connections.findOpenRouterManagementSecret(id);
-    if (encrypted === null) return;
-    await refreshReading(
+  public refreshCredits(id: string, encrypted: string): Promise<CreditQuota> {
+    return refreshReading(
       this.credits,
       credentialRevision(id, encrypted),
       (previous) => this.readCredits(id, encrypted, previous?.reading ?? null),
     );
+  }
+
+  /** Starts a new provider query after any credits read already in progress. */
+  public async readFreshCredits(
+    id: string,
+    encrypted: string,
+  ): Promise<CreditQuota> {
+    await this.credits.pending.get(credentialRevision(id, encrypted));
+    return this.refreshCredits(id, encrypted);
   }
 
   private decrypt(context: string, encrypted: string): string | null {

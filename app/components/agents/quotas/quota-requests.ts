@@ -1,6 +1,7 @@
 import { quotaSnapshotSchema } from "@/definition/AgentQuota";
 
 import type { QuotaSnapshot } from "@/definition/AgentQuota";
+import type { OpenRouterBalanceDisplay } from "@/definition/OpenRouterQuota";
 import type { QuotaAction } from "./quota-state";
 
 /** The cards of the person from the stored figures; no provider is asked. */
@@ -16,6 +17,20 @@ export const CLAUDE_QUOTA_EVENTS_ENDPOINT = "/agent-api/quotas/events";
 const REOPEN_MILLISECONDS = 60_000;
 
 type QuotaDispatch = (action: QuotaAction) => void;
+
+/** Result of changing the balance display, for the editing dialog. */
+export type OpenRouterBalanceSaveResult =
+  "saved" | "baselineUnavailable" | "connectionChanged" | "failed";
+
+/** Saves the balance display for one OpenRouter quota card. */
+export type SaveOpenRouterBalance = (
+  connectionId: string,
+  display: OpenRouterBalanceDisplay,
+) => Promise<OpenRouterBalanceSaveResult>;
+
+function cardUrl(connectionId: string): string {
+  return `${CLAUDE_QUOTA_CARD_ENDPOINT}/${encodeURIComponent(connectionId)}`;
+}
 
 function readSnapshot(body: unknown): QuotaSnapshot | null {
   const parsed = quotaSnapshotSchema.safeParse(body);
@@ -141,6 +156,44 @@ export class QuotaRequests {
     void this.queryCard(connectionId, controller, this.nextRequestNumber());
   }
 
+  /** Saves one display and applies the returned card through the usual request ordering. */
+  public async saveOpenRouterBalance(
+    connectionId: string,
+    display: OpenRouterBalanceDisplay,
+  ): Promise<OpenRouterBalanceSaveResult> {
+    const controller = this.track();
+    const requestNumber = this.nextRequestNumber();
+    this.dispatch({ type: "queryStarted", connectionId });
+    let snapshot: QuotaSnapshot | null = null;
+    try {
+      const response = await fetch(cardUrl(connectionId), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(display),
+        signal: controller.signal,
+      });
+      if (response.status === 409) return "connectionChanged";
+      if (!response.ok && response.status !== 422) return "failed";
+      snapshot = readSnapshot(await response.json());
+      if (!snapshot) return "failed";
+      this.dispatch({
+        type: "queryAnswered",
+        connectionId,
+        snapshot,
+        requestNumber,
+      });
+      if (!response.ok) return "baselineUnavailable";
+      if (display.mode === "account" && !controller.signal.aborted)
+        this.query(connectionId);
+      return "saved";
+    } catch {
+      return "failed";
+    } finally {
+      if (!snapshot) this.dispatch({ type: "querySettled", connectionId });
+      this.controllers.delete(controller);
+    }
+  }
+
   /** Aborts every running request; nothing answers after the page closed. */
   public abort(): void {
     for (const controller of this.controllers) controller.abort();
@@ -182,7 +235,7 @@ export class QuotaRequests {
   ): Promise<void> {
     try {
       const snapshot = await fetchSnapshot(
-        `${CLAUDE_QUOTA_CARD_ENDPOINT}/${encodeURIComponent(connectionId)}`,
+        cardUrl(connectionId),
         controller.signal,
       );
       this.dispatch({

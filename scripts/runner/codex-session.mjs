@@ -39,6 +39,10 @@ function modelName(input) {
   return typeof input === "string" && MODEL_NAME.test(input) ? input : null;
 }
 
+function validThreadId(threadId) {
+  return typeof threadId === "string" && THREAD_ID.test(threadId);
+}
+
 /** The date folders of `directory`, newest first, so the rollout of a running thread is found early. */
 async function datedFolders(directory) {
   // Codex creates the folders with the first rollout; until then there is nothing to find.
@@ -109,7 +113,7 @@ function applyRecord(record, session) {
     return false;
   const info = payload.info;
   if (!info || typeof info !== "object") return false;
-  session.used = positive(info.last_token_usage?.total_tokens) ?? session.used;
+  session.used = count(info.last_token_usage?.total_tokens) ?? session.used;
   session.limit = positive(info.model_context_window) ?? session.limit;
   return true;
 }
@@ -130,36 +134,36 @@ function applyLine(line, session) {
   }
 }
 
-/** Applies the complete lines of a chunk; a line beyond 8 MiB is dropped up to its newline. */
-function applyText(text, session) {
+/** Applies complete lines and yields each reading before the next record changes it. */
+function* applyText(text, session) {
   const lines = (session.pending + text).split("\n");
   session.pending = lines.pop() ?? "";
-  let hasChanged = false;
   for (const line of lines) {
-    if (!session.isSkipping && applyLine(line, session)) hasChanged = true;
+    const isComplete = !session.isSkipping && line.length <= MAX_LINE_BYTES;
     session.isSkipping = false;
+    if (!isComplete || !applyLine(line, session) || !session.isConfirmed)
+      continue;
+    if (session.model !== null) yield JSON.stringify(reading(session));
   }
   if (session.pending.length > MAX_LINE_BYTES) {
     session.pending = "";
     session.isSkipping = true;
   }
-  return hasChanged;
 }
 
-async function readNewRecords(session) {
+async function* readNewRecords(session) {
   const handle = await open(
     session.file,
     constants.O_RDONLY | constants.O_NOFOLLOW,
   );
   try {
     const bytes = Buffer.alloc(CHUNK_BYTES);
-    let hasChanged = false;
     for (;;) {
       const chunk = await handle.read(bytes, 0, bytes.length, session.offset);
-      if (chunk.bytesRead === 0) return hasChanged;
+      if (chunk.bytesRead === 0) return;
       session.offset += chunk.bytesRead;
       const text = session.decoder.write(bytes.subarray(0, chunk.bytesRead));
-      if (applyText(text, session)) hasChanged = true;
+      yield* applyText(text, session);
     }
   } finally {
     await handle.close();
@@ -190,31 +194,10 @@ function reading(session) {
   };
 }
 
-async function scan(session, emit) {
-  if (!(await locate(session))) return;
-  const hasChanged = await readNewRecords(session);
-  // A resumed thread's history only sets the state; what it held is reported with the first record of the new turn.
-  if (session.isBaseline) {
-    session.isBaseline = false;
-    return;
-  }
-  if (!hasChanged || session.model === null) return;
-  const text = JSON.stringify(reading(session));
-  if (text === session.last) return;
-  session.last = text;
-  await emit({
-    kind: "usage",
-    text,
-    createdAt: new Date().toISOString(),
-    isTruncated: false,
-    channel: "stdout",
-  });
-}
-
-async function scanSafely(session, emit) {
+async function* scan(session) {
   if (session.threadId === null || session.isDisabled) return;
   try {
-    await scan(session, emit);
+    if (await locate(session)) yield* readNewRecords(session);
   } catch {
     // A rollout that cannot be read leaves the context unreported; the job itself goes on.
     session.isDisabled = true;
@@ -224,14 +207,14 @@ async function scanSafely(session, emit) {
 /**
  * Creates the reader of one job; nothing is shared between jobs or runs.
  * @param home - The `CODEX_HOME` of the job; `null` reads nothing.
- * @param isResume - Whether the job resumes a recorded thread, whose rollout already holds history.
+ * @param resumeThreadId - The recorded thread to resume, when the job has one.
  */
-export function createCodexSessionReader(home, isResume) {
+export function createCodexSessionReader(home, resumeThreadId) {
   return {
     home,
-    isBaseline: Boolean(isResume),
+    isConfirmed: false,
     isDisabled: typeof home !== "string" || !home.startsWith("/"),
-    threadId: null,
+    threadId: validThreadId(resumeThreadId) ? resumeThreadId : null,
     file: null,
     offset: 0,
     pending: "",
@@ -246,9 +229,14 @@ export function createCodexSessionReader(home, isResume) {
   };
 }
 
+/** Reads the resumed thread's existing context silently before the child can append a new turn. */
+export async function prepareCodexSession(session) {
+  if (session.isConfirmed) return;
+  await scan(session).next();
+}
+
 /**
- * Follows the rollout of the job's thread with every Codex event and emits a
- * session reading when the model, the occupancy or the window changed.
+ * Confirms the job's thread and reads its rollout with every Codex event.
  * @remarks
  * The thread is the one `thread.started` names. An ephemeral job writes no
  * rollout, so its context stays unreported, as does every value Codex did not
@@ -257,16 +245,38 @@ export function createCodexSessionReader(home, isResume) {
 export async function receiveCodexSession(event, session, emit) {
   if (
     event?.type === "thread.started" &&
-    session.threadId === null &&
-    typeof event.thread_id === "string" &&
-    THREAD_ID.test(event.thread_id)
-  )
+    !session.isConfirmed &&
+    validThreadId(event.thread_id)
+  ) {
+    if (session.threadId !== null && session.threadId !== event.thread_id) {
+      session.isDisabled = true;
+      return;
+    }
     session.threadId = event.thread_id;
-  await scanSafely(session, emit);
+    session.isConfirmed = true;
+    session.searchedAt = 0;
+  }
+  await pollCodexSession(session, emit);
+}
+
+/** Reports changes from the confirmed rollout even while the child emits no stdout. */
+export async function pollCodexSession(session, emit) {
+  if (!session.isConfirmed) return;
+  for await (const text of scan(session)) {
+    if (text === session.last) continue;
+    await emit({
+      kind: "usage",
+      text,
+      createdAt: new Date().toISOString(),
+      isTruncated: false,
+      channel: "stdout",
+    });
+    session.last = text;
+  }
 }
 
 /** Reads what Codex wrote before it exited, such as the reading of the final answer. */
 export async function finishCodexSession(session, emit) {
   session.searchedAt = 0;
-  await scanSafely(session, emit);
+  await pollCodexSession(session, emit);
 }

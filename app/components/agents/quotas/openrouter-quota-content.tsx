@@ -15,7 +15,6 @@ import type { OpenRouterQuotaFormat } from "./openrouter-quota-format";
 
 type KeyReading = NonNullable<OpenRouterQuotaAccount["key"]["reading"]>;
 type CreditQuota = NonNullable<OpenRouterQuotaAccount["credits"]>;
-type CreditReading = NonNullable<CreditQuota["reading"]>;
 
 function AmountSlot({
   label,
@@ -77,21 +76,41 @@ function AmountSlot({
 }
 
 function CreditBalance({
-  reading,
+  credits,
   stale,
   format,
 }: {
-  readonly reading: CreditReading;
+  readonly credits: CreditQuota;
   readonly stale: string | null;
   readonly format: OpenRouterQuotaFormat;
-}): React.ReactElement {
+}): React.ReactElement | null {
   const { t, money } = format;
-  const { purchased, used, remaining } = reading;
+  if (credits.mode === "manual") {
+    const remaining = credits.reading?.remaining ?? null;
+    const amount =
+      remaining === null
+        ? t("agentsPage.openRouter.unknown")
+        : money(remaining);
+    return (
+      <AmountSlot
+        label={t("agentsPage.openRouter.manualBalance")}
+        amount={amount}
+        share={balanceShare(remaining, credits.startAmount)}
+        detail={t("agentsPage.openRouter.manualStartAmountDetail", {
+          amount: money(credits.startAmount),
+        })}
+        stale={stale}
+        isExhausted={remaining === 0}
+      />
+    );
+  }
+  if (!credits.reading) return null;
+  const { purchased, used, remaining } = credits.reading;
   return (
     <AmountSlot
       label={t("agentsPage.openRouter.balance")}
       amount={money(remaining)}
-      share={purchased === 0 ? 0 : (remaining / purchased) * 100}
+      share={balanceShare(remaining, purchased)}
       detail={t("agentsPage.openRouter.creditTotals", {
         purchased: money(purchased),
         used: money(used),
@@ -100,6 +119,14 @@ function CreditBalance({
       isExhausted={remaining === 0}
     />
   );
+}
+
+function balanceShare(
+  remaining: number | null,
+  startAmount: number,
+): number | null {
+  if (remaining === null) return null;
+  return startAmount === 0 ? 0 : (remaining / startAmount) * 100;
 }
 
 function KeyBudget({
@@ -236,6 +263,27 @@ function KeyDetails({
         format={format}
       />
     );
+  if (key.reading && credits?.mode === "manual" && !credits.reading)
+    return (
+      <UsageTotal
+        reading={key.reading}
+        stale={stale}
+        showNoLimit={key.reading.limit === null}
+        format={format}
+      />
+    );
+  return <KeyNotices account={account} format={format} />;
+}
+
+function KeyNotices({
+  account,
+  format,
+}: {
+  readonly account: OpenRouterQuotaAccount;
+  readonly format: OpenRouterQuotaFormat;
+}): React.ReactElement | null {
+  const { key, credits } = account;
+  const { t } = format;
   if (credits?.status === "missing_key")
     return (
       <OpenRouterNotice
@@ -243,7 +291,11 @@ function KeyDetails({
         detail={t("agentsPage.openRouter.creditsNeedsManagement")}
       />
     );
-  if (key.status === "failed" && !key.reading && credits?.reading)
+  if (
+    key.status === "failed" &&
+    !key.reading &&
+    (credits?.reading || credits?.mode === "manual")
+  )
     return (
       <OpenRouterNotice
         title={t("agentsPage.openRouter.keyUnknown")}
@@ -251,6 +303,42 @@ function KeyDetails({
       />
     );
   return null;
+}
+
+function MissingBalanceContent({
+  account,
+  format,
+  staleKey,
+  hasBalanceSlot,
+}: {
+  readonly account: OpenRouterQuotaAccount;
+  readonly format: OpenRouterQuotaFormat;
+  readonly staleKey: string | null;
+  readonly hasBalanceSlot: boolean;
+}): React.ReactElement {
+  const { key, credits } = account;
+  const { t } = format;
+  return (
+    <>
+      {!hasBalanceSlot && key.reading ? (
+        <UsageTotal
+          reading={key.reading}
+          stale={staleKey}
+          format={format}
+          showNoLimit={
+            (credits !== undefined || staleKey !== null) &&
+            key.reading.limit === null
+          }
+        />
+      ) : null}
+      {!hasBalanceSlot && !key.reading && key.status !== "invalid_key" ? (
+        <OpenRouterNotice
+          title={t("agentsPage.openRouter.noReading")}
+          isWarning
+        />
+      ) : null}
+    </>
+  );
 }
 
 /** Presents account credits first, with the key's separately reported budget below. */
@@ -268,36 +356,22 @@ export function OpenRouterQuotaContent({
       ? t("agentsPage.state.stored", { time: time(key.reading.at) })
       : null;
   const creditReading = credits?.reading;
+  const hasBalanceSlot = credits?.mode === "manual" || Boolean(creditReading);
   const staleCredits =
     credits?.status === "failed" && creditReading
       ? t("agentsPage.state.stored", { time: time(creditReading.at) })
       : null;
   return (
     <div className={QUOTA_WINDOWS_AREA_CLASS}>
-      {creditReading ? (
-        <CreditBalance
-          reading={creditReading}
-          stale={staleCredits}
-          format={format}
-        />
+      {credits && hasBalanceSlot ? (
+        <CreditBalance credits={credits} stale={staleCredits} format={format} />
       ) : null}
-      {!creditReading && key.reading ? (
-        <UsageTotal
-          reading={key.reading}
-          stale={staleKey}
-          format={format}
-          showNoLimit={
-            (credits !== undefined || staleKey !== null) &&
-            key.reading.limit === null
-          }
-        />
-      ) : null}
-      {!creditReading && !key.reading && key.status !== "invalid_key" ? (
-        <OpenRouterNotice
-          title={t("agentsPage.openRouter.noReading")}
-          isWarning
-        />
-      ) : null}
+      <MissingBalanceContent
+        account={account}
+        format={format}
+        staleKey={staleKey}
+        hasBalanceSlot={hasBalanceSlot}
+      />
       <KeyDetails account={account} format={format} stale={staleKey} />
     </div>
   );

@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import openRouterLogo from "@/assets/providers/logo-openrouter.png?no-inline";
 import { cn } from "@/app/lib/cn";
 
+import { OpenRouterBalanceDialog } from "./openrouter-balance-dialog";
 import { OpenRouterQuotaContent } from "./openrouter-quota-content";
 import { openRouterQuotaFormat } from "./openrouter-quota-format";
 import { openRouterQuotaStatus } from "./openrouter-quota-status";
@@ -13,6 +14,7 @@ import { QuotaStatusFooter } from "./quota-status-line";
 import { useRefreshHint } from "./use-refresh-hint";
 
 import type { OpenRouterQuotaAccount } from "@/definition/OpenRouterQuota";
+import type { SaveOpenRouterBalance } from "./quota-requests";
 
 /** Shows the OpenRouter balance and key budget for one connection in the shared quota grid. */
 export function OpenRouterQuotaCard({
@@ -20,11 +22,13 @@ export function OpenRouterQuotaCard({
   pendingQueries,
   now,
   onRetry,
+  onSaveBalance,
 }: {
   readonly account: OpenRouterQuotaAccount;
   readonly pendingQueries: number;
   readonly now: Date;
   readonly onRetry: (connectionId: string) => void;
+  readonly onSaveBalance: SaveOpenRouterBalance;
 }): React.ReactElement {
   const { t, i18n } = useTranslation();
   const isQuerying = pendingQueries > 0;
@@ -63,6 +67,14 @@ export function OpenRouterQuotaCard({
             {t("agentsPage.openRouter.subtitle")}
           </p>
         </div>
+        {account.credits ? (
+          <OpenRouterBalanceDialog
+            connectionId={account.connectionId}
+            name={account.name}
+            display={account.credits}
+            onSave={onSaveBalance}
+          />
+        ) : null}
         <button
           type="button"
           title={refresh}

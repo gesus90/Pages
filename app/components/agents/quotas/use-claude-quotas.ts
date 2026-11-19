@@ -7,6 +7,7 @@ import {
   reduceQuotas,
 } from "./quota-state";
 
+import type { SaveOpenRouterBalance } from "./quota-requests";
 import type { ClaudeQuotaState } from "./quota-state";
 
 /** What the quota page shows and how it asks for more. */
@@ -18,6 +19,7 @@ export interface ClaudeQuotas {
   readonly refresh: () => void;
   /** Queries one card without touching the others. */
   readonly retryCard: (connectionId: string) => void;
+  readonly saveOpenRouterBalance: SaveOpenRouterBalance;
 }
 
 /**
@@ -51,5 +53,7 @@ export function useClaudeQuotas(): ClaudeQuotas {
     isRefreshing: isQuotaRefreshing(state),
     refresh: () => requests.load(),
     retryCard: (connectionId) => requests.query(connectionId),
+    saveOpenRouterBalance: (connectionId, display) =>
+      requests.saveOpenRouterBalance(connectionId, display),
   };
 }

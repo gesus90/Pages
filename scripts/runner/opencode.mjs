@@ -150,7 +150,7 @@ export class OpenCodeAcpClient {
       return;
     }
     if (message.method === "session/update") {
-      await this.#update(message.params?.update);
+      await this.#update(message.params?.update, message.params?.sessionId);
       return;
     }
     if (message.id === undefined) return;
@@ -174,7 +174,7 @@ export class OpenCodeAcpClient {
     );
   }
 
-  async #update(update) {
+  async #update(update, sessionId) {
     const isText =
       update?.sessionUpdate === "agent_message_chunk" &&
       update.content?.type === "text";
@@ -208,7 +208,7 @@ export class OpenCodeAcpClient {
       this.#isMessageOpen = true;
     }
     if (update?.sessionUpdate !== "agent_thought_chunk")
-      await this.#publish?.({ type: "pages.update", update });
+      await this.#publish?.({ type: "pages.update", sessionId, update });
   }
 
   /** Projects one complete native message before its boundary, without retaining earlier messages. */
@@ -553,11 +553,22 @@ async function executeJob(job, prompt) {
     ]);
     // The effort selector belongs to the chosen model, so it is read after the model.
     if (job.reasoningEffort !== null)
-      await choose(client, session, [
+      session = await choose(client, session, [
         "effort",
         job.reasoningEffort,
         "plan_reasoning_unsupported",
       ]);
+    const model = session.options.get("model")?.currentValue;
+    if (model !== job.model)
+      throw Object.assign(new Error("Configuration changed before prompt"), {
+        pagesCode: "plan_context_changed",
+      });
+    await writeOutput({
+      type: "pages.configuration",
+      sessionId: session.sessionId,
+      model,
+      reasoningEffort: job.reasoningEffort,
+    });
     const turn = await client.call("session/prompt", {
       sessionId: session.sessionId,
       prompt: [{ type: "text", text: prompt }],

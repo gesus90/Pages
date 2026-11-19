@@ -6,6 +6,8 @@ import {
 import {
   createCodexSessionReader,
   finishCodexSession,
+  pollCodexSession,
+  prepareCodexSession,
   receiveCodexSession,
 } from "./codex-session.mjs";
 import { codexHome } from "./cli.mjs";
@@ -15,7 +17,9 @@ const MAXIMUM_TEXT_BYTES = 4000;
 const DEDUPE_WINDOW = 64;
 const MAXIMUM_CALL_TITLE = 600;
 const MAXIMUM_CALL_IDENTITY = 200;
+const MAXIMUM_OPEN_CODE_TOOL_FIELD = 200;
 const CALL_WINDOW = 256;
+const MODEL_NAME = /^[A-Za-z0-9._:@/[\]-]{1,200}$/u;
 
 function textEnd(bytes, start, limit) {
   let end = Math.min(start + limit, bytes.length);
@@ -88,7 +92,12 @@ async function noteCall(state, kind, call) {
     );
   const [first = "", ...rest] = title.split("\n");
   const body = [rest.join("\n"), output].filter((part) => part !== "");
-  const head = `${first.trim().slice(0, MAXIMUM_CALL_TITLE)}\n@call ${call.identity}`;
+  const head = [
+    first.trim().slice(0, MAXIMUM_CALL_TITLE),
+    `@call ${call.identity}`,
+    ...(call.markers ?? []),
+    ...(call.input ? [`$ ${call.input}`] : []),
+  ].join("\n");
   await note(state, kind, body.join("\n"), "stdout", head);
 }
 
@@ -255,12 +264,116 @@ async function readClaude(event, state) {
     );
 }
 
-/** An ACP call or its end; a call that is still running reports no result. */
+function firstToolLine(value, limit) {
+  if (typeof value !== "string") return "";
+  const first = value.trim().split(/\r?\n/u, 1)[0];
+  return first.length > limit ? `${first.slice(0, limit - 1)}…` : first;
+}
+
+function openCodeToolOutput(update) {
+  const content = Array.isArray(update.content) ? update.content : [];
+  const texts = content.flatMap((entry) => {
+    if (entry?.type === "content" && entry.content?.type === "text")
+      return [entry.content.text];
+    if (entry?.type === "diff") return [`diff ${entry.path}\n${entry.newText}`];
+    return [];
+  });
+  const raw = update.rawOutput?.output ?? update.rawOutput?.error;
+  return texts.join("\n") || (typeof raw === "string" ? raw : "");
+}
+
+function openCodeToolFacts(update, kind) {
+  const input = update.rawInput;
+  const subject = ["command", "cmd", "filePath", "path", "pattern"]
+    .map((field) => input?.[field])
+    .find((value) => typeof value === "string" && value !== "");
+  const command = firstToolLine(subject, MAXIMUM_OPEN_CODE_TOOL_FIELD);
+  const about = firstToolLine(input?.description, MAXIMUM_OPEN_CODE_TOOL_FIELD);
+  const toolKind = firstToolLine(update.kind, 32);
+  const pagesTool = /^pages_([a-z][a-z0-9_]{0,110})$/u.exec(update.title)?.[1];
+  const exit = update.rawOutput?.metadata?.exit;
+  return {
+    input: command,
+    markers: [
+      ...(toolKind ? [`@kind ${toolKind}`] : []),
+      ...(pagesTool ? [`@tool mcp__pages__${pagesTool}`] : []),
+      ...(about ? [`@about ${about}`] : []),
+      ...(Number.isSafeInteger(exit) ? [`@exit ${exit}`] : []),
+    ],
+    output: kind === "tool_started" ? "" : openCodeToolOutput(update),
+  };
+}
+
+/** Projects ACP tools onto the shared call, input and output markers. */
 async function openCodeCall(state, kind, update) {
   const identity = callIdentity(update.toolCallId);
   const title = update.title ?? state.calls.get(identity) ?? "";
   if (identity && update.title) rememberCall(state, identity, update.title);
-  await noteCall(state, kind, { title, identity });
+  if (!state.openCodeSelection)
+    return noteCall(state, kind, { title, identity });
+  const facts = openCodeToolFacts(update, kind);
+  if (identity && isDuplicate(state, `${identity}:${kind}`, [title, facts]))
+    return;
+  await noteCall(state, kind, {
+    title: firstToolLine(title, MAXIMUM_OPEN_CODE_TOOL_FIELD),
+    identity,
+    ...facts,
+  });
+}
+
+function contextCount(value, minimum) {
+  return Number.isSafeInteger(value) && value >= minimum ? value : null;
+}
+
+async function noteOpenCodeContext(state, model, context) {
+  if (typeof model !== "string" || !MODEL_NAME.test(model)) return;
+  await note(state, "usage", JSON.stringify({ session: { model, context } }));
+}
+
+async function readOpenCodeModelChange(state, selection, update) {
+  const options = Array.isArray(update.configOptions)
+    ? update.configOptions
+    : [];
+  const model = options.find(
+    (option) => option?.id === "model" && option.type === "select",
+  )?.currentValue;
+  if (typeof model !== "string" || model === selection.model) return;
+  // The unlabelled usage of an already dispatched prompt cannot follow selector drift.
+  selection.hasModelChanged = true;
+  selection.model = model;
+  await noteOpenCodeContext(state, model, null);
+}
+
+/** The ACP usage reading belongs to the confirmed prompt model of the same native session. */
+async function readOpenCodeContext(event, state) {
+  if (event.type === "pages.configuration") {
+    state.openCodeSelection = {
+      sessionId: event.sessionId,
+      model: event.model,
+      hasModelChanged: false,
+    };
+    return noteOpenCodeContext(state, event.model, null);
+  }
+  const selection = state.openCodeSelection;
+  if (
+    !selection ||
+    event.type !== "pages.update" ||
+    event.sessionId !== selection.sessionId
+  )
+    return;
+  const update = event.update;
+  if (update?.sessionUpdate === "config_option_update")
+    return readOpenCodeModelChange(state, selection, update);
+  if (update?.sessionUpdate !== "usage_update" || selection.hasModelChanged)
+    return;
+  const used = contextCount(update.used, 0);
+  const limit = contextCount(update.size, 1);
+  if (used !== null || limit !== null)
+    await noteOpenCodeContext(state, selection.model, {
+      used,
+      limit,
+      source: "acp_usage_update",
+    });
 }
 
 async function readOpenCode(event, state) {
@@ -277,42 +390,42 @@ async function readOpenCode(event, state) {
   }
   if (event.type !== "pages.update") return;
   const update = event.update;
-  if (
-    update?.sessionUpdate === "agent_message_chunk" &&
-    update.content?.type === "text"
-  ) {
-    // Complete messages are projected by the ACP wrapper, so redaction precedes splitting.
-    return;
-  }
+  // The ACP wrapper projects complete messages so redaction precedes splitting.
   if (update?.sessionUpdate === "agent_message")
     return note(state, "agent_message", update.text);
   if (update?.sessionUpdate === "tool_call")
     return openCodeCall(state, "tool_started", update);
-  if (
-    update?.sessionUpdate === "tool_call_update" &&
-    ["completed", "failed"].includes(update.status)
-  )
-    return openCodeCall(
-      state,
-      update.status === "failed" ? "tool_failed" : "tool_completed",
-      update,
-    );
+  if (update?.sessionUpdate === "tool_call_update")
+    return readAcpToolUpdate(state, update);
   if (update?.sessionUpdate === "plan")
     await planNote(state, update.entries ?? []);
+}
+
+async function readAcpToolUpdate(state, update) {
+  if (
+    state.openCodeSelection &&
+    update.status === "in_progress" &&
+    update.rawInput
+  )
+    return openCodeCall(state, "tool_started", update);
+  if (update.status === "failed")
+    return openCodeCall(state, "tool_failed", update);
+  if (update.status === "completed")
+    await openCodeCall(state, "tool_completed", update);
 }
 
 /** The rollout reader of a Codex job; a script, another tool or an invalid home reads nothing. */
 function codexSessionReader(command) {
   if (command.program?.route?.tool !== "codex" || command.progressVersion !== 1)
-    return createCodexSessionReader(null, false);
+    return createCodexSessionReader(null, null);
   try {
     return createCodexSessionReader(
       codexHome(command),
-      Boolean(command.continuation?.resumeSessionId),
+      command.continuation?.resumeSessionId,
     );
   } catch {
     // An invalid CLI home also stops the launch; the reader then has nothing to follow.
-    return createCodexSessionReader(null, false);
+    return createCodexSessionReader(null, null);
   }
 }
 
@@ -331,8 +444,13 @@ export function createLiveHistory(command, redact, emit) {
     codexSession: codexSessionReader(command),
   };
   return {
+    async initialize() {
+      await prepareCodexSession(state.codexSession);
+    },
     async receive(event) {
       const tool = command.program.route.tool;
+      if (state.progressVersion === 1 && tool === "opencode")
+        await readOpenCodeContext(event, state);
       if (state.progressVersion === 1) await receiveUsage(event, tool, state);
       if (state.progressVersion === 1 && tool === "claude")
         await receiveClaudeSession(event, state.claudeSession, state.emit);
@@ -342,6 +460,9 @@ export function createLiveHistory(command, redact, emit) {
       } else if (tool === "claude") await readClaude(event, state);
       else if (tool === "opencode" || tool === "antigravity")
         await readOpenCode(event, state);
+    },
+    async poll() {
+      await pollCodexSession(state.codexSession, state.emit);
     },
     async finish() {
       await finishCodexSession(state.codexSession, state.emit);

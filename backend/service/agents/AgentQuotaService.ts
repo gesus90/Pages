@@ -1,8 +1,13 @@
 import type { QuotaSnapshot } from "@/definition/AgentQuota";
+import type { OpenRouterBalanceDisplay } from "@/definition/OpenRouterQuota";
 import type { AntigravityQuotaService } from "./AntigravityQuotaService";
 import type { ClaudeQuotaService } from "./ClaudeQuotaService";
 import type { CodexQuotaService } from "./CodexQuotaService";
-import type { OpenRouterQuotaService } from "./OpenRouterQuotaService";
+import type {
+  OpenRouterBalanceUpdate,
+  OpenRouterQuotaService,
+} from "./OpenRouterQuotaService";
+import type { ZaiQuotaService } from "./ZaiQuotaService";
 
 interface AgentQuotaDependencies {
   readonly claude: Pick<
@@ -19,7 +24,11 @@ interface AgentQuotaDependencies {
   >;
   readonly openRouter: Pick<
     OpenRouterQuotaService,
-    "listStoredForUser" | "refreshForUser"
+    "listStoredForUser" | "refreshForUser" | "setCreditDisplay"
+  >;
+  readonly zai: Pick<
+    ZaiQuotaService,
+    "listStoredForUser" | "listForUser" | "refreshForUser"
   >;
 }
 
@@ -59,13 +68,14 @@ export class AgentQuotaService {
    * @returns The cards of the providers with their stored figures.
    */
   public async listStoredForUser(userId: string): Promise<QuotaSnapshot> {
-    const { claude, codex, antigravity, openRouter } = this.dependencies;
+    const { claude, codex, antigravity, openRouter, zai } = this.dependencies;
     return mergeSnapshots(
       await Promise.all([
         claude.listStoredForUser(userId),
         codex.listStoredForUser(userId),
         antigravity.listStoredForUser(userId),
         openRouter.listStoredForUser(userId),
+        zai.listStoredForUser(userId),
       ]),
     );
   }
@@ -76,18 +86,20 @@ export class AgentQuotaService {
    * @returns The cards of every provider; a failed query is the status of its card.
    */
   public async listForUser(userId: string): Promise<QuotaSnapshot> {
-    const { claude, codex, antigravity, openRouter } = this.dependencies;
-    const [claudeSnapshot, codexSnapshot, antigravitySnapshot] =
+    const { claude, codex, antigravity, openRouter, zai } = this.dependencies;
+    const [claudeSnapshot, codexSnapshot, antigravitySnapshot, zaiSnapshot] =
       await Promise.all([
         claude.listForUser(userId),
         codex.listForUser(userId),
         antigravity.listForUser(userId),
+        zai.listForUser(userId),
         openRouter.refreshForUser(userId),
       ]);
     return mergeSnapshots([
       claudeSnapshot,
       codexSnapshot,
       antigravitySnapshot,
+      zaiSnapshot,
       await openRouter.listStoredForUser(userId),
     ]);
   }
@@ -103,19 +115,34 @@ export class AgentQuotaService {
     userId: string,
     connectionId: string,
   ): Promise<QuotaSnapshot> {
-    const { claude, codex, antigravity, openRouter } = this.dependencies;
-    const [claudeSnapshot, codexSnapshot, antigravitySnapshot] =
+    const { claude, codex, antigravity, openRouter, zai } = this.dependencies;
+    const [claudeSnapshot, codexSnapshot, antigravitySnapshot, zaiSnapshot] =
       await Promise.all([
         claude.refreshForUser(userId, connectionId),
         codex.refreshForUser(userId, connectionId),
         antigravity.refreshForUser(userId, connectionId),
+        zai.refreshForUser(userId, connectionId),
         openRouter.refreshForUser(userId, connectionId),
       ]);
     return mergeSnapshots([
       claudeSnapshot,
       codexSnapshot,
       antigravitySnapshot,
+      zaiSnapshot,
       await openRouter.listStoredForUser(userId, connectionId),
     ]);
+  }
+
+  /** Updates the OpenRouter balance display and returns the current card. */
+  public setOpenRouterBalanceDisplay(
+    userId: string,
+    connectionId: string,
+    display: OpenRouterBalanceDisplay,
+  ): Promise<OpenRouterBalanceUpdate> {
+    return this.dependencies.openRouter.setCreditDisplay(
+      userId,
+      connectionId,
+      display,
+    );
   }
 }

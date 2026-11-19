@@ -19,9 +19,12 @@ import { simulationGuardedFetch } from "@/backend/agents/simulation/SimulatedPla
 import { CatalogHttpClient } from "@/backend/agents/catalog/CatalogHttpClient";
 import { OpenRouterProvider } from "@/backend/agents/providers/OpenRouterProvider";
 import { ProviderHttpClient } from "@/backend/agents/providers/ProviderHttpClient";
+import { ZaiProvider } from "@/backend/agents/providers/ZaiProvider";
 import { AuthorizationRepository } from "@/backend/database/repositories/AuthorizationRepository";
 import { UserGroupRepository } from "@/backend/database/repositories/UserGroupRepository";
 import { AgentConnectionAccess } from "@/backend/service/agents/AgentConnectionAccess";
+import { AgentQuotaCardOrderRepository } from "@/backend/database/repositories/agent/AgentQuotaCardOrderRepository";
+import { AgentQuotaCardOrderService } from "@/backend/service/agents/AgentQuotaCardOrderService";
 import { AgentQuotaService } from "@/backend/service/agents/AgentQuotaService";
 import { AntigravityQuotaProbe } from "@/backend/service/agents/AntigravityQuotaProbe";
 import { AntigravityQuotaService } from "@/backend/service/agents/AntigravityQuotaService";
@@ -31,6 +34,8 @@ import { CodexQuotaProbe } from "@/backend/service/agents/CodexQuotaProbe";
 import { CodexQuotaService } from "@/backend/service/agents/CodexQuotaService";
 import { OpenRouterQuotaProbe } from "@/backend/service/agents/OpenRouterQuotaProbe";
 import { OpenRouterQuotaService } from "@/backend/service/agents/OpenRouterQuotaService";
+import { ZaiQuotaProbe } from "@/backend/service/agents/ZaiQuotaProbe";
+import { ZaiQuotaService } from "@/backend/service/agents/ZaiQuotaService";
 import { LocalSessions } from "@/backend/agents/local/LocalSessions";
 import { CHAT_REQUEST_TIMEOUT_MS } from "@/backend/service/chat/ChatExecutionLimits";
 import { ChatRequestRegistry } from "@/backend/service/chat/ChatRequestRegistry";
@@ -96,6 +101,8 @@ export interface AgentApplicationServices
   readonly agentConnectionAccess: AgentConnectionAccess;
   /** Quota cards of the provider connections a person may use. */
   readonly quotaService: AgentQuotaService;
+  /** The order in which a person arranged the quota cards, kept per account. */
+  readonly quotaCardOrderService: AgentQuotaCardOrderService;
   /**
    * Running chat answers may use several model calls within one deadline.
    * Shutdown cancels them before the database closes.
@@ -118,7 +125,7 @@ export interface AgentApplicationServices
 /**
  * The connection scope check, the quota page and the decision model, which
  * share one reading of the groups; the quota page asks Claude, Codex and
- * Antigravity through the CLI runtime.
+ * Antigravity through the CLI runtime and OpenRouter and Z.AI over HTTP.
  */
 function createAccessServices(
   database: Database,
@@ -182,6 +189,20 @@ function createAccessServices(
           ),
         }),
       }),
+      zai: new ZaiQuotaService({
+        connections: repository,
+        authorization,
+        groups,
+        probe: new ZaiQuotaProbe({
+          connections: repository,
+          cipher,
+          provider: new ZaiProvider(
+            new ProviderHttpClient(
+              simulationGuardedFetch(currentAgentSimulationMode()),
+            ),
+          ),
+        }),
+      }),
     }),
     ...createChatDecisionServices({
       database,
@@ -235,6 +256,16 @@ function createAssignments(
       assignments: new AgentAssignmentRepository(database),
       connections: repository,
     }),
+  };
+}
+
+function createQuotaCardOrder(
+  database: Database,
+): Pick<AgentApplicationServices, "quotaCardOrderService"> {
+  return {
+    quotaCardOrderService: new AgentQuotaCardOrderService(
+      new AgentQuotaCardOrderRepository(database),
+    ),
   };
 }
 
@@ -321,6 +352,7 @@ export function createAgentServices(
     }),
     agentConnectionAccess: access,
     ...createAssignments(database, repository),
+    ...createQuotaCardOrder(database),
     ...executions,
     chatRequests: new ChatRequestRegistry({
       timeoutMs: CHAT_REQUEST_TIMEOUT_MS,

@@ -19,6 +19,13 @@ import type {
 interface ProviderRequest<Result> {
   readonly provider: ApiProviderId;
   readonly zaiAccountType?: ZaiAccountType;
+  /**
+   * A fixed endpoint of the provider outside its model API, such as a usage
+   * monitor; it replaces the endpoint of the provider.
+   */
+  readonly endpoint?: string;
+  /** Sends the key as the whole `Authorization` value, as the usage monitor of Z.AI requires. */
+  readonly isKeySentWithoutScheme?: boolean;
   readonly apiKey: string;
   readonly path: string;
   readonly body?: Readonly<Record<string, unknown>>;
@@ -34,6 +41,7 @@ export type ProviderReadOutcome<Result> =
 export function requestHeaders(
   provider: ApiProviderId,
   apiKey: string,
+  options: { readonly isKeySentWithoutScheme?: boolean } = {},
 ): Record<string, string> {
   const headers: Record<string, string> = {
     Accept: "application/json",
@@ -43,7 +51,10 @@ export function requestHeaders(
   else if (provider === "anthropic") {
     headers["x-api-key"] = apiKey;
     headers["anthropic-version"] = "2023-06-01";
-  } else headers.Authorization = `Bearer ${apiKey}`;
+  } else
+    headers.Authorization = options.isKeySentWithoutScheme
+      ? apiKey
+      : `Bearer ${apiKey}`;
   return headers;
 }
 
@@ -78,13 +89,17 @@ export class ProviderHttpClient {
     input: ProviderRequest<Result>,
     signal: AbortSignal,
   ): Promise<ProviderReadOutcome<Result>> {
-    const endpoint = apiProviderEndpoint(input.provider, input.zaiAccountType);
+    const endpoint =
+      input.endpoint ??
+      apiProviderEndpoint(input.provider, input.zaiAccountType);
     let response: ProviderHttpResponse;
     try {
       signal.throwIfAborted();
       response = await this.request(`${endpoint}${input.path}`, {
         method: input.body === undefined ? "GET" : "POST",
-        headers: requestHeaders(input.provider, input.apiKey),
+        headers: requestHeaders(input.provider, input.apiKey, {
+          isKeySentWithoutScheme: input.isKeySentWithoutScheme,
+        }),
         body: input.body === undefined ? undefined : JSON.stringify(input.body),
         signal,
         redirect: "error",

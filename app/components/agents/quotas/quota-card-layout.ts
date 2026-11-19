@@ -23,6 +23,18 @@ export const QUOTA_WINDOWS_AREA_CLASS =
 export const QUOTA_WINDOW_SLOT_CLASS =
   "flex h-[76px] shrink-0 flex-col gap-2 md:h-[62px]";
 
+/**
+ * The window area of a card that lists three windows: the same 172 px on a
+ * wide card and 220 px on a phone, with the slots below and less space
+ * around and between them, so a third window fits without scrolling.
+ */
+export const QUOTA_COMPACT_WINDOWS_AREA_CLASS =
+  "flex min-h-0 flex-1 flex-col justify-center gap-3 overflow-hidden py-6 md:gap-1.5 md:py-2";
+
+/** The slot of one window of three: 48 px, the same on a wide card and on a phone. */
+export const QUOTA_COMPACT_WINDOW_SLOT_CLASS =
+  "flex h-12 shrink-0 flex-col gap-px";
+
 /** The status line: 48 px below a 1 px border. */
 export const QUOTA_STATUS_LINE_CLASS =
   "flex h-12 shrink-0 items-center gap-3 border-t border-border";

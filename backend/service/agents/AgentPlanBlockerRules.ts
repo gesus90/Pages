@@ -326,6 +326,8 @@ const ERROR_CLASSES: Readonly<Record<AgentErrorCode, AgentPlanBlockerClass>> = {
   provider_unreachable: "infrastructure",
   provider_auth_failed: "open",
   openrouter_auth_failed: "harm",
+  openrouter_balance_invalid: "open",
+  openrouter_balance_changed: "open",
   provider_permission_denied: "harm",
   provider_quota_exhausted: "infrastructure",
   provider_rate_limited: "infrastructure",

@@ -499,6 +499,9 @@ export const AGENT_ERROR_MESSAGES = {
   provider_unreachable: "The provider could not be reached.",
   provider_auth_failed: "The provider rejected the API key.",
   openrouter_auth_failed: "The OpenRouter key is invalid or missing.",
+  openrouter_balance_invalid: "Choose a valid OpenRouter balance display.",
+  openrouter_balance_changed:
+    "The OpenRouter connection changed while its balance display was being saved.",
   provider_permission_denied: "The provider denied access.",
   provider_quota_exhausted: "The provider quota or balance is exhausted.",
   provider_rate_limited:

@@ -13,7 +13,6 @@ import { modelBadgeDisplay } from "@/app/components/agents/model-picker/model-ca
 
 import { RowBadge, SidebarRow } from "./console-sidebar-parts";
 
-import type { AgentModelBadgeValues } from "@/app/components/agents/badges/agent-model-badges";
 import type { ModelBadgeVendor } from "@/definition/AgentModelIdentity";
 import type { AgentPlanStepResult } from "@/definition/AgentPlan";
 import type { AgentSessionView } from "@/definition/AgentSessionJournal";
@@ -79,10 +78,11 @@ function BranchFacts({
  * source, such as OpenCode Zen or an OpenRouter model's manufacturer, appears
  * in the tooltip. A reasoning level nobody named stays "default of the model"
  * and never reads as `none` or a confirmed `medium`. The model row shows the
- * compact model badge, tile and model name up to 176 px, because the full
- * model badge already stands in the console header; OpenRouter model names
- * take the space beside the label instead. Tile, outline, tooltip and
- * accessible name keep the vendor recognizable.
+ * compact model badge, tile and model name up to 176 px, because the console
+ * header shows the provider badge instead of the model; a long name ends with
+ * "…" and stands whole in the tooltip. OpenRouter model names can take the
+ * full space beside the label. Tile, outline, tooltip and accessible name keep
+ * the vendor recognizable.
  */
 export function BadgeSessionFacts({
   step,
@@ -104,14 +104,13 @@ export function BadgeSessionFacts({
     <>
       <SidebarRow label={t(`${key}.model`)}>
         {modelIdentity && model ? (
-          <RowBadge width={vendor === "openrouter" ? "fill" : "wide"}>
+          <RowBadge width="wide">
             <ModelBadge
               isVendorHidden
               vendor={vendor}
               name={model.name}
               status={modelIdentity.status}
               source={model.source}
-              isVendorHiddenWhenNarrow={vendor === "openrouter"}
             />
             {modelIdentity.isFree === true ? <FreeBadge size="badge" /> : null}
           </RowBadge>
@@ -144,24 +143,4 @@ export function BadgeSessionFacts({
       <BranchFacts view={view} unknown={unknown} />
     </>
   );
-}
-
-/** The model and reasoning above an OpenRouter plan session's conversation. */
-export function openRouterSessionBadges(
-  view: AgentSessionView | null,
-): AgentModelBadgeValues | undefined {
-  const model = view?.modelIdentity;
-  if (model?.provider !== "openrouter") return undefined;
-  const reasoning = view?.reasoning;
-  return {
-    name: model.name,
-    provider: model.provider,
-    modelId: model.modelId ?? model.name,
-    modelStatus: model.status,
-    isFree: model.isFree,
-    reasoningEffort: reasoning?.value ?? null,
-    reasoningStatus:
-      reasoning?.status === "unknown" ? undefined : reasoning?.status,
-    isReasoningOffered: reasoning?.isOffered,
-  };
 }

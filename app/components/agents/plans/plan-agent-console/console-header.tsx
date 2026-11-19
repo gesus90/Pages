@@ -1,7 +1,6 @@
 import { ArrowLeft, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
-import { AgentModelBadges } from "@/app/components/agents/badges/agent-model-badges";
 import { Button } from "@/app/components/ui/button";
 
 import {
@@ -13,7 +12,6 @@ import {
 import { ConsoleRunPicker } from "./console-run-picker";
 import { ConsoleStopRun } from "./console-stop-run";
 
-import type { AgentModelBadgeValues } from "@/app/components/agents/badges/agent-model-badges";
 import type { AgentPlanRun, AgentPlanRunSummary } from "@/definition/AgentPlan";
 import type { HeaderState } from "./console-header-badges";
 
@@ -23,7 +21,6 @@ interface ConsoleHeaderProps {
   readonly runs: readonly AgentPlanRunSummary[];
   readonly run: AgentPlanRun | null;
   readonly provider: string | null;
-  readonly model?: AgentModelBadgeValues;
   /** The state of the node, such as „Turn läuft“; absent before a session. */
   readonly state: HeaderState | null;
   readonly headingRef: React.RefObject<HTMLHeadingElement | null>;
@@ -35,23 +32,11 @@ interface ConsoleHeaderProps {
   readonly onStopRun?: () => Promise<void>;
 }
 
+/** The provider badge and the state below the title; model and reasoning stand in the sidebar. */
 function ConsoleSessionBadges({
   provider,
-  model,
   state,
-}: Pick<
-  ConsoleHeaderProps,
-  "provider" | "model" | "state"
->): React.ReactElement {
-  if (model)
-    return (
-      <div className="@container min-w-0 basis-full">
-        <div className="flex min-w-0 items-center gap-1.5">
-          <AgentModelBadges model={model} isCompactWhenNarrow />
-          {state ? <StateBadge state={state} /> : null}
-        </div>
-      </div>
-    );
+}: Pick<ConsoleHeaderProps, "provider" | "state">): React.ReactElement {
   return (
     <>
       {provider ? <ProviderLabel provider={provider} /> : null}
@@ -85,7 +70,7 @@ function ProviderLabel({
 export function ConsoleHeader(props: ConsoleHeaderProps): React.ReactElement {
   const { t } = useTranslation();
   return (
-    <header className="flex shrink-0 flex-wrap items-center gap-2 border-b border-agent-console-border bg-agent-console-surface px-5 py-3 sm:min-h-[76px] sm:py-2.5">
+    <header className="flex shrink-0 flex-wrap items-center gap-2 border-b border-agent-console-border bg-agent-console-surface px-5 py-3 sm:min-h-[76px] sm:py-2">
       {props.onBack ? (
         <Button
           size="icon-sm"
@@ -108,12 +93,8 @@ export function ConsoleHeader(props: ConsoleHeaderProps): React.ReactElement {
         >
           {props.title}
         </h2>
-        <div role="status" className="mt-1 flex flex-wrap items-center gap-1.5">
-          <ConsoleSessionBadges
-            provider={props.provider}
-            model={props.model}
-            state={props.state}
-          />
+        <div role="status" className="mt-2 flex flex-wrap items-center gap-1.5">
+          <ConsoleSessionBadges provider={props.provider} state={props.state} />
           {props.run?.manualInputAt ? (
             <NoteBadge>{t("plans.console.manualInput")}</NoteBadge>
           ) : null}

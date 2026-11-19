@@ -29,6 +29,7 @@ import { checkSessionWorkspace } from "./AgentSessionWorkspace";
 import { readViewWorkspace } from "./AgentSessionViewWorkspace";
 import { describeSessionIdentity } from "./AgentSessionModelIdentity";
 import { followRemoteSession } from "./RemoteSessionFollower";
+import { legacySessionHistory } from "./AgentSessionLegacyHistory";
 
 import type { AcpSessionListener } from "@/backend/agents/acp/AcpChat";
 import type { AntigravityPriceCatalog } from "./AntigravityPriceCatalog";
@@ -332,7 +333,7 @@ export class AgentSessionService {
     const { attempt, isContentHidden } = await this.historyAttempt(userId, key);
     const events =
       attempt?.isLegacy === true
-        ? this.legacyHistory(attempt, page)
+        ? legacySessionHistory(attempt, page)
         : await this.dependencies.journal.page(
             key.attemptId,
             page.after,
@@ -354,7 +355,10 @@ export class AgentSessionService {
     listener: AgentSessionEventListener,
   ): Promise<() => void> {
     const { attempt } = await this.authorize(userId, key);
-    if (attempt.step.execution?.target.kind === "remote")
+    if (
+      attempt.record.runnerOwned ||
+      attempt.step.execution?.target.kind === "remote"
+    )
       return followRemoteSession(
         (cursor) => this.history(userId, key, { after: cursor, limit: 200 }),
         after,
@@ -669,40 +673,6 @@ export class AgentSessionService {
     turn: Pick<PlanSessionTurn, "failure">,
   ): AgentSessionState {
     return turn.failure === "cancelled" ? "cancelled" : "failed";
-  }
-
-  private legacyHistory(
-    attempt: AgentSessionAttempt,
-    page: AgentSessionHistoryWindow,
-  ): AgentSessionEventPage {
-    const { record, key } = attempt;
-    const { after, before, limit } = page;
-    const events = record.events
-      .map((text, index) => ({
-        id: `${key.attemptId}:${index + 1}`,
-        sequence: index + 1,
-        stepId: key.stepId,
-        attemptId: key.attemptId,
-        turn: null,
-        kind: "status" as const,
-        createdAt: record.turnEndedAt ?? record.startedAt ?? "",
-        text,
-        isTruncated: false,
-      }))
-      .filter(
-        (event) =>
-          event.sequence > after &&
-          (before === undefined || event.sequence < before),
-      );
-    const selected = page.tail ? events.slice(-limit) : events.slice(0, limit);
-    return {
-      events: selected,
-      cursor: selected.at(-1)?.sequence ?? (after > 0 ? after : null),
-      hasMore: !page.tail && events.length > selected.length,
-      hasEarlier: page.tail === true && events.length > selected.length,
-      retainedFrom: null,
-      source: "legacy_record",
-    };
   }
 
   private async readWorkspace(

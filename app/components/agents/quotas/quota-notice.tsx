@@ -49,6 +49,7 @@ const NOTICE_SCOPES: Readonly<Record<NoticeProvider, string>> = {
   claude_code: "agentsPage.notice",
   codex_cli: "agentsPage.codex.notice",
   antigravity: "agentsPage.antigravity.notice",
+  zai: "agentsPage.zai.notice",
 };
 
 /**
@@ -58,8 +59,8 @@ const NOTICE_SCOPES: Readonly<Record<NoticeProvider, string>> = {
  * text is cut with an ellipsis and stands in full in the tooltip. After a
  * failed first query the notice of a Claude card adds that the plan stays
  * unknown, but only while the card shows no plan, and so does the notice of a
- * Codex card. A card of another provider has no plan and always says what to
- * expect.
+ * Codex card. A Z.AI card names the plan the same way. A card of another
+ * provider has no plan and always says what to expect.
  */
 export function QuotaNotice({
   notice,

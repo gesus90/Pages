@@ -7,6 +7,8 @@ import { createLiveHistory } from "./live.mjs";
 import { ProtocolLines } from "./lines.mjs";
 import { CliTerminalResult } from "./result.mjs";
 
+const CONTEXT_POLL_INTERVAL_MS = 1000;
+
 /** Immutable journal owner, including the actual native worker launch. */
 export function outputBinding(job, launch) {
   return {
@@ -39,6 +41,7 @@ export class JobOutput extends Writable {
   #hasCredentials = false;
   #checkpointAt = 0;
   #checkpointTimer = null;
+  #contextTimer = null;
 
   constructor(command, folder, binding, redact) {
     super({ objectMode: true, highWaterMark: 2 });
@@ -79,6 +82,7 @@ export class JobOutput extends Writable {
       }
       this.#terminal.receive(event);
       await this.#history.receive(event);
+      if (event?.type === "thread.started") this.#startContextPolling();
     });
     this.#stderr = new ProtocolLines(async (line) => {
       if (redact(line) !== line) this.#hasCredentials = true;
@@ -102,6 +106,7 @@ export class JobOutput extends Writable {
     await mkdir(join(folder, "history"), { mode: 0o700 });
     await this.#raw.initialize();
     await this.#events.initialize();
+    await this.#history.initialize();
   }
 
   /** Serialized by Writable; storage and parser consumers must complete before another packet is accepted. */
@@ -142,7 +147,9 @@ export class JobOutput extends Writable {
   /** A failed storage path still closes its descriptors and attempts to preserve the confirmed prefix. */
   async close() {
     clearTimeout(this.#checkpointTimer);
+    clearInterval(this.#contextTimer);
     this.#checkpointTimer = null;
+    this.#contextTimer = null;
     const outcomes = await Promise.allSettled([
       this.#raw.close(),
       this.#events.close(),
@@ -152,7 +159,8 @@ export class JobOutput extends Writable {
   }
 
   async #receive(packet) {
-    if (packet.checkpoint) {
+    if (packet.pollContext) await this.#history.poll();
+    if (packet.checkpoint || packet.pollContext) {
       await this.#checkpoint();
       return;
     }
@@ -193,6 +201,22 @@ export class JobOutput extends Writable {
     header.writeUInt32BE(chunk.length, 1);
     header.writeBigUInt64BE(BigInt(this.#sequence), 5);
     await this.#raw.append(Buffer.concat([header, chunk]), this.#sequence);
+  }
+
+  #startContextPolling() {
+    if (
+      this.#contextTimer !== null ||
+      this.#command.program.route.tool !== "codex" ||
+      this.#command.progressVersion !== 1 ||
+      !this.#command.continuation
+    )
+      return;
+    // Use the output queue so polling, stdout and closeout append in sequence.
+    this.#contextTimer = setInterval(() => {
+      if (this.destroyed || this.writableEnded || this.writableLength > 0)
+        return;
+      this.write({ pollContext: true });
+    }, CONTEXT_POLL_INTERVAL_MS).unref();
   }
 
   #scheduleCheckpoint() {

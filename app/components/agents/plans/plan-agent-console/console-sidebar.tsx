@@ -329,7 +329,13 @@ function SessionSection(props: ConsoleSidebarProps): React.ReactElement {
   const { t } = useTranslation();
   const key = "plans.console.terminal.sidebar";
   const unknown = t(`${key}.unknown`);
-  const vendor = modelBadgeVendor(props.view.provider);
+  // An OpenRouter or Z.AI model runs through the runner `opencode`; its tile is the connection's.
+  const identityProvider = props.view.modelIdentity?.provider;
+  const vendor = modelBadgeVendor(
+    identityProvider === "openrouter" || identityProvider === "zai"
+      ? identityProvider
+      : props.view.provider,
+  );
   return (
     <SidebarSection title={t(`${key}.session`)}>
       <dl className="mt-1">
@@ -400,8 +406,8 @@ function GenericSessionFacts(props: ConsoleSidebarProps): React.ReactElement {
  * @remarks
  * It follows the run while it runs: the todos and the activity come from the
  * progress projection of the plan, the context from the session. A value a
- * provider does not report reads as unknown, never as 0. Providers with
- * token and cost reports add them after the context. Blocks stand 14 px
+ * provider does not report reads as unknown. In OpenCode, session facts
+ * directly follow the context. Blocks stand 14 px
  * apart with a 1 px divider. It is 300 px wide with 20 px of inner padding,
  * and the todo list takes the room the other blocks leave: only the list
  * scrolls, the context and the session stay in view. A window too low for
@@ -409,6 +415,8 @@ function GenericSessionFacts(props: ConsoleSidebarProps): React.ReactElement {
  */
 export function ConsoleSidebar(props: ConsoleSidebarProps): React.ReactElement {
   const { t } = useTranslation();
+  const session = <SessionSection {...props} />;
+  const isOpenCode = props.view.provider === "opencode";
   return (
     <aside
       aria-label={t("plans.console.details")}
@@ -419,6 +427,7 @@ export function ConsoleSidebar(props: ConsoleSidebarProps): React.ReactElement {
         activity={activityText(props.step, t)}
       />
       <ConsoleContextSection view={props.view} />
+      {isOpenCode ? session : null}
       <UsageSection
         view={props.view}
         isTurnRunning={
@@ -426,7 +435,7 @@ export function ConsoleSidebar(props: ConsoleSidebarProps): React.ReactElement {
         }
       />
       <AntigravityUsageSection view={props.view} />
-      <SessionSection step={props.step} view={props.view} />
+      {isOpenCode ? null : session}
     </aside>
   );
 }

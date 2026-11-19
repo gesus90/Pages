@@ -1,10 +1,7 @@
 import { isRunnerCatalogCurrent } from "./RunnerCatalog";
 import type { RunnerCatalog } from "@/definition/RunnerProtocol";
 import { createHash, randomUUID, timingSafeEqual } from "node:crypto";
-import {
-  RUNNER_RELEASE,
-  RUNNER_PREVIOUS_RELEASE,
-} from "@/definition/RunnerMaintenance";
+import { SUPPORTED_RUNNER_RELEASES } from "@/definition/RunnerMaintenance";
 import { planContentDigest } from "@/backend/agents/AgentPlanContentDigest";
 import type {
   RunnerRepository,
@@ -163,9 +160,7 @@ export async function readRunnerAvailability(input: {
   if (!status.isReady) return "remoteOffline";
   const record = await input.record();
   if (
-    ![RUNNER_RELEASE, RUNNER_PREVIOUS_RELEASE].includes(
-      record?.state.runnerVersion ?? "",
-    ) ||
+    !SUPPORTED_RUNNER_RELEASES.includes(record?.state.runnerVersion ?? "") ||
     !input.hasCommunication ||
     record?.state.executionLeaseVersion !== 1 ||
     record.state.planControlVersion !== 1 ||

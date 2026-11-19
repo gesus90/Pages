@@ -26,8 +26,11 @@ const RATE_CODES = new Set(["429", "1302", "1305"]);
 const UNAVAILABLE_CODES = new Set(["500", "502", "503", "504", "529"]);
 
 function readCodes(payload: unknown): string[] {
-  const error = readAgentObject(readAgentObject(payload).error);
+  const envelope = readAgentObject(payload);
+  const error = readAgentObject(envelope.error);
   const fields: unknown[] = [error.code, error.type, error.status];
+  // The usage monitor of Z.AI reports a business failure as `{ success: false, code }`.
+  if (envelope.success === false) fields.push(envelope.code);
   if (Array.isArray(error.details))
     fields.push(
       ...error.details.map((entry: unknown) => readAgentObject(entry).reason),

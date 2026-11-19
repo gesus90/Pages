@@ -1,5 +1,6 @@
 import {
   readCountColumn,
+  readNullableCountColumn,
   readNullableTextColumn,
   readTextColumn,
 } from "@/backend/database/RowValue";
@@ -58,6 +59,20 @@ export interface AgentConnectionChange {
   /** Absent keeps the stored scope. */
   readonly scope?: AgentConnectionScope;
   readonly openRouterModelIds?: Readonly<Record<string, string>>;
+}
+
+/** Saved OpenRouter display and its current management credential. */
+export interface OpenRouterCreditSettings {
+  readonly secretEncrypted: string | null;
+  readonly startAmount: number | null;
+  readonly usageAtStart: number | null;
+}
+
+/** A manual starting amount and a usage reading from the named credential. */
+export interface OpenRouterCreditBaseline {
+  readonly secretEncrypted: string;
+  readonly startAmount: number;
+  readonly usageAtStart: number;
 }
 
 /** Facade for connection persistence and atomic credential/check changes. */
@@ -191,26 +206,74 @@ export class AgentConnectionRepository {
       : null;
   }
 
-  /** Reads only the dedicated OpenRouter credits credential. */
-  public async findOpenRouterManagementSecret(
+  /** Reads the credit display and credential in the same database snapshot. */
+  public async findOpenRouterCreditSettings(
     id: string,
-  ): Promise<string | null> {
-    const rows = await this.database.query(
+  ): Promise<OpenRouterCreditSettings | null> {
+    const [row] = await this.database.query(
       `
-      SELECT openrouter_management_secret_encrypted
+      SELECT
+          openrouter_management_secret_encrypted,
+          openrouter_credit_start_amount,
+          openrouter_credit_start_usage
       FROM agent_connections
       WHERE id = $id
-        AND provider = 'openrouter';
+          AND provider = 'openrouter';
       `,
       { id },
     );
-    return rows[0]
-      ? readNullableTextColumn(
-          rows[0],
-          0,
-          "openrouter_management_secret_encrypted",
-        )
-      : null;
+    if (!row) return null;
+    return {
+      secretEncrypted: readNullableTextColumn(
+        row,
+        0,
+        "openrouter_management_secret_encrypted",
+      ),
+      startAmount: readNullableCountColumn(
+        row,
+        1,
+        "openrouter_credit_start_amount",
+      ),
+      usageAtStart: readNullableCountColumn(
+        row,
+        2,
+        "openrouter_credit_start_usage",
+      ),
+    };
+  }
+
+  /** Saves a manual amount only while its management credential still matches, or resets the display. */
+  public async saveOpenRouterCreditDisplay(
+    id: string,
+    baseline: OpenRouterCreditBaseline | null,
+    actorId: string,
+  ): Promise<boolean> {
+    const rows = await this.database.query(
+      `
+      UPDATE agent_connections
+      SET
+          openrouter_credit_start_amount = $start_amount,
+          openrouter_credit_start_usage = $start_usage,
+          updated_by = $actor_id,
+          updated_at = utc_now()
+      WHERE id = $id
+          AND provider = 'openrouter'
+          AND is_active
+          AND (
+              openrouter_management_secret_encrypted = $expected_secret
+              OR $expected_secret IS NULL
+          )
+      RETURNING id;
+      `,
+      {
+        id,
+        start_amount: baseline?.startAmount ?? null,
+        start_usage: baseline?.usageAtStart ?? null,
+        expected_secret: baseline?.secretEncrypted ?? null,
+        actor_id: actorId,
+      },
+    );
+    return rows.length > 0;
   }
 
   /** Inserts a validated connection and its scope; the database enforces case-insensitive names. */
@@ -292,6 +355,10 @@ export class AgentConnectionRepository {
             openrouter_management_secret_encrypted = CASE
                 WHEN $change_openrouter_management_secret THEN $openrouter_management_secret
                 ELSE openrouter_management_secret_encrypted
+            END,
+            openrouter_credit_start_usage = CASE
+                WHEN $change_openrouter_management_secret THEN NULL
+                ELSE openrouter_credit_start_usage
             END,
             test_model = $test_model,
             reasoning_effort = $reasoning_effort,

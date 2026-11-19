@@ -72,7 +72,7 @@ const PROVIDER_BADGES: Readonly<Record<string, ProviderBadgeLook>> = {
     mark: "opencode",
     borderClass: "border-opencode",
     nameKey: "plans.console.providerBadge.opencode.name",
-    accountKey: "plans.modelPicker.access.opencode",
+    accountKey: "plans.console.providerBadge.opencode.account",
   },
   zai: {
     mark: "zai",
@@ -80,7 +80,47 @@ const PROVIDER_BADGES: Readonly<Record<string, ProviderBadgeLook>> = {
     nameKey: "plans.console.providerBadge.zai.name",
     accountKey: "plans.modelPicker.access.zai",
   },
+  openrouter: {
+    mark: "openrouter",
+    borderClass: "border-openrouter",
+    nameKey: "plans.console.providerBadge.openrouter.name",
+    accountKey: "plans.modelPicker.access.openrouter",
+  },
 };
+
+/**
+ * The selector prefixes of the models the runner `opencode` executes for a
+ * linked connection, with the provider badge each one reads as.
+ */
+const OPENCODE_LINKED_PREFIXES: Readonly<Record<string, string>> = {
+  "openrouter/": "openrouter",
+  "zai/": "zai",
+  "zai-coding-plan/": "zai",
+};
+
+/**
+ * The provider badge a node shows in the header, chosen by the way it runs.
+ * @remarks
+ * An OpenRouter or Z.AI model runs through the runner `opencode`, so the
+ * runner alone cannot name the badge: a model with the prefix `openrouter/`
+ * on that runner reads „OpenRouter │ API-Key“, one with `zai/` or
+ * `zai-coding-plan/` reads „Z.AI │ API-Key“, any other model on it, such as
+ * an OpenCode Zen model, keeps the OpenCode badge. The decision needs no
+ * loaded model data: any of the model values the node has is enough.
+ * @param runner - The runner of the node, such as `opencode`.
+ * @param models - Every model value known of the node; absent ones are skipped.
+ * @returns The key of the provider badge, which is the runner for every other case.
+ */
+export function providerBadgeKey(
+  runner: string,
+  models: readonly (string | null | undefined)[],
+): string {
+  if (runner !== "opencode") return runner;
+  for (const model of models)
+    for (const [prefix, badge] of Object.entries(OPENCODE_LINKED_PREFIXES))
+      if (model?.startsWith(prefix)) return badge;
+  return runner;
+}
 
 /**
  * Whether a runner has a provider badge of its own.
@@ -97,7 +137,8 @@ export function hasProviderBadge(provider: string): boolean {
  * Claude Code reads „Claude Code │ Claude-Abo“ in `claude`, Codex reads
  * „Codex │ ChatGPT-Abo“ in `chatgpt` with the ChatGPT tile, Antigravity reads
  * „Antigravity CLI │ Google-Konto“ in `antigravity` with the white arch tile,
- * OpenCode and the direct Z.AI connection follow in their own tokens. When
+ * OpenCode, the direct Z.AI connection and OpenRouter ("OpenRouter │ API-Key")
+ * follow in their own tokens. When
  * the header is narrow, only the account is cut with "…"; tile and tool name
  * stay whole. The 18 px tile
  * with a 5 px radius sits 2 px from the top, bottom and left edge of the

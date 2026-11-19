@@ -6,7 +6,7 @@ import { Button } from "@/app/components/ui/button";
 import { Input } from "@/app/components/ui/input";
 import {
   RUNNER_RELEASE,
-  RUNNER_PREVIOUS_RELEASE,
+  SUPPORTED_RUNNER_RELEASES,
 } from "@/definition/RunnerMaintenance";
 
 import type {
@@ -137,7 +137,7 @@ function RunnerUpdateControl({
 }): React.ReactElement {
   const { t } = useTranslation();
   const fetcher = useFetcher<{ readonly ok: boolean }>();
-  const isSupported = [RUNNER_RELEASE, RUNNER_PREVIOUS_RELEASE].includes(
+  const isSupported = SUPPORTED_RUNNER_RELEASES.includes(
     connection.runnerVersion ?? "",
   );
   return (

@@ -485,6 +485,11 @@ cat > "$cgroups_temporary" <<'CGROUPS'
 __PAGES_RUNNER_CGROUPS__
 CGROUPS
 mv -f -- "$cgroups_temporary" "$runner_directory/cgroups.mjs"
+native_temporary=$(mktemp "$runner_directory/.native.XXXXXX")
+cat > "$native_temporary" <<'NATIVE'
+__PAGES_RUNNER_NATIVE__
+NATIVE
+mv -f -- "$native_temporary" "$runner_directory/native.mjs"
 accounts_temporary=$(mktemp "$runner_directory/.accounts.XXXXXX")
 cat > "$accounts_temporary" <<'ACCOUNTS'
 __PAGES_RUNNER_ACCOUNTS__

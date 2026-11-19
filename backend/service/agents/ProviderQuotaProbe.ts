@@ -26,12 +26,16 @@ const MAX_PARALLEL_QUERIES = 3;
 
 /**
  * Failures that mean "no sign-in to ask with", not "the query failed": the
- * connection was never signed in, or the provider rejected its sign-in.
- * Another attempt cannot help until someone signs in again.
+ * connection was never signed in or has no key, or the provider rejected its
+ * sign-in or key. Another attempt cannot help until someone signs in again
+ * or replaces the key.
  */
 const SIGNED_OUT_CODES: ReadonlySet<AgentErrorCode> = new Set<AgentErrorCode>([
   "cli_not_logged_in",
   "cli_auth_failed",
+  "api_key_required",
+  "provider_auth_failed",
+  "provider_permission_denied",
 ]);
 
 /** A provider whose running session holds the sign-in exclusively names it so; Pages then does not ask. */

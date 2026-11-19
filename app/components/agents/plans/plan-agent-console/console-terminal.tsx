@@ -188,7 +188,7 @@ export function ConsoleTerminal(
     expandedCalls,
   };
   const rows = renderTerminal(input);
-  useTerminalText(surface, rows);
+  useTerminalText(columns === null ? null : surface, rows);
   useToolToggleLinks(surface, rows, toggle);
   useLoadOlderAtTop(surface, container, history);
   const retry = props.step.session?.retry;
