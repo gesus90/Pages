@@ -897,14 +897,24 @@ connection stands as a source in its tool, also with no listed model. An empty,
 failed or unconfirmed catalog gets a status line in its source, which the
 search keeps; a catalog that offers models of which none fits the place gets a
 neutral line instead. Only administrators see "Erneut laden", which reloads
-exactly that connection (`POST /agent-api/model-catalogs`); other accounts see
-the note that an administrator can reload. A saved model that is no longer
+exactly that connection (`POST /agent-api/model-catalogs`); an API connection
+whose access is not confirmed gets its access checked first (metadata only, no
+model call), because a listing alone never confirms access, and a passed check
+lists its models; a check that did not pass leaves the line and says the
+catalog could not be reloaded. Other accounts see the note that an
+administrator can reload. A saved model that is no longer
 available shows a warning ring, its ID, the reason and a row at the top of the
-panel; it stays saved until another model is chosen. Z.AI, OpenRouter and the
-other API connections have no chat adapter, so they appear for plan nodes and
-(Z.AI and OpenRouter for speech recognition; OpenRouter for speech output and
-decisions), but not for Pica and agent profiles. The
-selection stores the listed model's full connection, route, model and
+panel; it stays saved until another model is chosen. A place whose connections
+follow another account than the viewer's, the model dialog of an agent in a
+chat, receives the states of exactly the connections of the agent's account
+that an agent can run with its model overview, so a connection without a model
+stands there too; an administrator's reload makes the dialog read that
+overview again. Z.AI answers over ACP in the native OpenCode session, so its
+models appear for Pica, agent profiles, the chat, plan nodes and speech
+recognition. OpenRouter and the other direct API connections have no chat
+adapter: they appear for plan nodes and (OpenRouter for speech recognition,
+speech output and decisions), but not for Pica, agent profiles and the chat.
+The selection stores the listed model's full connection, route, model and
 provider. Every model choice, the list and its search alike, holds only the
 models its place can use, judged by the one rule the server applies when it
 saves or starts the model: a node of an agent plan needs a model that calls

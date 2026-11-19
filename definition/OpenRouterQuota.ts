@@ -1,5 +1,9 @@
 import { z } from "zod";
 
+import { executionLocationSchema } from "@/definition/ExecutionLocation";
+
+import type { ExecutionLocation } from "@/definition/ExecutionLocation";
+
 /** USD amounts and reset rhythm reported for an OpenRouter API key. */
 export const openRouterUsageSchema = z.object({
   usage: z.number().finite().nonnegative().nullable(),
@@ -35,6 +39,18 @@ export type OpenRouterBalanceDisplay = z.infer<
 >;
 
 const readingTime = z.iso.datetime();
+
+/**
+ * Where the provider was asked for a reading, kept beside the reading itself.
+ * @remarks
+ * Only a reading the Pages service obtained carries it; a card without a
+ * reading, and one stored before the place was kept, names none and proves
+ * no location.
+ */
+const retrievalShape = {
+  executionLocation: executionLocationSchema.optional(),
+};
+
 const creditStatusSchema = z.enum([
   "stored",
   "reported",
@@ -56,6 +72,7 @@ export const openRouterQuotaAccountSchema = z.object({
   key: z.object({
     status: z.enum(["stored", "reported", "failed", "invalid_key"]),
     reading: openRouterUsageSchema.extend({ at: readingTime }).nullable(),
+    ...retrievalShape,
   }),
   credits: z
     .discriminatedUnion("mode", [
@@ -64,10 +81,12 @@ export const openRouterQuotaAccountSchema = z.object({
         reading: openRouterCreditsSchema
           .extend(creditBalanceReadingSchema.shape)
           .nullable(),
+        ...retrievalShape,
       }),
       manualBalanceSchema.extend({
         status: z.union([creditStatusSchema, z.literal("baseline_missing")]),
         reading: creditBalanceReadingSchema.nullable(),
+        ...retrievalShape,
       }),
     ])
     .optional(),
@@ -76,3 +95,20 @@ export const openRouterQuotaAccountSchema = z.object({
 export type OpenRouterQuotaAccount = z.infer<
   typeof openRouterQuotaAccountSchema
 >;
+
+/**
+ * The place the card's readings were retrieved at.
+ * @param account - The card as the server answered it.
+ * @returns The place a reading of the key or of the credits names, or `null`
+ * when the card holds no reading that names one.
+ * @remarks
+ * The place belongs to the retrieval alone. The key, the account type and
+ * the provider never decide it.
+ */
+export function openRouterExecutionLocation(
+  account: OpenRouterQuotaAccount,
+): ExecutionLocation | null {
+  return (
+    account.key.executionLocation ?? account.credits?.executionLocation ?? null
+  );
+}

@@ -96,7 +96,9 @@ export type AgentConnectionLocation =
  * (a key without a drawn mark shows the neutral fallback), and `chatAdapter`
  * says how Pica answers with it: `acp` over an ACP session that reaches only
  * Pica's tools, and `null` for a provider Pica has no adapter for, such as a
- * direct API.
+ * direct API. z.ai answers over `acp` too: its direct key runs as the private
+ * model connection of the native OpenCode session, with the endpoint of the
+ * saved account type.
  */
 export const AGENT_PROVIDERS = {
   openrouter: {
@@ -133,7 +135,7 @@ export const AGENT_PROVIDERS = {
     vendor: "zai",
     endpoint: "https://api.z.ai/api/paas/v4",
     mark: "zai",
-    chatAdapter: null,
+    chatAdapter: "acp",
   },
   anthropic: {
     accessKind: "api_key",

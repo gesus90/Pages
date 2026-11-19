@@ -52,6 +52,7 @@ import { localState } from "@/app/lib/local-state/local-state-store";
 
 import { NotificationBell } from "./notification-bell";
 import styles from "./app-shell/app-shell.module.css";
+import { PageScrollArea } from "./app-shell/page-scroll-area";
 import { SidebarResizeHandle } from "./app-shell/sidebar-resize-handle";
 import { SidebarToggle } from "./app-shell/sidebar-toggle";
 import { useSidebarLayout } from "./app-shell/use-sidebar-layout";
@@ -551,7 +552,7 @@ export function AppShell({
     <div
       ref={shellRef}
       className={cn(
-        "min-h-screen bg-background pages-page-surface text-foreground",
+        "flex h-dvh flex-col overflow-hidden bg-background pages-page-surface text-foreground",
         styles.shell,
         layout.isCollapsed && styles.collapsed,
         layout.isResizing && styles.resizing,
@@ -569,7 +570,7 @@ export function AppShell({
         shellRef={shellRef}
       />
 
-      <header className="fixed inset-x-0 top-0 z-20 flex min-h-19 items-center justify-between bg-background/85 backdrop-blur px-5 md:left-(--app-sidebar-width) md:bg-transparent md:pl-0 md:backdrop-blur-none">
+      <header className="relative z-20 flex min-h-19 shrink-0 items-center justify-between bg-background/85 px-5 md:ml-(--app-sidebar-width) md:bg-transparent md:pl-0">
         <div className="justify-self-start md:hidden">
           <MobileNavigation
             branding={branding}
@@ -591,7 +592,7 @@ export function AppShell({
         </div>
       </header>
 
-      <main className="px-4 pt-24 pb-10 md:pr-8 md:pl-(--app-content-start) xl:pr-10">
+      <PageScrollArea>
         {isOffline ? (
           <p
             role="status"
@@ -602,7 +603,7 @@ export function AppShell({
         ) : null}
         <BackgroundSaveStatus />
         <NavigationContent />
-      </main>
+      </PageScrollArea>
     </div>
   );
 }

@@ -15,7 +15,7 @@ export function TicketAssetsCard(): React.ReactElement {
 
   return (
     <SettingsCard
-      className="min-w-0 scroll-mt-28"
+      className="min-w-0 scroll-mt-5"
       icon={<Paperclip aria-hidden="true" className="size-4" />}
       title={t("settings.ticketAssets.title")}
       description={t("settings.ticketAssets.description")}

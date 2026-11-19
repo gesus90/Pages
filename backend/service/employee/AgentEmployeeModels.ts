@@ -9,7 +9,10 @@ import {
   resolveAgentAssignment,
   resolveAgentAssignmentFor,
 } from "../agents/AgentAssignmentResolution";
-import { connectionModels } from "../agents/AgentConnectionModels";
+import {
+  connectionCatalogStatuses,
+  connectionModels,
+} from "../agents/AgentConnectionModels";
 
 import type { AgentViewer } from "@/backend/auth/AgentProfilePolicy";
 import type { AgentConnectionRepository } from "@/backend/database/repositories/AgentConnectionRepository";
@@ -20,6 +23,7 @@ import type {
   AgentEmployeeAccess,
   AgentEmployeeSettings,
 } from "@/definition/AgentEmployee";
+import type { ConnectionCatalogStatus } from "@/definition/AgentModelCatalogStatus";
 import type { PageAgentModel } from "@/definition/PageAgent";
 
 /** What the model choice of agents is read from. */
@@ -58,6 +62,21 @@ export class AgentEmployeeModels {
   /** Lists the models the person may give an agent. */
   public async models(userId: string): Promise<readonly PageAgentModel[]> {
     return connectionModels(
+      this.dependencies.connections,
+      await this.viewer(userId),
+    );
+  }
+
+  /**
+   * Names the catalog state of every connection the account may use.
+   * @param userId - The account whose connections count: an agent's own
+   * account for the choice of a chat.
+   * @returns One status per usable connection, also those without a model.
+   */
+  public async catalogStatuses(
+    userId: string,
+  ): Promise<readonly ConnectionCatalogStatus[]> {
+    return connectionCatalogStatuses(
       this.dependencies.connections,
       await this.viewer(userId),
     );

@@ -1,5 +1,6 @@
 import { MODEL_TEST_PROMPT } from "@/definition/AgentConnection";
 
+import { documentedZaiModel } from "../catalog/DocumentedZaiModels";
 import { readChatCompletion, readModelList } from "./ProviderResponses";
 import { readZaiQuota } from "./ZaiQuotaResponse";
 
@@ -23,6 +24,24 @@ import type {
  * the same route, with the key as the whole `Authorization` value.
  */
 const USAGE_MONITOR_ENDPOINT = "https://api.z.ai/api/monitor";
+
+/**
+ * The thinking fields of a model test.
+ * @remarks
+ * A documented GLM 5.3 model always reasons and rejects
+ * `thinking.type: disabled`, so its test asks for thinking at the chosen or
+ * the lowest documented level. Any other model is tested without thinking.
+ */
+function modelTestThinking(
+  request: ModelTestRequest,
+): Readonly<Record<string, unknown>> {
+  const documented = documentedZaiModel(request.model);
+  if (documented === null) return { thinking: { type: "disabled" } };
+  return {
+    thinking: { type: "enabled" },
+    reasoning_effort: request.reasoningEffort ?? documented.efforts[0],
+  };
+}
 
 /** Uses the fixed international endpoint of the explicitly saved account type. */
 export class ZaiProvider implements ApiProviderAdapter {
@@ -75,7 +94,7 @@ export class ZaiProvider implements ApiProviderAdapter {
     );
   }
 
-  /** Runs an explicitly chosen model with thinking disabled and a 16-token cap. */
+  /** Runs an explicitly chosen model with the lowest thinking it allows and a 16-token cap. */
   public runModelTest(
     request: ModelTestRequest,
     signal: AbortSignal,
@@ -98,7 +117,7 @@ export class ZaiProvider implements ApiProviderAdapter {
           model: request.model,
           messages: [{ role: "user", content: MODEL_TEST_PROMPT }],
           max_tokens: maximumTokens,
-          thinking: { type: "disabled" },
+          ...modelTestThinking(request),
         },
         parse: (payload) => readChatCompletion(payload, request.model),
       },

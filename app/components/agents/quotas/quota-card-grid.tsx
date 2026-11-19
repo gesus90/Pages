@@ -25,15 +25,18 @@ const NO_CARDS: readonly QuotaCard[] = [];
 function QuotaCardOfConnection({
   card,
   now,
+  isPushRefreshing,
   onRetry,
   onSaveOpenRouterBalance,
 }: {
   readonly card: QuotaCard;
   readonly now: Date;
+  readonly isPushRefreshing: boolean;
   readonly onRetry: (connectionId: string) => void;
   readonly onSaveOpenRouterBalance: SaveOpenRouterBalance;
 }): React.ReactElement {
-  const { account, pendingQueries } = card;
+  const { account } = card;
+  const pendingQueries = card.pendingQueries + (isPushRefreshing ? 1 : 0);
   if (account.provider === "antigravity")
     return (
       <AntigravityQuotaCard
@@ -104,12 +107,14 @@ function QuotaCardOfConnection({
 export function QuotaCardGrid({
   cards,
   now,
+  isPushRefreshing,
   onRetry,
   onMove,
   onSaveOpenRouterBalance,
 }: {
   readonly cards: readonly QuotaCard[] | null;
   readonly now: Date;
+  readonly isPushRefreshing: boolean;
   readonly onRetry: (connectionId: string) => void;
   readonly onMove: (connectionId: string, toIndex: number) => void;
   readonly onSaveOpenRouterBalance: SaveOpenRouterBalance;
@@ -140,6 +145,7 @@ export function QuotaCardGrid({
                 <QuotaCardOfConnection
                   card={card}
                   now={now}
+                  isPushRefreshing={isPushRefreshing}
                   onRetry={onRetry}
                   onSaveOpenRouterBalance={onSaveOpenRouterBalance}
                 />

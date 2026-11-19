@@ -80,12 +80,14 @@ interface ModelPickerProps {
   /** What the open panel says when the place offers no model; a general note by default. */
   readonly emptyLabel?: string;
   /**
-   * Whether the panel lists every connection the person may use with its
-   * catalog state. A place whose connections follow another account, such as
-   * the chat of an agent, passes `false`: it lists the connections of its own
-   * models only.
+   * The catalog state of the connections this place may use, for a place
+   * whose connections follow another account than the viewer's, such as the
+   * chat of an agent. The panel then names exactly these connections, also
+   * those without a model, instead of the viewer's own.
    */
-  readonly hasCatalogStatus?: boolean;
+  readonly connections?: readonly ConnectionCatalogStatus[];
+  /** Called after an administrator reloaded a catalog, so the place can read its models anew. */
+  readonly onCatalogReload?: () => void;
   /** `floating` where the trigger sits on a zoomable canvas. */
   readonly mode?: ModelPickerMode;
   /**
@@ -94,6 +96,12 @@ interface ModelPickerProps {
    * of an agent node's footer.
    */
   readonly valueStyle?: ModelPickerValueStyle;
+  /**
+   * Extra classes of an inline panel, for a place whose field is narrower than
+   * the row it sits in: the chat dialog opens the panel across both of its
+   * fields. A floating panel ignores them.
+   */
+  readonly panelClassName?: string;
 }
 
 /** How the closed trigger of a model choice names its model. */
@@ -175,6 +183,7 @@ function badgeChoice(
     return {
       mark: selected.group.mark,
       name: selected.choice.label,
+      modelId: selected.choice.model.model,
       tool: selected.group.label,
       source: modelChoiceSource(selected.choice.model, t),
     };
@@ -369,6 +378,7 @@ export function ModelPicker(props: ModelPickerProps): React.ReactElement {
   const catalog = useCatalogStatuses({
     requestKey: catalogRequestKey(openCount, isSavedGone),
     savedConnectionId: saved?.connectionId ?? null,
+    onReloaded: props.onCatalogReload,
   });
   const groups = modelGroups(listed, {
     translate: t,
@@ -426,6 +436,7 @@ export function ModelPicker(props: ModelPickerProps): React.ReactElement {
             value={props.value}
             catalog={catalog}
             emptyLabel={props.emptyLabel}
+            className={props.panelClassName}
             savedUnavailableId={isSavedGone ? (savedId ?? props.value) : null}
           />
         ) : null}
@@ -452,16 +463,29 @@ function savedModelId(
   return props.savedModel ?? saved?.model ?? null;
 }
 
+// A place with connections of its own names exactly those; a catalog read
+// since then is newer than what the place was given.
+function ownStatuses(
+  own: readonly ConnectionCatalogStatus[],
+  catalog: CatalogStatusState,
+): readonly ConnectionCatalogStatus[] {
+  const fresh = catalog.statuses?.connections ?? [];
+  return own.map(
+    (status) =>
+      fresh.find((entry) => entry.connectionId === status.connectionId) ??
+      status,
+  );
+}
+
 // A place that lists models of a remote target never owns a local connection's state.
 function placeStatuses(
   props: ModelPickerProps,
   consumer: AgentModelConsumer,
   catalog: CatalogStatusState,
 ): readonly ConnectionCatalogStatus[] | undefined {
-  if (
-    props.hasCatalogStatus === false ||
-    props.models.some((model) => model.runnerRoute !== undefined)
-  )
+  if (props.connections !== undefined)
+    return ownStatuses(props.connections, catalog);
+  if (props.models.some((model) => model.runnerRoute !== undefined))
     return undefined;
   return catalog.statuses?.connections.filter((status) =>
     consumerRunsProvider(consumer, status.provider),

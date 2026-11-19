@@ -27,6 +27,9 @@ import type {
 import type { PageAgentModel } from "@/definition/PageAgent";
 import type { ModelChoiceState } from "./use-model-choice";
 
+// The model panel is as wide as both fields and the 8 px gap between them.
+const MODEL_PANEL_ACROSS_ROW_CLASS = "w-[calc(200%+0.5rem)]";
+
 /**
  * The translated name of a reasoning level, such as "hoch"; an unknown
  * level keeps its ID.
@@ -107,7 +110,9 @@ function ModelSearchBody({
           savedProvider={model?.provider}
           disabled={!canControl}
           valueStyle="badge"
-          hasCatalogStatus={false}
+          connections={overview.connections}
+          panelClassName={MODEL_PANEL_ACROSS_ROW_CLASS}
+          onCatalogReload={choice.refresh}
           onChange={pickModel}
         />
         <div className="min-w-0">

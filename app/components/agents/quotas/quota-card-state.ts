@@ -39,9 +39,7 @@ export type QuotaCardBody =
   | {
       readonly kind: "windows";
       readonly windows: readonly ClaudeQuotaWindow[];
-      /** After a failed query the figures stay, greyed. */
       readonly isStale: boolean;
-      readonly staleSince: string | null;
     }
   | { readonly kind: "notice"; readonly notice: QuotaNoticeKind };
 
@@ -78,23 +76,26 @@ const NOTICE_BY_STATUS: Readonly<
 };
 
 /**
- * The time of the last answer Claude gave about a connection, as far as the
- * status tells it.
+ * The time of the last successful provider answer.
  * @param status - The status of the card.
  * @returns The ISO time, or `null` when the status names no answer.
  */
-export function lastClaudeAnswerAt(status: ClaudeQuotaStatus): string | null {
+export function lastQuotaAnswerAt(status: ClaudeQuotaStatus): string | null {
   switch (status.kind) {
     case "stored":
     case "reported":
     case "no_windows":
       return status.at;
     case "failed":
-      return status.lastSuccessAt;
     case "skipped":
+      return status.lastSuccessAt;
     case "signed_out":
       return null;
   }
+}
+
+function isStaleReading(status: ClaudeQuotaStatus): boolean {
+  return status.kind === "failed" || status.kind === "skipped";
 }
 
 /**
@@ -106,16 +107,17 @@ export function lastClaudeAnswerAt(status: ClaudeQuotaStatus): string | null {
  * A window leaves the card once its reset passed. When the last window of a
  * reported card leaves, Claude has no window to report any more, so the card
  * reads "Keine Fenster gemeldet" at the time of the answer instead of
- * "Von Claude gemeldet" over an empty area. Stored windows stay visible while
- * a session holds the sign-in, because Claude reported them, and while a
- * query of the stored figures is on its way; after a failed query they stay
- * greyed. A connection without a sign-in shows no windows.
+ * "Von Claude gemeldet" over an empty area. A missed query keeps the windows
+ * from the last measurement, including those that have since elapsed.
  */
 export function quotaCardView(
   account: ClaudeQuotaAccount,
   now: Date,
 ): QuotaCardView {
-  const windows = visibleClaudeQuotaWindows(account.windows, now);
+  const isStale = isStaleReading(account.status);
+  const windows = isStale
+    ? account.windows
+    : visibleClaudeQuotaWindows(account.windows, now);
   const status: ClaudeQuotaStatus =
     account.status.kind === "reported" && windows.length === 0
       ? { kind: "no_windows", at: account.status.at }
@@ -128,12 +130,7 @@ export function quotaCardView(
     };
   return {
     status,
-    body: {
-      kind: "windows",
-      windows,
-      isStale: status.kind === "failed",
-      staleSince: status.kind === "failed" ? status.lastSuccessAt : null,
-    },
+    body: { kind: "windows", windows, isStale },
     limit: quotaLimit(
       status,
       windows.filter((window) => window.usedPercentage >= 100),
@@ -146,9 +143,7 @@ export type CodexCardBody =
   | {
       readonly kind: "windows";
       readonly windows: readonly CodexQuotaWindow[];
-      /** After a failed query the figures stay, greyed. */
       readonly isStale: boolean;
-      readonly staleSince: string | null;
     }
   | { readonly kind: "notice"; readonly notice: QuotaNoticeKind };
 
@@ -177,8 +172,8 @@ export interface CodexCardView {
  * @remarks
  * A window leaves the card once its reset passed. When the last window of a
  * reported card leaves, Codex has no window to report any more, so the card
- * reads "Keine Fenster gemeldet" at the time of the answer. After a failed
- * query the windows stay greyed with the time of the last answer. The limit
+ * reads "Keine Fenster gemeldet" at the time of the answer. A missed query
+ * keeps the windows from the last measurement. The limit
  * statement of the account adds "Limit erreicht" to the status line of a
  * current answer; it never changes a window's figures, and the reset it
  * names is that of the one used-up window, if there is exactly one.
@@ -187,7 +182,10 @@ export function codexCardView(
   account: CodexQuotaAccount,
   now: Date,
 ): CodexCardView {
-  const windows = visibleCodexQuotaWindows(account.windows, now);
+  const isStale = isStaleReading(account.status);
+  const windows = isStale
+    ? account.windows
+    : visibleCodexQuotaWindows(account.windows, now);
   const status: ClaudeQuotaStatus =
     account.status.kind === "reported" && windows.length === 0
       ? { kind: "no_windows", at: account.status.at }
@@ -200,12 +198,7 @@ export function codexCardView(
     };
   return {
     status,
-    body: {
-      kind: "windows",
-      windows,
-      isStale: status.kind === "failed",
-      staleSince: status.kind === "failed" ? status.lastSuccessAt : null,
-    },
+    body: { kind: "windows", windows, isStale },
     limit:
       (status.kind === "reported" || status.kind === "stored") &&
       (account.isLimitReached || windows.some(isCodexWindowExhausted))
@@ -219,7 +212,6 @@ export type AntigravityCardBody =
   | {
       readonly kind: "groups";
       readonly groups: readonly AntigravityQuotaGroup[];
-      /** After a failed query the figures stay, greyed. */
       readonly isStale: boolean;
     }
   | { readonly kind: "notice"; readonly notice: QuotaNoticeKind };
@@ -245,15 +237,17 @@ export interface AntigravityCardView {
  * A window leaves the card once its reset passed, and a group once its last
  * window left. When the last group of a reported card leaves, Antigravity has
  * nothing to report any more, so the card reads "Keine Fenster gemeldet" at
- * the time of the answer. Stored groups stay visible while a session holds
- * the sign-in and while a query is on its way; after a failed query they
- * stay greyed. A connection without a sign-in shows no groups.
+ * the time of the answer. A skipped or failed query keeps the groups from
+ * the last measurement.
  */
 export function antigravityCardView(
   account: AntigravityQuotaAccount,
   now: Date,
 ): AntigravityCardView {
-  const groups = visibleAntigravityQuotaGroups(account.groups, now);
+  const isStale = isStaleReading(account.status);
+  const groups = isStale
+    ? account.groups
+    : visibleAntigravityQuotaGroups(account.groups, now);
   const status: ClaudeQuotaStatus =
     account.status.kind === "reported" && groups.length === 0
       ? { kind: "no_windows", at: account.status.at }
@@ -266,7 +260,7 @@ export function antigravityCardView(
     };
   return {
     status,
-    body: { kind: "groups", groups, isStale: status.kind === "failed" },
+    body: { kind: "groups", groups, isStale },
     limit:
       status.kind === "reported" || status.kind === "stored"
         ? firstAntigravityQuotaLimit(groups)
@@ -279,9 +273,7 @@ export type ZaiCardBody =
   | {
       readonly kind: "windows";
       readonly windows: readonly ZaiQuotaWindow[];
-      /** After a failed query the figures stay, greyed. */
       readonly isStale: boolean;
-      readonly staleSince: string | null;
     }
   | {
       readonly kind: "notice";
@@ -323,11 +315,13 @@ export interface ZaiCardView {
  * reported card leaves, the card reads "Keine Fenster gemeldet" at the time of
  * the answer and its notice says that the entries Z.AI reported have run out;
  * an answer without any entry or without a readable one says that instead.
- * After a failed query the entries stay greyed with the time of the last
- * answer. A connection without a usable key shows no entries.
+ * A missed query keeps the entries from the last measurement.
  */
 export function zaiCardView(account: ZaiQuotaAccount, now: Date): ZaiCardView {
-  const windows = visibleZaiQuotaWindows(account.windows, now);
+  const isStale = isStaleReading(account.status);
+  const windows = isStale
+    ? account.windows
+    : visibleZaiQuotaWindows(account.windows, now);
   const status: ClaudeQuotaStatus =
     account.status.kind === "reported" && windows.length === 0
       ? { kind: "no_windows", at: account.status.at }
@@ -344,12 +338,7 @@ export function zaiCardView(account: ZaiQuotaAccount, now: Date): ZaiCardView {
     };
   return {
     status,
-    body: {
-      kind: "windows",
-      windows,
-      isStale: status.kind === "failed",
-      staleSince: status.kind === "failed" ? status.lastSuccessAt : null,
-    },
+    body: { kind: "windows", windows, isStale },
     limit: quotaLimit(
       status,
       windows.filter((window) => window.usedPercent >= 100),

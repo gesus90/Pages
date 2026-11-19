@@ -160,6 +160,10 @@ export function formatQuotaReset(
     const unknown = t("agentsPage.forecasts.resetUnknown");
     return { full: unknown, short: unknown };
   }
+  if (reset <= now.getTime()) {
+    const elapsed = t("agentsPage.quota.windowElapsed");
+    return { full: elapsed, short: elapsed };
+  }
   const moment = formatQuotaMoment(new Date(reset), now, context);
   return {
     full: t("agentsPage.quota.resets", {

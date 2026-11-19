@@ -70,12 +70,7 @@ type QuotaForecastState =
   | { readonly kind: "enough"; readonly restAtReset: number }
   | {
       readonly kind:
-        | "collecting"
-        | "steady"
-        | "newWindow"
-        | "paused"
-        | "unavailable"
-        | "hidden";
+        "collecting" | "steady" | "newWindow" | "unavailable" | "hidden";
     };
 
 /** Target, forecast and freshness of one window on the remaining scale. */
@@ -129,25 +124,22 @@ export function quotaForecast(input: QuotaForecastInput): QuotaForecast {
     (timing !== null &&
       input.pace !== undefined &&
       input.now - input.pace.measuredAt > quotaLookback(timing.duration));
-  if (isStale) {
+  if (timing === null) {
     return {
       target: null,
-      forecast: { kind: input.isExhausted ? "hidden" : "paused" },
+      forecast: {
+        kind: isStale || input.isExhausted ? "hidden" : "unavailable",
+      },
       isStale,
     };
   }
-  if (timing === null || timing.reset <= input.now) {
-    return {
-      target: null,
-      forecast: { kind: input.isExhausted ? "hidden" : "unavailable" },
-      isStale,
-    };
-  }
+  if (timing.reset <= input.now)
+    return { target: null, forecast: { kind: "hidden" }, isStale };
   return {
     target: Math.round(
       100 * Math.min(1, (timing.reset - input.now) / timing.duration),
     ),
-    forecast: forecastAt(input, timing.reset),
+    forecast: isStale ? { kind: "hidden" } : forecastAt(input, timing.reset),
     isStale,
   };
 }

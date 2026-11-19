@@ -182,6 +182,7 @@ export class OpenRouterQuotaService {
         ),
         at: reading.at,
       },
+      executionLocation: quota.executionLocation,
     };
   }
 

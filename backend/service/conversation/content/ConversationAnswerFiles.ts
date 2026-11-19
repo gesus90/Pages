@@ -11,6 +11,9 @@ import { ChatFileProbe } from "@/backend/service/chat/ChatFileProbe";
 import { classifyChatFile } from "@/backend/service/chat/ChatFileTypes";
 import { CHAT_ATTACHMENT_LIMIT_BYTES } from "@/definition/Chat";
 import { CONVERSATION_ATTACHMENT_MAXIMUM_COUNT } from "@/definition/ConversationContent";
+import { CONVERSATION_MODEL_MIME_TYPE } from "@/definition/ConversationInteractiveContent";
+
+import { inspectModelBytes } from "./ConversationModelFiles";
 
 import type {
   ChatAnswerFileInput,
@@ -153,6 +156,11 @@ export class ConversationAnswerFiles {
     if (file.bytes.length > CHAT_ATTACHMENT_LIMIT_BYTES)
       throw new ChatAnswerFileError("FILE_TOO_LARGE");
     const contentType = await this.contentTypeOf(fileName, file.bytes);
+    if (
+      contentType === CONVERSATION_MODEL_MIME_TYPE &&
+      !inspectModelBytes(file.bytes).isValid
+    )
+      throw new ChatAnswerFileError("FILE_TYPE_NOT_ALLOWED");
     const stored = await this.dependencies.attachments.stage(
       {
         conversationId: this.target.conversationId,

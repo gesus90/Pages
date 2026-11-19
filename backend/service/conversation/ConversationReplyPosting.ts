@@ -225,6 +225,33 @@ async function withGeneratedImages(
   };
 }
 
+/**
+ * Stores one file of an answer: a web export package with all its files, a
+ * model with its PNG start image as preview image, any other file as it is.
+ */
+async function stageReplyFile(
+  dependencies: ConversationReplyRunnerDependencies,
+  target: { readonly conversationId: string; readonly senderId: string },
+  file: AgentFile,
+): Promise<{ readonly id: string }> {
+  if (file.webPackage && dependencies.webPackages)
+    return dependencies.webPackages.stage(target, file.webPackage);
+  return dependencies.attachments.stage(target, {
+    name: file.name,
+    // Without the package store a manifest is a plain JSON file.
+    mimeType: file.webPackage ? "application/json" : file.mimeType,
+    source: dependencies.agentFiles.open(file),
+    ...(file.posterPath
+      ? {
+          thumbnail: {
+            mimeType: "image/png",
+            source: dependencies.agentFiles.open({ path: file.posterPath }),
+          },
+        }
+      : {}),
+  });
+}
+
 async function stageReplyFiles(
   dependencies: ConversationReplyRunnerDependencies,
   conversationId: string,
@@ -235,13 +262,10 @@ async function stageReplyFiles(
   const failed: AgentFile[] = [];
   for (const file of files) {
     try {
-      const stored = await dependencies.attachments.stage(
+      const stored = await stageReplyFile(
+        dependencies,
         { conversationId, senderId: agentId },
-        {
-          name: file.name,
-          mimeType: file.mimeType,
-          source: dependencies.agentFiles.open(file),
-        },
+        file,
       );
       attachmentIds.push(stored.id);
     } catch (error: unknown) {

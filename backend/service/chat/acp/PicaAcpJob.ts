@@ -69,8 +69,8 @@ const TOOL_CANCELLED_NOTE =
   "Die Person hat deinen laufenden Werkzeugaufruf abgebrochen. Starte ihn nicht erneut, sondern antworte mit dem bisherigen Stand und frag nach, wie es weitergehen soll.";
 
 /**
- * One Pica answer over ACP that runs on the server with the assigned CLI
- * runner: Codex, Claude Code, OpenCode or Antigravity.
+ * One Pica answer over ACP that runs on the server with the assigned
+ * runner: Codex, Claude Code, OpenCode, a z.ai connection or Antigravity.
  * @remarks
  * The job pins the agent that was assigned when the message was sent. It
  * holds one ACP lease of the shared scheduler while it runs: the turn of its

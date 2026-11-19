@@ -13,7 +13,8 @@ import type { Route } from "./+types/agent-quota-events";
  * Only the quota page opens this stream, so no other page causes a read.
  * Every push reads the cards anew with the person's current rights and asks
  * the providers for the current usage of the connections the person may use.
- * A running session of a connection does not keep the query from running.
+ * Antigravity skips a query while a session holds the sign-in and tries
+ * again on the next push.
  */
 export async function loader({
   request,

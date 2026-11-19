@@ -1,10 +1,12 @@
 import { z } from "zod";
 
 import { quotaStatusSchema } from "@/definition/ClaudeQuota";
+import { executionLocationSchema } from "@/definition/ExecutionLocation";
 import { quotaPaceSchema } from "@/definition/QuotaForecast";
 
 import type { ZaiAccountType } from "@/definition/AgentConnection";
 import type { ClaudeQuotaStatus } from "@/definition/ClaudeQuota";
+import type { ExecutionLocation } from "@/definition/ExecutionLocation";
 import type { QuotaPace } from "@/definition/QuotaForecast";
 
 /**
@@ -129,8 +131,13 @@ export interface ZaiQuotaEntrySummary {
 /**
  * What one answer of the usage monitor holds: the tier, the reported entries
  * and how many entries it delivered and dropped.
+ * @remarks
+ * `executionLocation` names where Pages asked the usage monitor: `local` when
+ * the Pages service on this machine did. A stored answer from before the
+ * place was kept has none and proves no location.
  */
 export interface ZaiQuotaReading {
+  readonly executionLocation?: ExecutionLocation;
   readonly plan: ZaiPlan | null;
   readonly windows: readonly ZaiQuotaWindow[];
   readonly tally: ZaiQuotaTally;
@@ -152,8 +159,10 @@ export type ZaiAbsence = (typeof ZAI_ABSENCES)[number];
 /**
  * The card of one Z.AI connection.
  * @remarks
- * `accountType` is the account type saved with the connection. `plan` is
- * `null` while Z.AI names no known tier. `windows` holds only the entries Z.AI
+ * `accountType` is the account type saved with the connection.
+ * `executionLocation` is where the query ran that produced the card's figures
+ * and is absent without such figures; it never follows from the account type,
+ * the key or the provider. `plan` is `null` while Z.AI names no known tier. `windows` holds only the entries Z.AI
  * reported, a missing entry is absent and never a window with 0 %. `absence`
  * says why `windows` is empty after an answer of Z.AI and is `null` otherwise.
  * The status kinds are those of the Claude card; a Z.AI card never has the
@@ -163,6 +172,7 @@ export type ZaiAbsence = (typeof ZAI_ABSENCES)[number];
 export interface ZaiQuotaAccount {
   readonly provider: "zai";
   readonly connectionId: string;
+  readonly executionLocation?: ExecutionLocation;
   readonly name: string;
   readonly accountType: ZaiAccountType;
   readonly plan: ZaiPlan | null;
@@ -215,6 +225,7 @@ const entrySummarySchema = z.object({
 
 /** Validates the latest successful Z.AI reading stored for the current key. */
 export const zaiQuotaReadingSchema = z.object({
+  executionLocation: executionLocationSchema.optional(),
   plan: z.enum(ZAI_PLANS).nullable(),
   windows: z.array(windowSchema).max(ZAI_MAX_WINDOWS),
   tally: z.object({
@@ -230,6 +241,7 @@ export const zaiQuotaReadingSchema = z.object({
 export const zaiQuotaAccountSchema = z.object({
   provider: z.literal("zai"),
   connectionId: z.string().min(1).max(200),
+  executionLocation: executionLocationSchema.optional(),
   name: z.string().max(400),
   accountType: z.enum(["api", "coding-plan"]),
   plan: z.enum(ZAI_PLANS).nullable(),

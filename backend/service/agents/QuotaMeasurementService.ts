@@ -294,6 +294,7 @@ export class QuotaMeasurementService {
       zaiReading:
         reading.provider === "zai"
           ? {
+              executionLocation: reading.executionLocation,
               plan: reading.plan,
               windows: reading.windows,
               tally: reading.tally,

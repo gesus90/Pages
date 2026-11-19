@@ -4,7 +4,10 @@ import { AgentExecutionError } from "@/backend/error/AgentExecutionErrors";
 import { ChatError } from "@/backend/error/ChatErrors";
 import { defaultAgentRunOptions } from "@/definition/AgentConfiguration";
 import { isApiProvider } from "@/definition/AgentConnection";
-import { modelConsumerRefusal } from "@/definition/AgentModelConsumers";
+import {
+  hasChatAdapter,
+  modelConsumerRefusal,
+} from "@/definition/AgentModelConsumers";
 import { catalogModelChoice } from "@/definition/AgentModelChoice";
 
 import {
@@ -266,7 +269,13 @@ export class PicaSettingsService {
       const connection = await this.dependencies.connections.find(
         selection.connectionId,
       );
-      if (connection && isApiProvider(connection.provider))
+      // An API connection without a chat adapter never answers in Pica; one with
+      // an adapter, such as z.ai, reports the real reason it cannot be resolved.
+      if (
+        connection &&
+        isApiProvider(connection.provider) &&
+        !hasChatAdapter(connection.provider)
+      )
         throw new AgentExecutionError("picaModelSelectionRequired");
       throw error;
     }

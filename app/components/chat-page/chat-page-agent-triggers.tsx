@@ -59,6 +59,7 @@ export function ChatModelBadge({
         <ModelBadge
           vendor={vendor}
           name={name}
+          modelId={model.modelId}
           source={source}
           hasKeyboardTooltip={vendor === "openrouter" && !isInsideButton}
         />

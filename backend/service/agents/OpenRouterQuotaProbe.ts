@@ -4,10 +4,14 @@ import type { OpenRouterProvider } from "@/backend/agents/providers/OpenRouterPr
 import type { AgentConnectionRepository } from "@/backend/database/repositories/AgentConnectionRepository";
 import type { AgentErrorCode } from "@/backend/error/AgentErrors";
 import type { InstanceSecretCipher } from "@/backend/security/InstanceSecretCipher";
+import type { ExecutionLocation } from "@/definition/ExecutionLocation";
 import type { OpenRouterQuotaAccount } from "@/definition/OpenRouterQuota";
 
 const READ_TIMEOUT_MILLISECONDS = 15_000;
 const MAX_CACHED_REVISIONS = 500;
+
+/** The probe asks OpenRouter from the Pages service it runs in, on this machine. */
+const RETRIEVAL_LOCATION: ExecutionLocation = "local";
 
 type KeyQuota = OpenRouterQuotaAccount["key"];
 type AccountCredits = Extract<
@@ -25,6 +29,18 @@ interface OpenRouterQuotaProbeDependencies {
 interface ReadingCache<Reading> {
   readonly pending: Map<string, Promise<Reading>>;
   readonly latest: Map<string, Reading>;
+}
+
+/**
+ * The place of a retrieval, for a result that holds a reading.
+ * @remarks
+ * Only a reading proves where OpenRouter was asked. A result without one
+ * (a rejected key, a first failure) names no place.
+ */
+function retrievedAt(reading: unknown): {
+  readonly executionLocation?: ExecutionLocation;
+} {
+  return reading === null ? {} : { executionLocation: RETRIEVAL_LOCATION };
 }
 
 function isRejectedKey(errorCode: AgentErrorCode): boolean {
@@ -91,7 +107,8 @@ export class OpenRouterQuotaProbe {
     if (encrypted === null) return { status: "missing_key", reading: null };
     const cached = this.credits.latest.get(credentialRevision(id, encrypted));
     if (!cached) return { status: "stored", reading: null };
-    if (cached.status === "unknown") return { ...cached, reading: null };
+    if (cached.status === "unknown")
+      return { status: "unknown", reading: null };
     return cached;
   }
 
@@ -146,17 +163,15 @@ export class OpenRouterQuotaProbe {
         AbortSignal.timeout(READ_TIMEOUT_MILLISECONDS),
       );
       if (result.ok) {
-        return {
-          status: "reported",
-          reading: { ...result.value, at: new Date().toISOString() },
-        };
+        const reading = { ...result.value, at: new Date().toISOString() };
+        return { status: "reported", reading, ...retrievedAt(reading) };
       }
       if (isRejectedKey(result.errorCode))
         return { status: "invalid_key", reading: null };
     } catch {
-      return { status: "failed", reading: previous };
+      return { status: "failed", reading: previous, ...retrievedAt(previous) };
     }
-    return { status: "failed", reading: previous };
+    return { status: "failed", reading: previous, ...retrievedAt(previous) };
   }
 
   private async readCredits(
@@ -173,23 +188,21 @@ export class OpenRouterQuotaProbe {
       );
       if (result.ok) {
         const { purchased, used } = result.value;
-        return {
-          status: "reported",
-          reading: {
-            purchased,
-            used,
-            remaining: Math.max(0, purchased - used),
-            at: new Date().toISOString(),
-          },
+        const reading = {
+          purchased,
+          used,
+          remaining: Math.max(0, purchased - used),
+          at: new Date().toISOString(),
         };
+        return { status: "reported", reading, ...retrievedAt(reading) };
       }
       if (isRejectedKey(result.errorCode))
         return { status: "invalid_key", reading: null };
-      if (result.errorCode === "provider_bad_response")
-        return { status: "unknown", reading: previous };
+      if (result.errorCode === "provider_bad_response" && previous === null)
+        return { status: "unknown", reading: null };
     } catch {
-      return { status: "failed", reading: previous };
+      return { status: "failed", reading: previous, ...retrievedAt(previous) };
     }
-    return { status: "failed", reading: previous };
+    return { status: "failed", reading: previous, ...retrievedAt(previous) };
   }
 }

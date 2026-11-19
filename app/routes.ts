@@ -212,6 +212,8 @@ function publicRoutes(routes: RouteBuilder): RouteConfigEntry[] {
     resource("discord/callback", "routes/discord-callback.ts"),
     ...page("discord/result", { browser: "routes/discord-result.tsx" }),
     resource("instance-logo", "routes/instance-logo.ts"),
+    // A started player carries no sign-in; its secret address is the access.
+    resource("chat-player/:token/:file", "routes/chat-player-file.ts"),
   ];
 }
 
@@ -319,6 +321,8 @@ function chatResources(routes: RouteBuilder): RouteConfigEntry[] {
     resource("chat/link-image", "routes/conversation-link-image.ts"),
     resource("chat/embed", "routes/chat-embed.ts"),
     resource("chat/preview-frame", "routes/chat-preview-frame.ts"),
+    resource("chat-page-api/web-packages", "routes/chat-page-web-packages.ts"),
+    resource("chat/player-frame/:token", "routes/chat-player-frame.ts"),
     ...page("chat", {
       browser: "routes/chat-page.tsx",
       server: "routes/chat-page-server.ts",

@@ -57,6 +57,8 @@ interface BaseConfig extends Partial<AcpResourceOptions> {
   readonly listenAddress?: string;
   /** Origin users reach this instance at; Pica's operator browser treats it as a Pages origin. */
   readonly publicUrl?: string;
+  /** Origin of the players of web export packages in the chat, apart from Pages. */
+  readonly chatPlayerOrigin?: string;
   /** Port of the Pica Mobile WebSocket endpoint; missing: the endpoint is off. */
   readonly picaMobilePort?: number;
   /**
@@ -692,6 +694,8 @@ export function writePagesConfig(
   // The origin moves from the key of the removed MCP endpoint to its own key.
   delete document.mcpHttp;
   if (config.publicUrl !== undefined) document.publicUrl = config.publicUrl;
+  if (config.chatPlayerOrigin !== undefined)
+    document.chatPlayerOrigin = config.chatPlayerOrigin;
   writePicaMobileSettings(document, config);
   if (config.interpreterProfiles !== undefined)
     document.interpreterProfiles = config.interpreterProfiles.map(

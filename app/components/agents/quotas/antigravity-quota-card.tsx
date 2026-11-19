@@ -45,13 +45,13 @@ import type { StatusLimit } from "./quota-status-presentation";
  * subtitle and groups instead of windows, and the same size: the head is
  * 44 px, the status line 48 px, and the card keeps its height whatever it
  * holds. The answer names no subscription, so the head shows no plan badge;
- * with more than two groups it shows "n Gruppen" on the right. A group or
- * window Antigravity did not report is not shown, and one whose reset passed
- * leaves the card. A window without a rest keeps its mark at the window, and
+ * with more than two groups it shows "n Gruppen" on the right. A current
+ * card shows reported groups with windows whose reset is ahead or unknown.
+ * A window without a rest keeps its mark at the window, and
  * the status line names it together with its group, also when the group is
  * out of sight in the scrolled list. A card without stored figures shows
  * placeholders and "Wird geladen …" until its query answers; a card with
- * stored figures keeps them in full colour while the query runs.
+ * stored figures keeps them in full colour while the query runs or misses.
  */
 export function AntigravityQuotaCard({
   account,

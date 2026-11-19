@@ -17,6 +17,7 @@ import type { ConversationAgentFiles } from "./content/ConversationAgentFiles";
 import type { ConversationAttachmentReferences } from "./content/ConversationAttachmentReferences";
 import type { ConversationAttachments } from "./content/ConversationAttachments";
 import type { ConversationGeneratedImages } from "./content/ConversationGeneratedImages";
+import type { ConversationWebPackages } from "./content/ConversationWebPackages";
 import type { ConversationMessageContentReader } from "./content/ConversationMessageContent";
 import type { ConversationAgentRunner } from "./ConversationAgentReplies";
 import type { ConversationContextReader } from "./ConversationContextReader";
@@ -85,6 +86,11 @@ export interface ConversationReplyRunnerDependencies {
     ConversationAttachments,
     "stage" | "bind" | "release" | "open"
   >;
+  /**
+   * Stores the web export packages an answer attaches by their manifest,
+   * complete or not at all; absent attaches the manifest as a plain file.
+   */
+  readonly webPackages?: Pick<ConversationWebPackages, "stage">;
   /** The attachments and links of the stored answer. */
   readonly content: ConversationMessageContentReader;
   /** The images the agent generated during the answer; absent binds none. */

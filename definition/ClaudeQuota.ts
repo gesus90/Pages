@@ -55,8 +55,8 @@ export type ClaudeQuotaStatusKind = (typeof CLAUDE_QUOTA_STATUS_KINDS)[number];
  * `at` is the time of the query. `failed`: Pages got no answer;
  * `lastSuccessAt` is the time of the last answer, `null` if there never was
  * one. `skipped`: a running session holds the sign-in exclusively, so Pages
- * did not ask; only Antigravity cards have it, because Claude and Codex are
- * asked beside a running session. `signed_out`: the connection has no
+ * did not ask; `lastSuccessAt` still names the last answer. Only Antigravity
+ * cards have this status. `signed_out`: the connection has no
  * sign-in, so Pages cannot ask.
  */
 export type ClaudeQuotaStatus =
@@ -64,7 +64,7 @@ export type ClaudeQuotaStatus =
   | { readonly kind: "reported"; readonly at: string }
   | { readonly kind: "no_windows"; readonly at: string }
   | { readonly kind: "failed"; readonly lastSuccessAt: string | null }
-  | { readonly kind: "skipped" }
+  | { readonly kind: "skipped"; readonly lastSuccessAt: string | null }
   | { readonly kind: "signed_out" };
 
 /**
@@ -120,7 +120,10 @@ export const quotaStatusSchema = z.discriminatedUnion("kind", [
     kind: z.literal("failed"),
     lastSuccessAt: isoTimeSchema.nullable(),
   }),
-  z.object({ kind: z.literal("skipped") }),
+  z.object({
+    kind: z.literal("skipped"),
+    lastSuccessAt: isoTimeSchema.nullable().default(null),
+  }),
   z.object({ kind: z.literal("signed_out") }),
 ]);
 

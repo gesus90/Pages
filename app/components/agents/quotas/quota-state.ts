@@ -1,4 +1,4 @@
-import { lastClaudeAnswerAt } from "./quota-card-state";
+import { lastQuotaAnswerAt } from "./quota-card-state";
 
 import type { QuotaAccount, QuotaSnapshot } from "@/definition/AgentQuota";
 import type { OpenRouterQuotaAccount } from "@/definition/OpenRouterQuota";
@@ -32,6 +32,8 @@ export interface ClaudeQuotaState {
   readonly hasListFailed: boolean;
   /** Whether the push stream of the server is open. */
   readonly isLive: boolean;
+  /** Whether a regular push is reading updated figures. */
+  readonly isPushRefreshing: boolean;
 }
 
 /**
@@ -61,6 +63,7 @@ export type QuotaAction =
       readonly connectionId: string;
       readonly requestNumber: number;
     }
+  | { readonly type: "pushStarted" }
   | {
       readonly type: "pushed";
       readonly snapshot: QuotaSnapshot;
@@ -76,6 +79,7 @@ export const INITIAL_QUOTA_STATE: ClaudeQuotaState = {
   pendingLists: 0,
   hasListFailed: false,
   isLive: false,
+  isPushRefreshing: false,
 };
 
 /**
@@ -84,6 +88,7 @@ export const INITIAL_QUOTA_STATE: ClaudeQuotaState = {
  */
 export function isQuotaRefreshing(state: ClaudeQuotaState): boolean {
   return (
+    state.isPushRefreshing ||
     state.pendingLists > 0 ||
     (state.cards ?? []).some((card) => card.pendingQueries > 0)
   );
@@ -118,9 +123,9 @@ function failedOpenRouterAccount(
 /**
  * The card after a query or push brought nothing.
  * @remarks
- * Pages got no answer for the card, so it keeps its figures and reads
- * "Abfrage fehlgeschlagen" with the time of Claude's last answer. A request
- * older than the newest answer of the card changes nothing.
+ * Pages got no answer for the card, so it keeps its figures and the time
+ * of the last successful answer. A request older than the newest answer of
+ * the card changes nothing.
  */
 function failedCard(card: QuotaCard, requestNumber: number): QuotaCard {
   if (requestNumber < card.answeredRequest) return card;
@@ -136,7 +141,7 @@ function failedCard(card: QuotaCard, requestNumber: number): QuotaCard {
       ...card.account,
       status: {
         kind: "failed",
-        lastSuccessAt: lastClaudeAnswerAt(card.account.status),
+        lastSuccessAt: lastQuotaAnswerAt(card.account.status),
       },
     },
     answeredRequest: requestNumber,
@@ -192,6 +197,28 @@ function cardsNewerThanList(
   );
 }
 
+function openRouterListedAccount(
+  account: OpenRouterQuotaAccount,
+  previous: QuotaAccount,
+): OpenRouterQuotaAccount {
+  if (previous.provider !== "openrouter") return account;
+  const { key, credits } = account;
+  const keepKeyFailure =
+    key.status === "reported" &&
+    previous.key.status === "failed" &&
+    key.reading?.at === previous.key.reading?.at;
+  const keepCreditFailure =
+    credits?.status === "reported" &&
+    previous.credits?.status === "failed" &&
+    credits.mode === previous.credits.mode &&
+    credits.reading?.at === previous.credits.reading?.at;
+  return {
+    ...account,
+    key: keepKeyFailure ? { ...key, status: "failed" } : key,
+    credits: keepCreditFailure ? { ...credits, status: "failed" } : credits,
+  };
+}
+
 /**
  * The cards after the list of the stored figures.
  * @remarks
@@ -199,6 +226,7 @@ function cardsNewerThanList(
  * A card the page already shows keeps its status, because a query of it
  * follows and its figures must not flip to "stored" and back. OpenRouter's
  * stored reading carries the current credit visibility and credential state.
+ * The same reading retains its failure status until another query answers.
  * An answer older than one the page applied already changes nothing.
  */
 function applyList(
@@ -217,7 +245,7 @@ function applyList(
       if (readAt < card.readAt) return card;
       return {
         ...card,
-        account,
+        account: openRouterListedAccount(account, card.account),
         readAt,
         answeredRequest: Math.max(card.answeredRequest, requestNumber),
       };
@@ -364,10 +392,19 @@ export function reduceQuotas(
       return updateCard(state, action.connectionId, (card) =>
         failedCard(settledCard(card), action.requestNumber),
       );
+    case "pushStarted":
+      return { ...state, isPushRefreshing: true };
     case "pushed":
-      return applyPush(state, action.snapshot, action.requestNumber);
+      return applyPush(
+        { ...state, isPushRefreshing: false },
+        action.snapshot,
+        action.requestNumber,
+      );
     case "pushFailed":
-      return failIdleCards(state, action.requestNumber);
+      return failIdleCards(
+        { ...state, isPushRefreshing: false },
+        action.requestNumber,
+      );
     case "live":
       return { ...state, isLive: action.isLive };
   }

@@ -1,6 +1,7 @@
 import { ExecutionLocationBadge } from "@/app/components/agents/badges/execution-location-badge";
 
 import { QUOTA_CARD_CLASS } from "./quota-card-layout";
+import { QuotaLocationPlaceholder } from "./quota-placeholders";
 
 import type { ReactNode } from "react";
 import type { ExecutionLocation } from "@/definition/ExecutionLocation";
@@ -42,13 +43,18 @@ export function QuotaCardFrame({
  * `ml-auto`, centred in the 44 px head, never shrinks and keeps the full text
  * of its badges; the name and subtitle beside it truncate instead. The gap is
  * 6 px on a phone and 8 px from the tablet width on. A card whose data names
- * no location passes `null` and shows "Unbekannt".
+ * no location passes `null` and shows "Unbekannt". A card that still waits for
+ * the figures that name it sets `isLocationPending` and holds the corner with
+ * a placeholder of the badge's size, so it never reads "Unbekannt" for a
+ * moment and nothing moves when the place arrives.
  */
 export function QuotaHeaderBadges({
   location,
+  isLocationPending = false,
   children,
 }: {
   readonly location: ExecutionLocation | null;
+  readonly isLocationPending?: boolean;
   readonly children?: ReactNode;
 }): React.ReactElement {
   return (
@@ -57,7 +63,11 @@ export function QuotaHeaderBadges({
       className="ml-auto flex shrink-0 items-center gap-1.5 md:gap-2"
     >
       {children}
-      <ExecutionLocationBadge location={location} />
+      {isLocationPending ? (
+        <QuotaLocationPlaceholder />
+      ) : (
+        <ExecutionLocationBadge location={location} />
+      )}
     </div>
   );
 }

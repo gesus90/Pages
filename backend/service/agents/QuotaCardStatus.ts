@@ -20,11 +20,26 @@ export function quotaCardStatus(
   reported: { readonly at: string | null; readonly hasWindows: boolean },
 ): ClaudeQuotaStatus {
   if (outcome === null) return { kind: "stored", at: reported.at };
-  if (outcome.status === "busy") return { kind: "skipped" };
+  if (outcome.status === "busy")
+    return { kind: "skipped", lastSuccessAt: reported.at };
   if (outcome.status === "signed_out") return { kind: "signed_out" };
   if (outcome.status === "failed" || reported.at === null)
     return { kind: "failed", lastSuccessAt: reported.at };
   return reported.hasWindows
     ? { kind: "reported", at: reported.at }
     : { kind: "no_windows", at: reported.at };
+}
+
+/** Keeps windows that were valid at the last measurement when a query misses. */
+export function quotaWindowsAt(
+  outcome: QuotaProbeOutcome | null,
+  reportedAt: string | null,
+  now: Date,
+): Date {
+  if (
+    reportedAt !== null &&
+    (outcome?.status === "busy" || outcome?.status === "failed")
+  )
+    return new Date(reportedAt);
+  return now;
 }

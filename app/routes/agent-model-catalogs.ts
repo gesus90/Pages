@@ -14,7 +14,10 @@ import {
   AgentError,
 } from "@/backend/error/AgentErrors";
 import { logCaughtError } from "@/backend/logging/Logger";
+import { isApiProvider } from "@/definition/AgentConnection";
 
+import type { ApplicationServices } from "@/app/lib/services.server";
+import type { AccountAccess } from "@/definition/Authorization";
 import type { Route } from "./+types/agent-model-catalogs";
 
 function readSavedConnection(request: Request): string | null {
@@ -34,6 +37,28 @@ async function readReloadTarget(request: Request): Promise<string> {
   if (typeof connectionId !== "string" || connectionId === "")
     throw new AgentError("connection_not_found");
   return connectionId;
+}
+
+// A listing never confirms the access of an API connection, so a reload of an
+// unconfirmed one checks the access first (metadata only, no model call); the
+// passed check lists the models. Every other connection only lists them anew.
+async function reloadConnection(
+  services: ApplicationServices,
+  actor: AccountAccess,
+  connectionId: string,
+): Promise<void> {
+  const { connections } = await services.pageAgentService.catalogStatuses(
+    actor.userId,
+    null,
+  );
+  const status = connections.find(
+    (entry) => entry.connectionId === connectionId,
+  );
+  if (status?.state === "unverified" && isApiProvider(status.provider)) {
+    await services.agentCheckService.run(actor, connectionId, "auth");
+    return;
+  }
+  await services.agentCatalogService.run(actor, connectionId);
 }
 
 /**
@@ -65,7 +90,13 @@ export async function loader({
   }
 }
 
-/** Reloads the catalog of one connection; only administrators may, and no other catalog is touched. */
+/**
+ * Reloads one connection; only administrators may, and no other connection is touched.
+ * @remarks
+ * An API connection whose access is not confirmed gets its access checked,
+ * which lists its models once it passes; any other connection lists its
+ * models anew.
+ */
 export async function action({
   context,
   request,
@@ -79,10 +110,7 @@ export async function action({
       throw new AgentAccessDeniedError();
     const services = await getApplicationServices();
     const actor = await requireAgentAccount(services, user);
-    await services.agentCatalogService.run(
-      actor,
-      await readReloadTarget(request),
-    );
+    await reloadConnection(services, actor, await readReloadTarget(request));
     return Response.json(
       await services.pageAgentService.catalogStatuses(actor.userId, null),
       { headers: AGENT_NO_STORE },

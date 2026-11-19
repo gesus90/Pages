@@ -1,6 +1,6 @@
 import { visibleCodexQuotaWindows } from "@/definition/CodexQuota";
 
-import { quotaCardStatus } from "./QuotaCardStatus";
+import { quotaCardStatus, quotaWindowsAt } from "./QuotaCardStatus";
 import { QuotaConnectionAccess } from "./QuotaConnectionAccess";
 
 import type { AgentConnectionRepository } from "@/backend/database/repositories/AgentConnectionRepository";
@@ -157,9 +157,13 @@ export class CodexQuotaService {
     now: Date,
   ): CodexQuotaAccount {
     const { outcome, record } = query;
-    const windows = visibleCodexQuotaWindows(record?.windows ?? [], now);
+    const reportedAt = record?.reportedAt ?? null;
+    const windows = visibleCodexQuotaWindows(
+      record?.windows ?? [],
+      quotaWindowsAt(outcome, reportedAt, now),
+    );
     const status = quotaCardStatus(outcome, {
-      at: record?.reportedAt ?? null,
+      at: reportedAt,
       hasWindows: windows.length > 0,
     });
     const isSignedOut = status.kind === "signed_out";

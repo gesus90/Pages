@@ -89,7 +89,6 @@ function ZaiCardWindows({
           now={now}
           state={{
             isStale: body.isStale,
-            staleSince: body.staleSince,
             isCompact,
           }}
         />
@@ -104,11 +103,11 @@ function ZaiCardWindows({
  * @remarks
  * It has the form of the Claude card: the 44 px head with a 32 px Z.AI logo,
  * the connection name, the account type ("GLM Coding Plan" or "Standard-API")
- * and the tier badge, the window area and the 48 px status line. An entry Z.AI
- * did not report is not shown, and one whose reset passed leaves the card. A
+ * and the tier badge, the window area and the 48 px status line. A current
+ * card shows only reported entries with a remaining or unknown reset. A
  * card without stored figures shows placeholders and "Wird geladen …" until
  * its query answers; a card with stored figures keeps them in full colour
- * while the query runs, and after a failed query it greys them and names the
+ * while the query runs or fails and names the
  * time of the last answer. A key that is missing or rejected shows a notice
  * and the way to the connection settings.
  */
@@ -157,7 +156,10 @@ export function ZaiQuotaCard({
             {t(`agentsPage.zai.subtitle.${account.accountType}`)}
           </p>
         </div>
-        <QuotaHeaderBadges location={null}>
+        <QuotaHeaderBadges
+          location={account.executionLocation ?? null}
+          isLocationPending={isLoading}
+        >
           {isLoading && hasTier ? <QuotaBadgePlaceholder /> : null}
           {!isLoading && (hasTier || account.plan !== null) ? (
             <ZaiPlanBadge plan={account.plan} />
@@ -203,7 +205,6 @@ function ZaiQuotaWindow({
   readonly now: Date;
   readonly state: {
     readonly isStale: boolean;
-    readonly staleSince: string | null;
     readonly isCompact: boolean;
   };
 }): React.ReactElement {
@@ -227,7 +228,6 @@ function ZaiQuotaWindow({
       }}
       now={now}
       isStale={state.isStale}
-      staleSince={state.staleSince}
       isCompact={state.isCompact}
     />
   );

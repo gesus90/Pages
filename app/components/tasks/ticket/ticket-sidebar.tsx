@@ -378,7 +378,7 @@ export function TicketSidebar(props: TicketSidebarProps): React.ReactElement {
   const isReadOnly = isArchived || !canWrite;
 
   return (
-    <aside className="flex min-w-0 flex-col gap-3 text-xs lg:sticky lg:top-24 lg:self-start">
+    <aside className="flex min-w-0 flex-col gap-3 text-xs lg:sticky lg:top-5 lg:self-start">
       <StatusField
         isArchived={isReadOnly}
         onChange={props.actions.changeStatus}

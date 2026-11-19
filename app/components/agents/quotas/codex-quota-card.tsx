@@ -64,7 +64,6 @@ function CodexCardWindows({
             quotaWindow={quotaWindow}
             now={now}
             isStale={body.isStale}
-            staleSince={body.staleSince}
           />
         ))
       ) : (
@@ -84,12 +83,12 @@ function CodexCardWindows({
  * @remarks
  * It has the form of the Claude card: the 44 px head with a 32 px ChatGPT
  * logo, the connection name, "ChatGPT-Abo" and the plan badge, the window
- * area and the 48 px status line, in a card of the same size. A window the
- * app server did not report is not shown, and one whose reset passed leaves
- * the card. A card without stored figures shows placeholders and "Wird
+ * area and the 48 px status line, in a card of the same size. A current
+ * card shows only reported windows with a remaining or unknown reset. A
+ * card without stored figures shows placeholders and "Wird
  * geladen …" until its query answers; a card with stored figures keeps them
- * in full colour while the query runs, and after a failed query it greys
- * them and names the time of the last answer.
+ * in full colour while the query runs or fails and names the time of the
+ * last answer.
  */
 export function CodexQuotaCard({
   account,
@@ -188,12 +187,10 @@ function CodexQuotaWindow({
   quotaWindow,
   now,
   isStale = false,
-  staleSince = null,
 }: {
   readonly quotaWindow: ReportedWindow;
   readonly now: Date;
   readonly isStale?: boolean;
-  readonly staleSince?: string | null;
 }): React.ReactElement {
   const { t } = useTranslation();
   return (
@@ -208,7 +205,6 @@ function CodexQuotaWindow({
       }}
       now={now}
       isStale={isStale}
-      staleSince={staleSince}
     />
   );
 }

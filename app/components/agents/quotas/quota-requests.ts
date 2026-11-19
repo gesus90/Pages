@@ -93,6 +93,9 @@ export function followQuotaPushes(
       current.close();
       reopen = setTimeout(open, REOPEN_MILLISECONDS);
     };
+    current.addEventListener("quota-refreshing", () => {
+      dispatch({ type: "pushStarted" });
+    });
     current.addEventListener("quotas", (message) => {
       dispatchPush(dispatch, nextRequestNumber(), message.data);
     });

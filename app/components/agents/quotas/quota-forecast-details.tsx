@@ -1,4 +1,4 @@
-import { Ban, Check, Clock, Minus, Pause, TrendingDown } from "lucide-react";
+import { Ban, Check, Clock, Minus, TrendingDown } from "lucide-react";
 import { useId } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -16,7 +16,6 @@ const FORECAST_ICONS = {
   collecting: Clock,
   steady: Minus,
   newWindow: Clock,
-  paused: Pause,
   unavailable: Ban,
   depleting: TrendingDown,
 };
@@ -184,7 +183,6 @@ interface QuotaProgressProps {
 }
 
 function fillClass(remaining: number, projection: QuotaForecast): string {
-  if (projection.isStale) return "bg-muted-foreground opacity-55";
   if (projection.forecast.kind === "depleting")
     return "bg-[color-mix(in_srgb,var(--color-destructive)_30%,var(--color-muted))]";
   return QUOTA_BAR_CLASSES[claudeQuotaTone(remaining)];
@@ -238,7 +236,7 @@ export function QuotaProgress({
 }: QuotaProgressProps): React.ReactElement {
   const { t } = useTranslation();
   const descriptionId = useId();
-  const { target, forecast, isStale } = projection;
+  const { target, forecast } = projection;
   const tone = claudeQuotaTone(remaining);
   const description = [
     target === null
@@ -264,7 +262,7 @@ export function QuotaProgress({
       >
         <div className="h-full overflow-hidden rounded-[inherit] bg-muted">
           <div
-            data-quota-bar={isStale ? "stale" : tone}
+            data-quota-bar={tone}
             className={cn(
               "relative h-full overflow-hidden rounded-[inherit] transition-[width,background-color,opacity] duration-300 ease-out motion-reduce:transition-none",
               fillClass(remaining, projection),

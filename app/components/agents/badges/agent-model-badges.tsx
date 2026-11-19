@@ -54,6 +54,7 @@ export function AgentModelBadges({
         <ModelBadge
           vendor={vendor}
           name={name}
+          modelId={model.modelId}
           source={source}
           status={model.modelStatus}
           isVendorHiddenWhenNarrow={isCompactWhenNarrow}

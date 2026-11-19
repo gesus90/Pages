@@ -128,8 +128,11 @@ export function QuotaBadgePlaceholder({
   );
 }
 
-/** The placeholder of the location badge: 66 px wide, 24 px high, 7 px radius. */
-function QuotaLocationPlaceholder(): React.ReactElement {
+/**
+ * The placeholder of the location badge: 66 px wide, 24 px high, 7 px radius.
+ * It holds the corner of a card whose place is not known yet.
+ */
+export function QuotaLocationPlaceholder(): React.ReactElement {
   return <PlaceholderFace className="h-6 w-[66px] rounded-[7px]" />;
 }
 

@@ -49,7 +49,7 @@ export class CodexQuotaProbe {
 
   /** Returns the last failed query while stored figures are being reopened. */
   public latestFailure(connectionId: string): QuotaProbeOutcome | null {
-    return this.probe.latestFailure(connectionId);
+    return this.probe.latestMissedReading(connectionId);
   }
 
   private async query(

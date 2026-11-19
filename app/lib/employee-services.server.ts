@@ -182,6 +182,8 @@ export interface EmployeeServicesInput {
     readonly chatCalls?: ChatCallSetting;
     /** The origin users reach Pages at; links to it embed. */
     readonly publicUrl?: string;
+    /** The origin of the players of web export packages, apart from Pages. */
+    readonly chatPlayerOrigin?: string;
   };
   /** Pica's model choice and the ACP path the group observer runs on. */
   readonly observer: {

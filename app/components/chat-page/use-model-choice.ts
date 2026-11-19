@@ -24,6 +24,8 @@ export interface ModelChoiceState {
   readonly picked: AgentChatModelChoice | undefined;
   choose(choice: AgentChatModelChoice): void;
   chooseEffort(effort: string | null): void;
+  /** Reads the models and connections anew and keeps what the person picked. */
+  refresh(): void;
 }
 
 function sameModel(
@@ -96,11 +98,26 @@ export function useModelChoice(
     if (pick !== null) setPick({ ...pick, reasoningEffort: effort });
   }
 
+  function refresh(): void {
+    if (kind === undefined || agentId === undefined) return;
+    sendAgentControl({
+      intent: "models",
+      ...targetFields({ kind, agentId, conversationId }),
+    })
+      .then((response) => {
+        if (response.ok && response.overview) setOverview(response.overview);
+      })
+      .catch((error: unknown) => {
+        console.warn("[pages] The model choice could not be read.", error);
+      });
+  }
+
   return {
     overview,
     pick,
     picked,
     choose,
     chooseEffort,
+    refresh,
   };
 }

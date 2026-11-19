@@ -3794,15 +3794,15 @@
       "general": "That did not work. Please try again.",
       "contextChanged": "The context changed meanwhile. Nothing was overwritten; please try /compact again.",
       "compactionFailed": "The context could not be compacted. Your existing conversation history is preserved.",
-      "nativeContextManaged": "Codex, Claude Code and opencode manage their native session context themselves; /compact is unavailable for them.",
-      "picaModelSelectionRequired": "Pica uses only Codex CLI, Claude Code, OpenCode or Antigravity over ACP. The saved API selection is retained. Confirm its adoption through opencode in Pica settings or choose a new model. Pica no longer uses OpenAI or Anthropic API keys.",
+      "nativeContextManaged": "Codex, Claude Code, opencode and z.ai manage their native session context themselves; /compact is unavailable for them.",
+      "picaModelSelectionRequired": "Pica uses only Codex CLI, Claude Code, OpenCode, z.ai or Antigravity over ACP. The saved API selection is retained. Confirm its adoption through opencode in Pica settings or choose a new model. Pica no longer uses OpenAI or Anthropic API keys.",
       "picaZenUnsupported": "This free opencode Zen model requires opencode’s own tools and cannot run in Pica. Choose another model. It remains available in agent plans.",
       "picaModelUnsupported": "According to its catalog, this model cannot answer in chat or call tools, so Pica cannot use it. The saved selection is retained; nothing was sent and no other model was substituted. Choose another model under Settings › Agents.",
       "picaCodexConfigurationUnmanaged": "Pica's Codex connection holds its own configuration file (config.toml) that Pages does not manage, so Pica does not start with it. The file stays unchanged. An admin assigns Pica a clean, separate Codex connection without a config.toml under Settings › Agents. Nothing was sent.",
       "plan_codex_configuration_unmanaged": "A Codex configuration file outside Pages (config.toml in the connection or in Pica's working folder) prevents the start. The file stays unchanged. An admin assigns Pica a clean, separate Codex connection under Settings › Agents.",
       "instructionsUnavailable": "Pica cannot answer right now: the protected instructions of Pica are missing on the server or cannot be read. Your message was not sent. Please contact an administrator.",
-      "acpProviderUnsupported": "Pica supports Codex CLI, Claude Code, OpenCode and Antigravity over ACP. An administrator must assign one of these agents to chat under Settings › Agents.",
-      "acpPermissionModeUnsupported": "Pica requires the “Lesend” (read only) mode for Claude Code, OpenCode and Antigravity. Only the authorized Pages tools are available, with no shell, files or web tools. An administrator must update the chat agent’s mode. Your message was not sent.",
+      "acpProviderUnsupported": "Pica supports Codex CLI, Claude Code, OpenCode, z.ai and Antigravity over ACP. An administrator must assign one of these agents to chat under Settings › Agents.",
+      "acpPermissionModeUnsupported": "Pica requires the “Lesend” (read only) mode for Claude Code, OpenCode, z.ai and Antigravity. Only the authorized Pages tools are available, with no shell, files or web tools. An administrator must update the chat agent’s mode. Your message was not sent.",
       "pica_codex_adapter_unavailable": "Pica needs the verified codex-acp 2.2.2 package. Ask an administrator to make it available for Pica's native runner.",
       "pica_native_artifact_unavailable": "Pica's verified native runner is missing or its files differ from the manifest. Please contact an administrator.",
       "accessModeRequired": "This agent still has the earlier access level “Workspace”. An administrator must choose “Lesend” (read only) or “YOLO”. Your message was not sent.",
@@ -4457,7 +4457,9 @@
         "gallery": "Gallery",
         "word": "Document",
         "slides": "Presentation",
-        "sheet": "Spreadsheet"
+        "sheet": "Spreadsheet",
+        "model": "3D model",
+        "webPackage": "Godot scene"
       },
       "diff": {
         "before": "before",
@@ -4592,7 +4594,38 @@
         "copyChecksum": "Copy SHA-256 checksum",
         "tooLarge": "Too large for the preview (over 32 MB) – download only"
       },
-      "videoFullscreen": "Video in full screen"
+      "videoFullscreen": "Video in full screen",
+      "model": {
+        "start": "Start 3D view",
+        "retry": "Try again",
+        "loading": "Loading model …",
+        "viewer": "3D view of {{name}}",
+        "poster": "Start image of {{name}}",
+        "hint": "Drag to rotate · wheel or two fingers to zoom",
+        "zoomIn": "Zoom in",
+        "zoomOut": "Zoom out",
+        "reset": "Reset view",
+        "failed": {
+          "webgl": "This browser offers no WebGL 2 – the start image shows the export.",
+          "load": "The model could not be loaded – the start image shows the export.",
+          "format": "The model is damaged or not supported – the start image shows the export."
+        }
+      },
+      "webPackage": {
+        "meta": "Web export",
+        "start": "Start",
+        "starting": "Starting …",
+        "stop": "Stop",
+        "loading": "Loading scene …",
+        "frame": "Playable scene {{name}}",
+        "poster": "Start image of {{name}}",
+        "isolation": "Runs isolated in your browser – no access to Pages or the chat",
+        "failed": {
+          "webgl": "This browser offers no WebGL 2 – the scene cannot run here.",
+          "denied": "The scene is no longer available or you have no access to it.",
+          "start": "The scene could not be started. Please try again."
+        }
+      }
     },
     "embedDomains": {
       "title": "Embedded domains",
@@ -9675,7 +9708,6 @@
       "refreshing": "As of {{time}} · refreshing …",
       "reported": "Reported by Claude · {{time}}",
       "noWindows": "No windows reported · queried {{time}}",
-      "failedSince": "Query failed · as of {{time}}",
       "failedNever": "Query failed · no success yet",
       "skipped": "Query skipped · session active",
       "signedOut": "Not signed in · sign-in missing",
@@ -9685,7 +9717,6 @@
       "limitReached": "{{group}} · {{limit}} reached · back {{moment}}",
       "limitReachedNoReset": "{{group}} · {{limit}} reached",
       "reportedCodex": "Reported by Codex · {{time}}",
-      "failedSinceCodex": "Query failed · last success {{time}}",
       "limitReachedGeneral": "Limit reached · back {{moment}}",
       "limitReachedGeneralNoReset": "Limit reached"
     },
@@ -9721,10 +9752,10 @@
     "quota": {
       "remaining": "{{percent}} % left",
       "used": "{{percent}} % used",
-      "staleUsed": "as of {{time}} · {{used}}",
       "remainingLabel": "{{window}}: left",
       "resets": "resets {{moment}} · {{countdown}}",
       "resetsShort": "resets {{moment}}",
+      "windowElapsed": "Window ended",
       "countdown": "in {{duration}}"
     },
     "forecasts": {
@@ -9742,7 +9773,6 @@
       "steadyShort": "No usage",
       "newWindow": "New window · forecast pending",
       "newWindowShort": "New window",
-      "paused": "Forecast paused",
       "unavailable": "No forecast",
       "resetUnknown": "Reset time not reported",
       "duration": {

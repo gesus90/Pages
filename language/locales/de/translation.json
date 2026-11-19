@@ -3794,15 +3794,15 @@
       "general": "Das hat nicht geklappt. Bitte versuch es noch einmal.",
       "contextChanged": "Der Kontext wurde inzwischen geändert. Es wurde nichts überschrieben; bitte /compact erneut aufrufen.",
       "compactionFailed": "Der Kontext konnte nicht komprimiert werden. Der vorhandene Gesprächsverlauf bleibt erhalten.",
-      "nativeContextManaged": "Codex, Claude Code und opencode verwalten den Kontext ihrer nativen Sitzung selbst; /compact ist dort nicht verfügbar.",
-      "picaModelSelectionRequired": "Pica verwendet nur Codex CLI, Claude Code, OpenCode oder Antigravity über ACP. Die gespeicherte API-Auswahl bleibt erhalten. Bitte in den Pica-Einstellungen die Übernahme über opencode bestätigen oder ein neues Modell wählen. OpenAI- und Anthropic-API-Schlüssel werden von Pica nicht mehr verwendet.",
+      "nativeContextManaged": "Codex, Claude Code, opencode und z.ai verwalten den Kontext ihrer nativen Sitzung selbst; /compact ist dort nicht verfügbar.",
+      "picaModelSelectionRequired": "Pica verwendet nur Codex CLI, Claude Code, OpenCode, z.ai oder Antigravity über ACP. Die gespeicherte API-Auswahl bleibt erhalten. Bitte in den Pica-Einstellungen die Übernahme über opencode bestätigen oder ein neues Modell wählen. OpenAI- und Anthropic-API-Schlüssel werden von Pica nicht mehr verwendet.",
       "picaZenUnsupported": "Dieses kostenlose opencode-Zen-Modell benötigt die eigenen Werkzeuge von opencode und kann in Pica nicht ausgeführt werden. Bitte ein anderes Modell wählen. In Agent-Plänen bleibt es verfügbar.",
       "picaModelUnsupported": "Laut Katalog kann dieses Modell nicht im Chat antworten oder keine Werkzeuge aufrufen und ist für Pica nicht nutzbar. Die gespeicherte Auswahl bleibt erhalten; es wurde nichts gesendet und kein anderes Modell eingesetzt. Bitte unter Einstellungen › Agents ein anderes Modell wählen.",
       "picaCodexConfigurationUnmanaged": "Der Codex-Zugang von Pica enthält eine eigene Konfigurationsdatei (config.toml), die Pages nicht verwaltet. Damit startet Pica nicht; die Datei bleibt unverändert. Ein Admin weist Pica unter Einstellungen › Agents eine saubere, getrennte Codex-Verbindung ohne eigene config.toml zu. Es wurde nichts gesendet.",
       "plan_codex_configuration_unmanaged": "Eine Codex-Konfigurationsdatei außerhalb von Pages (config.toml im Zugang oder im Arbeitsordner von Pica) verhindert den Start. Die Datei bleibt unverändert. Ein Admin weist Pica unter Einstellungen › Agents eine saubere, getrennte Codex-Verbindung zu.",
       "instructionsUnavailable": "Pica kann gerade nicht antworten: Die geschützten Vorgaben von Pica fehlen auf dem Server oder sind nicht lesbar. Deine Nachricht wurde nicht gesendet. Bitte wende dich an einen Admin.",
-      "acpProviderUnsupported": "Pica unterstützt Codex CLI, Claude Code, OpenCode und Antigravity über ACP. Ein Admin muss unter Einstellungen › Agents einen solchen Agenten für den Chat zuweisen.",
-      "acpPermissionModeUnsupported": "Pica antwortet mit Claude Code, OpenCode und Antigravity nur im Modus „Lesend“. Es stehen ausschließlich die autorisierten Pages-Werkzeuge zur Verfügung, keine Shell, Dateien oder Webwerkzeuge. Ein Admin muss den Modus des Chat-Agenten anpassen. Deine Nachricht wurde nicht gesendet.",
+      "acpProviderUnsupported": "Pica unterstützt Codex CLI, Claude Code, OpenCode, z.ai und Antigravity über ACP. Ein Admin muss unter Einstellungen › Agents einen solchen Agenten für den Chat zuweisen.",
+      "acpPermissionModeUnsupported": "Pica antwortet mit Claude Code, OpenCode, z.ai und Antigravity nur im Modus „Lesend“. Es stehen ausschließlich die autorisierten Pages-Werkzeuge zur Verfügung, keine Shell, Dateien oder Webwerkzeuge. Ein Admin muss den Modus des Chat-Agenten anpassen. Deine Nachricht wurde nicht gesendet.",
       "pica_codex_adapter_unavailable": "Pica benötigt das geprüfte Codex-ACP-Paket 2.2.2. Bitte die Administration, dieses Paket für den nativen Pica-Runner bereitzustellen.",
       "pica_native_artifact_unavailable": "Der geprüfte native Runner für Pica fehlt oder seine Dateien stimmen nicht mit dem Manifest überein. Bitte wende dich an die Administration.",
       "accessModeRequired": "Dieser Agent hat noch die frühere Zugriffsstufe „Arbeitsplatz“. Ein Admin muss „Lesend“ oder „YOLO“ wählen. Deine Nachricht wurde nicht gesendet.",
@@ -4457,7 +4457,9 @@
         "gallery": "Galerie",
         "word": "Dokument",
         "slides": "Präsentation",
-        "sheet": "Tabelle"
+        "sheet": "Tabelle",
+        "model": "3D-Modell",
+        "webPackage": "Godot-Szene"
       },
       "diff": {
         "before": "vorher",
@@ -4592,7 +4594,38 @@
         "copyChecksum": "SHA-256-Prüfsumme kopieren",
         "tooLarge": "Zu groß für die Vorschau (über 32 MB) – nur zum Herunterladen"
       },
-      "videoFullscreen": "Video im Vollbild"
+      "videoFullscreen": "Video im Vollbild",
+      "model": {
+        "start": "3D-Ansicht starten",
+        "retry": "Erneut versuchen",
+        "loading": "Modell lädt …",
+        "viewer": "3D-Ansicht von {{name}}",
+        "poster": "Startbild von {{name}}",
+        "hint": "Ziehen zum Drehen · Mausrad oder zwei Finger zum Zoomen",
+        "zoomIn": "Vergrößern",
+        "zoomOut": "Verkleinern",
+        "reset": "Ansicht zurücksetzen",
+        "failed": {
+          "webgl": "Dieser Browser bietet kein WebGL 2 – das Startbild zeigt den Export.",
+          "load": "Das Modell konnte nicht geladen werden – das Startbild zeigt den Export.",
+          "format": "Das Modell ist beschädigt oder wird nicht unterstützt – das Startbild zeigt den Export."
+        }
+      },
+      "webPackage": {
+        "meta": "Webexport",
+        "start": "Starten",
+        "starting": "Wird gestartet …",
+        "stop": "Stoppen",
+        "loading": "Szene lädt …",
+        "frame": "Spielbare Szene {{name}}",
+        "poster": "Startbild von {{name}}",
+        "isolation": "Läuft isoliert in deinem Browser – kein Zugriff auf Pages oder den Chat",
+        "failed": {
+          "webgl": "Dieser Browser bietet kein WebGL 2 – die Szene kann hier nicht laufen.",
+          "denied": "Die Szene ist nicht mehr verfügbar oder du hast keinen Zugriff darauf.",
+          "start": "Die Szene konnte nicht gestartet werden. Versuche es erneut."
+        }
+      }
     },
     "embedDomains": {
       "title": "Eingebettete Domains",
@@ -4667,7 +4700,7 @@
         "notFound": "Den Chat oder den Agenten gibt es nicht mehr.",
         "invalidInput": "Die Angaben sind ungültig. Es wurde nichts geändert.",
         "unavailable": "Pages ist gerade nicht erreichbar. Bitte noch einmal versuchen.",
-        "modelNotAllowed": "Dieses Modell oder diese Denkstufe steht für den Agenten nicht zur Wahl."
+        "modelNotAllowed": "Dieses Modell oder diese Reasoning-Stufe steht für den Agenten nicht zur Wahl."
       }
     },
     "modelChoice": {
@@ -4744,7 +4777,7 @@
         "compact": "Die Sitzung von {{agent}} wird verdichtet."
       },
       "unknownModel": "Kein Modell heißt „{{query}}“.",
-      "unknownEffort": "„{{effort}}“ ist keine Denkstufe dieses Modells. Möglich: {{efforts}}.",
+      "unknownEffort": "„{{effort}}“ ist keine Reasoning-Stufe dieses Modells. Möglich: {{efforts}}.",
       "unknownAgent": "In dieser Gruppe gibt es keinen Agenten „{{mention}}“.",
       "forbidden": "Dafür fehlt dir das Recht. Der Besitzer der Gruppe legt fest, wer Modell wechseln, neu starten und verdichten darf.",
       "chooseAgent": "Welchen Agenten meinst du?",
@@ -9682,7 +9715,6 @@
       "refreshing": "Stand {{time}} · wird aktualisiert …",
       "reported": "Von Claude gemeldet · {{time}}",
       "noWindows": "Keine Fenster gemeldet · Abfrage {{time}}",
-      "failedSince": "Abfrage fehlgeschlagen · Stand {{time}}",
       "failedNever": "Abfrage fehlgeschlagen · noch kein Erfolg",
       "skipped": "Abfrage übersprungen · Sitzung aktiv",
       "signedOut": "Nicht angemeldet · Anmeldung fehlt",
@@ -9692,7 +9724,6 @@
       "limitReached": "{{group}} · {{limit}} erreicht · zurück {{moment}}",
       "limitReachedNoReset": "{{group}} · {{limit}} erreicht",
       "reportedCodex": "Von Codex gemeldet · {{time}}",
-      "failedSinceCodex": "Abfrage fehlgeschlagen · letzter Erfolg {{time}}",
       "limitReachedGeneral": "Limit erreicht · zurück {{moment}}",
       "limitReachedGeneralNoReset": "Limit erreicht"
     },
@@ -9728,10 +9759,10 @@
     "quota": {
       "remaining": "{{percent}} % übrig",
       "used": "{{percent}} % genutzt",
-      "staleUsed": "Stand {{time}} · {{used}}",
       "remainingLabel": "{{window}}: übrig",
       "resets": "zurück {{moment}} · {{countdown}}",
       "resetsShort": "zurück {{moment}}",
+      "windowElapsed": "Fenster abgelaufen",
       "countdown": "in {{duration}}"
     },
     "forecasts": {
@@ -9749,7 +9780,6 @@
       "steadyShort": "Kein Verbrauch",
       "newWindow": "Neues Fenster · Prognose folgt",
       "newWindowShort": "Neues Fenster",
-      "paused": "Prognose pausiert",
       "unavailable": "Keine Prognose",
       "resetUnknown": "Rücksetzzeit nicht gemeldet",
       "duration": {

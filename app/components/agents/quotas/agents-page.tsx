@@ -43,7 +43,7 @@ export function AgentsPage(): React.ReactElement {
   const { t } = useTranslation();
   const quotas = useClaudeQuotas();
   const now = useQuotaClock();
-  const { cards, hasListFailed, isLive } = quotas.state;
+  const { cards, hasListFailed, isLive, isPushRefreshing } = quotas.state;
   const order = useQuotaCardOrder(cards);
   const hasNoCards = cards !== null && cards.length === 0;
   return (
@@ -81,6 +81,7 @@ export function AgentsPage(): React.ReactElement {
             <QuotaCardGrid
               cards={order.cards}
               now={now}
+              isPushRefreshing={isPushRefreshing}
               onRetry={quotas.retryCard}
               onMove={order.move}
               onSaveOpenRouterBalance={quotas.saveOpenRouterBalance}

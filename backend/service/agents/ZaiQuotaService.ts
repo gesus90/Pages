@@ -1,6 +1,6 @@
 import { visibleZaiQuotaWindows, zaiQuotaAbsence } from "@/definition/ZaiQuota";
 
-import { quotaCardStatus } from "./QuotaCardStatus";
+import { quotaCardStatus, quotaWindowsAt } from "./QuotaCardStatus";
 import { QuotaConnectionAccess } from "./QuotaConnectionAccess";
 
 import type { AgentConnectionRepository } from "@/backend/database/repositories/AgentConnectionRepository";
@@ -137,7 +137,9 @@ export class ZaiQuotaService {
    * A connection without a usable key has no allowance Z.AI could vouch for,
    * so its card shows neither a plan nor figures. A card whose answer leaves
    * no entry to show names why: Z.AI delivered none, delivered none the card
-   * can read, or delivered only entries whose reset has passed.
+   * can read, or delivered only entries whose reset has passed. The place
+   * comes from the stored answer alone: an answer stored before the place
+   * was kept, or a card without an answer, names none.
    */
   private account(
     connection: AgentConnectionRecord,
@@ -148,15 +150,20 @@ export class ZaiQuotaService {
     now: Date,
   ): ZaiQuotaAccount {
     const { outcome, reading } = query;
-    const windows = visibleZaiQuotaWindows(reading?.windows ?? [], now);
+    const reportedAt = reading?.at ?? null;
+    const windows = visibleZaiQuotaWindows(
+      reading?.windows ?? [],
+      quotaWindowsAt(outcome, reportedAt, now),
+    );
     const status = quotaCardStatus(outcome, {
-      at: reading?.at ?? null,
+      at: reportedAt,
       hasWindows: windows.length > 0,
     });
     const isSignedOut = status.kind === "signed_out";
     return {
       provider: "zai",
       connectionId: connection.id,
+      executionLocation: isSignedOut ? undefined : reading?.executionLocation,
       name: connection.name,
       accountType: connection.zaiAccountType ?? "api",
       plan: isSignedOut ? null : (reading?.plan ?? null),

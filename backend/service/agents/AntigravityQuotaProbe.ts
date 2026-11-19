@@ -46,9 +46,9 @@ export class AntigravityQuotaProbe {
     return this.probe.refresh(connection);
   }
 
-  /** Returns the last failed query while stored figures are being reopened. */
-  public latestFailure(connectionId: string): QuotaProbeOutcome | null {
-    return this.probe.latestFailure(connectionId);
+  /** Returns a failed or skipped query while stored figures are being reopened. */
+  public latestMissedReading(connectionId: string): QuotaProbeOutcome | null {
+    return this.probe.latestMissedReading(connectionId);
   }
 
   private async query(

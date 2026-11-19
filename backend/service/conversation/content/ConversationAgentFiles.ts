@@ -1,5 +1,5 @@
 import { constants, createReadStream } from "node:fs";
-import { access, realpath, stat } from "node:fs/promises";
+import { access, open, realpath, stat } from "node:fs/promises";
 import { homedir } from "node:os";
 import path from "node:path";
 
@@ -7,9 +7,23 @@ import { logCaughtError } from "@/backend/logging/Logger";
 import {
   CONVERSATION_ATTACHMENT_MAXIMUM_BYTES,
   CONVERSATION_ATTACHMENT_MAXIMUM_COUNT,
+  CONVERSATION_THUMBNAIL_MAXIMUM_BYTES,
 } from "@/definition/ConversationContent";
+import {
+  CONVERSATION_MODEL_MIME_TYPE,
+  CONVERSATION_WEB_PACKAGE_MANIFEST_NAME,
+  CONVERSATION_WEB_PACKAGE_MIME_TYPE,
+} from "@/definition/ConversationInteractiveContent";
+
+import { inspectModelFile } from "./ConversationModelFiles";
+import { inspectWebPackage } from "./ConversationWebPackageFiles";
+
+import type { InspectedWebPackage } from "./ConversationWebPackageFiles";
 
 const COMPONENT = "ConversationAgentFiles";
+const PNG_SIGNATURE = Buffer.from([
+  0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
+]);
 
 /** A line that attaches a file: `![description](file:/absolute/path)`. */
 const FILE_LINE =
@@ -60,6 +74,7 @@ const MIME_TYPES: Readonly<Record<string, string>> = {
   ".csv": "text/csv",
   ".html": "text/html",
   ".zip": "application/zip",
+  ".glb": CONVERSATION_MODEL_MIME_TYPE,
 };
 
 /** Why a file was not attached, as the message says it. */
@@ -71,7 +86,14 @@ export type AgentFileRefusal =
   | "credentials"
   | "notAllowed"
   | "storeFailed"
-  | "tooMany";
+  | "tooMany"
+  | "modelInvalid"
+  | "modelTooLarge"
+  | "modelReference"
+  | "packageInvalid"
+  | "packageTooLarge"
+  | "packageFiles"
+  | "packageChecksum";
 
 const REFUSAL_TEXTS: Readonly<Record<AgentFileRefusal, string>> = {
   notFound: "Datei nicht gefunden",
@@ -82,6 +104,13 @@ const REFUSAL_TEXTS: Readonly<Record<AgentFileRefusal, string>> = {
   notAllowed: "Ort nicht freigegeben",
   storeFailed: "Speichern fehlgeschlagen",
   tooMany: "höchstens 10 Anhänge je Nachricht",
+  modelInvalid: "kein gültiges glTF-2.0-Binärmodell",
+  modelTooLarge: "Modell größer als 64 MB",
+  modelReference: "Modell verweist auf Dateien außerhalb der GLB-Datei",
+  packageInvalid: "Manifest des Webexports ungültig",
+  packageTooLarge: "Webexport größer als erlaubt",
+  packageFiles: "Dateien des Webexports fehlen oder passen nicht zum Manifest",
+  packageChecksum: "Prüfsumme einer Datei des Webexports stimmt nicht",
 };
 
 /** A file an answer attaches, checked and ready to be copied. */
@@ -93,6 +122,79 @@ export interface AgentFile {
   readonly sizeBytes: number;
   /** The index of the line in {@link AgentFileSelection.lines} that named the file. */
   readonly lineIndex: number;
+  /** A PNG next to a model with its name, such as `chair.png` for `chair.glb`: its start image. */
+  readonly posterPath?: string;
+  /** The checked web export package a manifest line attaches. */
+  readonly webPackage?: InspectedWebPackage;
+}
+
+/** What a model or a package adds to a checked file. */
+type InteractiveFacts = Pick<AgentFile, "posterPath" | "webPackage">;
+
+const MODEL_REFUSALS = {
+  format: "modelInvalid",
+  unsupported: "modelInvalid",
+  tooLarge: "modelTooLarge",
+  reference: "modelReference",
+} as const satisfies Record<string, AgentFileRefusal>;
+
+const PACKAGE_REFUSALS = {
+  format: "packageInvalid",
+  tooLarge: "packageTooLarge",
+  files: "packageFiles",
+  checksum: "packageChecksum",
+  storeFailed: "storeFailed",
+} as const satisfies Record<string, AgentFileRefusal>;
+
+/** The start image of a model: a small PNG with the same name next to it. */
+async function posterOf(modelPath: string): Promise<string | null> {
+  const candidate = path.join(
+    path.dirname(modelPath),
+    `${path.basename(modelPath, path.extname(modelPath))}.png`,
+  );
+  try {
+    const facts = await stat(candidate);
+    if (!facts.isFile() || facts.size > CONVERSATION_THUMBNAIL_MAXIMUM_BYTES)
+      return null;
+    const handle = await open(candidate, "r");
+    try {
+      const head = Buffer.alloc(PNG_SIGNATURE.length);
+      await handle.read(head, 0, head.length, 0);
+      return head.equals(PNG_SIGNATURE) ? candidate : null;
+    } finally {
+      await handle.close();
+    }
+  } catch {
+    // A model without a start image shows the placeholder of the viewer.
+    return null;
+  }
+}
+
+/** Checks a model or the manifest of a web export; other files add nothing. */
+async function inspectInteractive(
+  resolved: string,
+  mimeType: string,
+): Promise<InteractiveFacts | AgentFileRefusal> {
+  if (mimeType === CONVERSATION_MODEL_MIME_TYPE) {
+    const inspection = await inspectModelFile(resolved);
+    if (!inspection.isValid) return MODEL_REFUSALS[inspection.refusal];
+    const poster = await posterOf(resolved);
+    return poster === null ? {} : { posterPath: poster };
+  }
+  if (mimeType !== CONVERSATION_WEB_PACKAGE_MIME_TYPE) return {};
+  const inspected = await inspectWebPackage(resolved);
+  return typeof inspected === "string"
+    ? PACKAGE_REFUSALS[inspected]
+    : { webPackage: inspected };
+}
+
+/** The type of a file by its name; a manifest of a web export by its fixed name. */
+function mimeTypeOf(named: string): string {
+  if (path.basename(named) === CONVERSATION_WEB_PACKAGE_MANIFEST_NAME)
+    return CONVERSATION_WEB_PACKAGE_MIME_TYPE;
+  return (
+    MIME_TYPES[path.extname(named).toLowerCase()] ?? "application/octet-stream"
+  );
 }
 
 /** An answer of an agent without its file lines, and the files they named. */
@@ -217,6 +319,8 @@ export class ConversationAgentFiles {
         lines.push(refusedFileLine(line, checked));
         continue;
       }
+      // The same file named twice is attached once; the second line goes.
+      if (files.some((file) => file.path === checked.path)) continue;
       files.push({ ...checked, lineIndex: lines.length });
       lines.push(line);
     }
@@ -265,13 +369,15 @@ export class ConversationAgentFiles {
       if (!facts.isFile()) return "notRegular";
       if (facts.size > CONVERSATION_ATTACHMENT_MAXIMUM_BYTES) return "tooLarge";
       await access(resolved, constants.R_OK);
+      const mimeType = mimeTypeOf(named);
+      const interactive = await inspectInteractive(resolved, mimeType);
+      if (typeof interactive === "string") return interactive;
       return {
         path: resolved,
         name: path.basename(named).slice(0, 255),
-        mimeType:
-          MIME_TYPES[path.extname(named).toLowerCase()] ??
-          "application/octet-stream",
+        mimeType,
         sizeBytes: facts.size,
+        ...interactive,
       };
     } catch (error: unknown) {
       logCaughtError(COMPONENT, error);

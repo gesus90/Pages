@@ -35,7 +35,10 @@ const EFFORT_NAMES: Readonly<Record<string, string>> = {
 export interface AgentChatControlDependencies {
   readonly store: EmployeeStore;
   readonly access: AgentChatAccess;
-  readonly choices: Pick<AgentChatModelChoices, "choices" | "pick">;
+  readonly choices: Pick<
+    AgentChatModelChoices,
+    "choices" | "connections" | "pick"
+  >;
   readonly lifecycle: Pick<AgentChatSessionLifecycle, "restart" | "renew">;
   /** Stores a system line in the chat, in the name of the person who caused it. */
   readonly systemLine: (
@@ -235,6 +238,7 @@ export class AgentChatControlService {
           }
         : null,
       choices,
+      connections: await this.dependencies.choices.connections(scope.employee),
       canControl: scope.canControl,
     };
   }

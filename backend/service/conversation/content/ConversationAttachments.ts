@@ -1,6 +1,7 @@
 import { createHash, randomUUID } from "node:crypto";
 
 import { ConversationError } from "@/backend/error/ConversationError";
+import { logCaughtError } from "@/backend/logging/Logger";
 import { FileTooLargeError } from "@/backend/storage/WikiFileStore";
 import {
   CONVERSATION_AGENT_FILE_LIFETIME_MILLISECONDS,
@@ -10,6 +11,7 @@ import {
   conversationAttachmentKind,
   conversationAttachmentNameSchema,
 } from "@/definition/ConversationContent";
+import { CONVERSATION_MODEL_MIME_TYPE } from "@/definition/ConversationInteractiveContent";
 
 import {
   conversationDocumentFactsOf,
@@ -19,6 +21,7 @@ import {
   conversationMediaFactsOf,
   readConversationMediaFacts,
 } from "./ConversationMediaFacts";
+import { inspectModelStream } from "./ConversationModelFiles";
 
 import type { ReadStream } from "node:fs";
 import type {
@@ -26,6 +29,7 @@ import type {
   StoredConversationAttachment,
 } from "@/backend/database/repositories/conversation/ConversationAttachmentRepository";
 import type { ConversationRepository } from "@/backend/database/repositories/conversation/ConversationRepository";
+import type { ConversationWebPackageRepository } from "@/backend/database/repositories/conversation/ConversationWebPackageRepository";
 import type { WikiFileStore } from "@/backend/storage/WikiFileStore";
 import type {
   ConversationAttachment,
@@ -66,8 +70,22 @@ export interface ConversationAttachmentsDependencies {
   readonly directory?: {
     read(): Promise<{ participant(id: string): { readonly name: string } }>;
   };
+  /**
+   * The files of web export packages, which go with their manifest
+   * attachment; absent when no package is ever stored.
+   */
+  readonly packageFiles?: Pick<
+    ConversationWebPackageRepository,
+    "storageNamesOf" | "storageNames" | "removeExpired"
+  >;
   readonly now?: () => Date;
   readonly createId?: () => string;
+}
+
+/** The preview image an agent's file brings along, such as the PNG of a model. */
+export interface StagedThumbnail {
+  readonly mimeType: string;
+  readonly source: AsyncIterable<Uint8Array>;
 }
 
 /** The declared facts of an upload before its bytes arrive. */
@@ -165,6 +183,13 @@ export function readAttachmentMimeType(input: string): string {
   return MIME_TYPE.test(type) ? type : FALLBACK_MIME_TYPE;
 }
 
+/** The declared type of an upload; a `.glb` file is a model to check, whatever the browser named. */
+function uploadMimeType(name: string, declared: string): string {
+  return name.toLowerCase().endsWith(".glb")
+    ? CONVERSATION_MODEL_MIME_TYPE
+    : readAttachmentMimeType(declared);
+}
+
 function readIdentifier(input: unknown): string {
   if (typeof input !== "string" || !IDENTIFIER.test(input))
     throw new ConversationError("not_found");
@@ -220,7 +245,7 @@ export class ConversationAttachments {
       messageId: null,
       uploaderId: person.id,
       name: name.data,
-      mimeType: readAttachmentMimeType(upload.mimeType),
+      mimeType: uploadMimeType(name.data, upload.mimeType),
     });
     return toConversationAttachment(stored);
   }
@@ -233,7 +258,9 @@ export class ConversationAttachments {
    * now: {@link ConversationAttachments.expire} removes it then.
    *
    * @param target - The conversation and the agent that sends the answer.
-   * @param file - Name, type and bytes of the file.
+   * @param file - Name, type and bytes of the file, and the preview image it
+   * brings along; a preview image that cannot be stored leaves the file
+   * without one.
    * @throws {ConversationError} `too_large` beyond 512 MB.
    */
   public async stage(
@@ -242,10 +269,11 @@ export class ConversationAttachments {
       readonly name: string;
       readonly mimeType: string;
       readonly source: AsyncIterable<Uint8Array>;
+      readonly thumbnail?: StagedThumbnail;
     },
   ): Promise<StoredConversationAttachment> {
     const now = this.now().getTime();
-    return this.store(file.source, {
+    const stored = await this.store(file.source, {
       conversationId: target.conversationId,
       messageId: null,
       uploaderId: target.senderId,
@@ -255,6 +283,9 @@ export class ConversationAttachments {
         now + CONVERSATION_AGENT_FILE_LIFETIME_MILLISECONDS,
       ).toISOString(),
     });
+    return file.thumbnail
+      ? this.storeStagedThumbnail(stored, file.thumbnail)
+      : stored;
   }
 
   /** Drops staged files of a sender that no message took; bound ones stay. */
@@ -263,11 +294,12 @@ export class ConversationAttachments {
     attachmentIds: readonly string[],
   ): Promise<void> {
     for (const attachmentId of attachmentIds) {
+      const packageNames = await this.packageNamesOf([attachmentId]);
       const removed = await this.dependencies.attachments.removeUnbound(
         attachmentId,
         senderId,
       );
-      if (removed) await this.removeFiles([removed]);
+      if (removed) await this.removeFiles([removed], packageNames);
     }
   }
 
@@ -337,11 +369,12 @@ export class ConversationAttachments {
   public async discard(person: User, attachmentId: unknown): Promise<void> {
     if (typeof attachmentId !== "string" || !IDENTIFIER.test(attachmentId))
       return;
+    const packageNames = await this.packageNamesOf([attachmentId]);
     const removed = await this.dependencies.attachments.removeUnbound(
       attachmentId,
       person.id,
     );
-    if (removed) await this.removeFiles([removed]);
+    if (removed) await this.removeFiles([removed], packageNames);
   }
 
   /**
@@ -428,7 +461,10 @@ export class ConversationAttachments {
   public async collect(messageId: string): Promise<() => Promise<void>> {
     const stored = await this.dependencies.attachments.forMessages([messageId]);
     const attachments = stored.get(messageId) ?? [];
-    return () => this.removeFiles(attachments);
+    const packageNames = await this.packageNamesOf(
+      attachments.map((attachment) => attachment.id),
+    );
+    return () => this.removeFiles(attachments, packageNames);
   }
 
   /**
@@ -442,7 +478,10 @@ export class ConversationAttachments {
   ): Promise<() => Promise<void>> {
     const attachments =
       await this.dependencies.attachments.forConversation(conversationId);
-    return () => this.removeFiles(attachments);
+    const packageNames = await this.packageNamesOf(
+      attachments.map((attachment) => attachment.id),
+    );
+    return () => this.removeFiles(attachments, packageNames);
   }
 
   /**
@@ -457,10 +496,11 @@ export class ConversationAttachments {
       new Date(now - UNBOUND_LIFETIME_MILLISECONDS).toISOString(),
     );
     await this.removeFiles(stale);
-    return this.dependencies.files.sweep(
-      await this.dependencies.attachments.storageNames(),
-      SWEEP_GRACE_MILLISECONDS,
-    );
+    const known = await this.dependencies.attachments.storageNames();
+    for (const name of (await this.dependencies.packageFiles?.storageNames()) ??
+      [])
+      known.add(name);
+    return this.dependencies.files.sweep(known, SWEEP_GRACE_MILLISECONDS);
   }
 
   /**
@@ -481,6 +521,10 @@ export class ConversationAttachments {
         now.getTime() + CONVERSATION_EXPIRY_LEAD_MILLISECONDS,
       ).toISOString(),
       now.toISOString(),
+    );
+    // The files of an expired package go with its manifest.
+    names.push(
+      ...((await this.dependencies.packageFiles?.removeExpired()) ?? []),
     );
     if (names.length > 0) await this.dependencies.files.remove(names);
     return names.length;
@@ -617,6 +661,7 @@ export class ConversationAttachments {
     );
     const stored: StoredConversationAttachment = {
       ...attachment,
+      mimeType: await this.checkedMimeType(attachment.mimeType, file),
       sha256: hash.digest("hex"),
       id: this.dependencies.createId?.() ?? randomUUID(),
       sizeBytes: file.size,
@@ -655,12 +700,66 @@ export class ConversationAttachments {
 
   private async removeFiles(
     attachments: readonly StoredConversationAttachment[],
+    packageNames: readonly string[] = [],
   ): Promise<void> {
-    await this.dependencies.files.remove(
-      attachments.flatMap((attachment) => [
+    await this.dependencies.files.remove([
+      ...attachments.flatMap((attachment) => [
         attachment.storageName,
         ...(attachment.thumbnail ? [attachment.thumbnail.storageName] : []),
       ]),
+      ...packageNames,
+    ]);
+  }
+
+  /** The files of the packages of attachments, read before their rows go. */
+  private async packageNamesOf(
+    attachmentIds: readonly string[],
+  ): Promise<string[]> {
+    return (
+      (await this.dependencies.packageFiles?.storageNamesOf(attachmentIds)) ??
+      []
+    );
+  }
+
+  /**
+   * The stored type of a file: a model the viewer cannot show safely, being
+   * broken, too large or referring to other files, is stored as plain bytes.
+   */
+  private async checkedMimeType(
+    mimeType: string,
+    file: { readonly storageName: string },
+  ): Promise<string> {
+    if (mimeType !== CONVERSATION_MODEL_MIME_TYPE) return mimeType;
+    const inspection = await inspectModelStream(
+      this.dependencies.files.open(file.storageName),
+    );
+    return inspection.isValid ? mimeType : FALLBACK_MIME_TYPE;
+  }
+
+  /** Stores the preview image a staged file brought along; without it the file stays as it is. */
+  private async storeStagedThumbnail(
+    attachment: StoredConversationAttachment,
+    thumbnail: StagedThumbnail,
+  ): Promise<StoredConversationAttachment> {
+    const mimeType = readAttachmentMimeType(thumbnail.mimeType);
+    if (!CONVERSATION_THUMBNAIL_MIME_TYPES.some((type) => type === mimeType))
+      return attachment;
+    try {
+      const file = await this.write(
+        thumbnail.source,
+        CONVERSATION_THUMBNAIL_MAXIMUM_BYTES,
+      );
+      const isStored = await this.dependencies.attachments.setThumbnail(
+        attachment.id,
+        { storageName: file.storageName, mimeType, sizeBytes: file.size },
+      );
+      if (!isStored) await this.dependencies.files.remove([file.storageName]);
+    } catch (error: unknown) {
+      logCaughtError("ConversationAttachments", error);
+      return attachment;
+    }
+    return (
+      (await this.dependencies.attachments.find(attachment.id)) ?? attachment
     );
   }
 

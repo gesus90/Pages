@@ -37,7 +37,8 @@ const BUTTON_CLASS =
  * button queries the card once more without moving the minute beat; it is
  * off while the card queries, and its icon turns once the hint shows.
  * A card without figures says "Wird geladen …" with the ring at once; a card
- * with figures says "wird aktualisiert" only once `isHintShown` is set. An
+ * with stale figures keeps its timestamp and shows a spinner while querying.
+ * A card with current figures shows the refresh hint after a delay. An
  * Antigravity card names a used-up window, with its group, instead of the
  * time of the answer; a Codex card says "Limit erreicht" when the account
  * states its limit is reached, with a reset only when one belongs to it.
@@ -67,7 +68,6 @@ export function QuotaStatusLine({
   readonly onRetry: () => void;
 }): React.ReactElement {
   const { t, i18n } = useTranslation();
-  const { isQuerying, isHintShown } = progress;
   const presentation = statusPresentation(status, {
     t,
     provider: source.provider,
@@ -75,7 +75,7 @@ export function QuotaStatusLine({
       formatQuotaStand(new Date(iso), now, { t, language: i18n.language }),
     moment: (iso) =>
       formatQuotaMoment(new Date(iso), now, { t, language: i18n.language }),
-    isHintShown,
+    progress,
     limit: source.limit,
     generalLimit: source.generalLimit,
   });
@@ -83,7 +83,7 @@ export function QuotaStatusLine({
     <QuotaStatusFooter
       kind={status.kind}
       presentation={presentation}
-      progress={{ isQuerying, isHintShown }}
+      progress={progress}
       onRetry={onRetry}
     />
   );
@@ -109,6 +109,7 @@ export function QuotaStatusFooter({
   const { t } = useTranslation();
   const { isQuerying, isHintShown } = progress;
   const Icon = presentation.icon;
+  const isRefreshing = Icon === "spinner" || presentation.isUpdating;
   return (
     <footer
       data-quota-state={kind}
@@ -116,7 +117,7 @@ export function QuotaStatusFooter({
       className={QUOTA_STATUS_LINE_CLASS}
     >
       <p
-        role={Icon === "spinner" ? "status" : undefined}
+        role={isRefreshing ? "status" : undefined}
         className={cn(
           "flex min-w-0 flex-1 items-center gap-2 text-xs leading-4",
           TONE_CLASSES[presentation.tone],
@@ -130,6 +131,7 @@ export function QuotaStatusFooter({
         <span className="line-clamp-2 min-w-0" title={presentation.text}>
           {presentation.text}
         </span>
+        {presentation.isUpdating ? <QuotaSpinner /> : null}
       </p>
       {presentation.action === "retry" ? (
         <button

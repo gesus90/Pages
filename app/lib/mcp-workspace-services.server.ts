@@ -262,6 +262,7 @@ export async function startMcpWorkspace(context: McpWorkspaceContext): Promise<
       speech: runtime.getConfig().speechRecognition,
       chatCalls: runtime.getConfig().chatCalls,
       publicUrl: runtime.getConfig().publicUrl,
+      chatPlayerOrigin: runtime.getConfig().chatPlayerOrigin,
     },
   });
   const managementService = createManagementService(

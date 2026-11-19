@@ -1,6 +1,6 @@
 import { visibleAntigravityQuotaGroups } from "@/definition/AntigravityQuota";
 
-import { quotaCardStatus } from "./QuotaCardStatus";
+import { quotaCardStatus, quotaWindowsAt } from "./QuotaCardStatus";
 import { QuotaConnectionAccess } from "./QuotaConnectionAccess";
 
 import type { AgentConnectionRepository } from "@/backend/database/repositories/AgentConnectionRepository";
@@ -18,7 +18,10 @@ interface AntigravityQuotaDependencies {
   readonly authorization: Pick<AuthorizationRepository, "snapshot">;
   readonly groups: Pick<UserGroupRepository, "findIdsByMember">;
   /** Asks Antigravity anew for the quota of each connection. */
-  readonly probe: Pick<AntigravityQuotaProbe, "refresh" | "latestFailure">;
+  readonly probe: Pick<
+    AntigravityQuotaProbe,
+    "refresh" | "latestMissedReading"
+  >;
   readonly clock?: () => Date;
 }
 
@@ -56,8 +59,8 @@ export class AntigravityQuotaService {
    * Reads the cards of a person from the stored quota, without asking Antigravity.
    * @param userId - The person reading the page.
    * @returns The cards in the order of the connection names, each with its
-   * last stored figures and the status `stored`; an unknown or inactive
-   * account sees none.
+   * last stored figures and any missed query; an unknown or inactive account
+   * sees none.
    */
   public async listStoredForUser(userId: string): Promise<QuotaSnapshot> {
     return this.snapshot(await this.usableFor(userId), NO_OUTCOMES);
@@ -132,7 +135,7 @@ export class AntigravityQuotaService {
           {
             outcome:
               outcomes.get(connection.id) ??
-              this.dependencies.probe.latestFailure(connection.id),
+              this.dependencies.probe.latestMissedReading(connection.id),
             record: records.get(connection.id) ?? null,
           },
           now,
@@ -157,9 +160,13 @@ export class AntigravityQuotaService {
     now: Date,
   ): AntigravityQuotaAccount {
     const { outcome, record } = query;
-    const groups = visibleAntigravityQuotaGroups(record?.groups ?? [], now);
+    const reportedAt = record?.reportedAt ?? null;
+    const groups = visibleAntigravityQuotaGroups(
+      record?.groups ?? [],
+      quotaWindowsAt(outcome, reportedAt, now),
+    );
     const status = quotaCardStatus(outcome, {
-      at: record?.reportedAt ?? null,
+      at: reportedAt,
       hasWindows: groups.length > 0,
     });
     return {

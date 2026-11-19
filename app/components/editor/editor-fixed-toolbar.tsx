@@ -251,7 +251,7 @@ export function EditorFixedToolbar(
   return (
     <div
       aria-label={t("editor.toolbar.label")}
-      className="sticky top-16 z-10 hidden flex-wrap items-center gap-0.5 rounded-lg border border-border bg-surface p-1 md:flex"
+      className="sticky top-2 z-10 hidden flex-wrap items-center gap-0.5 rounded-lg border border-border bg-surface p-1 md:flex"
       role="toolbar"
       onKeyDown={moveToolbarFocus}
     >

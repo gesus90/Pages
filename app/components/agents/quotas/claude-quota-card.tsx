@@ -63,7 +63,6 @@ function QuotaCardWindows({
             quotaWindow={quotaWindow}
             now={now}
             isStale={body.isStale}
-            staleSince={body.staleSince}
           />
         ))
       ) : (
@@ -85,13 +84,12 @@ function QuotaCardWindows({
  * row stand on one line; the grid sets the height. The outline is drawn
  * inside the card and takes no room, so head, window area and status line
  * add up to the card's height exactly. A window Claude did not
- * report is not shown at all, and one whose reset passed leaves the card.
+ * report is not shown. A window whose reset passed leaves a current card;
+ * after a failed query the card keeps the last measurements with their time.
  * Logo, name and subtitle come from the connection, so they stand from the
  * first moment. A card without stored figures shows placeholders for plan
  * and windows and "Wird geladen …" until its query answers; a card with
- * stored figures keeps them in full colour while the query runs and only
- * its status line changes, after 400 ms and for at least 600 ms, so a quick
- * answer shows no change. Every card follows its own query.
+ * stored figures keeps them in full colour while the query runs or fails.
  */
 export function ClaudeQuotaCard({
   account,
@@ -168,12 +166,10 @@ function ClaudeQuotaWindow({
   quotaWindow,
   now,
   isStale = false,
-  staleSince = null,
 }: {
   readonly quotaWindow: ReportedWindow;
   readonly now: Date;
   readonly isStale?: boolean;
-  readonly staleSince?: string | null;
 }): React.ReactElement {
   const { t } = useTranslation();
   return (
@@ -188,7 +184,6 @@ function ClaudeQuotaWindow({
       }}
       now={now}
       isStale={isStale}
-      staleSince={staleSince}
     />
   );
 }

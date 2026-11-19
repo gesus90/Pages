@@ -33,8 +33,8 @@ function pause(milliseconds: number, signal: AbortSignal): Promise<void> {
  * Pushes the quota figures of one open page once a minute.
  * @param input - The request's end, the authorized read and whether the
  * browser reconnects after a lost stream.
- * @returns The event stream: `quotas` with a snapshot, or `quota-error` with
- * the time of a failed read; the next minute reads again either way.
+ * @returns The event stream: `quota-refreshing` at the start of a read,
+ * followed by `quotas` with a snapshot or `quota-error` on failure.
  * @remarks
  * The page queries once itself when it opens, so a new stream first pushes
  * after a minute; a reconnecting browser, which sends the last event id,
@@ -83,6 +83,7 @@ export function claudeQuotaStream(input: {
         Date.now() + 1_000,
       );
       sequence += 1;
+      controller.enqueue(frame("quota-refreshing", {}, sequence));
       try {
         const snapshot = await read();
         if (!isClosed) controller.enqueue(frame("quotas", snapshot, sequence));

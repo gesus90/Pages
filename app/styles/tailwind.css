@@ -189,10 +189,9 @@
      Antigravity's blue outline the model badge of their tool, the same in
      both palettes. OpenCode's mark has no color of its own, so its outline
      is a neutral grey per palette, at least 3:1 against the surface. The
-     Z.AI mark is anthracite with a white sign: its outline takes the
-     anthracite of the tile in the light palette (16.5:1) and the white of
-     the sign in the dark one (15.7:1), so it stays apart from the grey of
-     OpenCode in both. Every reasoning level has its own hue, from grey
+     Z.AI outline takes the same grey (7.7:1 light, 6.7:1 dark), so the
+     white tile with the Z is the only bright area of its badge. Every
+     reasoning level has its own hue, from grey
      (none) to violet (ultra), its background mixed from the same hue (light
      12 %, dark 18 %). High is yellow so that it stays apart from the orange
      "working" state. */
@@ -201,7 +200,7 @@
   --color-antigravity: #4285f4;
   --color-opencode: #52525b;
   --color-openrouter: #657f00;
-  --color-zai: #1f1f1f;
+  --color-zai: #52525b;
   --color-reasoning-none: #4b5563;
   --color-reasoning-minimal: #1d4ed8;
   --color-reasoning-low: #4d7c0f;
@@ -708,7 +707,7 @@
     --color-antigravity: #4285f4;
     --color-opencode: #a1a1aa;
     --color-openrouter: #c0f000;
-    --color-zai: #f4f4f5;
+    --color-zai: #a1a1aa;
     --color-reasoning-none: #c3c9d2;
     --color-reasoning-minimal: #93c5fd;
     --color-reasoning-low: #bef264;
@@ -960,16 +959,15 @@
     min-height: 20rem;
   }
   /*
-   * A page that never scrolls the document from 768 px on. Its
-   * height comes from a flex chain down from the viewport instead of a fixed
-   * sum, so a notice above it (offline, saving) takes its room from the page
-   * and no longer pushes it below the screen.
+   * A page that never scrolls the page area from 768 px on. Its height comes
+   * from a flex chain down from the page area instead of a fixed sum, so a
+   * notice above it (offline, saving) takes its room from the page and no
+   * longer pushes it below the screen.
    */
   @media (min-width: 48rem) {
     main:has(.pages-page-fixed) {
       display: flex;
       flex-direction: column;
-      height: 100dvh;
       overflow: hidden;
     }
     main:has(.pages-page-fixed) div:not([hidden]):has(.pages-page-fixed) {

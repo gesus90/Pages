@@ -18,6 +18,46 @@ plan nodes retain their API execution, using the saved account endpoint. Pica us
 The first verified connection per linked provider, ordered by name, remains the
 key source; changing account type does not invent a second key-selection policy.
 
+## Model capabilities, reasoning levels and context window
+
+The z.ai model listing (`GET /models`) names the model ID only: no name, no
+context window, no reasoning level. A model choice therefore knows nothing
+about a z.ai model beyond its ID, unless the documentation states it. Pages
+fills in what the documentation states for a model of the GLM 5.3 family and
+nothing else; no value is derived from a display name, and every other listed
+model stays as the listing gave it (unknown reasoning, no window).
+
+| Model ID         | Context window | Reasoning levels (`reasoning_effort`) | Default | Image input |
+| ---------------- | -------------- | ------------------------------------- | ------- | ----------- |
+| `glm-5.3`        | 1,000,000      | `low`, `high`, `max`                  | `max`   | no          |
+| `glm-5.3-flash`  | 1,000,000      | `low`, `high`, `max`                  | `max`   | yes         |
+| `glm-5.3-flashx` | 1,000,000      | `low`, `high`, `max`                  | `max`   | yes         |
+
+Sources: the z.ai pages for GLM 5.3 and GLM 5.3 Flash/FlashX
+(`docs.z.ai/guides/llm/glm-5.3.md`, `docs.z.ai/guides/vlm/glm-5.3-flash.md`,
+read on 2026-11-19). GLM 5.3 always reasons (`thinking.type` supports only
+`enabled`) and offers three levels; the Flash pages state the same text
+parameters. The levels offered are only those the adapter that runs the model
+supports. Plan nodes with a z.ai connection run `zai/<model>` in OpenCode over
+ACP, with the base URL of the saved account type. OpenCode 1.18.34 lists the
+variants `low`, `high` and `max` for these three models on both `zai` and
+`zai-coding-plan`, and a request with the variant `high` or `max` carries
+`reasoning_effort: high` or `max` together with `thinking.type: enabled`.
+`medium` is no variant: OpenCode then sends no `reasoning_effort` at all, so
+Pages neither offers nor saves it for these models.
+
+The capabilities apply when a listing is read and when a stored snapshot is
+read, so a catalog saved before they were documented shows them without a new
+listing. A session takes its context window from this entry when its adapter
+has not reported one; the window the adapter reports (`usage_update.size`,
+1,000,000 for these models) always wins. Used context comes only from a
+reported `usage_update`; without one the sidebar shows the window with an
+empty occupancy (`0 / window`), never the accumulated billing tokens.
+
+The explicit model test sends `thinking.type: enabled` and the chosen level,
+or `low`, for these models, because z.ai rejects `thinking.type: disabled`
+for them. Any other z.ai model is still tested with thinking disabled.
+
 ## Usage and allowance on the Agents page
 
 Every active z.ai connection a person may use has a card on the Agents page.

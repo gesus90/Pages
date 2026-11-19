@@ -77,9 +77,9 @@ interface FinishedProbe {
  * a few CLIs side by side.
  * @remarks
  * A connection has at most one query at a time; requests during a query and
- * shortly after it share its result. Different connections are queried side
- * by side, up to a fixed number of CLIs at once. What a query asks and
- * stores is the provider's own part.
+ * shortly after it share its result. A skipped query is tried again because
+ * the session may have ended meanwhile. Different connections are queried
+ * side by side, up to a fixed number of CLIs at once.
  */
 export class ProviderQuotaProbe {
   private readonly dependencies: ProviderQuotaProbeDependencies;
@@ -101,7 +101,11 @@ export class ProviderQuotaProbe {
     connection: AgentConnectionRecord,
   ): Promise<QuotaProbeOutcome> {
     const recent = this.finished.get(connection.id);
-    if (recent && this.now().getTime() - recent.at < REUSE_MILLISECONDS)
+    if (
+      recent &&
+      recent.outcome.status !== "busy" &&
+      this.now().getTime() - recent.at < REUSE_MILLISECONDS
+    )
       return Promise.resolve(recent.outcome);
     const running = this.running.get(connection.id);
     if (running) return running;
@@ -112,10 +116,12 @@ export class ProviderQuotaProbe {
     return probe;
   }
 
-  /** Keeps the failed status of the latest query when a card reopens. */
-  public latestFailure(connectionId: string): QuotaProbeOutcome | null {
+  /** Keeps a failed or skipped status when a card reopens. */
+  public latestMissedReading(connectionId: string): QuotaProbeOutcome | null {
     const outcome = this.finished.get(connectionId)?.outcome;
-    return outcome?.status === "failed" ? outcome : null;
+    return outcome?.status === "failed" || outcome?.status === "busy"
+      ? outcome
+      : null;
   }
 
   private async probe(

@@ -9,6 +9,7 @@
 
 import type { AgentChatKind } from "./AgentChatSession";
 import type { AgentProviderId } from "./AgentConnection";
+import type { ConnectionCatalogStatus } from "./AgentModelCatalogStatus";
 import type { AgentValueStatus } from "./AgentModelIdentity";
 
 /** The endpoint of the control of agents in a chat. */
@@ -114,6 +115,12 @@ export interface AgentChatModelOverview {
   readonly override: (AgentChatModelSetting & { readonly name: string }) | null;
   /** The text models of the connections the agent may use. */
   readonly choices: readonly AgentChatModelChoice[];
+  /**
+   * The catalog state of every connection the agent's account may use and an
+   * agent can run, also one that lists no model, so the choice can say why a
+   * model is missing.
+   */
+  readonly connections: readonly ConnectionCatalogStatus[];
   /** Whether the viewer may change the model and the session. */
   readonly canControl: boolean;
 }

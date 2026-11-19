@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 
 import openRouterLogo from "@/assets/providers/logo-openrouter.png?no-inline";
 import { cn } from "@/app/lib/cn";
+import { openRouterExecutionLocation } from "@/definition/OpenRouterQuota";
 
 import { OpenRouterBalanceDialog } from "./openrouter-balance-dialog";
 import { OpenRouterQuotaContent } from "./openrouter-quota-content";
@@ -33,10 +34,13 @@ export function OpenRouterQuotaCard({
   const { t, i18n } = useTranslation();
   const isQuerying = pendingQueries > 0;
   const isLoading =
-    account.key.status === "stored" && !account.credits?.reading;
+    account.key.status === "stored" &&
+    !account.key.reading &&
+    !account.credits?.reading;
   const isHintShown = useRefreshHint(isQuerying && !isLoading);
+  const progress = { isQuerying, isHintShown };
   const format = openRouterQuotaFormat(t, i18n.language, now);
-  const presentation = openRouterQuotaStatus(account, format, isHintShown);
+  const presentation = openRouterQuotaStatus(account, format, progress);
   const refresh = t("agentsPage.openRouter.refresh");
   const statusKind =
     account.credits?.status === "failed" ? "failed" : account.key.status;
@@ -91,7 +95,10 @@ export function OpenRouterQuotaCard({
             )}
           />
         </button>
-        <QuotaHeaderBadges location={null} />
+        <QuotaHeaderBadges
+          location={openRouterExecutionLocation(account)}
+          isLocationPending={isLoading}
+        />
       </header>
       {isLoading ? (
         <QuotaWindowsPlaceholder />
@@ -101,7 +108,7 @@ export function OpenRouterQuotaCard({
       <QuotaStatusFooter
         kind={statusKind}
         presentation={presentation}
-        progress={{ isQuerying, isHintShown }}
+        progress={progress}
         onRetry={handleRetry}
         connectionHref={`/settings/agents?connection=${encodeURIComponent(account.connectionId)}`}
       />

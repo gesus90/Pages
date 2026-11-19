@@ -34,18 +34,14 @@ function AmountSlot({
   return (
     <section
       aria-label={label}
-      className={cn(
-        QUOTA_WINDOW_SLOT_CLASS,
-        "gap-1",
-        stale && "text-muted-foreground",
-      )}
+      className={cn(QUOTA_WINDOW_SLOT_CLASS, "gap-1")}
     >
       <div className="flex items-baseline justify-between gap-2 text-[13px] font-semibold">
         <span>{label}</span>
         <span
           className={cn(
             "shrink-0 text-[15px] font-bold tabular-nums",
-            isExhausted && !stale && "text-destructive",
+            isExhausted && "text-destructive",
           )}
         >
           {amount}
@@ -59,9 +55,7 @@ function AmountSlot({
           <div
             className={cn(
               "h-full rounded-full",
-              stale
-                ? "bg-muted-foreground"
-                : QUOTA_BAR_CLASSES[claudeQuotaTone(share)],
+              QUOTA_BAR_CLASSES[claudeQuotaTone(share)],
             )}
             style={{ width: `${share}%` }}
           />
@@ -147,7 +141,8 @@ function KeyBudget({
   const limitLabel = t("agentsPage.openRouter.limit", { amount: money(limit) });
   const details = [limitLabel];
   if (reset) details.push(t(`agentsPage.openRouter.${reset}`));
-  if (remaining === 0) details.push(t("agentsPage.openRouter.limitReached"));
+  if (remaining === 0 && stale === null)
+    details.push(t("agentsPage.openRouter.limitReached"));
   return (
     <AmountSlot
       label={t("agentsPage.openRouter.remaining")}
@@ -183,12 +178,7 @@ function UsageTotal({
           {t("agentsPage.openRouter.unknown")}
         </span>
       ) : (
-        <strong
-          className={cn(
-            "text-[26px] leading-8 tabular-nums",
-            stale && "text-muted-foreground",
-          )}
-        >
+        <strong className="text-[26px] leading-8 tabular-nums">
           {money(usage)}
         </strong>
       )}

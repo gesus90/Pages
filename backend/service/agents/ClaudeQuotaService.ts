@@ -1,6 +1,6 @@
 import { visibleClaudeQuotaWindows } from "@/definition/ClaudeQuota";
 
-import { quotaCardStatus } from "./QuotaCardStatus";
+import { quotaCardStatus, quotaWindowsAt } from "./QuotaCardStatus";
 import { QuotaConnectionAccess } from "./QuotaConnectionAccess";
 
 import type { AgentConnectionRepository } from "@/backend/database/repositories/AgentConnectionRepository";
@@ -189,7 +189,10 @@ export class ClaudeQuotaService {
     now: Date,
   ): ClaudeQuotaAccount {
     const { outcome, record } = query;
-    const windows = visibleClaudeQuotaWindows(record.windows, now);
+    const windows = visibleClaudeQuotaWindows(
+      record.windows,
+      quotaWindowsAt(outcome, record.reportedAt, now),
+    );
     const status = quotaCardStatus(outcome, {
       at: record.reportedAt,
       hasWindows: windows.length > 0,

@@ -118,7 +118,7 @@ function createComponents({
     (Tag: "h1" | "h2" | "h3", className: string): Components["h1"] =>
     ({ children, node }) => (
       <Tag
-        className={cn("scroll-mt-20 font-semibold text-foreground", className)}
+        className={cn("scroll-mt-5 font-semibold text-foreground", className)}
         id={idByLine.get(Number(node?.position?.start.line))}
       >
         {children}

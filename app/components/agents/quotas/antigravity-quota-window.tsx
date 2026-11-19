@@ -56,7 +56,7 @@ export function AntigravityQuotaWindow({
     isExhausted,
   });
   const canShowLabel =
-    quotaWindow.resetsAt !== null || projection.forecast.kind === "paused";
+    quotaWindow.resetsAt !== null && projection.forecast.kind !== "hidden";
 
   return (
     <div
@@ -73,8 +73,7 @@ export function AntigravityQuotaWindow({
           data-quota-tone={claudeQuotaTone(remaining)}
           className={cn(
             "text-sm font-bold whitespace-nowrap transition-colors duration-300 motion-reduce:transition-none",
-            projection.isStale && "text-muted-foreground",
-            !projection.isStale && isExhausted && "text-destructive",
+            isExhausted && "text-destructive",
           )}
         >
           <span className="@min-[210px]:hidden">

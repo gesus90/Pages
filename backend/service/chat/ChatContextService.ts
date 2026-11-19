@@ -1,5 +1,5 @@
 import { ChatError } from "@/backend/error/ChatErrors";
-import { isApiProvider } from "@/definition/AgentConnection";
+import { hasChatAdapter } from "@/definition/AgentModelConsumers";
 import { redactCredentials } from "@/backend/security/AgentTextSafety";
 import { logCaughtError } from "@/backend/logging/Logger";
 
@@ -143,7 +143,8 @@ export class ChatContextService {
   ): Promise<ChatCompactionResult> {
     await this.dependencies.sessions.require(actor, sessionId);
     const agent = await this.dependencies.agents.resolve(actor.id, "chat");
-    if (!isApiProvider(agent.connection.provider))
+    // A chat the ACP adapter answers keeps its context in the native session.
+    if (hasChatAdapter(agent.connection.provider))
       throw new ChatError("nativeContextManaged");
     const stored = await this.dependencies.contexts.read(actor.id, sessionId);
     if (stored === null) throw new ChatError("sessionMissing");
@@ -210,7 +211,7 @@ export class ChatContextService {
     let isAcp: boolean;
     try {
       const agent = await agents.resolve(userId, "chat");
-      isAcp = !isApiProvider(agent.connection.provider);
+      isAcp = hasChatAdapter(agent.connection.provider);
     } catch (caughtError: unknown) {
       logCaughtError("ChatContextService", caughtError);
 

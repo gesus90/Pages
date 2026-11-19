@@ -4,6 +4,7 @@ import { AgentStepFailedError } from "@/backend/error/AgentStepFailedError";
 import { storedAgentAccessMode } from "@/definition/AgentAccessMode";
 import { nativeAcpProvider } from "@/definition/AgentConfiguration";
 import { openCodeModelProvider } from "@/definition/AgentConnection";
+import { hasChatAdapter } from "@/definition/AgentModelConsumers";
 
 import { createCliEnvironment } from "./CliEnvironment";
 import { isOpenCodeApiAgent } from "./OpenCodeAgentModel";
@@ -92,13 +93,18 @@ export async function recordGitHubNamespace(
   if (github && namespace) await github.recordNamespace(namespace);
 }
 
-/** Every CLI plan runner and native Pica runner uses ACP, without a one-shot fallback. */
+/**
+ * Every CLI plan runner and native Pica runner uses ACP, without a one-shot fallback.
+ * @remarks
+ * A plan node of OpenRouter or z.ai runs over the native OpenCode session. A
+ * chat does so only for a provider that registers a chat adapter, so Pica
+ * never opens a session for a connection its model rule refuses.
+ */
 export function sessionAcpProvider(
   input: AgentPlanSessionInput,
 ): NativeAcpProviderId | null {
   const provider = input.agent.connection.provider;
-  if (input.chat && (provider === "openrouter" || provider === "zai"))
-    return null;
+  if (input.chat && !hasChatAdapter(provider)) return null;
   return nativeAcpProvider(provider);
 }
 

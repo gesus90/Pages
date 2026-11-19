@@ -23,7 +23,6 @@ import { AgentChatService } from "@/backend/service/conversation/AgentChatServic
 import { AgentChatSettingsService } from "@/backend/service/conversation/AgentChatSettingsService";
 import { ConversationAgentGuard } from "@/backend/service/conversation/ConversationAgentGuard";
 import { ChatViewPreferenceRepository } from "@/backend/database/repositories/conversation/ChatViewPreferenceRepository";
-import { ConversationAttachmentRepository } from "@/backend/database/repositories/conversation/ConversationAttachmentRepository";
 import { ConversationAttachmentLibraryRepository } from "@/backend/database/repositories/conversation/ConversationAttachmentLibraryRepository";
 import { ConversationEmbedDomainRepository } from "@/backend/database/repositories/conversation/ConversationEmbedDomainRepository";
 import { ConversationLinkPreviewRepository } from "@/backend/database/repositories/conversation/ConversationLinkPreviewRepository";
@@ -31,7 +30,6 @@ import { ConversationMediaOverviewRepository } from "@/backend/database/reposito
 import { currentAgentSimulationMode } from "@/backend/agents/simulation/AgentSimulationMode";
 import { ChatViewPreferenceService } from "@/backend/service/conversation/content/ChatViewPreferenceService";
 import { ConversationAgentFiles } from "@/backend/service/conversation/content/ConversationAgentFiles";
-import { ConversationAttachments } from "@/backend/service/conversation/content/ConversationAttachments";
 import { ConversationAttachmentContent } from "@/backend/service/conversation/content/ConversationAttachmentContent";
 import { ConversationAttachmentLibrary } from "@/backend/service/conversation/content/ConversationAttachmentLibrary";
 import { ConversationAttachmentReferences } from "@/backend/service/conversation/content/ConversationAttachmentReferences";
@@ -66,6 +64,8 @@ import { ConversationVoiceStore } from "@/backend/service/conversation/Conversat
 import { WikiFileStore } from "@/backend/storage/WikiFileStore";
 import { voiceMaximumDurationMs } from "@/backend/config/SpeechRecognitionConfig";
 
+import { createConversationAttachmentStores } from "./conversation-attachment-stores.server";
+
 import type { ChatCallSetting } from "@/backend/config/ChatCallConfig";
 import type { SpeechRecognitionSetting } from "@/backend/config/SpeechRecognitionConfig";
 import type { PlanExecution } from "@/backend/agents/AgentPlanExecution";
@@ -80,6 +80,8 @@ import type { ConversationDecisionModel } from "@/backend/service/conversation/C
 import type { PicaSettingsService } from "@/backend/service/chat/PicaSettingsService";
 import type { PagesEventPublisher } from "@/backend/service/events/PagesEventPublisher";
 import type { User } from "@/definition/User";
+
+import type { ConversationAttachmentStores } from "./conversation-attachment-stores.server";
 
 /** The stored conversations of the chat page and Pica Mobile. */
 export interface ConversationApplicationServices {
@@ -111,7 +113,9 @@ export interface ConversationApplicationServices {
   /** The hourly limit under Settings → Agents. */
   readonly agentChatSettingsService: AgentChatSettingsService;
   /** The files of conversation messages. */
-  readonly conversationAttachments: ConversationAttachments;
+  readonly conversationAttachments: ConversationAttachmentStores["attachments"];
+  /** The web export packages of chats and the starts of their players. */
+  readonly conversationWebPackages: ConversationAttachmentStores["webPackages"];
   /** The attachments of chats as their agents search and read them. */
   readonly conversationAttachmentLibrary: ConversationAttachmentLibrary;
   /** The links of messages and the domains that may be embedded. */
@@ -138,6 +142,8 @@ export interface ConversationServicesInput {
   readonly observer: ConversationObserverInput;
   /** The origin users reach Pages at; links to it embed. */
   readonly publicUrl?: string;
+  /** The origin of the players of web export packages, apart from Pages. */
+  readonly chatPlayerOrigin?: string;
   /**
    * Fetches the preview data of links. By default the HTTP fetch,
    * and while the simulation is on a fetch that contacts no network.
@@ -336,6 +342,7 @@ function assembleConversationServices(parts: {
       ice: createChatCallIce(input.chatCalls),
     }),
     conversationAttachments: content.attachments,
+    conversationWebPackages: content.webPackages,
     conversationAttachmentLibrary: content.library,
     conversationLinks: content.links,
     conversationMediaOverview: content.media,
@@ -507,6 +514,7 @@ function createReplies(
     agentFiles: new ConversationAgentFiles(),
     references: content.references,
     attachments: content.attachments,
+    webPackages: content.webPackages,
     generatedImages: sharedConversationGeneratedImages(),
     content: content.reader,
     answerStream: {
@@ -526,8 +534,7 @@ function createReplies(
 }
 
 /** The content of messages: files, links and what reads both. */
-interface ContentParts {
-  readonly attachments: ConversationAttachments;
+interface ContentParts extends ConversationAttachmentStores {
   readonly links: ConversationLinks;
   readonly reader: ConversationMessageContent;
   readonly library: ConversationAttachmentLibrary;
@@ -548,12 +555,10 @@ function createContent(
   const files = new WikiFileStore(
     path.join(input.directory, "conversation-files"),
   );
-  const attachments = new ConversationAttachments({
-    attachments: new ConversationAttachmentRepository(database),
-    conversations,
-    files,
-    directory,
-  });
+  const { attachments, webPackages } = createConversationAttachmentStores(
+    input,
+    { conversations, files, directory },
+  );
   const libraryRows = new ConversationAttachmentLibraryRepository(database);
   const references = new ConversationAttachmentReferences({
     library: libraryRows,
@@ -579,6 +584,7 @@ function createContent(
   });
   return {
     attachments,
+    webPackages,
     links,
     reader: new ConversationMessageContent(attachments, links, references),
     references,

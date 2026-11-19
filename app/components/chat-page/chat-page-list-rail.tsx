@@ -2,12 +2,14 @@ import { useState } from "react";
 import { flushSync } from "react-dom";
 import { useTranslation } from "react-i18next";
 
+import { ScrollViewport } from "@/app/components/ui/scroll-viewport";
 import { cn } from "@/app/lib/cn";
 
 import { useListEntryMenu } from "./chat-menu/use-list-entry-menu";
 import { GroupAvatars, ParticipantStatusAvatar } from "./chat-page-avatar";
 
 import type { ReactNode } from "react";
+import type { ScrollMaskEdge } from "@/app/components/ui/scroll-viewport/scroll-mask";
 import type { VirtualChatSelection } from "@/definition/VirtualChat";
 import type { ChatPageState } from "./use-chat-page";
 
@@ -16,6 +18,14 @@ const COMPOSER_INPUT_SELECTOR = "[data-chat-composer] [contenteditable='true']";
 
 /** Frames the input may take to appear after a conversation opened. */
 const COMPOSER_FOCUS_ATTEMPTS = 10;
+
+/** The edges of the bar that fade: top and bottom in the column, left and right in the row. */
+const RAIL_FADE_EDGES: readonly ScrollMaskEdge[] = [
+  "top",
+  "bottom",
+  "left",
+  "right",
+];
 
 /** Above this count the badge shows "99+". */
 const UNREAD_BADGE_MAXIMUM = 99;
@@ -205,6 +215,8 @@ function tabStopKey(page: ChatPageState): string | null {
  * @remarks
  * The bar is one tab stop; the arrow keys, Home and End of the list card
  * move between its entries. Below `lg` it is a row that scrolls sideways.
+ * Neither direction shows a scrollbar; the entries fade out transparently at
+ * the edge that has more entries behind it.
  */
 export function ChatPageListRail({
   page,
@@ -220,63 +232,70 @@ export function ChatPageListRail({
   }
 
   return (
-    <div
-      className="-m-1 flex min-h-0 min-w-0 flex-1 flex-row items-center gap-1 overflow-x-auto overflow-y-hidden p-1 lg:flex-col lg:overflow-x-hidden lg:overflow-y-auto"
-      data-testid="chat-list-rail"
-      onScroll={() => setTip(null)}
-    >
-      <ul
-        aria-label={t("chatPage.groups")}
-        className="flex shrink-0 flex-row gap-1 lg:flex-col"
+    <>
+      <ScrollViewport
+        axis="horizontal"
+        containerClassName="-m-1 flex-1"
+        className="flex flex-row items-center gap-1 p-1 lg:flex-col lg:overflow-x-hidden lg:overflow-y-auto"
+        data-testid="chat-list-rail"
+        fadeEdges={RAIL_FADE_EDGES}
+        fadeMode="mask"
+        hideScrollbar
+        onScroll={() => setTip(null)}
       >
-        {page.allGroups.map((group) => (
-          <li key={group.id}>
-            <RailEntry
-              label={entryLabel(group.name, group.unreadCount)}
-              count={group.unreadCount}
-              isMuted={group.isMuted === true}
-              selection={{ kind: "group", id: group.id }}
-              isSelected={isEntrySelected(page.selection, {
-                kind: "group",
-                id: group.id,
-              })}
-              isTabStop={tabStop === `group:${group.id}`}
-              onSelect={() => page.select({ kind: "group", id: group.id })}
-              onTip={setTip}
-            >
-              <GroupAvatars members={page.findMembers(group)} size="header" />
-            </RailEntry>
-          </li>
-        ))}
-      </ul>
-      <hr className="m-1 h-8 w-px shrink-0 border-0 bg-border lg:h-px lg:w-8" />
-      <ul
-        aria-label={t("chatPage.participants")}
-        className="flex shrink-0 flex-row gap-1 lg:flex-col"
-      >
-        {page.allParticipants.map((participant) => (
-          <li key={participant.id}>
-            <RailEntry
-              label={entryLabel(participant.name, participant.unreadCount)}
-              count={participant.unreadCount}
-              isMuted={participant.isMuted === true}
-              selection={{ kind: "participant", id: participant.id }}
-              isSelected={isEntrySelected(page.selection, {
-                kind: "participant",
-                id: participant.id,
-              })}
-              isTabStop={tabStop === `participant:${participant.id}`}
-              onSelect={() =>
-                page.select({ kind: "participant", id: participant.id })
-              }
-              onTip={setTip}
-            >
-              <ParticipantStatusAvatar participant={participant} />
-            </RailEntry>
-          </li>
-        ))}
-      </ul>
+        <ul
+          aria-label={t("chatPage.groups")}
+          className="flex shrink-0 flex-row gap-1 lg:flex-col"
+        >
+          {page.allGroups.map((group) => (
+            <li key={group.id}>
+              <RailEntry
+                label={entryLabel(group.name, group.unreadCount)}
+                count={group.unreadCount}
+                isMuted={group.isMuted === true}
+                selection={{ kind: "group", id: group.id }}
+                isSelected={isEntrySelected(page.selection, {
+                  kind: "group",
+                  id: group.id,
+                })}
+                isTabStop={tabStop === `group:${group.id}`}
+                onSelect={() => page.select({ kind: "group", id: group.id })}
+                onTip={setTip}
+              >
+                <GroupAvatars members={page.findMembers(group)} size="header" />
+              </RailEntry>
+            </li>
+          ))}
+        </ul>
+        <hr className="m-1 h-8 w-px shrink-0 border-0 bg-border lg:h-px lg:w-8" />
+        <ul
+          aria-label={t("chatPage.participants")}
+          className="flex shrink-0 flex-row gap-1 lg:flex-col"
+        >
+          {page.allParticipants.map((participant) => (
+            <li key={participant.id}>
+              <RailEntry
+                label={entryLabel(participant.name, participant.unreadCount)}
+                count={participant.unreadCount}
+                isMuted={participant.isMuted === true}
+                selection={{ kind: "participant", id: participant.id }}
+                isSelected={isEntrySelected(page.selection, {
+                  kind: "participant",
+                  id: participant.id,
+                })}
+                isTabStop={tabStop === `participant:${participant.id}`}
+                onSelect={() =>
+                  page.select({ kind: "participant", id: participant.id })
+                }
+                onTip={setTip}
+              >
+                <ParticipantStatusAvatar participant={participant} />
+              </RailEntry>
+            </li>
+          ))}
+        </ul>
+      </ScrollViewport>
       <RailTooltip tip={tip} />
-    </div>
+    </>
   );
 }

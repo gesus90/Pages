@@ -12,6 +12,7 @@ include the [Storage interface](StorageApi.md) and administrator tools.
 - [Pica over Codex ACP](#pica-over-codex-acp)
 - [Pica over Claude Code ACP](#pica-over-claude-code-acp)
 - [Pica over native OpenCode ACP](#pica-over-native-opencode-acp)
+- [Pica with a z.ai connection](#pica-with-a-zai-connection)
 - [Pica live activity](#pica-live-activity)
 - [Pica sessions and conversation context](#pica-sessions-and-conversation-context)
 - [Pica quota demo](#pica-quota-demo)
@@ -20,9 +21,9 @@ include the [Storage interface](StorageApi.md) and administrator tools.
 
 ## Pica native tools
 
-The Pica chat runs Codex CLI, Claude Code, opencode and Antigravity
-through ACP; Antigravity reaches the catalog as the one MCP server of its
-session, without native tools.
+The Pica chat runs Codex CLI, Claude Code, opencode, a z.ai connection
+(through native opencode) and Antigravity through ACP; Antigravity reaches
+the catalog as the one MCP server of its session, without native tools.
 Its native catalog has fixed tools, each on an existing Pages operation with
 the current account rights:
 
@@ -65,16 +66,18 @@ is sent again unchanged in the same turn. A text of a write holds at most
 
 The production composition selects ACP explicitly. `legacy-actions` retains
 its earlier text protocol for compatibility tests and never acts as a fallback.
-Pages owns transcripts, attachments and existing summaries. Native CLI
-sessions manage their own context; `/compact` is unavailable for Pica.
+Pages owns transcripts, attachments and existing summaries. Native sessions,
+those of the CLIs and of a z.ai connection, manage their own context;
+`/compact` is unavailable for Pica.
 
-Pica settings offer only usable CLI models. Free opencode Zen models are hidden
-because they require opencode's own tools; agent plans keep them. A saved API
-choice is retained. Settings propose its exact opencode equivalent only when
-provider, model, linked key and reasoning effort match unambiguously; the person
-confirms it with Save. Otherwise Pica asks for a new selection and never changes
-models silently. OpenAI and Anthropic API keys remain available to other Pages
-functions, while Pica uses the Codex and Claude CLI sign-ins.
+Pica settings offer the models of CLI connections and of z.ai connections.
+Free opencode Zen models are hidden because they require opencode's own tools;
+agent plans keep them. A saved selection of another API connection is retained
+but never answers: Pica asks for a new selection and never changes models
+silently. OpenAI and Anthropic API keys remain available to other Pages
+functions, while Pica uses the Codex and Claude CLI sign-ins. A z.ai connection
+is the one direct API key Pica answers with, see
+[Pica with a z.ai connection](#pica-with-a-zai-connection).
 
 The z.ai account choice and additive migration rollback are documented in
 [z.ai account routing](ZaiAccountType.md).
@@ -296,6 +299,36 @@ The protocol observations and upstream source references are in
 [backend/agents/acp/OpenCodeAcpCapabilities.md](../backend/agents/acp/OpenCodeAcpCapabilities.md).
 OpenCode plan nodes also use the native ACP entry point; see
 [OpenCode plan setup](AgentRuntime.md#opencode-plan-nodes-with-a-console--zen-key).
+
+## Pica with a z.ai connection
+
+A z.ai connection under _Settings › Agents_ answers in Pica over the same
+native `opencode acp` session as an OpenCode connection. Nothing else answers
+for it: there is no direct request to the z.ai API and no other model or
+provider as a fallback. The only differences from the section above are
+these.
+
+- **Connection and key.** The session reads the key of exactly the connection
+  the administration assigned to Pica, after the connection's access check
+  passed. Its only model connection is `zai`, with the fixed endpoint of the
+  saved account type (standard API or GLM Coding Plan, see
+  [z.ai account routing](ZaiAccountType.md)). The key reaches the session only
+  as the credential of this one start and is never part of a prompt, a
+  journal or a log.
+- **Model and level.** The model is the ID of the catalog, such as
+  `glm-5.3-flash`; the session starts it as `zai/<model>`. The reasoning
+  level is the stored one, sent as the variant of the model (`low`, `high` or
+  `max` for the GLM 5.3 family). A level the model does not list is refused
+  when the choice is saved, never changed.
+- **Tools and mode.** Like OpenCode, the session runs only in _Read only_ and
+  only with the authorized Pages tools; every built-in tool of the runtime is
+  refused.
+- **Sessions.** A stored session of this runner carries the profile
+  `pica-zai-chat-1`, so it is never continued by an OpenCode connection and the
+  other way round.
+- **Context.** The context lives in the native session. The context
+  indicator shows what the adapter reported, never a Pages estimate, and
+  `/compact` is refused as for the other native sessions.
 
 ## Pica live activity
 

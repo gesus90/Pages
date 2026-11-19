@@ -396,7 +396,7 @@ export default function TasksRoute(): React.ReactElement {
           "flex flex-col",
           board.preferences.view === "kanban"
             ? "md:h-[calc(100dvh-8.5rem)] md:min-h-0 md:overflow-hidden"
-            : "min-h-[calc(100vh-theme(spacing.20))]",
+            : "min-h-[calc(100dvh-8.5rem)]",
         )}
       >
         <div

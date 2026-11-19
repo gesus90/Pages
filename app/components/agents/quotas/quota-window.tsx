@@ -14,7 +14,7 @@ import {
   QuotaProgress,
   QuotaTargetLegend,
 } from "./quota-forecast-details";
-import { formatQuotaReset, formatQuotaStand } from "./quota-time";
+import { formatQuotaReset } from "./quota-time";
 import { useAnimatedNumber } from "./use-animated-number";
 
 import type {
@@ -35,7 +35,6 @@ interface QuotaWindowProps {
   readonly figures: QuotaWindowFigures;
   readonly now: Date;
   readonly isStale?: boolean;
-  readonly staleSince?: string | null;
   readonly isCompact?: boolean;
 }
 
@@ -130,8 +129,7 @@ function QuotaWindowHeading({
         className={cn(
           "ml-auto shrink-0 whitespace-nowrap font-bold transition-colors duration-300 motion-reduce:transition-none",
           isCompact ? "text-sm" : "text-[15px]",
-          projection.isStale && "text-muted-foreground",
-          !projection.isStale && remaining < 10 && "text-destructive",
+          remaining < 10 && "text-destructive",
         )}
       >
         {t("agentsPage.quota.remaining", { percent: shownRemaining })}
@@ -145,11 +143,10 @@ export function QuotaWindow({
   figures,
   now,
   isStale = false,
-  staleSince = null,
   isCompact = false,
 }: QuotaWindowProps): React.ReactElement {
   const { t, i18n } = useTranslation();
-  const { label, usedPercentage, resetsAt, pace } = figures;
+  const { label, usedPercentage, resetsAt } = figures;
   const measuredRemaining = 100 - usedPercentage;
   const used = Math.min(
     usedPercentage < 100 ? 99 : 100,
@@ -168,16 +165,7 @@ export function QuotaWindow({
   const reset = formatQuotaReset(resetsAt, now, format);
   const usedText =
     figures.usedLabel ?? t("agentsPage.quota.used", { percent: shownUsed });
-  const lastMeasurement = pace?.measuredAt ?? staleSince;
-  const sideText =
-    projection.isStale && lastMeasurement !== null
-      ? t("agentsPage.quota.staleUsed", {
-          time: formatQuotaStand(new Date(lastMeasurement), now, format),
-          used: usedText,
-        })
-      : usedText;
-  const canShowLabel =
-    resetsAt !== null || projection.forecast.kind === "paused";
+  const canShowLabel = resetsAt !== null;
 
   return (
     <section
@@ -206,7 +194,7 @@ export function QuotaWindow({
       />
       <QuotaWindowFooter
         reset={reset}
-        usedText={sideText}
+        usedText={usedText}
         target={projection.target}
         isCompact={isCompact}
       />

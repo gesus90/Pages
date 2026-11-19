@@ -1,4 +1,7 @@
-import { modelConsumerRefusal } from "@/definition/AgentModelConsumers";
+import {
+  consumerRunsProvider,
+  modelConsumerRefusal,
+} from "@/definition/AgentModelConsumers";
 import { isPicaModel } from "@/definition/PicaModelSelection";
 import { isAgentProvider } from "@/definition/AgentConnection";
 
@@ -10,12 +13,13 @@ import type {
   AgentChatModelLabel,
   AgentChatModelSetting,
 } from "@/definition/AgentChatControl";
+import type { ConnectionCatalogStatus } from "@/definition/AgentModelCatalogStatus";
 import type { PageAgentModel } from "@/definition/PageAgent";
 import type { AgentEmployeeModels } from "./AgentEmployeeModels";
 
 /** What the model choice of a chat reads. */
 export interface AgentChatModelChoicesDependencies {
-  readonly models: Pick<AgentEmployeeModels, "models">;
+  readonly models: Pick<AgentEmployeeModels, "models" | "catalogStatuses">;
 }
 
 /**
@@ -84,6 +88,24 @@ export class AgentChatModelChoices {
     return models
       .filter((model) => isChatModelChoice(model, employee))
       .map(toChoice);
+  }
+
+  /**
+   * The catalog state of every connection the agent's account may use and an
+   * agent can run, also one that lists no model.
+   * @remarks
+   * A connection without a right of the account or without an adapter for
+   * agents is not named, so the choice neither lists nor explains it.
+   */
+  public async connections(
+    employee: Pick<StoredAgentEmployee, "userId">,
+  ): Promise<readonly ConnectionCatalogStatus[]> {
+    const statuses = await this.dependencies.models.catalogStatuses(
+      employee.userId,
+    );
+    return statuses.filter((status) =>
+      consumerRunsProvider("employee", status.provider),
+    );
   }
 
   /**

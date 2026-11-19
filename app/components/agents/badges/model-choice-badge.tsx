@@ -9,6 +9,8 @@ interface MarkStyle {
   readonly borderClass: string;
   /** The vendor's or tool's brand name, never translated. */
   readonly vendor: string;
+  /** Whether the model ID stands beside the catalog name in the tooltip and the accessible name. */
+  readonly isIdNamed?: boolean;
 }
 
 const MARK_STYLES: Readonly<Record<string, MarkStyle>> = {
@@ -17,7 +19,7 @@ const MARK_STYLES: Readonly<Record<string, MarkStyle>> = {
   antigravity: { borderClass: "border-antigravity", vendor: "Antigravity" },
   opencode: { borderClass: "border-opencode", vendor: "OpenCode" },
   openrouter: { borderClass: "border-openrouter", vendor: "OpenRouter" },
-  zai: { borderClass: "border-zai", vendor: "Z.AI" },
+  zai: { borderClass: "border-zai", vendor: "Z.AI", isIdNamed: true },
 };
 
 /**
@@ -43,9 +45,8 @@ function markStyle(mark: string): MarkStyle | null {
  * model's badge.
  * @param mark - The mark key of the model's tool; `null` while no model is shown.
  * @returns Claude's orange, the green of the ChatGPT tile, Antigravity's
- * blue, OpenCode's neutral grey, OpenRouter's lime or the Z.AI color (white in
- * the dark palette) on the surface; every other tool and a missing model keep
- * the neutral field border.
+ * blue, OpenCode's or Z.AI's neutral grey, or OpenRouter's lime on the
+ * surface; every other tool and a missing model keep the neutral field border.
  */
 export function modelChoiceFieldClass(mark: string | null): string {
   const style = mark === null ? null : markStyle(mark);
@@ -57,6 +58,12 @@ export interface ModelChoiceBadgeProps {
   readonly mark: string;
   /** The model's short catalog name, such as `Sonnet 5.5`. */
   readonly name: string;
+  /**
+   * The model's ID, such as `glm-5.3-flash`. A Z.AI model names it in the
+   * tooltip and the accessible name beside the catalog name; other tools
+   * ignore it. Absent when unknown.
+   */
+  readonly modelId?: string;
   /** The tool the model is listed under; it names a tool without a brand of its own. */
   readonly tool: string;
   /** Where the tool takes the model from, such as `OpenCode Zen`; `null` or absent when unknown. */
@@ -68,10 +75,25 @@ export interface ModelChoiceBadgeProps {
   readonly className?: string;
 }
 
+/** The catalog name with the model ID in brackets, where the tool names the ID. */
+function namedModel(
+  style: MarkStyle | null,
+  choice: ModelChoiceBadgeProps,
+): string {
+  const { name, modelId } = choice;
+  if (style?.isIdNamed !== true || !modelId || modelId === name) return name;
+  return `${name} (${modelId})`;
+}
+
 /** The full model name, execution route and known source of a model field. */
 export function modelChoiceLabel(choice: ModelChoiceBadgeProps): string {
-  const vendor = markStyle(choice.mark)?.vendor ?? choice.tool;
-  return [vendor, choice.source, choice.name, choice.unavailableHint]
+  const style = markStyle(choice.mark);
+  return [
+    style?.vendor ?? choice.tool,
+    choice.source,
+    namedModel(style, choice),
+    choice.unavailableHint,
+  ]
     .filter(Boolean)
     .join(" · ");
 }

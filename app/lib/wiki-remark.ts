@@ -125,7 +125,7 @@ function convertAnchor(html: MarkdownNode): void {
   html.children = [];
   html.data = {
     hName: "span",
-    hProperties: { className: "block scroll-mt-20", id: `block-${id}` },
+    hProperties: { className: "block scroll-mt-5", id: `block-${id}` },
   };
 }
 

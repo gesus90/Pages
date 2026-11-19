@@ -30,6 +30,16 @@ async function requestStatuses(
   return parsed.success ? parsed.data : null;
 }
 
+function isStillUnverified(
+  answer: ModelCatalogStatuses,
+  connectionId: string,
+): boolean {
+  return answer.connections.some(
+    (status) =>
+      status.connectionId === connectionId && status.state === "unverified",
+  );
+}
+
 function statusUrl(savedConnectionId: string | null): string {
   return savedConnectionId === null
     ? STATUS_ENDPOINT
@@ -49,8 +59,10 @@ export function useCatalogStatuses(input: {
   /** Counts the reasons to read: each opening of the choice, a saved model that is gone. Zero reads nothing. */
   readonly requestKey: number;
   readonly savedConnectionId: string | null;
+  /** Called once a reload has ended, whether it succeeded or not. */
+  readonly onReloaded?: () => void;
 }): CatalogStatusState {
-  const { requestKey, savedConnectionId } = input;
+  const { requestKey, savedConnectionId, onReloaded } = input;
   const { revalidate } = useRevalidator();
   const [statuses, setStatuses] = useState<ModelCatalogStatuses | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -85,11 +97,16 @@ export function useCatalogStatuses(input: {
         body: JSON.stringify({ connectionId }),
       });
       if (answer === null) setFailedId(connectionId);
-      else setStatuses(answer);
+      else {
+        setStatuses(answer);
+        // The reload of an unconfirmed connection checks its access; a check that did not pass leaves it unconfirmed.
+        if (isStillUnverified(answer, connectionId)) setFailedId(connectionId);
+      }
     } catch {
       setFailedId(connectionId);
     }
     setReloadingId(null);
+    onReloaded?.();
     await revalidate();
   }
 

@@ -13,6 +13,7 @@ next to the chat (split view).
 | Contracts and limits                                                         | `definition/ConversationContent.ts`                                               |
 | Attachments: upload, rights, ranges, deletion, sweep                         | `backend/service/conversation/content/ConversationAttachments.ts`                 |
 | File lines of agents `![…](file:/absolute/path)`                             | `backend/service/conversation/content/ConversationAgentFiles.ts`                  |
+| 3D models and Godot web export packages                                      | `ConversationModelFiles.ts`, `ConversationWebPackages.ts` in the same folder      |
 | Links, embed rules, preview cache                                            | `backend/service/conversation/content/ConversationLinks.ts`                       |
 | Fetch of link previews (replaceable)                                         | `backend/service/conversation/links/`                                             |
 | Cards, split view, viewer                                                    | `app/components/chat-page/content/`                                               |
@@ -48,6 +49,68 @@ next to the chat (split view).
 - `GET /chat/link-image?url=…` sends the stored preview image of a link.
 - `GET|POST /settings-api/embed-domains`: the domains an administrator
   released for every conversation.
+
+## 3D models and playable scenes
+
+An agent's answer shows a Blender model or a Godot scene interactively in the
+message, in direct and in group chats. The PNG stays the start image and the
+fallback.
+
+- **Model:** a file line naming a self-contained glTF 2.0 binary file
+  (`.glb`, textures embedded, at most 64 MB). Pages checks the container, the
+  single buffer, the buffer views and the embedded PNG, JPEG or WebP images
+  and refuses every `uri` (other files, addresses and data addresses) and
+  every required extension the viewer cannot draw
+  (`ConversationModelFiles.ts`). A refused model keeps its line with the
+  reason. A PNG of the same name next to it (`model.png` for `model.glb`, at
+  most 1 MB) becomes its preview image. The type `model/gltf-binary` is
+  stored only for a checked file; an upload of a person is checked the same
+  way and stays a plain download otherwise. The card (`model-card.tsx`)
+  shows the start image with "3D-Ansicht starten"; the viewer of Pages loads
+  the file from `GET /chat/files/<id>` and draws it with WebGL 2: drag or
+  arrow keys turn, wheel, two fingers or `+`/`-` zoom, "Ansicht
+  zurücksetzen" resets, "Vollbild" fills the screen. Without WebGL 2 or when
+  the file cannot be read the start image stays with the reason.
+- **Godot web export:** a file line naming the manifest
+  `pages-web-export.json` of a Godot 4.3+ web export with the Compatibility
+  renderer and without threads (`definition/ConversationInteractiveContent.ts`).
+  It lists `<executable>.js`, `.wasm`, `.pck`, optionally the two audio
+  worklets and a PNG start image, each with size and SHA-256, at most eight
+  files, 128 MB each, 192 MB together; the HTML page of the export is never
+  part of it. Regular attachments never take WebAssembly, so the package has
+  its own path (`ConversationWebPackages.ts`): every file is checked in the
+  export directory, copied into the file store with its checksum checked
+  again, and recorded together with the manifest attachment
+  (`conversation_web_package_files`, migration 079); only then the answer
+  binds it. An interrupted copy leaves nothing; a repeated answer binds the
+  package once.
+- `POST /chat-page-api/web-packages` with `{ attachmentId }` starts the player
+  for a member of the chat and answers `{ ok, session: { url, expiresAt,
+isOwnOrigin } }`; `DELETE /chat-page-api/web-packages?token=…` stops it. A
+  start is a secret of 30 minutes for one member and one package
+  (`conversation_web_package_grants`, only its SHA-256 is stored).
+- `GET /chat-player/<secret>/index.html` is the entry page Pages writes
+  itself, `pages-player.js` its start script, and the listed files follow
+  below the same address. No sign-in is read: every request checks that the
+  start is neither stopped nor expired, that its member still belongs to the
+  chat and that the package has not expired; otherwise it answers 404. The
+  policy loads only from the package and lets only Pages frame it.
+- `chatPlayerOrigin` in `config.toml` (for example
+  `"https://play.pages.example"`, another host that reaches this instance)
+  together with `publicUrl` runs the players on that origin, which never
+  receives the session cookie of Pages; only that host answers
+  `/chat-player/…` then. The policy of the chat page frames only Pages, so
+  the start answers `/chat/player-frame/<secret>` instead: a document of
+  Pages without script for the account that started the player, whose
+  policy frames only the player origin and which holds the player in one
+  frame of that origin. Without it the chat frames the player on the origin
+  of Pages sandboxed without `allow-same-origin`, so the browser gives it an
+  opaque origin. Either way the frame has no message bridge to the chat, and
+  the scene runs in the browser of each member.
+- Agents run their chat answers on the Pages host. Remote execution targets
+  exist for plan runs only, so no chat transport yet carries an export from
+  a remote runner to a chat answer; such a transport would hand its files
+  to the same checked package path.
 
 ## Pica Mobile (`conversations.v1`)
 

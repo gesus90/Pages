@@ -25,6 +25,8 @@ export interface StatusPresentation {
   readonly tone: StatusTone;
   readonly text: string;
   readonly action: StatusAction;
+  /** Whether a spinner accompanies the clock and timestamp. */
+  readonly isUpdating?: boolean;
 }
 
 /** The window that has nothing left, as the status line names it. */
@@ -51,8 +53,11 @@ export interface StatusFormat {
   readonly time: (iso: string) => string;
   /** A reset as the card shows it, such as `18:57` or `Mi 14:32`. */
   readonly moment: (iso: string) => string;
-  /** Whether the hint "wird aktualisiert" shows for a running query. */
-  readonly isHintShown: boolean;
+  readonly progress: {
+    readonly isQuerying: boolean;
+    /** Whether the delayed hint for a running query is visible. */
+    readonly isHintShown: boolean;
+  };
   /** The limit an Antigravity answer names; `null` or absent without one. */
   readonly limit?: StatusLimit | null;
   /** The limit a Codex answer states for the account; `null` or absent without one. */
@@ -75,6 +80,26 @@ function refreshingPresentation(
   };
 }
 
+function lastStandPresentation(
+  at: string,
+  format: StatusFormat,
+  action: StatusAction,
+): StatusPresentation {
+  const { t, time, progress } = format;
+  return {
+    icon: Clock,
+    tone: "muted",
+    text: t(
+      progress.isQuerying
+        ? "agentsPage.state.refreshing"
+        : "agentsPage.state.stored",
+      { time: time(at) },
+    ),
+    action: progress.isQuerying ? "none" : action,
+    isUpdating: progress.isQuerying,
+  };
+}
+
 /**
  * The line of a card that answers from its stored figures.
  * @remarks
@@ -86,7 +111,7 @@ function storedPresentation(
   at: string | null,
   format: StatusFormat,
 ): StatusPresentation {
-  const { t, time, isHintShown } = format;
+  const { t, time, progress } = format;
   if (at === null)
     return {
       icon: "spinner",
@@ -94,7 +119,8 @@ function storedPresentation(
       text: t("agentsPage.state.loading"),
       action: "none",
     };
-  if (isHintShown) return refreshingPresentation(at, format);
+  if (progress.isQuerying && progress.isHintShown)
+    return refreshingPresentation(at, format);
   return {
     icon: Clock,
     tone: "muted",
@@ -162,7 +188,8 @@ function reportedPresentation(
   at: string,
   format: StatusFormat,
 ): StatusPresentation {
-  if (format.isHintShown) return refreshingPresentation(at, format);
+  if (format.progress.isQuerying && format.progress.isHintShown)
+    return refreshingPresentation(at, format);
   if (format.limit) return limitPresentation(format.limit, format);
   if (format.generalLimit)
     return generalLimitPresentation(format.generalLimit, format);
@@ -178,7 +205,8 @@ function noWindowsPresentation(
   at: string,
   format: StatusFormat,
 ): StatusPresentation {
-  if (format.isHintShown) return refreshingPresentation(at, format);
+  if (format.progress.isQuerying && format.progress.isHintShown)
+    return refreshingPresentation(at, format);
   return {
     icon: Info,
     tone: "muted",
@@ -191,18 +219,12 @@ function failedPresentation(
   lastSuccessAt: string | null,
   format: StatusFormat,
 ): StatusPresentation {
-  const { t, time } = format;
-  const sinceText =
-    format.provider === "codex_cli"
-      ? "agentsPage.state.failedSinceCodex"
-      : "agentsPage.state.failedSince";
+  if (lastSuccessAt !== null)
+    return lastStandPresentation(lastSuccessAt, format, "retry");
   return {
     icon: TriangleAlert,
     tone: "warning",
-    text:
-      lastSuccessAt === null
-        ? t("agentsPage.state.failedNever")
-        : t(sinceText, { time: time(lastSuccessAt) }),
+    text: format.t("agentsPage.state.failedNever"),
     action: "retry",
   };
 }
@@ -217,7 +239,7 @@ function failedPresentation(
  * symbol or a colour. A missing sign-in is no failed query, so it offers the
  * connection settings instead of another attempt. While a query of a card
  * with figures runs, the line names the time of the last answer and says
- * "wird aktualisiert"; a failed card keeps its warning and its button. A
+ * "wird aktualisiert". After a missed query, its last stand stays visible. A
  * current Antigravity answer with a used-up window names that limit instead
  * of the answer's time.
  */
@@ -238,6 +260,8 @@ export function statusPresentation(
     case "failed":
       return failedPresentation(status.lastSuccessAt, format);
     case "skipped":
+      if (status.lastSuccessAt !== null)
+        return lastStandPresentation(status.lastSuccessAt, format, "none");
       return {
         icon: CirclePause,
         tone: "muted",

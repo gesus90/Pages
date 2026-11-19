@@ -189,6 +189,7 @@ export function ModelPickerPanel({
   value,
   catalog,
   emptyLabel,
+  className,
   savedUnavailableId,
 }: {
   readonly state: ModelPickerState;
@@ -196,6 +197,8 @@ export function ModelPickerPanel({
   readonly catalog: CatalogStatusState;
   /** The place's own note for an empty catalog; a search without match keeps its own. */
   readonly emptyLabel?: string;
+  /** Extra classes of an inline panel; a floating panel ignores them. */
+  readonly className?: string;
   /** The saved model ID that is no longer available, named at the top of the panel; `null` otherwise. */
   readonly savedUnavailableId: string | null;
 }): React.ReactElement {
@@ -230,6 +233,7 @@ export function ModelPickerPanel({
         isFloating ? "fixed" : "absolute inset-x-0",
         !isFloating &&
           (layout.placement === "above" ? "bottom-full mb-1" : "top-full mt-1"),
+        !isFloating && className,
       )}
       onMouseDown={keepSearchFocus}
     >

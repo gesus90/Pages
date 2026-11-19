@@ -1,3 +1,8 @@
+import {
+  isConversationModel,
+  isConversationWebPackage,
+} from "@/definition/ConversationInteractiveContent";
+
 import { AudioCard } from "./audio-player";
 import { BinaryFileRow } from "./binary-file-row";
 import { DocumentCard } from "./documents/document-card";
@@ -6,9 +11,11 @@ import { ExpiredAttachment } from "./expired-attachment";
 import { isAttachmentExpired } from "./file-retention";
 import { ImageCard } from "./image-card";
 import { ImageGallery } from "./image-gallery";
+import { ModelCard } from "./model-card";
 import { PdfCard } from "./pdf-card";
 import { useNow } from "./use-now";
 import { VideoCard } from "./video-player";
+import { WebPackageCard } from "./web-package-card";
 
 import type { ConversationAttachment } from "@/definition/ConversationContent";
 import type { CardOrigin } from "./card-types";
@@ -27,7 +34,8 @@ interface AttachmentCardProps {
 
 /**
  * The card of a PDF, a document or any other file: a PDF in its
- * card, Word, PowerPoint, OpenDocument and tables as readable views, every
+ * card, a checked 3D model in its viewer, a checked Godot web export in its
+ * player, Word, PowerPoint, OpenDocument and tables as readable views, every
  * other file and every document above the preview limit as a plain row.
  */
 function FileAttachmentCard({
@@ -35,6 +43,10 @@ function FileAttachmentCard({
   origin,
 }: AttachmentCardProps): React.ReactElement {
   const key = `att:${attachment.id}`;
+  if (isConversationModel(attachment))
+    return <ModelCard attachment={attachment} />;
+  if (isConversationWebPackage(attachment))
+    return <WebPackageCard attachment={attachment} />;
   const view = fileViewOf(attachment);
   if (view.kind === "binary")
     return (

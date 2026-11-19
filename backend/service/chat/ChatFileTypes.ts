@@ -1,5 +1,6 @@
 import { ChatError } from "@/backend/error/ChatErrors";
 import { detectFileType } from "@/backend/service/wiki/WikiFileTypes";
+import { CONVERSATION_MODEL_MIME_TYPE } from "@/definition/ConversationInteractiveContent";
 
 import type { ChatFileFacts } from "./ChatFileProbe";
 
@@ -188,16 +189,38 @@ function isOfficeFile(facts: ChatFileFacts, part: string): boolean {
   );
 }
 
+/** An image whose content matches its extension, otherwise `null`. */
+function detectImage(
+  extension: string,
+  facts: ChatFileFacts,
+): ChatFileType | null {
+  const image = IMAGE_TYPES.get(extension);
+  if (image === undefined) return null;
+  return detectFileType(facts.head).contentType === image
+    ? { contentType: image, isText: false }
+    : null;
+}
+
+/** A text file whose content is text, otherwise `null`. */
+function detectText(
+  extension: string,
+  facts: ChatFileFacts,
+): ChatFileType | null {
+  const text =
+    TEXT_TYPES.get(extension) ??
+    (SOURCE_EXTENSIONS.has(extension) ? "text/plain" : undefined);
+  return text !== undefined && facts.isText
+    ? { contentType: text, isText: true }
+    : null;
+}
+
 function detectType(
   extension: string,
   facts: ChatFileFacts,
   isSafeSvg: (markup: Buffer) => boolean,
 ): ChatFileType | null {
-  const image = IMAGE_TYPES.get(extension);
-  if (image !== undefined)
-    return detectFileType(facts.head).contentType === image
-      ? { contentType: image, isText: false }
-      : null;
+  const image = detectImage(extension, facts);
+  if (image !== null) return image;
   if (extension === "svg")
     return facts.markup !== null && facts.isText && isSafeSvg(facts.markup)
       ? { contentType: "image/svg+xml", isText: false }
@@ -206,17 +229,17 @@ function detectType(
     return facts.head.toString("latin1", 0, 5) === "%PDF-"
       ? { contentType: "application/pdf", isText: false }
       : null;
+  // A binary glTF model; the chat checks the whole file before its viewer shows it.
+  if (extension === "glb")
+    return facts.head.toString("latin1", 0, 4) === "glTF"
+      ? { contentType: CONVERSATION_MODEL_MIME_TYPE, isText: false }
+      : null;
   const office = OFFICE_TYPES.get(extension);
   if (office !== undefined)
     return isOfficeFile(facts, office.part)
       ? { contentType: office.contentType, isText: false }
       : null;
-  const text =
-    TEXT_TYPES.get(extension) ??
-    (SOURCE_EXTENSIONS.has(extension) ? "text/plain" : undefined);
-  return text !== undefined && facts.isText
-    ? { contentType: text, isText: true }
-    : null;
+  return detectText(extension, facts);
 }
 
 /**

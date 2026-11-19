@@ -102,7 +102,7 @@ export class ZaiQuotaProbe {
 
   /** Returns the last failed query while stored figures are being reopened. */
   public latestFailure(connectionId: string): QuotaProbeOutcome | null {
-    return this.probe.latestFailure(connectionId);
+    return this.probe.latestMissedReading(connectionId);
   }
 
   private async query(
@@ -123,7 +123,12 @@ export class ZaiQuotaProbe {
         connectionId: connection.id,
         credentialRevision: revision,
         at,
-        reading: { provider: "zai", ...result.value },
+        // The key is sent from this Pages service, so the query ran here.
+        reading: {
+          provider: "zai",
+          ...result.value,
+          executionLocation: "local",
+        },
       });
       this.logAnswer(connection.id, result.value);
       return;
