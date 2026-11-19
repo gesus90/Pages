@@ -85,15 +85,14 @@ export async function claimJob(directory, job) {
 async function launchWorker(context) {
   const { directory, job, folder, ownership, ownershipPath } = context;
   const parentNamespace = await readlink("/proc/self/ns/pid");
-  const hostTasks =
-    job.execution.program?.kind === "script" ? await accountTasks() : null;
+  const isScript = job.execution.program?.kind === "script";
+  const hostTasks = isScript ? await accountTasks() : null;
   const contextProof =
     !job.execution.agentAccount &&
     job.execution.program?.kind === "cli" &&
     job.execution.program.route.tool === "antigravity"
       ? await antigravityContextProof()
       : "[]";
-  // A YOLO job runs natively in its own scope unit; every other job keeps the namespace.
   const unit = isNativeJob(job) ? nativeUnitName(job.jobId) : null;
   const sshConfig = unit
     ? []
@@ -119,12 +118,16 @@ async function launchWorker(context) {
   const launcher = unit
     ? {
         file: NATIVE_LAUNCHER,
-        args: nativeLaunchArguments(unit, [
-          process.execPath,
-          fileURLToPath(new URL("./execution.mjs", import.meta.url)),
-          "--job",
-          folder,
-        ]),
+        args: nativeLaunchArguments(
+          unit,
+          [
+            process.execPath,
+            fileURLToPath(new URL("./execution.mjs", import.meta.url)),
+            "--job",
+            folder,
+          ],
+          { isScript },
+        ),
       }
     : (() => {
         const namespace = namespaceArguments(launchContext);

@@ -110,6 +110,10 @@ export function scriptLimits(timeoutSeconds, accountTaskCount) {
 export function spawnScript(command, folder, jobId) {
   const accountTaskCount = hostTaskCount();
   const runtime = join(folder, "runtime");
+  const temporary =
+    process.env.PAGES_RUNNER_JOB_BOUNDARY === "worker_unit"
+      ? process.env.PAGES_RUNNER_TEMPORARY
+      : undefined;
   const interpreter = command.program.interpreter;
   const isNode = interpreter.id === "node";
   return spawn(
@@ -125,7 +129,17 @@ export function spawnScript(command, folder, jobId) {
       cwd: command.workspace,
       detached: true,
       stdio: ["pipe", "pipe", "pipe"],
-      env: scriptEnvironment(runtime, jobId),
+      env: {
+        ...scriptEnvironment(runtime, jobId),
+        ...(temporary
+          ? {
+              TMPDIR: temporary,
+              TEMP: temporary,
+              TMP: temporary,
+              NODE_COMPILE_CACHE: join(temporary, "node-compile-cache"),
+            }
+          : {}),
+      },
     },
   );
 }

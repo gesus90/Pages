@@ -446,7 +446,7 @@ export function createLiveHistory(command, redact, emit) {
     emit,
     isManaged: Boolean(command.managed),
     progressVersion: command.progressVersion,
-    tool: command.program.route.tool,
+    tool: command.program.route?.tool,
     usageMessages: new Map(),
     claudeSession: createClaudeSessionReader(),
     codexSession: codexSessionReader(command),

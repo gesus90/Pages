@@ -16,11 +16,15 @@ const CONTROL_GROUP_ROOT = "/sys/fs/cgroup";
  * YOLO means a native process of the runner account: no bubblewrap, no
  * namespace and no private mounts. Its scope unit of the user's service
  * manager owns every process it starts, so pausing, stopping and the proof of
- * its end work without a namespace. Every other job keeps its namespace.
+ * its end work without a namespace. The local runner uses the same
+ * boundary for plan scripts.
  */
 export function isNativeJob(job) {
   const program = job?.execution?.program;
-  return program?.kind === "cli" && program.access === "yolo";
+  return (
+    (program?.kind === "cli" && program.access === "yolo") ||
+    (program?.kind === "script" && process.env.PAGES_RUNNER_LOCAL === "1")
+  );
 }
 
 /** The scope unit of one native job; the job identifier is a UUID, so the name is always valid. */
@@ -84,7 +88,7 @@ export async function canOwnNativeJobs() {
  * and the unit's control group holds every child, grandchild and stdio MCP
  * server of the job.
  */
-export function nativeLaunchArguments(unit, command) {
+export function nativeLaunchArguments(unit, command, options = {}) {
   if (!isNativeUnitName(unit)) throw new Error("Invalid native job unit");
   return [
     "--user",
@@ -93,6 +97,14 @@ export function nativeLaunchArguments(unit, command) {
     "--collect",
     `--unit=${unit}`,
     "--property=KillMode=control-group",
+    ...(options.isScript
+      ? [
+          "--property=MemoryMax=8G",
+          "--property=MemorySwapMax=0",
+          "--property=TasksMax=512",
+          "--property=CPUQuota=200%",
+        ]
+      : []),
     "--",
     ...command,
   ];
