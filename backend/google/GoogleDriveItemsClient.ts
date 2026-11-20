@@ -244,28 +244,33 @@ function toDrivePage(body: unknown): StorageEntryPage | null {
 function toQuota(body: unknown): StorageQuotaReading | null {
   const quota = isRecord(body) ? body["storageQuota"] : null;
 
-  if (!isRecord(quota) || readSize({ size: quota["usage"] }) === null) {
+  if (!isRecord(quota)) {
+    return null;
+  }
+
+  const usageBytes = readSize({ size: quota["usage"] });
+
+  if (usageBytes === null) {
     return null;
   }
 
   return {
     limitBytes: readSize({ size: quota["limit"] }),
-    usageBytes: readSize({ size: quota["usage"] }) ?? 0,
+    usageBytes,
     usageInDriveBytes: readSize({ size: quota["usageInDrive"] }),
     usageInTrashBytes: readSize({ size: quota["usageInDriveTrash"] }),
   };
 }
 
-function multipartBody(
-  upload: Omit<DriveUpload, "parentId"> & {
-    readonly parents: readonly string[];
-  },
-): { readonly body: Uint8Array<ArrayBuffer>; readonly contentType: string } {
+function multipartBody(upload: DriveUpload): {
+  readonly body: Uint8Array<ArrayBuffer>;
+  readonly contentType: string;
+} {
   const boundary = `pages-${randomBytes(12).toString("hex")}`;
   const metadata = JSON.stringify({
     mimeType: upload.mimeType,
     name: upload.name,
-    ...(upload.parents.length > 0 ? { parents: upload.parents } : {}),
+    parents: [upload.parentId],
   });
   const head = Buffer.from(
     `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${metadata}\r\n` +
@@ -477,7 +482,7 @@ export class GoogleDriveItemsClient {
     upload: DriveUpload,
   ): Promise<DriveItemResult<StorageEntry>> {
     const url = new URL(`${UPLOAD_API}/files`);
-    const multipart = multipartBody({ ...upload, parents: [upload.parentId] });
+    const multipart = multipartBody(upload);
 
     url.searchParams.set("uploadType", "multipart");
     this.addEntryParameters(url);
@@ -648,7 +653,8 @@ export class GoogleDriveItemsClient {
       return requestFailure(response.status, await readJson(response));
     }
 
-    const length = Number(response.headers.get("Content-Length") ?? "");
+    const lengthHeader = response.headers.get("Content-Length");
+    const length = lengthHeader ? Number(lengthHeader) : Number.NaN;
 
     return {
       ok: true,

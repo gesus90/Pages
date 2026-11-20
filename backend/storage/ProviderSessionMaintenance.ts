@@ -51,41 +51,37 @@ async function physicalStorageFile(
   root: string,
   relative: string,
 ): Promise<string | null> {
-  const segments = relative.split("/");
-  const fileName = segments.pop();
-  if (!fileName) return null;
-  const parent =
-    segments.length > 0
-      ? await physicalStorageDirectory(root, segments.join("/"))
-      : await physicalStorageDirectory(root, "");
+  const parent = await physicalStorageDirectory(
+    root,
+    path.posix.dirname(relative),
+  );
   if (!parent) return null;
-  const location = path.join(parent, fileName);
+  const location = path.join(parent, path.posix.basename(relative));
   const metadata = await storageMetadata(location);
   return metadata?.isFile() && !metadata.isSymbolicLink() ? location : null;
 }
 
-function isSqliteBusyError(error: unknown): boolean {
-  if (typeof error !== "object" || error === null) return false;
-  if (
+function hasBusyCode(error: Error): boolean {
+  return (
     "errcode" in error &&
     typeof error.errcode === "number" &&
     SQLITE_BUSY_ERRCODES.has(error.errcode & 0xff)
-  )
-    return true;
-  if (error instanceof Error)
-    return /database is (?:locked|busy)/iu.test(error.message);
-  return false;
+  );
+}
+
+function isSqliteBusyError(error: unknown): boolean {
+  return (
+    error instanceof Error &&
+    (hasBusyCode(error) || /database is (?:locked|busy)/iu.test(error.message))
+  );
 }
 
 function listTables(database: DatabaseSync): ReadonlySet<string> {
   const rows = database
     .prepare("SELECT name FROM sqlite_master WHERE type = 'table';")
     .all();
-  const names = new Set<string>();
-  for (const row of rows) {
-    if (typeof row.name === "string") names.add(row.name);
-  }
-  return names;
+
+  return new Set(rows.map((row) => String(row.name)));
 }
 
 function tableColumns(
@@ -93,18 +89,14 @@ function tableColumns(
   table: string,
 ): ReadonlySet<string> {
   const rows = database.prepare(`PRAGMA table_info(${table});`).all();
-  const names = new Set<string>();
-  for (const row of rows) {
-    if (typeof row.name === "string") names.add(row.name);
-  }
-  return names;
+
+  return new Set(rows.map((row) => String(row.name)));
 }
 
-function readFreelistCount(database: DatabaseSync): number {
+function hasFreelistPages(database: DatabaseSync): boolean {
   const row = database.prepare("PRAGMA freelist_count;").get();
-  if (!row) return 0;
-  const value = row.freelist_count;
-  return typeof value === "number" ? value : Number(value ?? 0);
+
+  return Number(row?.freelist_count) > 0;
 }
 
 function timestampMsExpression(column: string): string {
@@ -413,8 +405,7 @@ function runExclusiveSqliteMaintenance(
     const deleted = prune(database);
     database.exec("COMMIT;");
     inTransaction = false;
-    if (deleted > 0 || readFreelistCount(database) > 0)
-      database.exec("VACUUM;");
+    if (deleted > 0 || hasFreelistPages(database)) database.exec("VACUUM;");
     return true;
   } catch (error: unknown) {
     if (inTransaction) {

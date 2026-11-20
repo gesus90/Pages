@@ -60,10 +60,9 @@ export async function readStoredAgentPayload(
   let parsed: unknown;
   try {
     parsed = JSON.parse(text);
-  } catch (error: unknown) {
+  } catch {
     // Legacy parsers retain their existing damaged-record diagnosis.
-    if (error instanceof SyntaxError) return text;
-    throw error;
+    return text;
   }
   if (
     typeof parsed === "object" &&
@@ -235,9 +234,8 @@ export class AgentPayloadFileStore {
     let parsed: unknown;
     try {
       parsed = JSON.parse(serialized);
-    } catch (error: unknown) {
-      if (error instanceof SyntaxError) return;
-      throw error;
+    } catch {
+      return;
     }
     const reference = referenceSchema.safeParse(parsed);
     if (reference.success) await this.remove(reference.data.path);

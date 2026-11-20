@@ -67,11 +67,12 @@ function readOffset(url: URL): number | null {
     return 0;
   }
 
-  const offset = Number(token.slice(PAGE_TOKEN_PREFIX.length));
+  if (!token.startsWith(PAGE_TOKEN_PREFIX)) return null;
+  const digits = token.slice(PAGE_TOKEN_PREFIX.length);
+  if (!/^\d+$/u.test(digits)) return null;
+  const offset = Number(digits);
 
-  return token.startsWith(PAGE_TOKEN_PREFIX) && Number.isInteger(offset)
-    ? offset
-    : null;
+  return Number.isSafeInteger(offset) ? offset : null;
 }
 
 function page<Entry>(
@@ -571,14 +572,19 @@ export class GoogleDriveSimulation {
       return null;
     }
 
-    const target = addParents[0] ?? null;
+    const target = addParents[0];
+
+    if (target === undefined) {
+      return this.parentProblem(null);
+    }
+
     const problem = this.parentProblem(target);
 
     if (problem) {
       return problem;
     }
 
-    const parent = target === null ? null : this.store.find(target);
+    const parent = this.store.find(target);
 
     if (
       addParents.length !== 1 ||

@@ -113,7 +113,8 @@ export class SshChildProcess {
       child.once("error", (error: Error) => {
         logCaughtError("SshProcess", error);
         isUnavailable = child.pid === undefined;
-        if (isUnavailable)
+        if (isUnavailable) {
+          if (timer) clearTimeout(timer);
           resolve({
             exitCode: null,
             stdout,
@@ -121,6 +122,7 @@ export class SshChildProcess {
             isTimedOut: false,
             isUnavailable,
           });
+        }
       });
       child.once("close", (exitCode: number | null) => {
         if (timer) clearTimeout(timer);

@@ -62,10 +62,9 @@ function journalPayload(text: string): string | null {
   let record: unknown;
   try {
     record = JSON.parse(text);
-  } catch (error: unknown) {
+  } catch {
     // A torn record names no file that was ever acknowledged.
-    if (error instanceof SyntaxError) return null;
-    throw error;
+    return null;
   }
   return typeof record === "object" &&
     record !== null &&
@@ -223,7 +222,7 @@ export class AgentDeferredGarbage {
       return "done";
     }
     // An entry of a newer Pages version stays for the version that knows it.
-    return "done";
+    return "deferred";
   }
 
   private async purgeRuns(

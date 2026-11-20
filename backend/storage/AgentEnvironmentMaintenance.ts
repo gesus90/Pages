@@ -63,8 +63,7 @@ async function removeCachePath(
   segments: readonly string[],
 ): Promise<void> {
   let current = home;
-  for (let index = 0; index < segments.length - 1; index += 1) {
-    const name = segments[index];
+  for (const name of segments.slice(0, -1)) {
     const children = await entries(current);
     if (
       !children.some(
@@ -75,8 +74,7 @@ async function removeCachePath(
       return;
     current = path.join(current, name);
   }
-  const targetName = segments.at(-1);
-  if (!targetName) return;
+  const targetName = path.basename(path.join(...segments));
   const children = await entries(current);
   const match = children.find((entry) => entry.name === targetName);
   if (!match || match.isSymbolicLink()) return;

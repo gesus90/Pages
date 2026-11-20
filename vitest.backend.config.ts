@@ -11,6 +11,8 @@ export const FIRST_SECTION_COVERAGE_GLOB =
   "backend/{discord,cache,concurrency}/**/*.{ts,tsx,mts,cts,js,mjs,cjs}";
 export const SECOND_SECTION_COVERAGE_GLOB =
   "backend/{github,security,setup}/**/*.{ts,tsx,mts,cts,js,mjs,cjs}";
+export const THIRD_SECTION_COVERAGE_GLOB =
+  "backend/{storage,google,config,remote}/**/*.{ts,tsx,mts,cts,js,mjs,cjs}";
 
 // These are required minimums, not claims about measured coverage.
 export const BACKEND_COVERAGE_SECTIONS = [
@@ -22,6 +24,11 @@ export const BACKEND_COVERAGE_SECTIONS = [
   {
     name: "second-section",
     include: SECOND_SECTION_COVERAGE_GLOB,
+    minimum: 100,
+  },
+  {
+    name: "third-section",
+    include: THIRD_SECTION_COVERAGE_GLOB,
     minimum: 100,
   },
 ] as const;

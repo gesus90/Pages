@@ -36,13 +36,20 @@ it("inventories only configured sections and distinguishes complete, partial and
   expect(
     emptyEntries.find((entry) => entry.file.endsWith("SetupService.ts"))
       ?.status,
-  ).toBe("covered");
+  ).toBe("missing");
   expect(
     entries.filter((entry) => entry.section === "first-section"),
   ).toHaveLength(7);
   expect(
     entries.filter((entry) => entry.section === "second-section"),
   ).toHaveLength(19);
+  expect(
+    entries.some((entry) => entry.file === "backend/storage/StreamDigest.ts"),
+  ).toBe(true);
+  expect(
+    entries.find((entry) => entry.file === "backend/storage/StreamDigest.ts")
+      ?.status,
+  ).toBe("missing");
   expect(
     entries.find((entry) => entry.file.endsWith("ServerCache.ts"))?.status,
   ).toBe("covered");

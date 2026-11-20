@@ -83,14 +83,17 @@ function moduleStatus(
   file: string,
   metrics: ModuleCoverage | undefined,
 ): BackendCoverageEntry["status"] {
+  if (isTypeOnlyModule(file)) return "not-applicable";
   if (metrics) {
+    if (METRIC_NAMES.every((name) => metrics[name].total === 0))
+      return "missing";
     return METRIC_NAMES.every(
       (name) => metrics[name].covered === metrics[name].total,
     )
       ? "covered"
       : "open";
   }
-  return isTypeOnlyModule(file) ? "not-applicable" : "missing";
+  return "missing";
 }
 
 /** Lists the full measurement scope without loading any application module. */
@@ -171,6 +174,8 @@ export function writeBackendCoverageInventory(root: string): void {
       `[backend coverage] ${section}: ${selected.length} modules, ${selected.filter((entry) => entry.status === "open").length} open; coverage/backend/${section}.tsv`,
     );
   }
+  const table = formatBackendCoverageTable(entries);
+  writeFileSync(path.join(directory, "adopted-backend.tsv"), table);
   const missing = entries.filter((entry) => entry.status === "missing");
   if (missing.length > 0) {
     throw new Error(
@@ -183,8 +188,6 @@ export function writeBackendCoverageInventory(root: string): void {
       `Required modules below complete coverage: ${incomplete.map((entry) => entry.file).join(", ")}`,
     );
   }
-  const table = formatBackendCoverageTable(entries);
-  writeFileSync(path.join(directory, "adopted-backend.tsv"), table);
   console.info("[backend coverage] Adopted modules (per-file thresholds)");
   console.info(table);
 }

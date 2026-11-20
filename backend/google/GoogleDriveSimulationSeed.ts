@@ -55,7 +55,7 @@ interface SeedEntry {
   readonly id: string;
   readonly name: string;
   readonly parent: string | null;
-  readonly mimeType?: string;
+  readonly mimeType: string;
   readonly text?: string;
   readonly bytes?: Buffer;
   readonly virtualSize?: number;
@@ -98,7 +98,7 @@ function toFile(entry: SeedEntry): SimulatedFile {
     driveId: entry.driveId ?? null,
     id: entry.id,
     isExplicitlyTrashed: entry.isTrashed ?? false,
-    mimeType: entry.mimeType ?? "application/octet-stream",
+    mimeType: entry.mimeType,
     modifiedTime: SEED_TIME,
     name: entry.name,
     parents: entry.parent === null ? [] : [entry.parent],

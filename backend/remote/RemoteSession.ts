@@ -315,7 +315,6 @@ export class RemoteSession {
   }
 
   private async attempt(generation: number): Promise<void> {
-    if (generation !== this.generation) return;
     this.retryTimer = null;
     this.nextAttemptAt = null;
     const opened = await this.open();
@@ -348,7 +347,7 @@ export class RemoteSession {
     this.clearIdleTimer();
     if (this.activeCommands > 0 || this.master === null) return;
     this.idleTimer = setTimeout(() => {
-      if (this.activeCommands === 0) void this.close();
+      void this.close();
     }, this.dependencies.idleMilliseconds ?? DEFAULT_IDLE_MILLISECONDS);
     this.idleTimer.unref();
   }
