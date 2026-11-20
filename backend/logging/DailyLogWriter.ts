@@ -46,7 +46,7 @@ export class DailyLogWriter {
     if (this.directory !== null) return;
     this.directory = directory;
     try {
-      await this.acquire();
+      await this.acquire(directory);
     } catch (error: unknown) {
       this.failed(error);
     }
@@ -156,11 +156,10 @@ export class DailyLogWriter {
     });
   }
 
-  private async acquire(): Promise<void> {
-    if (this.directory === null) return;
+  private async acquire(directory: string): Promise<void> {
     if (this.ownership.isHeld()) return;
-    await prepareLogDirectory(this.directory);
-    const recovery = await this.ownership.acquire(this.directory);
+    await prepareLogDirectory(directory);
+    const recovery = await this.ownership.acquire(directory);
     this.isReady = true;
     if (recovery !== "none") {
       const captured = new Date();
@@ -172,8 +171,9 @@ export class DailyLogWriter {
   }
 
   private drain(): void {
+    const directory = this.directory;
     if (
-      this.directory === null ||
+      directory === null ||
       this.pending.length === 0 ||
       this.draining !== null ||
       this.retry !== null ||
@@ -181,27 +181,27 @@ export class DailyLogWriter {
     )
       return;
     this.draining = this.storage
-      .run(() => this.writePending())
+      .run(() => this.writePending(directory))
       .finally(() => {
         this.draining = null;
         if (this.pending.length > 0 && this.retry === null) this.drain();
       });
   }
 
-  private async writePending(): Promise<void> {
+  private async writePending(directory: string): Promise<void> {
     try {
-      await this.acquire();
-      while (this.pending.length > 0) {
-        const entry = this.pending[0];
-        if (!entry || this.directory === null) break;
+      await this.acquire(directory);
+      let entry = this.pending[0];
+      while (entry !== undefined) {
         if (entry.date !== this.openDate || this.handle === null) {
           await this.closeFile();
-          this.handle = await openDailyLog(this.directory, entry.date);
+          this.handle = await openDailyLog(directory, entry.date);
           this.openDate = entry.date;
         }
         await this.writeLine(entry.line);
         this.pending.shift();
         this.queuedBytes -= entry.bytes;
+        entry = this.pending[0];
       }
       await this.handle?.datasync();
       if (this.failureCode !== null)

@@ -24,8 +24,11 @@ function completeDelivery(delivery: AuthorizationDelivery): void {
   versions.delete(userId);
   versions.set(userId, version);
   if (versions.size > MAXIMUM_ACCOUNTS) {
-    const oldest = versions.keys().next().value;
-    if (oldest !== undefined) versions.delete(oldest);
+    // A non-empty map always yields its oldest insertion key first.
+    for (const oldestUserId of versions.keys()) {
+      versions.delete(oldestUserId);
+      break;
+    }
   }
   if (previous === undefined || previous === version) return;
   logEvent({

@@ -148,7 +148,7 @@ export class LogWriterLock {
           ? "none"
           : await readRecovery(handle);
       this.handle = handle;
-      await this.writeIdentity(false);
+      await this.writeIdentity(handle, false);
       return recovery;
     } catch (error: unknown) {
       this.handle = null;
@@ -162,15 +162,17 @@ export class LogWriterLock {
     const handle = this.handle;
     if (handle === null) return;
     try {
-      await this.writeIdentity(true);
+      await this.writeIdentity(handle, true);
     } finally {
       this.handle = null;
       await handle.close();
     }
   }
 
-  private async writeIdentity(released: boolean): Promise<void> {
-    if (this.handle === null) return;
+  private async writeIdentity(
+    handle: FileHandle,
+    released: boolean,
+  ): Promise<void> {
     const identity = Buffer.from(
       JSON.stringify({
         schemaVersion: 2,
@@ -182,7 +184,7 @@ export class LogWriterLock {
     );
     let offset = 0;
     while (offset < identity.length) {
-      const { bytesWritten } = await this.handle.write(
+      const { bytesWritten } = await handle.write(
         identity,
         offset,
         identity.length - offset,
@@ -191,7 +193,7 @@ export class LogWriterLock {
       if (bytesWritten === 0) throw new LogLockError("LOG_LOCK_WRITE_FAILED");
       offset += bytesWritten;
     }
-    await this.handle.truncate(identity.length);
-    await this.handle.datasync();
+    await handle.truncate(identity.length);
+    await handle.datasync();
   }
 }
