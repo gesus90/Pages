@@ -52,7 +52,7 @@ jobs:
               echo "No validated adopted-module coverage table was written; check the test step outcome."
             fi
             echo ""
-            echo "Full backend measurements and separate inventories, when generated, are retained in the coverage artifact."
+            echo "Configured section measurements and inventories, when generated, are retained in the coverage artifact."
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload backend coverage reports

@@ -1,4 +1,5 @@
 import { AgentOperationError } from "@/backend/error/AgentOperationError";
+import { logCaughtError } from "@/backend/logging/Logger";
 
 import { SwarmCallError } from "./SwarmRegistry";
 
@@ -108,15 +109,19 @@ export class AgentPlanSwarmService {
   }
 
   private async call(call: SwarmCall): Promise<unknown> {
+    const isLocal = this.dependencies.local.has(call.runId, call.stepId);
     try {
-      if (this.dependencies.local.has(call.runId, call.stepId))
-        return await this.dependencies.local.handle(call);
+      if (isLocal) return await this.dependencies.local.handle(call);
       if (!this.dependencies.forward) throw new SwarmCallError("FORBIDDEN");
       return await this.dependencies.forward(call);
     } catch (error: unknown) {
       if (error instanceof SwarmCallError)
         throw new AgentOperationError(error.code);
-      throw error;
+      if (isLocal) throw error;
+      logCaughtError("AgentPlanSwarmService", error);
+      throw new AgentOperationError("CONFLICT", {
+        reason: "plan_run_unavailable",
+      });
     }
   }
 }

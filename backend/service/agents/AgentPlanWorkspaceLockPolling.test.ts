@@ -2,6 +2,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { createInstance } from "i18next";
 import { I18nextProvider } from "react-i18next";
+import { MemoryRouter } from "react-router";
 import { expect, it } from "vitest";
 
 import { readPlanPollingResponse } from "@/app/lib/agent-plan-poll";
@@ -72,9 +73,13 @@ it("keeps an older run's reservation through polling and renders its Release but
     createElement(
       I18nextProvider,
       { i18n },
-      createElement(PlanWorkspaceLocks, {
-        entries: control.workspaceLocks ?? [],
-      }),
+      createElement(
+        MemoryRouter,
+        null,
+        createElement(PlanWorkspaceLocks, {
+          entries: control.workspaceLocks ?? [],
+        }),
+      ),
     ),
   );
   expect(html).toContain("older-run");

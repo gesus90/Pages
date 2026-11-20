@@ -130,7 +130,15 @@ export class SwarmMainLoop {
       }
       if (this.context.signal.aborted) throw new AgentPlanCancelledError();
       if (outcome.turn.failure !== null)
-        return { status: "failed", error: "swarm_main_lost", output: null };
+        return {
+          status: "failed",
+          error:
+            outcome.turn.errorCode ??
+            (outcome.turn.failure === "timeout"
+              ? "swarm_timeout"
+              : "swarm_main_lost"),
+          output: null,
+        };
       if (reminder >= SWARM_MAIN_REMINDERS)
         return {
           status: "failed",

@@ -100,7 +100,7 @@ async function writeAdministrator(
 
 /** Initializes an empty PostgreSQL schema and the first administrator atomically. */
 export async function initializeSetupDatabase(
-  database: Database,
+  database: Pick<Database, "transaction">,
   migrations: readonly Migration[],
   record: SetupRecord,
   sessionToken: string,
@@ -126,7 +126,7 @@ export async function initializeSetupDatabase(
 
 /** Verifies that this database committed the private setup attempt. */
 export async function hasCommittedSetup(
-  database: Database,
+  database: Pick<Database, "query">,
   sessionToken: string,
 ): Promise<boolean> {
   const tables = await database.query("SELECT to_regclass('public.sessions');");
@@ -142,7 +142,7 @@ export async function hasCommittedSetup(
 
 /** Renews only the session belonging to a verified recovery intent. */
 export async function renewSetupSession(
-  database: Database,
+  database: Pick<Database, "execute">,
   sessionToken: string,
 ): Promise<void> {
   await database.execute(

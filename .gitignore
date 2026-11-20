@@ -2,6 +2,7 @@ node_modules/
 dist/
 build/
 coverage/
+/test_result/
 # Cargo output of pages-core.
 core/target/
 .react-router/

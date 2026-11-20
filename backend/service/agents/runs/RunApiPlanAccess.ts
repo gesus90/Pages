@@ -9,6 +9,7 @@ import { pagesPlanBridgeOpenedSchema } from "@/definition/PagesRunsRunner";
 import { callRunApi } from "./RunsSocket";
 
 import type { CliSessionMcp } from "@/backend/agents/cli/CliSessionPlans";
+import type { PagesRunnerRequest } from "@/definition/PagesRunsRunner";
 import type {
   AgentPlanMcpSettings,
   AgentPlanSessionGrant,
@@ -102,7 +103,9 @@ export class RunApiPlanAccess implements AgentPlanSessionGrants {
     return 0;
   }
 
-  private request(grant: AgentPlanSessionGrant): Record<string, unknown> {
+  private request(
+    grant: AgentPlanSessionGrant,
+  ): Extract<PagesRunnerRequest, { operation: "openPlanBridge" }> {
     return {
       version: 1,
       operation: "openPlanBridge",
@@ -113,6 +116,8 @@ export class RunApiPlanAccess implements AgentPlanSessionGrants {
       tickets: grant.tickets.map(({ id, key }) => ({ id, key })),
       lifetimeMs: grant.lifetimeMs,
       reach: grant.reach,
+      swarm: grant.swarm,
+      swarmMemory: grant.swarmMemory,
       ...(grant.canSetStatus === undefined
         ? {}
         : { canSetStatus: grant.canSetStatus }),

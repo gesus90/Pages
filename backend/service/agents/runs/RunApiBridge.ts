@@ -154,6 +154,8 @@ export class RunApiBridge {
       tickets: request.tickets,
       lifetimeMs: request.lifetimeMs,
       reach: request.reach,
+      swarm: request.swarm,
+      swarmMemory: request.swarmMemory,
       ...(request.canSetStatus === undefined
         ? {}
         : { canSetStatus: request.canSetStatus }),

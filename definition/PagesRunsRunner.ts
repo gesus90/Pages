@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { AGENT_SWARM_ROLES } from "./AgentPlanSwarmOperations";
 import { AGENT_RUN_REACHES } from "./McpAuthorization";
 import { runnerExecutionSchema } from "./RunnerExecution";
 import { runnerPlanBindingSchema } from "./RunnerProtocol";
@@ -63,6 +64,8 @@ export const pagesRunnerRequestSchema = z.discriminatedUnion("operation", [
       lifetimeMs: z.number().int().min(0),
       reach: z.enum(AGENT_RUN_REACHES),
       canSetStatus: z.boolean().optional(),
+      swarm: z.enum(AGENT_SWARM_ROLES).optional(),
+      swarmMemory: z.boolean().optional(),
     })
     .strict(),
   z

@@ -1,8 +1,9 @@
 import { randomUUID } from "node:crypto";
 
-import { AcpAdmissionTimeoutError } from "@/backend/service/agents/resources/AcpAdmissionRequest";
 import { AgentError } from "@/backend/error/AgentErrors";
+import { AgentExecutionError } from "@/backend/error/AgentExecutionErrors";
 import { logCaughtError } from "@/backend/logging/Logger";
+import { AcpAdmissionTimeoutError } from "@/backend/service/agents/resources/AcpAdmissionRequest";
 import {
   effectiveAgentAccess,
   storedAgentAccessMode,
@@ -143,7 +144,8 @@ function configurationOf(
 function startReason(error: unknown): string {
   if (error instanceof SwarmStartError) return error.reason;
   if (error instanceof AcpAdmissionTimeoutError) return "acp_capacity";
-  if (error instanceof AgentError) return error.code;
+  if (error instanceof AgentError || error instanceof AgentExecutionError)
+    return error.code;
   return "swarm_worker_start_failed";
 }
 

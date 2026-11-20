@@ -27,7 +27,7 @@ interface SyncRoundResult {
  * busy database serves them only with a small share of its queue.
  */
 export class GitHubSyncScheduler {
-  private readonly syncService: GitHubSyncService;
+  private readonly syncService: Pick<GitHubSyncService, "runScheduledSyncs">;
   private readonly intervalMs: number;
   private timer: NodeJS.Timeout | null = null;
   private round: Promise<SyncRoundResult> | null = null;
@@ -39,7 +39,10 @@ export class GitHubSyncScheduler {
    * @param syncService - Service executing the due project runs.
    * @param intervalMs - Polling interval in milliseconds.
    */
-  public constructor(syncService: GitHubSyncService, intervalMs = 60_000) {
+  public constructor(
+    syncService: Pick<GitHubSyncService, "runScheduledSyncs">,
+    intervalMs = 60_000,
+  ) {
     this.syncService = syncService;
     this.intervalMs = intervalMs;
   }

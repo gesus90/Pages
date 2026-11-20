@@ -88,9 +88,7 @@ not measured coverage results.
 
 ## Remaining backend areas
 
-All areas below are open and outside both mandatory sections. They remain
-listed in `remaining-backend.tsv` with measurements if a suite exists, but
-they have no percentage gate yet.
+All areas below are open and outside both mandatory sections. They are outside the normal backend test and coverage scope and have no percentage gate yet.
 
 | Remaining area | Modules | Type-only modules | Behavior status |
 | -------------- | ------- | ----------------- | --------------- |

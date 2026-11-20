@@ -2,7 +2,6 @@ import { fileURLToPath } from "node:url";
 
 import { defineConfig } from "vitest/config";
 
-export const BACKEND_SOURCE_GLOB = "backend/**/*.{ts,tsx,mts,cts,js,mjs,cjs}";
 export const BACKEND_TEST_GLOB = "backend/**/*.{test,spec}.ts";
 export const BACKEND_COVERAGE_EXCLUDES = [
   "backend/**/*.d.{ts,mts,cts}",
@@ -51,7 +50,12 @@ export default defineConfig({
   test: {
     name: "backend",
     environment: "node",
-    include: [BACKEND_TEST_GLOB],
+    include: BACKEND_COVERAGE_SECTIONS.map((section) =>
+      section.include.replace(
+        "*.{ts,tsx,mts,cts,js,mjs,cjs}",
+        "*.{test,spec}.ts",
+      ),
+    ),
     pool: "forks",
     maxWorkers: 2,
     isolate: true,
@@ -63,7 +67,7 @@ export default defineConfig({
     unstubGlobals: true,
     coverage: {
       provider: "v8",
-      include: [BACKEND_SOURCE_GLOB],
+      include: BACKEND_COVERAGE_SECTIONS.map((section) => section.include),
       exclude: BACKEND_COVERAGE_EXCLUDES,
       reportsDirectory: "coverage/backend",
       reporter: ["json", "json-summary"],

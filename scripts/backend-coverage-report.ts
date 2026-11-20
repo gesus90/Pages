@@ -8,11 +8,10 @@ import { z } from "zod";
 import {
   BACKEND_COVERAGE_EXCLUDES,
   BACKEND_COVERAGE_SECTIONS,
-  BACKEND_SOURCE_GLOB,
 } from "../vitest.backend.config";
 
 type BackendCoverageSection =
-  (typeof BACKEND_COVERAGE_SECTIONS)[number]["name"] | "remaining-backend";
+  (typeof BACKEND_COVERAGE_SECTIONS)[number]["name"];
 
 const METRIC_NAMES = ["statements", "branches", "functions", "lines"] as const;
 const metricSchema = z.object({
@@ -73,18 +72,18 @@ function isTypeOnlyModule(file: string): boolean {
 }
 
 function sectionForFile(file: string): BackendCoverageEntry["section"] {
-  return (
-    BACKEND_COVERAGE_SECTIONS.find((section) =>
-      path.matchesGlob(file, section.include),
-    )?.name ?? "remaining-backend"
+  const section = BACKEND_COVERAGE_SECTIONS.find((entry) =>
+    path.matchesGlob(file, entry.include),
   );
+  if (!section) throw new Error(`Source outside coverage scope: ${file}`);
+  return section.name;
 }
 
 function moduleStatus(
   file: string,
   metrics: ModuleCoverage | undefined,
 ): BackendCoverageEntry["status"] {
-  if (metrics && METRIC_NAMES.some((name) => metrics[name].total > 0)) {
+  if (metrics) {
     return METRIC_NAMES.every(
       (name) => metrics[name].covered === metrics[name].total,
     )
@@ -96,10 +95,13 @@ function moduleStatus(
 
 /** Lists the full measurement scope without loading any application module. */
 export function collectBackendCoverageSources(root: string): string[] {
-  return globSync(BACKEND_SOURCE_GLOB, {
-    cwd: root,
-    exclude: BACKEND_COVERAGE_EXCLUDES,
-  })
+  return globSync(
+    BACKEND_COVERAGE_SECTIONS.map((section) => section.include),
+    {
+      cwd: root,
+      exclude: BACKEND_COVERAGE_EXCLUDES,
+    },
+  )
     .map((file) => file.split(path.sep).join("/"))
     .sort();
 }
@@ -158,7 +160,6 @@ export function writeBackendCoverageInventory(root: string): void {
   );
   const sections: readonly BackendCoverageSection[] = [
     ...BACKEND_COVERAGE_SECTIONS.map((section) => section.name),
-    "remaining-backend",
   ];
   for (const section of sections) {
     const selected = entries.filter((entry) => entry.section === section);
@@ -176,18 +177,13 @@ export function writeBackendCoverageInventory(root: string): void {
       `Executable modules missing coverage measurements: ${missing.map((entry) => entry.file).join(", ")}`,
     );
   }
-  const incomplete = entries.filter(
-    (entry) => entry.section !== "remaining-backend" && entry.status === "open",
-  );
+  const incomplete = entries.filter((entry) => entry.status === "open");
   if (incomplete.length > 0) {
     throw new Error(
       `Required modules below complete coverage: ${incomplete.map((entry) => entry.file).join(", ")}`,
     );
   }
-  const adopted = entries.filter(
-    (entry) => entry.section !== "remaining-backend",
-  );
-  const table = formatBackendCoverageTable(adopted);
+  const table = formatBackendCoverageTable(entries);
   writeFileSync(path.join(directory, "adopted-backend.tsv"), table);
   console.info("[backend coverage] Adopted modules (per-file thresholds)");
   console.info(table);

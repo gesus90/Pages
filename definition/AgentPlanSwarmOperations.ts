@@ -56,8 +56,11 @@ export function isAgentSwarmMemoryOperation(
   return operation.startsWith("run.swarm.memory.");
 }
 
+/** The roles a swarm session credential can carry. */
+export const AGENT_SWARM_ROLES = ["main", "worker"] as const;
+
 /** Which side of a swarm a session credential serves. */
-export type AgentSwarmRole = "main" | "worker";
+export type AgentSwarmRole = (typeof AGENT_SWARM_ROLES)[number];
 
 /** The MCP tools of each side without the shared memory, by name. */
 export const AGENT_SWARM_TOOLS: Readonly<
