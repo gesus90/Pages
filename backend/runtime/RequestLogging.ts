@@ -80,10 +80,11 @@ export function logRequest(
     readCorrelationId(request.headers[CORRELATION_HEADER.toLowerCase()]) ??
     requestId;
   response.setHeader(CORRELATION_HEADER, correlationId);
+  const requestMethod = request.method ?? "";
   const method = /^(?:GET|HEAD|POST|PUT|PATCH|DELETE|OPTIONS)$/u.test(
-    request.method ?? "",
+    requestMethod,
   )
-    ? (request.method ?? "OTHER")
+    ? requestMethod
     : "OTHER";
   const url = request.url ?? "/";
   const isPolling = isPollingRequest(url, method);

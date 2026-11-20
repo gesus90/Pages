@@ -182,7 +182,6 @@ function attach(
     void queue.run(async () => {
       try {
         if (!isCurrent()) throw new Error("Runner channel superseded");
-        if (isBinary) throw new Error("Runner text messages required");
         if (
           hasReconciled &&
           (await receiveAuxiliary(auth.connectionId, input, services, (reply) =>

@@ -119,7 +119,7 @@ export function forwardedClientAddress(
   isTrustedPeer: (address: string | undefined) => boolean,
 ): string {
   if (forwardedFor === null || !isTrustedPeer(peer)) return peer;
-  const nearest = forwardedFor.split(",").at(-1)?.trim() ?? "";
+  const nearest = forwardedFor.slice(forwardedFor.lastIndexOf(",") + 1).trim();
   return isIP(nearest) === 0 ? peer : nearest;
 }
 

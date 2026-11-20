@@ -78,9 +78,10 @@ function rejectUpgrade(socket: Duplex, error: unknown): void {
  */
 async function admit(
   request: IncomingMessage,
+  requestTarget: string,
   isForwardedHttps: (request: IncomingMessage) => boolean,
 ): Promise<ChannelAdmission> {
-  const url = new URL(request.url ?? "/", "http://pages.invalid");
+  const url = new URL(requestTarget, "http://pages.invalid");
   const scope = consoleScopeOf(url.pathname);
   const host = request.headers.host;
   const origin = `${isForwardedHttps(request) ? "https" : "http"}://${host}`;
@@ -306,13 +307,14 @@ export function installRemoteConsoleChannel(
   const active = new Map<string, WebSocket>();
   const isForwardedHttps = createForwardedHttpsCheck(trustedProxies);
   server.on("upgrade", (request, socket, head) => {
-    if (!isRemoteConsoleChannel(request.url)) return;
+    const requestTarget = request.url ?? "/";
+    if (!isRemoteConsoleChannel(requestTarget)) return;
     const deadline = setTimeout(() => socket.destroy(), UPGRADE_DEADLINE);
     void (async () => {
       try {
         if (websocket.clients.size >= MAXIMUM_CHANNELS)
           throw new RemoteError("remote_blocked");
-        const admission = await admit(request, isForwardedHttps);
+        const admission = await admit(request, requestTarget, isForwardedHttps);
         websocket.handleUpgrade(request, socket, head, (channel) =>
           attach(channel, admission, active),
         );
