@@ -539,6 +539,12 @@ function PlanGroupNoticeBar(props: {
   );
 }
 
+const OPENS_CONSOLE: ReadonlySet<AgentPlanNode["type"]> = new Set([
+  "agent",
+  "group",
+  "swarm",
+]);
+
 const OPENS_SETTINGS: ReadonlySet<AgentPlanNode["type"]> = new Set([
   "script",
   "git_closeout",
@@ -575,8 +581,7 @@ function usePlanFlowSelection(
       )
         return;
       graph.select(node.id);
-      if (node.data.node.type === "agent" || node.data.node.type === "group")
-        props.onOpen?.(node.id);
+      if (OPENS_CONSOLE.has(node.data.node.type)) props.onOpen?.(node.id);
       if (OPENS_SETTINGS.has(node.data.node.type)) props.onEdit?.(node.id);
     },
     onEdgeClick: (event, edge) => graph.selectLink(edge.data?.link ?? null),

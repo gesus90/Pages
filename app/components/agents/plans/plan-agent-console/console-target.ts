@@ -9,11 +9,13 @@ import type {
   AgentPlanStepResult,
 } from "@/definition/AgentPlan";
 import type { AgentPlanGroup } from "@/definition/AgentPlanGroup";
+import type { AgentPlanSwarm } from "@/definition/AgentPlanSwarm";
 import type { AgentSessionKey } from "@/definition/AgentSessionJournal";
 
-/** The node a console was opened for: an agent node, or a group that asks for a member. */
+/** The node a console was opened for: an agent node, a swarm, or a group that asks for a member. */
 export type ConsoleNode =
   | { readonly kind: "agent"; readonly step: AgentPlanStep }
+  | { readonly kind: "swarm"; readonly swarm: AgentPlanSwarm }
   | { readonly kind: "group"; readonly group: AgentPlanGroup };
 
 /** What the console shows for one agent node in the selected run. */
@@ -28,7 +30,7 @@ export type ConsoleSession =
     };
 
 /**
- * Finds an agent node or a group by ID, members of groups included.
+ * Finds an agent node, a swarm or a group by ID, members of groups included.
  * @param draft - The plan as the editor holds it.
  * @param id - The node the console was opened for.
  */
@@ -39,6 +41,8 @@ export function findConsoleNode(
   for (const node of draft.nodes) {
     if (node.id === id && node.type === "agent")
       return { kind: "agent", step: node };
+    if (node.id === id && node.type === "swarm")
+      return { kind: "swarm", swarm: node };
     if (node.type === "loop") {
       const member = node.steps.find((step) => step.id === id);
       if (member?.type === "agent") return { kind: "agent", step: member };

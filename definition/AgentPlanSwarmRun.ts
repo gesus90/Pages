@@ -93,6 +93,27 @@ export const planSwarmTaskSchema = z.strictObject({
 /** One subtask on the board of a swarm run. */
 export type AgentPlanSwarmTaskView = z.infer<typeof planSwarmTaskSchema>;
 
+/**
+ * The PageAgentCLI attempt of one session of a swarm run.
+ * @remarks
+ * It names the stored history of the main model or a helper, so the console
+ * reads each session apart. A helper has one per start; the next start of the
+ * same helper replaces it.
+ */
+export const planSwarmSessionSchema = z.strictObject({
+  attemptId: text(64),
+  instanceId: text(64),
+  connectionId: text(64),
+  reasoningEffort: text(40).nullable(),
+  directory: text(1024),
+  startedAt: text(40),
+  /** Set when the session closed; `null` while it is open. */
+  endedAt: text(40).nullable(),
+});
+
+/** The PageAgentCLI attempt of one session of a swarm run. */
+export type AgentPlanSwarmSessionView = z.infer<typeof planSwarmSessionSchema>;
+
 /** One helper of a swarm run, as its lane shows it. */
 export const planSwarmWorkerSchema = z.strictObject({
   id: workerId,
@@ -105,6 +126,8 @@ export const planSwarmWorkerSchema = z.strictObject({
   reason: text(200).nullable(),
   locks: paths,
   todos: todosSchema,
+  /** Absent until the helper got a session. */
+  session: planSwarmSessionSchema.optional(),
 });
 
 /** One helper of a swarm run, as its lane shows it. */
@@ -135,6 +158,8 @@ export const planSwarmMainSchema = z.strictObject({
   /** What the main model does now, as it reported it. */
   activity: text(200).nullable(),
   todos: todosSchema,
+  /** Absent until the main model got a session. */
+  session: planSwarmSessionSchema.optional(),
 });
 
 /**

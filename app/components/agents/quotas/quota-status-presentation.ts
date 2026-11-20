@@ -25,8 +25,6 @@ export interface StatusPresentation {
   readonly tone: StatusTone;
   readonly text: string;
   readonly action: StatusAction;
-  /** Whether a spinner accompanies the clock and timestamp. */
-  readonly isUpdating?: boolean;
 }
 
 /** The window that has nothing left, as the status line names it. */
@@ -53,31 +51,10 @@ export interface StatusFormat {
   readonly time: (iso: string) => string;
   /** A reset as the card shows it, such as `18:57` or `Mi 14:32`. */
   readonly moment: (iso: string) => string;
-  readonly progress: {
-    readonly isQuerying: boolean;
-    /** Whether the delayed hint for a running query is visible. */
-    readonly isHintShown: boolean;
-  };
   /** The limit an Antigravity answer names; `null` or absent without one. */
   readonly limit?: StatusLimit | null;
   /** The limit a Codex answer states for the account; `null` or absent without one. */
   readonly generalLimit?: GeneralStatusLimit | null;
-}
-
-/**
- * The line of a card whose figures are on screen while a query runs: the
- * time of Claude's last answer and the ring.
- */
-function refreshingPresentation(
-  at: string,
-  format: StatusFormat,
-): StatusPresentation {
-  return {
-    icon: "spinner",
-    tone: "muted",
-    text: format.t("agentsPage.state.refreshing", { time: format.time(at) }),
-    action: "none",
-  };
 }
 
 function lastStandPresentation(
@@ -85,48 +62,32 @@ function lastStandPresentation(
   format: StatusFormat,
   action: StatusAction,
 ): StatusPresentation {
-  const { t, time, progress } = format;
+  const { t, time } = format;
   return {
     icon: Clock,
     tone: "muted",
-    text: t(
-      progress.isQuerying
-        ? "agentsPage.state.refreshing"
-        : "agentsPage.state.stored",
-      { time: time(at) },
-    ),
-    action: progress.isQuerying ? "none" : action,
-    isUpdating: progress.isQuerying,
+    text: t("agentsPage.state.stored", { time: time(at) }),
+    action,
   };
 }
 
 /**
  * The line of a card that answers from its stored figures.
  * @remarks
- * Without a stored answer the card is loading, which shows at once; with
- * one the line names its time and only after the hint delay says that the
- * query runs.
+ * The line names the time of a stored answer. The initial load shows a spinner.
  */
 function storedPresentation(
   at: string | null,
   format: StatusFormat,
 ): StatusPresentation {
-  const { t, time, progress } = format;
   if (at === null)
     return {
       icon: "spinner",
       tone: "muted",
-      text: t("agentsPage.state.loading"),
+      text: format.t("agentsPage.state.loading"),
       action: "none",
     };
-  if (progress.isQuerying && progress.isHintShown)
-    return refreshingPresentation(at, format);
-  return {
-    icon: Clock,
-    tone: "muted",
-    text: t("agentsPage.state.stored", { time: time(at) }),
-    action: "none",
-  };
+  return lastStandPresentation(at, format, "none");
 }
 
 /**
@@ -188,8 +149,6 @@ function reportedPresentation(
   at: string,
   format: StatusFormat,
 ): StatusPresentation {
-  if (format.progress.isQuerying && format.progress.isHintShown)
-    return refreshingPresentation(at, format);
   if (format.limit) return limitPresentation(format.limit, format);
   if (format.generalLimit)
     return generalLimitPresentation(format.generalLimit, format);
@@ -205,8 +164,6 @@ function noWindowsPresentation(
   at: string,
   format: StatusFormat,
 ): StatusPresentation {
-  if (format.progress.isQuerying && format.progress.isHintShown)
-    return refreshingPresentation(at, format);
   return {
     icon: Info,
     tone: "muted",
@@ -232,14 +189,13 @@ function failedPresentation(
 /**
  * Word, symbol, colour and action of each status.
  * @param status - The status of the card.
- * @param format - Translation, time format and whether the hint shows.
+ * @param format - Translation, time format and provider limits.
  * @remarks
  * "Keine Fenster gemeldet" (the provider answered without a window) and
  * "Abfrage fehlgeschlagen" (Pages got no answer) never share a word, a
  * symbol or a colour. A missing sign-in is no failed query, so it offers the
- * connection settings instead of another attempt. While a query of a card
- * with figures runs, the line names the time of the last answer and says
- * "wird aktualisiert". After a missed query, its last stand stays visible. A
+ * connection settings instead of another attempt. During and after a missed
+ * query, the last reading remains visible if available. A
  * current Antigravity answer with a used-up window names that limit instead
  * of the answer's time.
  */

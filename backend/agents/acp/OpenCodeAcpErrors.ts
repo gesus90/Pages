@@ -61,6 +61,40 @@ export function openCodeAcpFailure(
   );
 }
 
+function failedToolText(update: SessionUpdate): string {
+  if (
+    update.sessionUpdate !== "tool_call" &&
+    update.sessionUpdate !== "tool_call_update"
+  )
+    return "";
+  return JSON.stringify({ output: update.rawOutput, content: update.content });
+}
+
+/**
+ * Names what a model called when OpenCode answers that the tool does not exist.
+ * @remarks
+ * OpenCode lists the tools it offered in that answer. Pages records the list in
+ * the events of the session, so a call to a tool under a name the runner does
+ * not offer, such as `swarm_assign` instead of `pages_swarm_assign`, is
+ * recognizable in the run instead of ending silently as one more failed tool.
+ * @param update - An update of the ACP session.
+ * @returns A short line with the offered tools, or `null` for any other update.
+ */
+export function openCodeUnavailableTool(update: SessionUpdate): string | null {
+  if (
+    (update.sessionUpdate !== "tool_call" &&
+      update.sessionUpdate !== "tool_call_update") ||
+    update.status !== "failed"
+  )
+    return null;
+  const text = failedToolText(update);
+  if (!/tried to call unavailable tool/iu.test(text)) return null;
+  const offered = /Available tools: ([^"\\]*?)\.?(?:["\\]|$)/u.exec(text)?.[1];
+  return offered === undefined
+    ? "tool call failed: no such tool; no tools offered"
+    : `tool call failed: no such tool; offered ${offered}`;
+}
+
 /** Recognizes native denials and provider failures that arrive inside a failed tool notification. */
 export function openCodeToolFailure(
   update: SessionUpdate,
@@ -72,10 +106,7 @@ export function openCodeToolFailure(
     update.status !== "failed"
   )
     return null;
-  const text = JSON.stringify({
-    output: update.rawOutput,
-    content: update.content,
-  });
+  const text = failedToolText(update);
   // A call to a tool name that does not exist goes back to the model; it says nothing about the provider or model.
   if (/NoSuchToolError|tried to call unavailable tool/iu.test(text))
     return null;

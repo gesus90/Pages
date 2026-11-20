@@ -14,6 +14,11 @@ import {
   readSpeechRecognitionConfig,
   SPEECH_RECOGNITION_KEY,
 } from "./SpeechRecognitionConfig";
+import {
+  DEFAULT_STORAGE_RETENTION_DAYS,
+  DEFAULT_STORAGE_WARNING_BYTES,
+  readStorageSettings,
+} from "./StorageConfig";
 import { parseTrustedProxyEntry } from "./TrustedProxies";
 
 import type { AgentGitBridgeSetting } from "./AgentGitBridgeConfig";
@@ -32,8 +37,7 @@ const DATABASE_FILE_NAME = "pages.duckdb";
 /** Port the server listens on when neither a start parameter nor the configuration names one. */
 export const DEFAULT_PORT = 3000;
 
-/** Default instance size warning threshold: 20 decimal gigabytes. */
-export const DEFAULT_STORAGE_WARNING_BYTES = 20_000_000_000;
+export { DEFAULT_STORAGE_RETENTION_DAYS, DEFAULT_STORAGE_WARNING_BYTES };
 
 const HIGHEST_PORT = 65_535;
 /** At least 256 bits when the secret holds random hex or base64. */
@@ -86,6 +90,8 @@ interface BaseConfig extends Partial<AcpResourceOptions> {
   readonly logRetentionDays?: number;
   /** Instance size warning in bytes; missing: 20 GB. */
   readonly storageWarningBytes?: number;
+  /** Retention period in days for provider session files and databases; missing: 30 days. */
+  readonly storageRetentionDays?: number;
   /**
    * Addresses or ranges of the reverse proxies whose `X-Forwarded-Proto` is
    * believed. Missing: no proxy is trusted and the header is ignored.
@@ -335,7 +341,7 @@ export function readPagesConfig(table: TomlTable, source: string): PagesConfig {
   const databasePath = readDatabasePath(table, source);
   const databaseUrl = readDatabaseUrl(table, source, firstRun);
   const logging = readLoggingConfig(table, source);
-  const storage = readStorageWarningBytes(table, source);
+  const storage = readStorageConfig(table, source);
   const interpreters = readInterpreterConfig(table, source);
   const proxies = readProxyConfig(table, source);
   const picaBrowser = readPicaBrowserConfig(table, source);
@@ -644,18 +650,20 @@ function readInterpreterConfig(
   return { interpreterProfiles: parsed.data };
 }
 
-function readStorageWarningBytes(
+function readStorageConfig(
   table: TomlTable,
   source: string,
-): Pick<BaseConfig, "storageWarningBytes"> {
-  const bytes = table.storageWarningBytes;
-  if (bytes === undefined) return {};
-  if (typeof bytes !== "number" || !Number.isSafeInteger(bytes) || bytes <= 0)
+): Pick<BaseConfig, "storageWarningBytes" | "storageRetentionDays"> {
+  try {
+    return readStorageSettings(table);
+  } catch (caughtError: unknown) {
     throw invalidConfig(
       source,
-      '"storageWarningBytes" must be a positive safe integer.',
+      caughtError instanceof Error
+        ? caughtError.message
+        : '"storageWarningBytes" is invalid.',
     );
-  return { storageWarningBytes: bytes };
+  }
 }
 
 function readLoggingConfig(
@@ -703,6 +711,8 @@ export function writePagesConfig(
     );
   if (config.storageWarningBytes !== undefined)
     document.storageWarningBytes = config.storageWarningBytes;
+  if (config.storageRetentionDays !== undefined)
+    document.storageRetentionDays = config.storageRetentionDays;
   if (config.logRetentionDays !== undefined)
     document.logRetentionDays = config.logRetentionDays;
   if (config.trustedProxies !== undefined)
@@ -718,6 +728,12 @@ export function writePagesConfig(
   writeChatCallSettings(document, config);
 
   writeResourceSettings(document, config);
+  writeDatabaseSettings(document, config);
+
+  return document;
+}
+
+function writeDatabaseSettings(document: TomlTable, config: PagesConfig): void {
   if (!config.firstRun && config.databaseUrl !== undefined)
     document[CONFIG_KEY.DATABASE_URL] = config.databaseUrl;
   else delete document[CONFIG_KEY.DATABASE_URL];
@@ -727,8 +743,6 @@ export function writePagesConfig(
   } else {
     document[CONFIG_KEY.DATABASE_PATH] = config.databasePath;
   }
-
-  return document;
 }
 
 function writeResourceSettings(document: TomlTable, config: PagesConfig): void {

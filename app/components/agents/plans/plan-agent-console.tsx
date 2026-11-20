@@ -7,6 +7,7 @@ import { ScrollViewport } from "@/app/components/ui/scroll-viewport";
 
 import { ConsoleHeader } from "./plan-agent-console/console-header";
 import { ConsoleSession } from "./plan-agent-console/console-session";
+import { SwarmConsole } from "./plan-agent-console/swarm-console";
 import {
   consoleSession,
   findConsoleNode,
@@ -23,7 +24,7 @@ import type {
   AgentPlanStep,
 } from "@/definition/AgentPlan";
 import type { AgentPlanGroup } from "@/definition/AgentPlanGroup";
-import type { HeaderState } from "./plan-agent-console/console-header-badges";
+import type { ConsoleHeaderRenderer } from "./plan-agent-console/console-header";
 import type { ConsoleNode } from "./plan-agent-console/console-target";
 import type { usePlanRun } from "./use-plan-run";
 
@@ -35,14 +36,46 @@ interface PlanAgentConsoleProps {
   readonly onClose: () => void;
 }
 
+/** The agent step whose session the console shows: the node itself or the member a group asked for. */
+function consoleMember(
+  opened: ConsoleNode,
+  memberId: string | null,
+): AgentPlanStep | undefined {
+  if (opened.kind === "agent") return opened.step;
+  if (opened.kind === "group")
+    return opened.group.steps.find((step) => step.id === memberId);
+  return undefined;
+}
+
 /** Changes whenever the console draws another header: another member, run or session state. */
 function consoleFocusKey(
   opened: ConsoleNode | null,
   memberId: string | null,
   run: AgentPlanRun | null,
 ): string {
-  const stepId = opened?.kind === "agent" ? opened.step.id : (memberId ?? "");
+  // The selection inside a swarm never draws another header heading.
+  const stepId =
+    opened?.kind === "agent" || opened?.kind === "swarm"
+      ? consoleNodeId(opened)
+      : (memberId ?? "");
   return [stepId, run?.id ?? "", consoleSession(run, stepId).kind].join("/");
+}
+
+function consoleNodeId(opened: ConsoleNode): string {
+  if (opened.kind === "agent") return opened.step.id;
+  if (opened.kind === "swarm") return opened.swarm.id;
+  return opened.group.id;
+}
+
+function consoleTitle(
+  opened: ConsoleNode,
+  sources: AgentPlanSources,
+  t: ReturnType<typeof useTranslation>["t"],
+): string {
+  if (opened.kind === "group") return opened.group.name;
+  if (opened.kind === "swarm")
+    return opened.swarm.name ?? t("plans.nodeType.swarm");
+  return planNodeLabel(opened.step, sources) || t("plans.missingAgent");
 }
 
 /**
@@ -83,11 +116,7 @@ function AgentConsole(props: {
   readonly run: AgentPlanRun | null;
   readonly isReadOnly: boolean;
   readonly onClose: () => void;
-  readonly header: (
-    provider: string | null,
-    state: HeaderState | null,
-    onStopRun?: () => Promise<void>,
-  ) => React.ReactNode;
+  readonly header: ConsoleHeaderRenderer;
 }): React.ReactElement {
   const { t } = useTranslation();
   const session = consoleSession(props.run, props.step.id);
@@ -112,6 +141,36 @@ function AgentConsole(props: {
       prompt={promptLine(props.step)}
       onClose={props.onClose}
       header={props.header}
+    />
+  );
+}
+
+interface ConsoleHeaderFacts {
+  readonly title: string;
+  readonly nodeType: string;
+  readonly running: ReturnType<typeof usePlanRun>;
+  readonly headingRef: React.RefObject<HTMLHeadingElement | null>;
+  readonly onClose: () => void;
+  readonly onBack: (() => void) | undefined;
+}
+
+/** The header the console draws above every session of the node. */
+function consoleHeader(facts: ConsoleHeaderFacts): ConsoleHeaderRenderer {
+  const { running } = facts;
+  return (provider, state, onStopRun, badges) => (
+    <ConsoleHeader
+      title={facts.title}
+      nodeType={facts.nodeType}
+      runs={running.runs}
+      run={running.run}
+      provider={provider}
+      state={state}
+      headingRef={facts.headingRef}
+      onSelectRun={(id) => running.select(id, "history")}
+      onClose={facts.onClose}
+      onBack={facts.onBack}
+      onStopRun={onStopRun}
+      badges={badges}
     />
   );
 }
@@ -146,44 +205,24 @@ export function PlanAgentConsole(
   }, [focusKey]);
   if (!opened) return null;
   const group = opened.kind === "group" ? opened.group : null;
-  const member =
-    opened.kind === "group"
-      ? opened.group.steps.find((step) => step.id === memberId)
-      : opened.step;
+  const member = consoleMember(opened, memberId);
   const isReadOnly =
     run !== null &&
     (run.status !== "running" ||
       run.stopRequested ||
       running.runs[0]?.id !== run.id);
-  const title =
-    opened.kind === "group"
-      ? opened.group.name
-      : planNodeLabel(opened.step, props.sources) || t("plans.missingAgent");
-  function header(
-    provider: string | null,
-    state: HeaderState | null,
-    onStopRun?: () => Promise<void>,
-  ): React.ReactNode {
-    return (
-      <ConsoleHeader
-        title={
-          group && member
-            ? `${title} · ${planNodeLabel(member, props.sources)}`
-            : title
-        }
-        nodeType={t(`plans.nodeType.${group ? "group" : "agent"}`)}
-        runs={running.runs}
-        run={run}
-        provider={provider}
-        state={state}
-        headingRef={heading}
-        onSelectRun={(id) => running.select(id, "history")}
-        onClose={onClose}
-        onBack={group && member ? () => setMemberId(null) : undefined}
-        onStopRun={onStopRun}
-      />
-    );
-  }
+  const title = consoleTitle(opened, props.sources, t);
+  const header = consoleHeader({
+    title:
+      group && member
+        ? `${title} · ${planNodeLabel(member, props.sources)}`
+        : title,
+    nodeType: t(`plans.nodeType.${opened.kind}`),
+    running,
+    headingRef: heading,
+    onClose,
+    onBack: group && member ? () => setMemberId(null) : undefined,
+  });
   return (
     <ForegroundPanel
       aria-label={t("plans.console.label", { name: title })}
@@ -194,6 +233,15 @@ export function PlanAgentConsole(
       {member ? (
         <AgentConsole
           step={member}
+          run={run}
+          isReadOnly={isReadOnly}
+          onClose={onClose}
+          header={header}
+        />
+      ) : null}
+      {opened.kind === "swarm" ? (
+        <SwarmConsole
+          swarm={opened.swarm}
           run={run}
           isReadOnly={isReadOnly}
           onClose={onClose}

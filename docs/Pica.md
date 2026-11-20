@@ -255,6 +255,10 @@ explicitly distinguishes OpenCode Console / Zen (`opencode`) from OpenRouter
 (`openrouter`) and encrypts new keys with the existing instance cipher. Existing
 OpenRouter native credential files keep their exact provider and model IDs. Other credential formats and custom provider
 configurations are not imported. No model, provider or API fallback is used.
+A Pica chat in _Read only_ runs the verified native Pages build, so its
+`initialize` answer must name exactly the version that build was verified
+against, whatever version of OpenCode is installed on the host. A newer host
+OpenCode is no pin for it and never makes the build "unsupported".
 
 - **Scope and isolation.** Pica requires _Read only_ workspace access. It uses
   the existing jobs, scheduler, durable leases, connection locks and process

@@ -30,7 +30,10 @@ import {
   initializeAcpSession,
   openAcpSession,
 } from "./AcpSessionHandshake";
-import { openCodeToolFailure } from "./OpenCodeAcpErrors";
+import {
+  openCodeToolFailure,
+  openCodeUnavailableTool,
+} from "./OpenCodeAcpErrors";
 import { decideAcpSessionPermission } from "./AcpSessionPermission";
 import {
   forwardOpenCodeSessionUsage,
@@ -564,6 +567,9 @@ export class AcpSession implements PlanSession {
         this.context.request.model.startsWith("openrouter/"),
       );
       this.openCodeFailure ??= failure;
+      const unavailable = openCodeUnavailableTool(update);
+      if (unavailable !== null)
+        noteSessionEvent(this.state.events, unavailable);
       if (failure === "plan_runner_permission_denied")
         this.state.permissionDenials += 1;
     }
@@ -670,7 +676,14 @@ export class AcpSession implements PlanSession {
         this.context.containment ?? "none",
       );
       await this.codexUsage?.close();
-      if (closed.isConfirmed) this.context.cleanupAdapter?.();
+      if (closed.isConfirmed) {
+        this.context.cleanupAdapter?.();
+        await this.context
+          .cleanupTemporaryDirectory?.()
+          .catch((error: unknown) => logCaughtError("AcpSession", error));
+      } else {
+        this.context.releaseTemporaryDirectory?.();
+      }
       return closed;
     } finally {
       this.picaCodex?.close();

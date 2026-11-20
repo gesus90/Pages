@@ -2,7 +2,6 @@ import { RefreshCw } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import openRouterLogo from "@/assets/providers/logo-openrouter.png?no-inline";
-import { cn } from "@/app/lib/cn";
 import { openRouterExecutionLocation } from "@/definition/OpenRouterQuota";
 
 import { OpenRouterBalanceDialog } from "./openrouter-balance-dialog";
@@ -12,7 +11,7 @@ import { openRouterQuotaStatus } from "./openrouter-quota-status";
 import { QuotaCardFrame, QuotaHeaderBadges } from "./quota-card-frame";
 import { QuotaWindowsPlaceholder } from "./quota-placeholders";
 import { QuotaStatusFooter } from "./quota-status-line";
-import { useRefreshHint } from "./use-refresh-hint";
+import { useQuotaCalendarDate } from "./quota-time";
 
 import type { OpenRouterQuotaAccount } from "@/definition/OpenRouterQuota";
 import type { SaveOpenRouterBalance } from "./quota-requests";
@@ -20,41 +19,35 @@ import type { SaveOpenRouterBalance } from "./quota-requests";
 /** Shows the OpenRouter balance and key budget for one connection in the shared quota grid. */
 export function OpenRouterQuotaCard({
   account,
-  pendingQueries,
-  now,
+  isRetrying,
   onRetry,
   onSaveBalance,
 }: {
   readonly account: OpenRouterQuotaAccount;
-  readonly pendingQueries: number;
-  readonly now: Date;
-  readonly onRetry: (connectionId: string) => void;
+  readonly isRetrying: boolean;
+  readonly onRetry: () => void;
   readonly onSaveBalance: SaveOpenRouterBalance;
 }): React.ReactElement {
   const { t, i18n } = useTranslation();
-  const isQuerying = pendingQueries > 0;
   const isLoading =
     account.key.status === "stored" &&
     !account.key.reading &&
     !account.credits?.reading;
-  const isHintShown = useRefreshHint(isQuerying && !isLoading);
-  const progress = { isQuerying, isHintShown };
+  const now = useQuotaCalendarDate(
+    Boolean(account.key.reading ?? account.credits?.reading),
+  );
   const format = openRouterQuotaFormat(t, i18n.language, now);
-  const presentation = openRouterQuotaStatus(account, format, progress);
+  const presentation = openRouterQuotaStatus(account, format);
   const refresh = t("agentsPage.openRouter.refresh");
   const statusKind =
     account.credits?.status === "failed" ? "failed" : account.key.status;
-
-  function handleRetry(): void {
-    onRetry(account.connectionId);
-  }
 
   return (
     <QuotaCardFrame
       connectionId={account.connectionId}
       provider="openrouter"
       isLoading={isLoading}
-      isQuerying={isQuerying}
+      isQuerying={isRetrying}
     >
       <header className="flex h-11 shrink-0 items-center gap-3">
         <img
@@ -83,17 +76,11 @@ export function OpenRouterQuotaCard({
           type="button"
           title={refresh}
           aria-label={refresh}
-          onClick={handleRetry}
-          disabled={isQuerying}
+          onClick={onRetry}
+          disabled={isLoading || isRetrying}
           className="flex size-8 shrink-0 items-center justify-center rounded-[9px] border border-border-strong text-muted-foreground hover:bg-surface-hover disabled:cursor-default"
         >
-          <RefreshCw
-            aria-hidden="true"
-            className={cn(
-              "size-4",
-              isHintShown && "animate-spin motion-reduce:animate-none",
-            )}
-          />
+          <RefreshCw aria-hidden="true" className="size-4" />
         </button>
         <QuotaHeaderBadges
           location={openRouterExecutionLocation(account)}
@@ -108,8 +95,8 @@ export function OpenRouterQuotaCard({
       <QuotaStatusFooter
         kind={statusKind}
         presentation={presentation}
-        progress={progress}
-        onRetry={handleRetry}
+        isRetrying={isRetrying}
+        onRetry={onRetry}
         connectionHref={`/settings/agents?connection=${encodeURIComponent(account.connectionId)}`}
       />
     </QuotaCardFrame>

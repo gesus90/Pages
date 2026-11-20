@@ -29,6 +29,8 @@ const SIDEBAR_KEY = "plans.console.terminal.sidebar";
 interface ConsoleSidebarProps {
   readonly step: AgentPlanStepResult;
   readonly view: AgentSessionView;
+  /** The role of a swarm session, such as „Helfer 1“; absent outside a swarm. */
+  readonly roleLabel?: string;
 }
 
 function activityText(
@@ -183,6 +185,9 @@ function SessionSection(props: ConsoleSidebarProps): React.ReactElement {
   return (
     <SidebarSection title={t(`${SIDEBAR_KEY}.session`)}>
       <dl className="mt-1">
+        {props.roleLabel ? (
+          <Fact label={t(`${SIDEBAR_KEY}.role`)} value={props.roleLabel} />
+        ) : null}
         <SidebarRow label={t(`${SIDEBAR_KEY}.runtime`)}>
           <RuntimeValue {...props} unknown={unknown} />
         </SidebarRow>

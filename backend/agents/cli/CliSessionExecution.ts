@@ -38,7 +38,10 @@ import {
   cleanupSessionAssets,
 } from "./CliAssetWorkspace";
 import { CliIsolationGate } from "./CliIsolationGate";
-import { attachPlanTemporaryDirectory } from "./CliPlanTemporaryDirectory";
+import {
+  attachPlanTemporaryDirectory,
+  jobTemporaryCleanup,
+} from "./CliPlanTemporaryDirectory";
 import { CliPlanIsolation } from "./CliPlanIsolation";
 import { ACP_WORKER_LIMITS } from "./CliWorkerUnit";
 import { cleanupFailedAcpStart } from "./CliAcpStartCleanup";
@@ -60,11 +63,12 @@ import {
   openCliAcpSession,
   prepareCliGitHubAccess,
   prepareScopedClaudeHome,
-  preparePicaSession,
+  preparePicaChat,
   registerAcpNamespace,
   secureCliAcpAccess,
 } from "./CliAcpSessionSetup";
 
+import type { JobTemporaryCleanup } from "./CliPlanTemporaryDirectory";
 import type { VerifiedStart } from "./CliSessionChecks";
 import type { HostMcpDiscovery } from "./CliHostMcpServers";
 import type { AcpPermissionMode } from "@/definition/AgentConfiguration";
@@ -410,19 +414,15 @@ export class CliSessionExecution implements PlanSessionRunner {
     let limited: LimitedRequest | null = null;
     let containment: CliSessionContainment = "none";
     let picaBundle: PicaCodexBundle | null = null;
+    let temporaryCleanup: JobTemporaryCleanup = {};
     try {
-      const pica = await preparePicaSession({
-        driver,
-        input,
-        launch,
-        profile,
-        tools: this.dependencies.tools,
-        adapter,
-        adapterVersion: start.adapterVersion,
-      });
+      const pica = await preparePicaChat(
+        { driver, input, start, launch, profile, adapter },
+        this.dependencies.tools,
+      );
       const { picaNative } = pica;
       picaBundle = pica.picaBundle;
-      const { request, isIsolated } = await this.isolateWorker(
+      const attached = await attachPlanTemporaryDirectory(
         acpWorkerRequest({
           driver,
           input,
@@ -441,6 +441,11 @@ export class CliSessionExecution implements PlanSessionRunner {
               start.host ? redactAcpJsonLine(line, redact) : redact(line),
             ),
         }),
+        input,
+      );
+      temporaryCleanup = jobTemporaryCleanup(input);
+      const { request, isIsolated } = await this.isolateWorker(
+        attached,
         scoped,
         input,
         start,
@@ -471,6 +476,7 @@ export class CliSessionExecution implements PlanSessionRunner {
         limited,
         containment,
         github,
+        ...temporaryCleanup,
         redact: (text) => describeOpenCodeAgent(input, redact(text)),
       });
     } catch (error: unknown) {
@@ -478,7 +484,13 @@ export class CliSessionExecution implements PlanSessionRunner {
 
       await this.abortFailedStart(
         child,
-        { instanceId: input.instanceId, github, limited, containment },
+        {
+          instanceId: input.instanceId,
+          github,
+          limited,
+          containment,
+          ...temporaryCleanup,
+        },
         picaBundle,
         control,
       );
@@ -494,6 +506,8 @@ export class CliSessionExecution implements PlanSessionRunner {
       readonly github: CliGitHubAccess | null;
       readonly limited: LimitedRequest | null;
       readonly containment: CliSessionContainment;
+      readonly cleanupTemporaryDirectory?: () => Promise<void>;
+      readonly releaseTemporaryDirectory?: () => void;
     },
     picaBundle: PicaCodexBundle | null,
     control: SessionControl,
@@ -624,13 +638,12 @@ export class CliSessionExecution implements PlanSessionRunner {
     readonly isIsolated: boolean;
   }> {
     const mode = input.options.access;
-    const attached = await attachPlanTemporaryDirectory(worker, input);
     if (start.host)
       return {
-        request: nativeHostRequest(attached, start.host),
+        request: nativeHostRequest(worker, start.host),
         isIsolated: false,
       };
-    const isolated = await this.gate.isolateSession(attached, scoped);
+    const isolated = await this.gate.isolateSession(worker, scoped);
     if (isAcpPermissionMode(mode))
       requireAcpIsolation(isolated.isIsolated, mode, input);
     return isolated;

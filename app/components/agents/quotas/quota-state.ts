@@ -6,6 +6,8 @@ import type { OpenRouterQuotaAccount } from "@/definition/OpenRouterQuota";
 /** One card of the quota page and what the page knows about it. */
 export interface QuotaCard {
   readonly account: QuotaAccount;
+  /** Server time of the snapshot that set the displayed figures. */
+  readonly displayedAt: number;
   /**
    * Server time in milliseconds of the answer that set the card; an answer
    * with an earlier time never replaces it.
@@ -26,14 +28,10 @@ export interface ClaudeQuotaState {
   readonly cards: readonly QuotaCard[] | null;
   /** Server time in milliseconds of the newest answer that listed the cards. */
   readonly listReadAt: number;
-  /** Lists of the cards that have not answered yet. */
-  readonly pendingLists: number;
   /** Whether the list failed while the connections are still unknown. */
   readonly hasListFailed: boolean;
   /** Whether the push stream of the server is open. */
   readonly isLive: boolean;
-  /** Whether a regular push is reading updated figures. */
-  readonly isPushRefreshing: boolean;
 }
 
 /**
@@ -42,15 +40,16 @@ export interface ClaudeQuotaState {
  * earlier one.
  */
 export type QuotaAction =
-  | { readonly type: "listStarted" }
-  | { readonly type: "listSettled" }
   | {
       readonly type: "listed";
       readonly snapshot: QuotaSnapshot;
       readonly requestNumber: number;
     }
   | { readonly type: "listFailed"; readonly requestNumber: number }
-  | { readonly type: "queryStarted"; readonly connectionId: string }
+  | {
+      readonly type: "queriesStarted";
+      readonly connectionIds: readonly string[];
+    }
   | { readonly type: "querySettled"; readonly connectionId: string }
   | {
       readonly type: "queryAnswered";
@@ -63,7 +62,6 @@ export type QuotaAction =
       readonly connectionId: string;
       readonly requestNumber: number;
     }
-  | { readonly type: "pushStarted" }
   | {
       readonly type: "pushed";
       readonly snapshot: QuotaSnapshot;
@@ -76,34 +74,60 @@ export type QuotaAction =
 export const INITIAL_QUOTA_STATE: ClaudeQuotaState = {
   cards: null,
   listReadAt: 0,
-  pendingLists: 0,
   hasListFailed: false,
   isLive: false,
-  isPushRefreshing: false,
 };
-
-/**
- * Whether any list or query of the page has not answered yet.
- * @param state - The state of the page.
- */
-export function isQuotaRefreshing(state: ClaudeQuotaState): boolean {
-  return (
-    state.isPushRefreshing ||
-    state.pendingLists > 0 ||
-    (state.cards ?? []).some((card) => card.pendingQueries > 0)
-  );
-}
 
 function newCard(
   account: QuotaAccount,
   readAt: number,
   requestNumber: number,
 ): QuotaCard {
-  return { account, readAt, answeredRequest: requestNumber, pendingQueries: 0 };
+  return {
+    account,
+    displayedAt: readAt,
+    readAt,
+    answeredRequest: requestNumber,
+    pendingQueries: 0,
+  };
+}
+
+function answeredCard(
+  card: QuotaCard,
+  account: QuotaAccount,
+  readAt: number,
+  requestNumber: number,
+): QuotaCard {
+  // Validated snapshots use a consistent JSON shape. Keep the displayed
+  // account and its target when only the request bookkeeping changed.
+  const hasChanged = JSON.stringify(account) !== JSON.stringify(card.account);
+  return {
+    ...card,
+    account: hasChanged ? account : card.account,
+    displayedAt: hasChanged ? readAt : card.displayedAt,
+    readAt,
+    answeredRequest: Math.max(card.answeredRequest, requestNumber),
+  };
 }
 
 function settledCard(card: QuotaCard): QuotaCard {
   return { ...card, pendingQueries: Math.max(0, card.pendingQueries - 1) };
+}
+
+function startQueries(
+  state: ClaudeQuotaState,
+  connectionIds: readonly string[],
+): ClaudeQuotaState {
+  if (state.cards === null || connectionIds.length === 0) return state;
+  const querying = new Set(connectionIds);
+  return {
+    ...state,
+    cards: state.cards.map((card) =>
+      querying.has(card.account.connectionId)
+        ? { ...card, pendingQueries: card.pendingQueries + 1 }
+        : card,
+    ),
+  };
 }
 
 function failedOpenRouterAccount(
@@ -234,27 +258,26 @@ function applyList(
   snapshot: QuotaSnapshot,
   requestNumber: number,
 ): ClaudeQuotaState {
-  const pendingLists = Math.max(0, state.pendingLists - 1);
   const readAt = Date.parse(snapshot.readAt);
-  if (readAt < state.listReadAt) return { ...state, pendingLists };
+  if (readAt < state.listReadAt) return state;
   const known = cardsById(state.cards);
   const listed = snapshot.accounts.map((account): QuotaCard => {
     const card = known.get(account.connectionId);
     if (!card) return newCard(account, readAt, requestNumber);
     if (account.provider === "openrouter") {
       if (readAt < card.readAt) return card;
-      return {
-        ...card,
-        account: openRouterListedAccount(account, card.account),
+      return answeredCard(
+        card,
+        openRouterListedAccount(account, card.account),
         readAt,
-        answeredRequest: Math.max(card.answeredRequest, requestNumber),
-      };
+        requestNumber,
+      );
     }
+    if (card.account.name === account.name) return card;
     return { ...card, account: { ...card.account, name: account.name } };
   });
   return {
     ...state,
-    pendingLists,
     hasListFailed: false,
     listReadAt: readAt,
     cards: [...listed, ...cardsNewerThanList(state, snapshot, readAt)],
@@ -281,12 +304,7 @@ function applyPush(
     const card = known.get(account.connectionId);
     if (!card) return newCard(account, readAt, requestNumber);
     if (readAt < card.readAt) return card;
-    return {
-      ...card,
-      account,
-      readAt,
-      answeredRequest: Math.max(card.answeredRequest, requestNumber),
-    };
+    return answeredCard(card, account, readAt, requestNumber);
   });
   return {
     ...state,
@@ -316,12 +334,7 @@ function applyQueryAnswer(
     const settled = settledCard(card);
     if (readAt < card.readAt) return settled;
     if (!account) return null;
-    return {
-      ...settled,
-      account,
-      readAt,
-      answeredRequest: Math.max(card.answeredRequest, requestNumber),
-    };
+    return answeredCard(settled, account, readAt, requestNumber);
   });
 }
 
@@ -347,12 +360,8 @@ function applyListFailure(
   state: ClaudeQuotaState,
   requestNumber: number,
 ): ClaudeQuotaState {
-  const settled = {
-    ...state,
-    pendingLists: Math.max(0, state.pendingLists - 1),
-  };
-  if (settled.cards === null) return { ...settled, hasListFailed: true };
-  return failIdleCards(settled, requestNumber);
+  if (state.cards === null) return { ...state, hasListFailed: true };
+  return failIdleCards(state, requestNumber);
 }
 
 /**
@@ -367,23 +376,12 @@ export function reduceQuotas(
   action: QuotaAction,
 ): ClaudeQuotaState {
   switch (action.type) {
-    case "listStarted":
-      return {
-        ...state,
-        pendingLists: state.pendingLists + 1,
-        hasListFailed: false,
-      };
-    case "listSettled":
-      return { ...state, pendingLists: Math.max(0, state.pendingLists - 1) };
     case "listed":
       return applyList(state, action.snapshot, action.requestNumber);
     case "listFailed":
       return applyListFailure(state, action.requestNumber);
-    case "queryStarted":
-      return updateCard(state, action.connectionId, (card) => ({
-        ...card,
-        pendingQueries: card.pendingQueries + 1,
-      }));
+    case "queriesStarted":
+      return startQueries(state, action.connectionIds);
     case "querySettled":
       return updateCard(state, action.connectionId, settledCard);
     case "queryAnswered":
@@ -392,19 +390,10 @@ export function reduceQuotas(
       return updateCard(state, action.connectionId, (card) =>
         failedCard(settledCard(card), action.requestNumber),
       );
-    case "pushStarted":
-      return { ...state, isPushRefreshing: true };
     case "pushed":
-      return applyPush(
-        { ...state, isPushRefreshing: false },
-        action.snapshot,
-        action.requestNumber,
-      );
+      return applyPush(state, action.snapshot, action.requestNumber);
     case "pushFailed":
-      return failIdleCards(
-        { ...state, isPushRefreshing: false },
-        action.requestNumber,
-      );
+      return failIdleCards(state, action.requestNumber);
     case "live":
       return { ...state, isLive: action.isLive };
   }

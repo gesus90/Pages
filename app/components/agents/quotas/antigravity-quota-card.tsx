@@ -26,7 +26,7 @@ import { antigravityCardView } from "./quota-card-state";
 import { QuotaNotice } from "./quota-notice";
 import { QuotaGroupsPlaceholder } from "./quota-placeholders";
 import { QuotaStatusLine } from "./quota-status-line";
-import { useRefreshHint } from "./use-refresh-hint";
+import { useQuotaWindowExpiry } from "./quota-time";
 
 import type { TFunction } from "i18next";
 import type {
@@ -55,21 +55,25 @@ import type { StatusLimit } from "./quota-status-presentation";
  */
 export function AntigravityQuotaCard({
   account,
-  pendingQueries,
-  now,
+  isRetrying,
+  targetAt,
   onRetry,
 }: {
   readonly account: AntigravityQuotaAccount;
-  /** Queries of exactly this card that have not answered yet. */
-  readonly pendingQueries: number;
-  readonly now: Date;
-  readonly onRetry: (connectionId: string) => void;
+  readonly isRetrying: boolean;
+  readonly targetAt: number;
+  readonly onRetry: () => void;
 }): React.ReactElement {
   const { t } = useTranslation();
-  const isQuerying = pendingQueries > 0;
+  const now = new Date();
   const view = antigravityCardView(account, now);
+  useQuotaWindowExpiry(
+    view.body.kind === "groups" && !view.body.isStale
+      ? view.body.groups.flatMap((group) => group.windows)
+      : [],
+    now,
+  );
   const isLoading = view.status.kind === "stored" && view.status.at === null;
-  const isHintShown = useRefreshHint(isQuerying && !isLoading);
   const groupCount = view.body.kind === "groups" ? view.body.groups.length : 0;
   const limit: StatusLimit | null = view.limit
     ? {
@@ -79,16 +83,12 @@ export function AntigravityQuotaCard({
       }
     : null;
 
-  function handleRetry(): void {
-    onRetry(account.connectionId);
-  }
-
   return (
     <QuotaCardFrame
       connectionId={account.connectionId}
       provider="antigravity"
       isLoading={isLoading}
-      isQuerying={isQuerying}
+      isQuerying={isRetrying}
     >
       <header className="flex h-11 shrink-0 items-center gap-3">
         <img
@@ -119,14 +119,13 @@ export function AntigravityQuotaCard({
       {isLoading ? (
         <QuotaGroupsPlaceholder />
       ) : (
-        <AntigravityGroupArea body={view.body} now={now} />
+        <AntigravityGroupArea body={view.body} targetAt={targetAt} />
       )}
       <QuotaStatusLine
         status={view.status}
-        now={now}
         source={{ provider: "antigravity", limit }}
-        progress={{ isQuerying, isHintShown }}
-        onRetry={handleRetry}
+        isRetrying={isRetrying}
+        onRetry={onRetry}
       />
     </QuotaCardFrame>
   );
@@ -134,11 +133,11 @@ export function AntigravityQuotaCard({
 
 function AntigravityQuotaGroupSlot({
   group,
-  now,
+  targetAt,
   isStale,
 }: {
   readonly group: QuotaGroup;
-  readonly now: Date;
+  readonly targetAt: number;
   readonly isStale: boolean;
 }): React.ReactElement {
   const { t } = useTranslation();
@@ -168,7 +167,7 @@ function AntigravityQuotaGroupSlot({
               key={kind}
               quotaWindow={quotaWindow}
               groupLabel={label}
-              now={now}
+              targetAt={targetAt}
               isStale={isStale}
             />
           ) : (
@@ -182,10 +181,10 @@ function AntigravityQuotaGroupSlot({
 
 function AntigravityGroupArea({
   body,
-  now,
+  targetAt,
 }: {
   readonly body: AntigravityCardBody;
-  readonly now: Date;
+  readonly targetAt: number;
 }): React.ReactElement {
   const { t } = useTranslation();
   if (body.kind === "notice")
@@ -204,7 +203,7 @@ function AntigravityGroupArea({
         <AntigravityQuotaGroupSlot
           key={`${position}:${group.name}`}
           group={group}
-          now={now}
+          targetAt={targetAt}
           isStale={body.isStale}
         />
       ))}

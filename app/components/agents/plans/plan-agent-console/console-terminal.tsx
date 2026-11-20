@@ -40,6 +40,8 @@ interface ConsoleTerminalProps {
   readonly model: string;
   /** The instruction of the node, as the plan prompt of the first attempt. */
   readonly prompt: string | null;
+  /** Names the session of a swarm, such as `H1`, in the start line and the closing line. */
+  readonly sessionLabel?: string;
   readonly inputMode: TerminalInputMode;
   readonly canInterrupt: boolean;
   readonly onCloseRequest: () => void;
@@ -186,8 +188,9 @@ export function ConsoleTerminal(
     attempts: terminalAttempts(props, history),
     todoTexts,
     columns,
-    texts: terminalTexts(t, i18n.language),
+    texts: terminalTexts(t, i18n.language, props.sessionLabel),
     expandedCalls,
+    sessionLabel: props.sessionLabel,
   };
   const rows = renderTerminal(input);
   useTerminalText(columns === null ? null : surface, rows);
@@ -293,7 +296,17 @@ function failureText(t: TFunction, code: string): string {
   return t([`settings.agents.error.${code}`, code]);
 }
 
-function terminalTexts(t: TFunction, language: string): TerminalTexts {
+/**
+ * The translated words of the terminal, also for the miniature of a session.
+ * @param t - The translation function.
+ * @param language - The app language, for numbers and times.
+ * @param sessionLabel - The name of a swarm session; its closing line then names it.
+ */
+export function terminalTexts(
+  t: TFunction,
+  language: string,
+  sessionLabel?: string,
+): TerminalTexts {
   const key = "plans.console.terminal";
   const secondsFormat = new Intl.NumberFormat(language, {
     minimumFractionDigits: 1,
@@ -328,6 +341,10 @@ function terminalTexts(t: TFunction, language: string): TerminalTexts {
     reportReceived: (done, total) =>
       t(`${key}.reportReceived`, { done, total }),
     sessionClosed: t(`${key}.sessionClosed`),
+    swarmClosed:
+      sessionLabel === undefined
+        ? null
+        : t(`${key}.swarmClosed`, { name: sessionLabel }),
     abort: (reason) => t(`${key}.abort`, { reason: failureText(t, reason) }),
     noReport: t(`${key}.noReport`),
     resume: (seconds, restart, limit, isSameSession) =>

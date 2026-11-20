@@ -22,8 +22,8 @@ import {
   QuotaWindowsPlaceholder,
 } from "./quota-placeholders";
 import { QuotaStatusLine } from "./quota-status-line";
+import { useQuotaWindowExpiry } from "./quota-time";
 import { QuotaWindow } from "./quota-window";
-import { useRefreshHint } from "./use-refresh-hint";
 
 import type { TFunction } from "i18next";
 import type {
@@ -56,11 +56,11 @@ function absenceReasonKey(
  */
 function ZaiCardWindows({
   body,
-  now,
+  targetAt,
   hasPlan,
 }: {
   readonly body: ZaiCardBody;
-  readonly now: Date;
+  readonly targetAt: number;
   readonly hasPlan: boolean;
 }): React.ReactElement {
   if (body.kind === "notice")
@@ -86,7 +86,7 @@ function ZaiCardWindows({
         <ZaiQuotaWindow
           key={`${position}:${quotaWindow.kind}`}
           quotaWindow={quotaWindow}
-          now={now}
+          targetAt={targetAt}
           state={{
             isStale: body.isStale,
             isCompact,
@@ -113,33 +113,31 @@ function ZaiCardWindows({
  */
 export function ZaiQuotaCard({
   account,
-  pendingQueries,
-  now,
+  isRetrying,
+  targetAt,
   onRetry,
 }: {
   readonly account: ZaiQuotaAccount;
-  /** Queries of exactly this card that have not answered yet. */
-  readonly pendingQueries: number;
-  readonly now: Date;
-  readonly onRetry: (connectionId: string) => void;
+  readonly isRetrying: boolean;
+  readonly targetAt: number;
+  readonly onRetry: () => void;
 }): React.ReactElement {
   const { t } = useTranslation();
-  const isQuerying = pendingQueries > 0;
+  const now = new Date();
   const view = zaiCardView(account, now);
+  useQuotaWindowExpiry(
+    view.body.kind === "windows" && !view.body.isStale ? view.body.windows : [],
+    now,
+  );
   const isLoading = view.status.kind === "stored" && view.status.at === null;
-  const isHintShown = useRefreshHint(isQuerying && !isLoading);
   const hasTier = account.accountType === "coding-plan";
-
-  function handleRetry(): void {
-    onRetry(account.connectionId);
-  }
 
   return (
     <QuotaCardFrame
       connectionId={account.connectionId}
       provider="zai"
       isLoading={isLoading}
-      isQuerying={isQuerying}
+      isQuerying={isRetrying}
     >
       <header className="flex h-11 shrink-0 items-center gap-3">
         <img
@@ -171,16 +169,15 @@ export function ZaiQuotaCard({
       ) : (
         <ZaiCardWindows
           body={view.body}
-          now={now}
+          targetAt={targetAt}
           hasPlan={account.plan !== null}
         />
       )}
       <QuotaStatusLine
         status={view.status}
-        now={now}
         source={{ provider: "zai", generalLimit: view.limit }}
-        progress={{ isQuerying, isHintShown }}
-        onRetry={handleRetry}
+        isRetrying={isRetrying}
+        onRetry={onRetry}
       />
     </QuotaCardFrame>
   );
@@ -198,11 +195,11 @@ function zaiWindowLabel(quotaWindow: ReportedWindow, t: TFunction): string {
 
 function ZaiQuotaWindow({
   quotaWindow,
-  now,
+  targetAt,
   state,
 }: {
   readonly quotaWindow: ReportedWindow;
-  readonly now: Date;
+  readonly targetAt: number;
   readonly state: {
     readonly isStale: boolean;
     readonly isCompact: boolean;
@@ -226,7 +223,7 @@ function ZaiQuotaWindow({
             })
           : undefined,
       }}
-      now={now}
+      targetAt={targetAt}
       isStale={state.isStale}
       isCompact={state.isCompact}
     />

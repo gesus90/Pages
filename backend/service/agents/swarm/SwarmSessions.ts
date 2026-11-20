@@ -31,7 +31,9 @@ import type {
   AgentPlanSwarmAccess,
   AgentPlanSwarmModel,
 } from "@/definition/AgentPlanSwarm";
+import type { AgentPlanSwarmSessionView } from "@/definition/AgentPlanSwarmRun";
 import type { AgentSwarmRole } from "@/definition/AgentPlanSwarmOperations";
+import type { AgentSessionStart } from "../sessions/AgentSessionAttempts";
 import type { AgentProfileService } from "../AgentProfileService";
 import type { AgentPlanSessionGrants } from "../AgentPlanSessionAccess";
 import type { SwarmTurn } from "./SwarmPorts";
@@ -76,6 +78,8 @@ export interface SwarmSessionRequest {
 
 /** An open session of a swarm and the turn of its first prompt. */
 export interface SwarmOpenedSession {
+  /** The stored attempt of the session: its history is read under this identity. */
+  readonly attempt: AgentPlanSwarmSessionView;
   readonly session: PlanSession;
   readonly turn: Promise<SwarmTurn>;
   /** Runs a further prompt as the next turn. */
@@ -219,6 +223,15 @@ export class SwarmSessions {
     if (!isAcpProvider(assignment.connection.provider))
       throw new AgentError("provider_invalid");
     const instanceId = randomUUID();
+    const attempt: AgentPlanSwarmSessionView = {
+      attemptId: randomUUID(),
+      instanceId,
+      connectionId: assignment.connection.id,
+      reasoningEffort: request.model.reasoningEffort,
+      directory: this.scope.directory,
+      startedAt: new Date().toISOString(),
+      endedAt: null,
+    };
     const mcp = await this.dependencies.grants.grant({
       userId: this.scope.userId,
       runId: this.scope.runId,
@@ -230,11 +243,29 @@ export class SwarmSessions {
       swarm: request.role,
       swarmMemory: this.scope.hasMemory === true,
     });
+    // The runner imports the history of the session under this attempt; every
+    // later turn names it again, so no turn starts a history of its own.
+    const recording: AgentSessionStart = {
+      key: {
+        planId: this.scope.planId,
+        runId: this.scope.runId,
+        stepId,
+        attemptId: attempt.attemptId,
+      },
+      userId: this.scope.userId,
+      provider: assignment.connection.provider,
+      connectionId: assignment.connection.id,
+      requestedModel: request.model.model,
+      instanceId,
+      groupId: null,
+      directory: this.scope.directory,
+    };
     const base = {
       agent: assignment,
       userId: this.scope.userId,
       directory: this.scope.directory,
       beforeStart: this.scope.beforeStart,
+      recording,
     };
     const progressInstructions = nativePlanProgressInstructions({
       provider: assignment.connection.provider,
@@ -262,12 +293,18 @@ export class SwarmSessions {
       request.signal,
       OBSERVER,
     );
-    return this.opened(session, { base, stepId, progressInstructions });
+    return this.opened(session, {
+      attempt,
+      base,
+      stepId,
+      progressInstructions,
+    });
   }
 
   private opened(
     session: PlanSession,
     context: {
+      readonly attempt: AgentPlanSwarmSessionView;
       readonly base: {
         readonly agent: Awaited<
           ReturnType<AgentProfileService["resolveDefinition"]>
@@ -275,12 +312,14 @@ export class SwarmSessions {
         readonly userId: string;
         readonly directory: string;
         readonly beforeStart: () => Promise<void>;
+        readonly recording: AgentSessionStart;
       };
       readonly stepId: string;
       readonly progressInstructions: readonly string[];
     },
   ): SwarmOpenedSession {
     return {
+      attempt: context.attempt,
       session,
       turn: session.turn.then(swarmTurnOf),
       next: async (prompt, signal) => {

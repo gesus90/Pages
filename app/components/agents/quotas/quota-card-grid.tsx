@@ -1,5 +1,5 @@
 import { GripHorizontal } from "lucide-react";
-import { useId } from "react";
+import { memo, startTransition, useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { AntigravityQuotaCard } from "./antigravity-quota-card";
@@ -11,6 +11,7 @@ import { useQuotaCardSort } from "./use-quota-card-sort";
 import { ZaiQuotaCard } from "./zai-quota-card";
 
 import type { ReactNode } from "react";
+import type { QuotaAccount } from "@/definition/AgentQuota";
 import type { SaveOpenRouterBalance } from "./quota-requests";
 import type { QuotaCard } from "./quota-state";
 import type { QuotaCardSort } from "./use-quota-card-sort";
@@ -22,67 +23,61 @@ const PLACEHOLDER_CARDS = ["first", "second", "third"] as const;
 const NO_CARDS: readonly QuotaCard[] = [];
 
 /** The card of one connection, by the provider that answers for it. */
-function QuotaCardOfConnection({
-  card,
-  now,
-  isPushRefreshing,
+const QuotaCardOfConnection = memo(function ConnectionQuotaCard({
+  account,
+  targetAt,
   onRetry,
   onSaveOpenRouterBalance,
 }: {
-  readonly card: QuotaCard;
-  readonly now: Date;
-  readonly isPushRefreshing: boolean;
-  readonly onRetry: (connectionId: string) => void;
+  readonly account: QuotaAccount;
+  readonly targetAt: number;
+  readonly onRetry: (connectionId: string) => Promise<void>;
   readonly onSaveOpenRouterBalance: SaveOpenRouterBalance;
 }): React.ReactElement {
-  const { account } = card;
-  const pendingQueries = card.pendingQueries + (isPushRefreshing ? 1 : 0);
+  const [isRetrying, setIsRetrying] = useState(false);
+
+  async function retry(): Promise<void> {
+    setIsRetrying(true);
+    try {
+      await onRetry(account.connectionId);
+    } finally {
+      startTransition(() => setIsRetrying(false));
+    }
+  }
+
+  function handleRetry(): void {
+    if (!isRetrying) void retry();
+  }
+
+  const interaction = { isRetrying, onRetry: handleRetry };
   if (account.provider === "antigravity")
     return (
       <AntigravityQuotaCard
         account={account}
-        pendingQueries={pendingQueries}
-        now={now}
-        onRetry={onRetry}
+        targetAt={targetAt}
+        {...interaction}
       />
     );
   if (account.provider === "openrouter")
     return (
       <OpenRouterQuotaCard
         account={account}
-        pendingQueries={pendingQueries}
-        now={now}
-        onRetry={onRetry}
+        {...interaction}
         onSaveBalance={onSaveOpenRouterBalance}
       />
     );
   if (account.provider === "zai")
     return (
-      <ZaiQuotaCard
-        account={account}
-        pendingQueries={pendingQueries}
-        now={now}
-        onRetry={onRetry}
-      />
+      <ZaiQuotaCard account={account} targetAt={targetAt} {...interaction} />
     );
   if (account.provider === "codex_cli")
     return (
-      <CodexQuotaCard
-        account={account}
-        pendingQueries={pendingQueries}
-        now={now}
-        onRetry={onRetry}
-      />
+      <CodexQuotaCard account={account} targetAt={targetAt} {...interaction} />
     );
   return (
-    <ClaudeQuotaCard
-      account={account}
-      pendingQueries={pendingQueries}
-      now={now}
-      onRetry={onRetry}
-    />
+    <ClaudeQuotaCard account={account} targetAt={targetAt} {...interaction} />
   );
-}
+});
 
 /**
  * The grid of the quota cards of the provider connections: as many
@@ -106,16 +101,12 @@ function QuotaCardOfConnection({
  */
 export function QuotaCardGrid({
   cards,
-  now,
-  isPushRefreshing,
   onRetry,
   onMove,
   onSaveOpenRouterBalance,
 }: {
   readonly cards: readonly QuotaCard[] | null;
-  readonly now: Date;
-  readonly isPushRefreshing: boolean;
-  readonly onRetry: (connectionId: string) => void;
+  readonly onRetry: (connectionId: string) => Promise<void>;
   readonly onMove: (connectionId: string, toIndex: number) => void;
   readonly onSaveOpenRouterBalance: SaveOpenRouterBalance;
 }): React.ReactElement {
@@ -143,9 +134,8 @@ export function QuotaCardGrid({
                 isSortable={cards.length > 1}
               >
                 <QuotaCardOfConnection
-                  card={card}
-                  now={now}
-                  isPushRefreshing={isPushRefreshing}
+                  account={card.account}
+                  targetAt={card.displayedAt}
                   onRetry={onRetry}
                   onSaveOpenRouterBalance={onSaveOpenRouterBalance}
                 />

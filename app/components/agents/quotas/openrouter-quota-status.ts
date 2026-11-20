@@ -144,7 +144,6 @@ function lastFailedReading(account: OpenRouterQuotaAccount): string | null {
 export function openRouterQuotaStatus(
   account: OpenRouterQuotaAccount,
   format: OpenRouterQuotaFormat,
-  progress: StatusFormat["progress"],
 ): StatusPresentation {
   const { key, credits } = account;
   const { t, time } = format;
@@ -153,7 +152,6 @@ export function openRouterQuotaStatus(
     time,
     provider: "openrouter",
     moment: time,
-    progress,
   };
   if (key.status === "failed" || credits?.status === "failed")
     return statusPresentation(
@@ -168,7 +166,7 @@ export function openRouterQuotaStatus(
       text: t("agentsPage.openRouter.invalidKey"),
     };
   const at = latestReading(account);
-  if (key.status === "stored" || (progress.isQuerying && progress.isHintShown))
+  if (key.status === "stored")
     return statusPresentation({ kind: "stored", at }, sharedFormat);
   return combineReportedStatuses(account, format, at);
 }

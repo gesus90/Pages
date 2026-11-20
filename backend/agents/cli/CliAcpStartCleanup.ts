@@ -18,6 +18,8 @@ interface StartCleanup {
   readonly github: CliGitHubAccess | null;
   readonly limited: { readonly request: CliSessionRequest } | null;
   readonly containment: CliSessionContainment;
+  readonly cleanupTemporaryDirectory?: () => Promise<void>;
+  readonly releaseTemporaryDirectory?: () => void;
 }
 
 async function closeFailedAcp(
@@ -56,11 +58,22 @@ export async function cleanupAcpStart(
   if (!isConfirmed) throw new AcpCleanupUnconfirmedError();
 }
 
+async function removeJobTemporary(
+  cleanupTemporaryDirectory: (() => Promise<void>) | undefined,
+): Promise<void> {
+  if (!cleanupTemporaryDirectory) return;
+  try {
+    await cleanupTemporaryDirectory();
+  } catch (caughtError: unknown) {
+    logCaughtError("CliSessionExecution", caughtError);
+  }
+}
+
 /**
- * Cleans up an unsuccessful ACP start together with the Pica bundle it prepared.
+ * Cleans up an unsuccessful ACP start together with the Pica bundle and job scratch it prepared.
  * @remarks
- * The bundle stays when the worker's end is unconfirmed, since the worker may
- * still read it; every other failure removes it.
+ * Both stay when the worker's end is unconfirmed, since the worker may still
+ * read or write them; every other failure removes them immediately.
  */
 export async function cleanupFailedAcpStart(
   child: CliSessionProcess | null,
@@ -70,9 +83,14 @@ export async function cleanupFailedAcpStart(
   try {
     await cleanupAcpStart(child, cleanup);
   } catch (cleanupError: unknown) {
-    if (!(cleanupError instanceof AcpCleanupUnconfirmedError))
+    if (cleanupError instanceof AcpCleanupUnconfirmedError) {
+      cleanup.releaseTemporaryDirectory?.();
+    } else {
       cleanupBundle?.();
+      await removeJobTemporary(cleanup.cleanupTemporaryDirectory);
+    }
     throw cleanupError;
   }
   cleanupBundle?.();
+  await removeJobTemporary(cleanup.cleanupTemporaryDirectory);
 }

@@ -553,7 +553,7 @@ function nativePlanObserver(
 ): (job: RunnerJob) => void {
   let previous: string | undefined;
   return (job) => {
-    if (!job.nativePlan || !session?.journal || input.recording) return;
+    if (!job.nativePlan || !session?.journal) return;
     const next = JSON.stringify(job.nativePlan);
     if (next === previous) return;
     previous = next;

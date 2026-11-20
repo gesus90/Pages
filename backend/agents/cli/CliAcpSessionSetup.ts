@@ -76,6 +76,8 @@ export interface OpenCliAcpSessionContext {
   readonly github: CliGitHubAccess | null;
   readonly redact: (text: string) => string;
   readonly secure: () => Promise<void>;
+  readonly cleanupTemporaryDirectory?: () => Promise<void>;
+  readonly releaseTemporaryDirectory?: () => void;
   /** Stores the subscription figures of a Claude session under its connection. */
   readonly claudeQuota?: ClaudeQuotaSink;
 }
@@ -102,13 +104,16 @@ export function openCliAcpSession(
     github,
     redact,
     secure,
+    cleanupTemporaryDirectory,
+    releaseTemporaryDirectory,
     claudeQuota,
   } = context;
   return new AcpSession(child, channel.stream, {
     instanceId: input.instanceId,
+    // A Pica chat runs its own verified build, so the host tool's version, which may be newer, is no pin for it.
     driver: pinnedAgentToolDriver(
       driver,
-      picaBundle?.version ?? start.adapterVersion,
+      picaBundle?.version ?? picaNative?.version ?? start.adapterVersion,
     ),
     profile,
     request: acpSessionRequest(input, {
@@ -123,6 +128,8 @@ export function openCliAcpSession(
     redact,
     secure,
     cleanupAdapter: picaBundle?.cleanup,
+    cleanupTemporaryDirectory,
+    releaseTemporaryDirectory,
     listener: input.chat?.listener ?? input.journal,
     openCodeDataHome:
       driver.provider === "opencode" ? start.home.config : undefined,
@@ -134,6 +141,31 @@ export function openCliAcpSession(
     notificationHandled: () => channel.acknowledge(),
     acceptsTurnInput: input.chat === undefined,
     claudeQuota,
+  });
+}
+
+/** Prepares the native Pica build and Codex bundle a chat starts with. */
+export async function preparePicaChat(
+  parts: {
+    readonly driver: AcpDriver;
+    readonly input: AgentPlanSessionInput;
+    readonly start: VerifiedStart;
+    readonly launch: ReturnType<typeof planAcpLaunch>;
+    readonly profile: ReturnType<AcpDriver["profile"]>;
+    readonly adapter: string;
+  },
+  tools?: Pick<AgentToolManagerService, "directory" | "retained">,
+): Promise<
+  Pick<OpenCliAcpSessionContext, "picaNative" | "picaBundle" | "picaSupport">
+> {
+  return preparePicaSession({
+    driver: parts.driver,
+    input: parts.input,
+    launch: parts.launch,
+    profile: parts.profile,
+    tools,
+    adapter: parts.adapter,
+    adapterVersion: parts.start.adapterVersion,
   });
 }
 

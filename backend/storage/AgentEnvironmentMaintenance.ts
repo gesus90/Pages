@@ -11,6 +11,41 @@ import type { AgentEnvironmentRepository } from "@/backend/database/repositories
 
 const UUID = /^[\da-f]{8}-[\da-f]{4}-[\da-f]{4}-[\da-f]{4}-[\da-f]{12}$/iu;
 
+const CONNECTION_CACHE_PATHS: readonly (readonly string[])[] = [
+  ["data", "pnpm"],
+  ["cache", "pnpm"],
+  ["cache", "ms-playwright"],
+  ["cache", "pages-browser-tests"],
+  ["cache", "node"],
+  ["cache", "node-gyp"],
+  ["cache", "google-chrome-headless"],
+  ["cache", "pip"],
+  ["cache", "uv"],
+  ["cache", "go-build"],
+  ["cache", "sccache"],
+  ["cache", "yarn"],
+  ["cache", "turbo"],
+  [".cache", "pip"],
+  [".cache", "uv"],
+  [".cache", "go-build"],
+  [".cache", "sccache"],
+  [".cache", "node-gyp"],
+  [".cache", "ms-playwright"],
+  [".cache", "pnpm"],
+  [".cache", "yarn"],
+  [".npm", "_cacache"],
+  [".npm", "_npx"],
+  [".npm", "_logs"],
+  [".pages", "tmp"],
+  [".cargo", "registry", "cache"],
+  [".cargo", "registry", "src"],
+  [".cargo", "git", "checkouts"],
+  [".cargo", "git", "db"],
+  [".gradle", "caches"],
+  [".m2", "repository"],
+  ["go", "pkg", "mod", "cache"],
+];
+
 async function entries(directory: string): Promise<Dirent[]> {
   try {
     const metadata = await lstat(directory);
@@ -21,6 +56,31 @@ async function entries(directory: string): Promise<Dirent[]> {
       return [];
     throw error;
   }
+}
+
+async function removeCachePath(
+  home: string,
+  segments: readonly string[],
+): Promise<void> {
+  let current = home;
+  for (let index = 0; index < segments.length - 1; index += 1) {
+    const name = segments[index];
+    const children = await entries(current);
+    if (
+      !children.some(
+        (entry) =>
+          entry.name === name && entry.isDirectory() && !entry.isSymbolicLink(),
+      )
+    )
+      return;
+    current = path.join(current, name);
+  }
+  const targetName = segments.at(-1);
+  if (!targetName) return;
+  const children = await entries(current);
+  const match = children.find((entry) => entry.name === targetName);
+  if (!match || match.isSymbolicLink()) return;
+  await rm(path.join(current, targetName), { recursive: true, force: true });
 }
 
 /** Removes obsolete run homes and empties completed plan homes without deleting their stable paths. */
@@ -64,31 +124,8 @@ export class AgentEnvironmentMaintenance {
   }
 
   private async connectionCaches(home: string): Promise<void> {
-    const folders: Readonly<Record<string, readonly string[]>> = {
-      data: ["pnpm"],
-      cache: [
-        "pnpm",
-        "ms-playwright",
-        "pages-browser-tests",
-        "node",
-        "node-gyp",
-        "google-chrome-headless",
-      ],
-      ".npm": ["_cacache", "_npx", "_logs"],
-    };
-    const parents = await entries(home);
-    for (const [parent, names] of Object.entries(folders)) {
-      if (
-        !parents.some((entry) => entry.name === parent && entry.isDirectory())
-      )
-        continue;
-      const directory = path.join(home, parent);
-      const children = await entries(directory);
-      for (const name of names) {
-        if (!children.some((entry) => entry.name === name)) continue;
-        await rm(path.join(directory, name), { recursive: true, force: true });
-      }
-    }
+    for (const segments of CONNECTION_CACHE_PATHS)
+      await removeCachePath(home, segments);
   }
 
   private async legacyRuns(root: string): Promise<void> {

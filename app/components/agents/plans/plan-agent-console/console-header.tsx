@@ -22,6 +22,14 @@ import { ConsoleRunPicker } from "./console-run-picker";
 import type { AgentPlanRun, AgentPlanRunSummary } from "@/definition/AgentPlan";
 import type { HeaderState } from "./console-header-badges";
 
+/** Draws the header of the console for a session: its provider, state, the stop of the run and further badges. */
+export type ConsoleHeaderRenderer = (
+  provider: string | null,
+  state: HeaderState | null,
+  onStopRun?: () => Promise<void>,
+  badges?: React.ReactNode,
+) => React.ReactNode;
+
 interface ConsoleHeaderProps {
   readonly title: string;
   readonly nodeType: string;
@@ -37,6 +45,8 @@ interface ConsoleHeaderProps {
   readonly onBack?: () => void;
   /** Stops the whole run; absent when the run cannot be stopped from here. */
   readonly onStopRun?: () => Promise<void>;
+  /** Further badges after the state, such as the helper count of a swarm. */
+  readonly badges?: React.ReactNode;
 }
 
 /** The provider badge and the state below the title; model and reasoning stand in the sidebar. */
@@ -102,6 +112,7 @@ export function ConsoleHeader(props: ConsoleHeaderProps): React.ReactElement {
         </h2>
         <div role="status" className="mt-2 flex flex-wrap items-center gap-1.5">
           <ConsoleSessionBadges provider={props.provider} state={props.state} />
+          {props.badges}
           {props.run?.manualInputAt ? (
             <NoteBadge>{t("plans.console.manualInput")}</NoteBadge>
           ) : null}

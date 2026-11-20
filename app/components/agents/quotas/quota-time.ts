@@ -1,12 +1,79 @@
+import { useEffect, useState } from "react";
+
 import type { TFunction } from "i18next";
 
 const MINUTE_MILLISECONDS = 60_000;
 const HOUR_MINUTES = 60;
 const DAY_MINUTES = 24 * HOUR_MINUTES;
+const MAX_TIMEOUT_MILLISECONDS = 2_147_483_647;
+
+interface ExpiringQuotaWindow {
+  readonly resetsAt: string | null;
+}
 
 interface QuotaResetText {
   readonly full: string;
   readonly short: string;
+}
+
+/** Renders the calling component again when its display reaches a deadline. */
+export function useQuotaDeadline(deadline: number): void {
+  const [, setRevision] = useState(0);
+  useEffect(() => {
+    if (!Number.isFinite(deadline)) return;
+    let timer: number | undefined;
+
+    function schedule(): void {
+      const remaining = deadline - Date.now();
+      if (remaining <= 0) {
+        setRevision((revision) => revision + 1);
+        return;
+      }
+      timer = window.setTimeout(
+        schedule,
+        Math.min(remaining, MAX_TIMEOUT_MILLISECONDS),
+      );
+    }
+
+    schedule();
+    return () => window.clearTimeout(timer);
+  }, [deadline]);
+}
+
+/** Updates the card when one of the windows it still shows expires. */
+export function useQuotaWindowExpiry(
+  windows: readonly ExpiringQuotaWindow[],
+  now: Date,
+): void {
+  let nextReset = Infinity;
+  for (const quotaWindow of windows) {
+    const reset = Date.parse(quotaWindow.resetsAt ?? "");
+    if (reset > now.getTime() && reset < nextReset) nextReset = reset;
+  }
+  useQuotaDeadline(nextReset);
+}
+
+/** The next date boundary in the reader's local time. */
+export function nextQuotaMidnight(now: Date): number {
+  return new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    now.getDate() + 1,
+  ).getTime();
+}
+
+/** Reads the clock for a timestamp whose wording changes with the date. */
+export function useQuotaCalendarDate(hasTimestamp: boolean): Date {
+  const now = new Date();
+  useQuotaDeadline(hasTimestamp ? nextQuotaMidnight(now) : Infinity);
+  return now;
+}
+
+/** The next minute boundary of a running countdown. */
+export function nextQuotaCountdownChange(end: number, now: number): number {
+  const remaining = end - now;
+  if (!Number.isFinite(remaining) || remaining <= 0) return Infinity;
+  return now + (remaining % MINUTE_MILLISECONDS || MINUTE_MILLISECONDS);
 }
 
 function timeFormat(language: string): Intl.DateTimeFormat {

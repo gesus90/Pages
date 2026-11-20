@@ -20,8 +20,8 @@ import {
   QuotaWindowsPlaceholder,
 } from "./quota-placeholders";
 import { QuotaStatusLine } from "./quota-status-line";
+import { useQuotaWindowExpiry } from "./quota-time";
 import { QuotaWindow } from "./quota-window";
-import { useRefreshHint } from "./use-refresh-hint";
 
 import type {
   ClaudePlan,
@@ -42,11 +42,11 @@ import type { QuotaCardBody } from "./quota-card-state";
  */
 function QuotaCardWindows({
   body,
-  now,
+  targetAt,
   hasPlan,
 }: {
   readonly body: QuotaCardBody;
-  readonly now: Date;
+  readonly targetAt: number;
   readonly hasPlan: boolean;
 }): React.ReactElement {
   return (
@@ -61,7 +61,7 @@ function QuotaCardWindows({
           <ClaudeQuotaWindow
             key={quotaWindow.kind}
             quotaWindow={quotaWindow}
-            now={now}
+            targetAt={targetAt}
             isStale={body.isStale}
           />
         ))
@@ -93,31 +93,29 @@ function QuotaCardWindows({
  */
 export function ClaudeQuotaCard({
   account,
-  pendingQueries,
-  now,
+  isRetrying,
+  targetAt,
   onRetry,
 }: {
   readonly account: ClaudeQuotaAccount;
-  /** Queries of exactly this card that have not answered yet. */
-  readonly pendingQueries: number;
-  readonly now: Date;
-  readonly onRetry: (connectionId: string) => void;
+  readonly isRetrying: boolean;
+  readonly targetAt: number;
+  readonly onRetry: () => void;
 }): React.ReactElement {
   const { t } = useTranslation();
-  const isQuerying = pendingQueries > 0;
+  const now = new Date();
   const view = quotaCardView(account, now);
+  useQuotaWindowExpiry(
+    view.body.kind === "windows" && !view.body.isStale ? view.body.windows : [],
+    now,
+  );
   const isLoading = view.status.kind === "stored" && view.status.at === null;
-  const isHintShown = useRefreshHint(isQuerying && !isLoading);
-
-  function handleRetry(): void {
-    onRetry(account.connectionId);
-  }
 
   return (
     <QuotaCardFrame
       connectionId={account.connectionId}
       isLoading={isLoading}
-      isQuerying={isQuerying}
+      isQuerying={isRetrying}
     >
       <header className="flex h-11 shrink-0 items-center gap-3">
         <img
@@ -147,16 +145,15 @@ export function ClaudeQuotaCard({
       ) : (
         <QuotaCardWindows
           body={view.body}
-          now={now}
+          targetAt={targetAt}
           hasPlan={account.plan !== null}
         />
       )}
       <QuotaStatusLine
         status={view.status}
-        now={now}
         source={{ provider: "claude_code", generalLimit: view.limit }}
-        progress={{ isQuerying, isHintShown }}
-        onRetry={handleRetry}
+        isRetrying={isRetrying}
+        onRetry={onRetry}
       />
     </QuotaCardFrame>
   );
@@ -164,11 +161,11 @@ export function ClaudeQuotaCard({
 
 function ClaudeQuotaWindow({
   quotaWindow,
-  now,
+  targetAt,
   isStale = false,
 }: {
   readonly quotaWindow: ReportedWindow;
-  readonly now: Date;
+  readonly targetAt: number;
   readonly isStale?: boolean;
 }): React.ReactElement {
   const { t } = useTranslation();
@@ -182,7 +179,7 @@ function ClaudeQuotaWindow({
         durationMinutes: FIXED_QUOTA_MINUTES[quotaWindow.kind],
         pace: quotaWindow.pace,
       }}
-      now={now}
+      targetAt={targetAt}
       isStale={isStale}
     />
   );

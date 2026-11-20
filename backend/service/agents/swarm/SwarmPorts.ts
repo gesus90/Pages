@@ -1,5 +1,8 @@
 import type { AgentPlanAgentTodo } from "@/definition/AgentPlanAgentTodos";
-import type { AgentPlanSwarmRun } from "@/definition/AgentPlanSwarmRun";
+import type {
+  AgentPlanSwarmRun,
+  AgentPlanSwarmSessionView,
+} from "@/definition/AgentPlanSwarmRun";
 import type { SwarmLock } from "./SwarmLocks";
 import type { SwarmWorkspaceProbe } from "./SwarmGitProbe";
 
@@ -39,6 +42,8 @@ export interface SwarmWorkerEvents {
 
 /** A helper session that just opened, with the turn of its first subtask. */
 export interface SwarmOpenedWorker {
+  /** The stored attempt of the session, for its history; absent without one. */
+  readonly attempt?: AgentPlanSwarmSessionView;
   readonly session: SwarmWorkerSession;
   readonly turn: Promise<SwarmTurn>;
 }

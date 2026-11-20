@@ -21,6 +21,8 @@ export interface PicaNativeArtifact {
   readonly runner: PicaNativeRunner;
   readonly directory: string;
   readonly executable: string;
+  /** The version the manifest of the build was verified against; the build reports this one in `initialize`. */
+  readonly version: string;
 }
 
 interface RunnerPin {
@@ -291,7 +293,12 @@ export function verifyPicaNativeArtifact(
       verifyFiles(directory, declaredFiles(manifest, runner));
       verifiedBuilds.set(key, current);
     }
-    return { runner, directory, executable: path.join(directory, runner) };
+    return {
+      runner,
+      directory,
+      executable: path.join(directory, runner),
+      version: PINS[runner].version,
+    };
   } catch (error: unknown) {
     if (error instanceof AgentError) throw error;
     return refuse();

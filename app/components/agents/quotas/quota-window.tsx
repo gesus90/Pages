@@ -2,20 +2,18 @@ import { useTranslation } from "react-i18next";
 
 import { cn } from "@/app/lib/cn";
 import { claudeQuotaTone, usedWholePercentage } from "@/definition/ClaudeQuota";
-import { quotaForecast } from "@/definition/QuotaForecast";
 
 import {
   QUOTA_COMPACT_WINDOW_SLOT_CLASS,
-  QUOTA_FIGURES_RUN_MILLISECONDS,
   QUOTA_WINDOW_SLOT_CLASS,
 } from "./quota-card-layout";
 import {
   QuotaForecastLabel,
   QuotaProgress,
   QuotaTargetLegend,
+  useQuotaWindowProjection,
 } from "./quota-forecast-details";
 import { formatQuotaReset } from "./quota-time";
-import { useAnimatedNumber } from "./use-animated-number";
 
 import type {
   QuotaForecast,
@@ -33,7 +31,7 @@ interface QuotaWindowFigures extends QuotaFrame {
 
 interface QuotaWindowProps {
   readonly figures: QuotaWindowFigures;
-  readonly now: Date;
+  readonly targetAt: number;
   readonly isStale?: boolean;
   readonly isCompact?: boolean;
 }
@@ -91,14 +89,12 @@ function QuotaWindowFooter({
 function QuotaWindowHeading({
   label,
   remaining,
-  shownRemaining,
   projection,
   canShowLabel,
   isCompact,
 }: {
   readonly label: string;
   readonly remaining: number;
-  readonly shownRemaining: number;
   readonly projection: QuotaForecast;
   readonly canShowLabel: boolean;
   readonly isCompact: boolean;
@@ -127,12 +123,12 @@ function QuotaWindowHeading({
       <span
         data-quota-tone={claudeQuotaTone(remaining)}
         className={cn(
-          "ml-auto shrink-0 whitespace-nowrap font-bold transition-colors duration-300 motion-reduce:transition-none",
+          "ml-auto shrink-0 whitespace-nowrap font-bold",
           isCompact ? "text-sm" : "text-[15px]",
           remaining < 10 && "text-destructive",
         )}
       >
-        {t("agentsPage.quota.remaining", { percent: shownRemaining })}
+        {t("agentsPage.quota.remaining", { percent: remaining })}
       </span>
     </div>
   );
@@ -141,7 +137,7 @@ function QuotaWindowHeading({
 /** Shows one provider window on the common remaining-quota scale. */
 export function QuotaWindow({
   figures,
-  now,
+  targetAt,
   isStale = false,
   isCompact = false,
 }: QuotaWindowProps): React.ReactElement {
@@ -153,18 +149,19 @@ export function QuotaWindow({
     usedWholePercentage(usedPercentage),
   );
   const remaining = 100 - used;
-  const shownUsed = useAnimatedNumber(used, QUOTA_FIGURES_RUN_MILLISECONDS);
-  const projection = quotaForecast({
-    ...figures,
-    now: now.getTime(),
-    remaining: measuredRemaining,
-    isStale,
-    isExhausted: remaining === 0,
-  });
+  const { now, projection } = useQuotaWindowProjection(
+    {
+      ...figures,
+      remaining: measuredRemaining,
+      isStale,
+      isExhausted: remaining === 0,
+    },
+    targetAt,
+  );
   const format = { t, language: i18n.language };
   const reset = formatQuotaReset(resetsAt, now, format);
   const usedText =
-    figures.usedLabel ?? t("agentsPage.quota.used", { percent: shownUsed });
+    figures.usedLabel ?? t("agentsPage.quota.used", { percent: used });
   const canShowLabel = resetsAt !== null;
 
   return (
@@ -181,7 +178,6 @@ export function QuotaWindow({
       <QuotaWindowHeading
         label={label}
         remaining={remaining}
-        shownRemaining={100 - shownUsed}
         projection={projection}
         canShowLabel={canShowLabel}
         isCompact={isCompact}

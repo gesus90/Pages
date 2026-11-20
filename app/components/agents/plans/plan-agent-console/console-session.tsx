@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { modelBadgeDisplay } from "@/app/components/agents/model-picker/model-catalog";
+import { cn } from "@/app/lib/cn";
 
 import { ConsoleComposer } from "./console-composer";
 import { providerBadgeKey } from "./console-header-badges";
@@ -18,10 +19,30 @@ import type {
   AgentSessionKey,
   AgentSessionView,
 } from "@/definition/AgentSessionJournal";
+import type { ConsoleHeaderRenderer } from "./console-header";
 import type { HeaderState, StateTone } from "./console-header-badges";
 import type { ConsoleStepState } from "./console-step-state";
 import type { TerminalInputMode } from "./console-terminal";
 import type { SessionCommands } from "./use-session-commands";
+
+/**
+ * What a swarm adds around one of its sessions: the picker of its sessions
+ * and the words that name the session in the terminal and the details.
+ */
+export interface ConsoleSwarmSlot {
+  /** The role in the details, such as „Haupt“ or „Helfer 1“. */
+  readonly roleLabel: string;
+  /** The session in the start and closing line of the terminal, such as `H1`. */
+  readonly sessionLabel: string;
+  /** Whether the swarm node ended; the header then says so and offers no stop. */
+  readonly isEnded: boolean;
+  /** Further header badges, such as the count of finished helpers. */
+  readonly badges: React.ReactNode;
+  /** The picker above the terminal below 1140 px. */
+  readonly bar: React.ReactNode;
+  /** The picker between terminal and details from 1140 px on. */
+  readonly column: React.ReactNode;
+}
 
 interface ConsoleSessionProps {
   readonly sessionKey: AgentSessionKey;
@@ -32,11 +53,9 @@ interface ConsoleSessionProps {
   readonly prompt: string | null;
   readonly onClose: () => void;
   /** Draws the header with the provider badge, the translated state and the stop of the run. */
-  readonly header: (
-    provider: string | null,
-    state: HeaderState | null,
-    onStopRun: (() => Promise<void>) | undefined,
-  ) => React.ReactNode;
+  readonly header: ConsoleHeaderRenderer;
+  /** Set for a session of a swarm. */
+  readonly swarm?: ConsoleSwarmSlot;
 }
 
 /** Narrow windows and touch devices type in the field below the terminal instead of its line. */
@@ -84,6 +103,11 @@ function headerState(
   return { label: t(`${key}.${state.kind}`), tone };
 }
 
+/** The state of a swarm that ended: neutral, whatever the session it shows did. */
+function endedState(t: ReturnType<typeof useTranslation>["t"]): HeaderState {
+  return { label: t("plans.console.state.ended"), tone: "neutral" };
+}
+
 function modelLabel(
   view: AgentSessionView | null,
   step: AgentPlanStepResult,
@@ -123,7 +147,36 @@ function SessionNotice({
   );
 }
 
-/** The terminal with its input on the left and the sidebar on the right; below 680 px stacked. */
+/**
+ * The terminal with its input on the left and the sidebar on the right; below 680 px stacked.
+ * @remarks
+ * A swarm adds its sessions: a column of 232 px between terminal and sidebar
+ * from 1140 px of the console on, otherwise a bar above the terminal. The
+ * terminal keeps at least 600 px beside the column.
+ */
+export function SessionBodyLayout(props: {
+  readonly swarm?: ConsoleSwarmSlot;
+  readonly sidebar: React.ReactNode;
+  readonly children: React.ReactNode;
+}): React.ReactElement {
+  const { swarm } = props;
+  return (
+    <div className="flex min-h-0 flex-1 flex-col overflow-y-auto bg-agent-terminal-surface min-[680px]:flex-row min-[680px]:overflow-hidden">
+      <div
+        className={cn(
+          "flex min-w-0 shrink-0 flex-col min-[680px]:min-h-0 min-[680px]:flex-1 min-[680px]:shrink",
+          swarm && "@min-[1140px]:min-w-[600px]",
+        )}
+      >
+        {swarm?.bar}
+        {props.children}
+      </div>
+      {swarm?.column}
+      {props.sidebar}
+    </div>
+  );
+}
+
 function SessionBody(
   props: ConsoleSessionProps & {
     readonly view: AgentSessionView;
@@ -138,34 +191,59 @@ function SessionBody(
   const canType = view.actions.canSend && !props.isReadOnly;
   const canInterrupt = view.actions.canCancelTurn;
   return (
-    <div className="flex min-h-0 flex-1 flex-col overflow-y-auto bg-agent-terminal-surface min-[680px]:flex-row min-[680px]:overflow-hidden">
-      <div className="flex min-w-0 shrink-0 flex-col min-[680px]:min-h-0 min-[680px]:flex-1 min-[680px]:shrink">
-        <ConsoleFailure remote={step.remote} />
-        <ConsoleTerminal
-          sessionKey={props.sessionKey}
+    <SessionBodyLayout
+      swarm={props.swarm}
+      sidebar={
+        <ConsoleSidebar
           step={step}
-          session={props.session}
-          commands={commands}
-          provider={t(`settings.agents.provider.${view.provider}`)}
-          model={modelLabel(view, step)}
-          prompt={props.prompt}
-          inputMode={inputModeOf({ hasEnded, canType, isCompact })}
-          canInterrupt={canInterrupt}
-          onCloseRequest={props.onClose}
+          view={view}
+          roleLabel={props.swarm?.roleLabel}
         />
-        <PlanRemoteHistoryNotice step={step} />
-        {isCompact && canType && !hasEnded ? (
-          <ConsoleComposer
-            view={view}
-            isReadOnly={props.isReadOnly}
-            commands={commands}
-            canInterrupt={canInterrupt}
-          />
-        ) : null}
-      </div>
-      <ConsoleSidebar step={step} view={view} />
-    </div>
+      }
+    >
+      <ConsoleFailure remote={step.remote} />
+      <ConsoleTerminal
+        sessionKey={props.sessionKey}
+        step={step}
+        session={props.session}
+        commands={commands}
+        provider={t(`settings.agents.provider.${view.provider}`)}
+        model={modelLabel(view, step)}
+        prompt={props.prompt}
+        sessionLabel={props.swarm?.sessionLabel}
+        inputMode={inputModeOf({ hasEnded, canType, isCompact })}
+        canInterrupt={canInterrupt}
+        onCloseRequest={props.onClose}
+      />
+      <PlanRemoteHistoryNotice step={step} />
+      {isCompact && canType && !hasEnded ? (
+        <ConsoleComposer
+          view={view}
+          isReadOnly={props.isReadOnly}
+          commands={commands}
+          canInterrupt={canInterrupt}
+        />
+      ) : null}
+    </SessionBodyLayout>
   );
+}
+
+function ConsoleSessionContent(
+  props: ConsoleSessionProps & {
+    readonly session: ReturnType<typeof useAgentSession>;
+    readonly commands: SessionCommands;
+  },
+): React.ReactElement | null {
+  const { view } = props.session;
+  if (view && props.step.session)
+    return <SessionBody {...props} view={view} commands={props.commands} />;
+  if (props.swarm)
+    return (
+      <SessionBodyLayout swarm={props.swarm} sidebar={null}>
+        {null}
+      </SessionBodyLayout>
+    );
+  return null;
 }
 
 /** The ended line after the session, the input line where a person may type, else nothing. */
@@ -191,6 +269,31 @@ function sessionProvider(
   ]);
 }
 
+/** Whether live updates of the session arrive while it is shown. */
+function isSessionLive(
+  props: ConsoleSessionProps,
+  step: AgentPlanStepResult,
+): boolean {
+  return (
+    props.isLive ||
+    step.session?.runnerOwned === true ||
+    step.remote?.liveHistoryVersion === 1
+  );
+}
+
+/** Whether the header offers to stop the run of the session. */
+function canStopSession(
+  props: ConsoleSessionProps,
+  view: AgentSessionView | null,
+  swarm: ConsoleSwarmSlot | undefined,
+): boolean {
+  return (
+    view?.actions.canCancelRun === true &&
+    !props.isReadOnly &&
+    swarm?.isEnded !== true
+  );
+}
+
 /**
  * The session of one node: the Pages terminal on the left, the sidebar on the right.
  *
@@ -204,32 +307,28 @@ export function ConsoleSession(props: ConsoleSessionProps): React.ReactElement {
   const { t } = useTranslation();
   const { step } = props;
   const session = useAgentSession(props.sessionKey, {
-    isLive:
-      props.isLive ||
-      step.session?.runnerOwned === true ||
-      step.remote?.liveHistoryVersion === 1,
+    isLive: isSessionLive(props, step),
     status: step.status,
   });
   const commands = useSessionCommands(props.sessionKey, session.refresh);
   const now = useNow(step.session?.retry?.state === "waiting");
   const { view } = session;
-  const canStop = view?.actions.canCancelRun === true && !props.isReadOnly;
+  const { swarm } = props;
+  const canStop = canStopSession(props, view, swarm);
+  const state = headerState(
+    consoleStepState(step, view?.state ?? null, now),
+    t,
+  );
   return (
     <>
       {props.header(
         sessionProvider(step, view),
-        headerState(consoleStepState(step, view?.state ?? null, now), t),
+        swarm?.isEnded ? endedState(t) : state,
         canStop ? () => commands.cancel("run") : undefined,
+        swarm?.badges,
       )}
       <SessionNotice session={session} hasView={view !== null} />
-      {view && step.session ? (
-        <SessionBody
-          {...props}
-          view={view}
-          session={session}
-          commands={commands}
-        />
-      ) : null}
+      <ConsoleSessionContent {...props} session={session} commands={commands} />
     </>
   );
 }

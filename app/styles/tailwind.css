@@ -35,6 +35,15 @@
     }
   }
 
+  /* A new miniature of a swarm session fades in at the same place within 150 ms. */
+  --animate-swarm-preview-in: swarm-preview-in 150ms ease-out;
+
+  @keyframes swarm-preview-in {
+    from {
+      opacity: 0.4;
+    }
+  }
+
   --color-background: #f2f4f7;
   --color-surface: #ffffff;
   --color-surface-hover: #f6f7f9;

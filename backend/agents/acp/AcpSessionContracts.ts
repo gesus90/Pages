@@ -72,6 +72,10 @@ export interface AcpSessionContext {
   readonly secure: () => Promise<void>;
   /** Removes owned adapter artifacts only after process cleanup is confirmed. */
   readonly cleanupAdapter?: () => void;
+  /** Removes a per-job temporary directory once process cleanup is confirmed. */
+  readonly cleanupTemporaryDirectory?: () => Promise<void>;
+  /** Releases active-job tracking when process cleanup could not be confirmed. */
+  readonly releaseTemporaryDirectory?: () => void;
   /** Masks the exact project credential before any text reaches the observer or turn result. */
   readonly redact?: (text: string) => string;
   /** Safe availability diagnostic, including an explicit reason when credentials are missing. */

@@ -10,6 +10,7 @@ import {
 } from "@/definition/AgentPlanSwarmRun";
 
 import type {
+  AgentPlanSwarmSessionView,
   AgentPlanSwarmTaskView,
   AgentPlanSwarmViolation,
   AgentPlanSwarmWorkerView,
@@ -107,6 +108,8 @@ export class SwarmBoard {
         taskId: null,
         reason: null,
         locks: [],
+        // The attempt belongs to the run that opened it; this run opens its own.
+        session: undefined,
       })),
       violations: state.violations,
     });
@@ -244,6 +247,14 @@ export class SwarmBoard {
     todos: readonly AgentPlanSwarmWorkerView["todos"][number][],
   ): void {
     this.updateWorker(workerId, { todos: [...todos] });
+  }
+
+  /** Shows the session a helper opened, or how its session ended. */
+  public showSession(
+    workerId: string,
+    session: AgentPlanSwarmSessionView | undefined,
+  ): void {
+    this.updateWorker(workerId, { session });
   }
 
   /** Keeps a violation, dropping the oldest beyond the limit. */

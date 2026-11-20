@@ -98,6 +98,8 @@ export interface TerminalTexts extends ToolLineTexts {
   readonly interrupted: string;
   readonly reportReceived: (done: number, total: number) => string;
   readonly sessionClosed: string;
+  /** The closing line of a swarm session, such as „H1 abgeschlossen“; `null` outside a swarm. */
+  readonly swarmClosed: string | null;
   readonly abort: (reason: string) => string;
   /** A turn ended without a valid report; a repair round follows. */
   readonly noReport: string;
@@ -120,6 +122,8 @@ export interface TerminalTexts extends ToolLineTexts {
 export interface TerminalInput {
   readonly provider: string;
   readonly model: string;
+  /** The session of a swarm, such as `H1`; it stands between model and attempt in the start line. */
+  readonly sessionLabel?: string;
   /** The instruction of the node, shown as the plan prompt of the first attempt. */
   readonly prompt: string | null;
   readonly attempts: readonly TerminalAttempt[];
@@ -415,6 +419,8 @@ function endingLines(
   ending: TerminalEnding,
   texts: TerminalTexts,
 ): readonly string[] {
+  if (ending.kind === "succeeded" && texts.swarmClosed !== null)
+    return [styled("success", `✓ ${texts.swarmClosed}`)];
   if (ending.kind === "succeeded")
     return [
       styled("success", `✓ ${texts.reportReceived(ending.done, ending.total)}`),
@@ -454,7 +460,8 @@ function startLine(
   input: TerminalInput,
 ): TerminalLine {
   const { texts, columns } = input;
-  const label = `${input.provider} · ${input.model} · ${texts.attempt(attempt.number)} · ${texts.minute(attempt.startedAt)}`;
+  const session = input.sessionLabel ? ` · ${input.sessionLabel}` : "";
+  const label = `${input.provider} · ${input.model}${session} · ${texts.attempt(attempt.number)} · ${texts.minute(attempt.startedAt)}`;
   const ruleLength =
     columns === null ? RULE.length : columns - [...label].length - 1;
   const rule = ruleLength >= MINIMUM_RULE ? ` ${"─".repeat(ruleLength)}` : "";

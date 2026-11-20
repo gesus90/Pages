@@ -10,6 +10,7 @@ import { WikiMaintenanceScheduler } from "@/backend/service/wiki/WikiMaintenance
 import { ClaudeMonthlyBudget } from "@/backend/service/agents/sessions/ClaudeMonthlyBudget";
 import { ClaudeMonthlyBudgetRepository } from "@/backend/database/repositories/agent/ClaudeMonthlyBudgetRepository";
 import { ConfigFile } from "@/backend/config/ConfigFile";
+import { pagesTempDirectory } from "@/backend/config/PagesTempDirectory";
 import { canProcessRuns } from "@/backend/runtime/RunsMode";
 import { AgentConnectionRepository } from "@/backend/database/repositories/AgentConnectionRepository";
 import { InstanceSecretCipher } from "@/backend/security/InstanceSecretCipher";
@@ -207,9 +208,11 @@ export function startEnvironmentMaintenance(
     pagesDirectory: configPath
       ? path.dirname(configPath)
       : path.dirname(directory),
+    tempDirectory: pagesTempDirectory(),
     repository: new StorageMaintenanceRepository(database),
     events: resources.events ?? new PagesEventPublisher(database),
     readWarningBytes: async () => (await config?.read())?.storageWarningBytes,
+    readRetentionDays: async () => (await config?.read())?.storageRetentionDays,
   });
   const scheduler = new WikiMaintenanceScheduler(
     {

@@ -6008,6 +6008,27 @@
         "not_started": "Dieser Knoten hat im gewählten Lauf noch keine Session.",
         "no_cli_session": "Dieser Knoten läuft über eine API-Verbindung und hat keine CLI-Session."
       },
+      "swarm": {
+        "title": "Sessions",
+        "main": "Haupt",
+        "roleMain": "Haupt",
+        "roleHelper": "Helfer {{number}}",
+        "helpers": "Helfer {{done}} / {{total}}",
+        "open": "Im Terminal öffnen",
+        "unknown": "unbekannt",
+        "notStarted": "Noch nicht gestartet",
+        "noOutput": "Noch keine Ausgabe",
+        "readAt": "Stand {{time}}",
+        "rhythm": "alle 30 s",
+        "final": "endgültig",
+        "status": {
+          "waiting": "Wartet",
+          "running": "Läuft",
+          "succeeded": "Fertig",
+          "failed": "Fehler",
+          "cancelled": "Abgebrochen"
+        }
+      },
       "openMessages": "Offene Anweisungen",
       "message": {
         "queued": "Vorgemerkt",
@@ -6060,6 +6081,7 @@
         "interrupted": "Unterbrochen, wartet auf deine Eingabe",
         "reportReceived": "Bericht erhalten · {{done}} von {{total}} To-dos, Abnahme erfüllt",
         "sessionClosed": "Session geschlossen · Node erfolgreich",
+        "swarmClosed": "{{name}} abgeschlossen",
         "abort": "Abbruch: {{reason}}",
         "resume": "Neustart {{restart}} / {{limit}} in {{seconds}} s · {{session}}",
         "repair": "Korrekturrunde {{restart}} / {{limit}} · {{session}}",
@@ -6096,6 +6118,7 @@
           "contextTokens": "{{used}} Tokens",
           "unknown": "unbekannt",
           "session": "Session",
+          "role": "Rolle",
           "runtime": "Laufzeit",
           "model": "Modell",
           "reasoning": "Reasoning",
@@ -9638,7 +9661,6 @@
       "loadFailed": "Die Karten konnten nicht geladen werden. Mit „Kontingente aktualisieren“ erneut versuchen."
     },
     "status": {
-      "refreshing": "wird aktualisiert …",
       "live": "live",
       "refresh": "Kontingente aktualisieren",
       "refreshAll": "Aktualisieren",
@@ -9712,7 +9734,6 @@
     "state": {
       "loading": "Wird geladen …",
       "stored": "Stand {{time}}",
-      "refreshing": "Stand {{time}} · wird aktualisiert …",
       "reported": "Von Claude gemeldet · {{time}}",
       "noWindows": "Keine Fenster gemeldet · Abfrage {{time}}",
       "failedNever": "Abfrage fehlgeschlagen · noch kein Erfolg",

@@ -1,21 +1,22 @@
 import { RefreshCw } from "lucide-react";
-import { useEffect, useReducer, useState } from "react";
+import {
+  startTransition,
+  useCallback,
+  useEffect,
+  useReducer,
+  useState,
+} from "react";
 import { useTranslation } from "react-i18next";
 
 import { cn } from "@/app/lib/cn";
 
 import { QuotaCardGrid } from "./quota-card-grid";
 import { followQuotaPushes, QuotaRequests } from "./quota-requests";
-import {
-  INITIAL_QUOTA_STATE,
-  isQuotaRefreshing,
-  reduceQuotas,
-} from "./quota-state";
+import { INITIAL_QUOTA_STATE, reduceQuotas } from "./quota-state";
 import { useQuotaCardOrder } from "./use-quota-card-order";
-import { useRefreshHint } from "./use-refresh-hint";
 
 import type { SaveOpenRouterBalance } from "./quota-requests";
-import type { ClaudeQuotaState } from "./quota-state";
+import type { ClaudeQuotaState, QuotaAction } from "./quota-state";
 import type { SortedQuotaCards } from "./use-quota-card-order";
 
 /**
@@ -41,9 +42,8 @@ import type { SortedQuotaCards } from "./use-quota-card-order";
  */
 export function AgentsPage(): React.ReactElement {
   const { t } = useTranslation();
-  const quotas = useClaudeQuotas();
-  const now = useQuotaClock();
-  const { cards, hasListFailed, isLive, isPushRefreshing } = quotas.state;
+  const quotas = useAgentQuotas();
+  const { cards, hasListFailed, isLive } = quotas.state;
   const order = useQuotaCardOrder(cards);
   const hasNoCards = cards !== null && cards.length === 0;
   return (
@@ -80,8 +80,6 @@ export function AgentsPage(): React.ReactElement {
             <QuotaOrderNotice order={order} />
             <QuotaCardGrid
               cards={order.cards}
-              now={now}
-              isPushRefreshing={isPushRefreshing}
               onRetry={quotas.retryCard}
               onMove={order.move}
               onSaveOpenRouterBalance={quotas.saveOpenRouterBalance}
@@ -93,50 +91,68 @@ export function AgentsPage(): React.ReactElement {
   );
 }
 
-const TICK_MILLISECONDS = 1_000;
-
-function useQuotaClock(): Date {
-  const [now, setNow] = useState(() => new Date());
-  useEffect(() => {
-    const timer = window.setInterval(
-      () => setNow(new Date()),
-      TICK_MILLISECONDS,
-    );
-    return () => window.clearInterval(timer);
-  }, []);
-  return now;
-}
-
-interface ClaudeQuotas {
+interface AgentQuotas {
   readonly state: ClaudeQuotaState;
   readonly isRefreshing: boolean;
   readonly refresh: () => void;
-  readonly retryCard: (connectionId: string) => void;
+  readonly retryCard: (connectionId: string) => Promise<void>;
   readonly saveOpenRouterBalance: SaveOpenRouterBalance;
 }
 
-function useClaudeQuotas(): ClaudeQuotas {
+function useAgentQuotas(): AgentQuotas {
   const [state, dispatch] = useReducer(reduceQuotas, INITIAL_QUOTA_STATE);
-  const [requests] = useState(() => new QuotaRequests(dispatch));
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const applyQuotaAction = useCallback((action: QuotaAction): void => {
+    startTransition(() => dispatch(action));
+  }, []);
+  const [requests] = useState(() => new QuotaRequests(applyQuotaAction));
 
   useEffect(() => {
-    requests.load();
-    const stopPushes = followQuotaPushes(dispatch, () =>
+    function refreshVisibleQuotas(): void {
+      if (document.visibilityState === "visible") void requests.load();
+    }
+
+    void requests.load();
+    const stopPushes = followQuotaPushes(applyQuotaAction, () =>
       requests.nextRequestNumber(),
     );
+    document.addEventListener("visibilitychange", refreshVisibleQuotas);
     return () => {
+      document.removeEventListener("visibilitychange", refreshVisibleQuotas);
       stopPushes();
       requests.abort();
     };
-  }, [requests]);
+  }, [applyQuotaAction, requests]);
+
+  async function refreshQuotas(): Promise<void> {
+    setIsRefreshing(true);
+    try {
+      await requests.load();
+    } finally {
+      startTransition(() => setIsRefreshing(false));
+    }
+  }
+
+  function refresh(): void {
+    void refreshQuotas();
+  }
+
+  const retryCard = useCallback(
+    (connectionId: string) => requests.query(connectionId),
+    [requests],
+  );
+  const saveOpenRouterBalance = useCallback<SaveOpenRouterBalance>(
+    (connectionId, display) =>
+      requests.saveOpenRouterBalance(connectionId, display),
+    [requests],
+  );
 
   return {
     state,
-    isRefreshing: isQuotaRefreshing(state),
-    refresh: () => requests.load(),
-    retryCard: (connectionId) => requests.query(connectionId),
-    saveOpenRouterBalance: (connectionId, display) =>
-      requests.saveOpenRouterBalance(connectionId, display),
+    isRefreshing,
+    refresh,
+    retryCard,
+    saveOpenRouterBalance,
   };
 }
 
@@ -196,19 +212,12 @@ function QuotaSectionHeader({
   readonly onRefresh: () => void;
 }): React.ReactElement {
   const { t } = useTranslation();
-  const isHintShown = useRefreshHint(isRefreshing);
   return (
-    <div className="flex min-h-9 max-w-[720px] flex-wrap items-center gap-x-3 gap-y-1 @min-[1056px]:max-w-none">
+    <div className="flex min-h-9 max-w-[720px] flex-wrap items-center gap-x-3 gap-y-1 pb-5 @min-[1056px]:max-w-none md:pb-0">
       <h2 className="mr-auto text-lg font-bold text-foreground">
         <span className="md:hidden">{t("agentsPage.quotas.shortTitle")}</span>
         <span className="hidden md:inline">{t("agentsPage.quotas.title")}</span>
       </h2>
-      <p
-        role="status"
-        className="order-last h-4 w-full text-xs text-muted-foreground md:order-none md:h-auto md:w-auto"
-      >
-        {isHintShown ? t("agentsPage.status.refreshing") : null}
-      </p>
       {isLive ? (
         <span className="inline-flex h-6 items-center gap-1.5 rounded-[7px] border border-border bg-surface px-2 text-[11px] font-semibold text-foreground">
           <span
@@ -218,54 +227,56 @@ function QuotaSectionHeader({
           {t("agentsPage.status.live")}
         </span>
       ) : null}
-      <RefreshButton
-        isRefreshing={isRefreshing}
-        isHintShown={isHintShown}
-        onRefresh={onRefresh}
-      />
+      <RefreshButton isRefreshing={isRefreshing} onRefresh={onRefresh} />
     </div>
   );
 }
 
 /**
- * The button that refreshes all cards: icon and text, only the icon below the
- * medium breakpoint. Both texts stand in one grid cell, the hidden one keeps
- * the width, so the header does not jump while it loads.
+ * The two button labels share a grid cell so the header keeps its width
+ * while the refresh is running.
  */
 function RefreshButton({
   isRefreshing,
-  isHintShown,
   onRefresh,
 }: {
   readonly isRefreshing: boolean;
-  readonly isHintShown: boolean;
   readonly onRefresh: () => void;
 }): React.ReactElement {
   const { t } = useTranslation();
+  const label = t(
+    isRefreshing
+      ? "agentsPage.status.refreshingAll"
+      : "agentsPage.status.refresh",
+  );
   return (
     <button
       type="button"
       onClick={onRefresh}
       disabled={isRefreshing}
-      aria-label={t("agentsPage.status.refresh")}
-      title={t("agentsPage.status.refresh")}
-      className="inline-flex size-9 items-center justify-center gap-2 rounded-xl border border-border bg-surface text-[13px] font-semibold text-foreground transition-colors hover:bg-surface-hover disabled:cursor-default md:w-auto md:px-3"
+      aria-busy={isRefreshing}
+      aria-label={label}
+      title={label}
+      className="inline-flex h-9 items-center justify-center gap-2 rounded-xl border border-border bg-surface px-3 text-[13px] font-semibold text-foreground transition-colors hover:bg-surface-hover disabled:cursor-default"
     >
       <RefreshCw
         className={cn(
           "size-4 shrink-0",
-          isHintShown && "animate-spin motion-reduce:animate-none",
+          isRefreshing && "animate-spin motion-reduce:animate-none",
         )}
         aria-hidden="true"
       />
-      <span aria-hidden="true" className="hidden md:inline-grid">
+      <span aria-hidden="true" className="inline-grid whitespace-nowrap">
         <span
-          className={cn("col-start-1 row-start-1", isHintShown && "invisible")}
+          className={cn("col-start-1 row-start-1", isRefreshing && "invisible")}
         >
           {t("agentsPage.status.refreshAll")}
         </span>
         <span
-          className={cn("col-start-1 row-start-1", !isHintShown && "invisible")}
+          className={cn(
+            "col-start-1 row-start-1",
+            !isRefreshing && "invisible",
+          )}
         >
           {t("agentsPage.status.refreshingAll")}
         </span>

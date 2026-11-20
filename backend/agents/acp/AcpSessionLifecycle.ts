@@ -245,7 +245,14 @@ export async function shutDownAcpSession(
       undefined,
       context.containment ?? "none",
     );
-    if (closed.isConfirmed) context.cleanupAdapter?.();
+    if (closed.isConfirmed) {
+      context.cleanupAdapter?.();
+      await context
+        .cleanupTemporaryDirectory?.()
+        .catch((error: unknown) => logCaughtError("AcpSession", error));
+    } else {
+      context.releaseTemporaryDirectory?.();
+    }
     return closed;
   } finally {
     picaCodex?.close();

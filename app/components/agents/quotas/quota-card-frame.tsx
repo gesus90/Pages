@@ -26,7 +26,7 @@ export function QuotaCardFrame({
       data-quota-card={connectionId}
       data-quota-provider={provider}
       data-quota-loading={isLoading ? "true" : "false"}
-      aria-busy={isQuerying}
+      aria-busy={isLoading || isQuerying}
       className={QUOTA_CARD_CLASS}
     >
       {children}

@@ -1,5 +1,6 @@
 import { allPlanRunResults } from "@/definition/AgentPlanLoopResults";
 import { AgentError } from "@/backend/error/AgentErrors";
+import { planSwarmSessionEntries } from "@/definition/AgentPlanSwarmSession";
 import { sessionAttemptId } from "@/definition/AgentSessionJournal";
 
 import type { AcpProviderId } from "@/definition/AgentConfiguration";
@@ -101,9 +102,36 @@ export function sessionStart(
   };
 }
 
+/** The attempts of the main model and the helpers of a swarm node; a session that never started has none. */
+function swarmAttempts(
+  run: AgentPlanRun,
+  node: AgentPlanStepResult,
+): readonly AgentSessionAttempt[] {
+  return planSwarmSessionEntries(node).flatMap((entry) => {
+    const record = entry.step.session;
+    if (!record?.attemptId) return [];
+    return [
+      {
+        key: {
+          planId: run.planId,
+          runId: run.id,
+          stepId: entry.stepId,
+          attemptId: record.attemptId,
+        },
+        step: entry.step,
+        record,
+        isLegacy: false,
+      },
+    ];
+  });
+}
+
 /**
  * Lists the PageAgentCLI attempts of a run: every agent node with a CLI session.
  * @param run - A run the caller already authorized.
+ * @remarks
+ * A swarm node adds one attempt for its main model and one for each helper
+ * that started; they stand under the swarm node and `<node>::H<n>`.
  */
 export function listSessionAttempts(
   run: AgentPlanRun,
@@ -111,7 +139,7 @@ export function listSessionAttempts(
   // Members of a loop keep one attempt per iteration in their loop's record.
   return allPlanRunResults(run).flatMap((step) => {
     const record = step.session;
-    if (!record || record.runner === "api") return [];
+    if (!record || record.runner === "api") return swarmAttempts(run, step);
     const { attemptId, isLegacy } = attemptIdOf(record, step.id);
     return [
       {

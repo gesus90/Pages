@@ -2,13 +2,18 @@ import { AgentPlanCancelledError } from "@/backend/error/AgentPlanCancelledError
 import { logCaughtError } from "@/backend/logging/Logger";
 import { activeAgentTodo } from "@/definition/AgentPlanAgentTodos";
 
-import { swarmMainPrompt, swarmMainReminder } from "./SwarmPrompts";
+import {
+  swarmMainPrompt,
+  swarmMainReminder,
+  swarmToolNamer,
+} from "./SwarmPrompts";
 
 import type { AgentPlanAgentTodo } from "@/definition/AgentPlanAgentTodos";
 import type { AgentPlanStepResult } from "@/definition/AgentPlan";
 import type { AgentPlanSwarm } from "@/definition/AgentPlanSwarm";
 import type { SwarmCoordinator, SwarmFinish } from "./SwarmCoordinator";
 import type { SwarmMemory } from "./SwarmMemory";
+import type { SwarmToolNamer } from "./SwarmPrompts";
 import type { SwarmTurn } from "./SwarmPorts";
 import type { SwarmOpenedSession, SwarmSessionRequest } from "./SwarmSessions";
 
@@ -80,12 +85,14 @@ export class SwarmMainLoop {
         error: "swarm_main_model_missing",
         output: null,
       };
+    const toolName = swarmToolNamer(model.provider);
     const opened = await this.sessions.open({
       role: "main",
       model,
       access: node.main.access,
       prompt: swarmMainPrompt({
         task: this.context.task,
+        toolName,
         instruction: node.main.instruction ?? null,
         view: this.coordinator.view(),
         isResumed: this.context.isResumed,
@@ -98,15 +105,18 @@ export class SwarmMainLoop {
         void this.context.todos(todos);
       },
     });
+    this.coordinator.showMainSession(opened.attempt);
     try {
-      return await this.drive(opened);
+      return await this.drive(opened, toolName);
     } finally {
       await opened.close();
+      this.coordinator.endMainSession();
     }
   }
 
   private async drive(
     opened: SwarmOpenedSession,
+    toolName: SwarmToolNamer,
   ): Promise<Partial<AgentPlanStepResult>> {
     let turn = opened.turn;
     for (let reminder = 0; ; reminder += 1) {
@@ -132,7 +142,7 @@ export class SwarmMainLoop {
       if (finish) return this.finished(finish);
       const memory = await this.memoryBlock({ withSnapshot: false });
       turn = opened.next(
-        swarmMainReminder(this.coordinator.view(), memory ?? ""),
+        swarmMainReminder(this.coordinator.view(), toolName, memory ?? ""),
         this.context.signal,
       );
     }

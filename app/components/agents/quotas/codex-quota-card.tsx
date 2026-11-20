@@ -22,8 +22,8 @@ import {
   QuotaWindowsPlaceholder,
 } from "./quota-placeholders";
 import { QuotaStatusLine } from "./quota-status-line";
+import { useQuotaWindowExpiry } from "./quota-time";
 import { QuotaWindow } from "./quota-window";
-import { useRefreshHint } from "./use-refresh-hint";
 
 import type { TFunction } from "i18next";
 import type {
@@ -43,11 +43,11 @@ import type { CodexCardBody } from "./quota-card-state";
  */
 function CodexCardWindows({
   body,
-  now,
+  targetAt,
   hasPlan,
 }: {
   readonly body: CodexCardBody;
-  readonly now: Date;
+  readonly targetAt: number;
   readonly hasPlan: boolean;
 }): React.ReactElement {
   return (
@@ -62,7 +62,7 @@ function CodexCardWindows({
           <CodexQuotaWindow
             key={quotaWindow.kind}
             quotaWindow={quotaWindow}
-            now={now}
+            targetAt={targetAt}
             isStale={body.isStale}
           />
         ))
@@ -92,32 +92,30 @@ function CodexCardWindows({
  */
 export function CodexQuotaCard({
   account,
-  pendingQueries,
-  now,
+  isRetrying,
+  targetAt,
   onRetry,
 }: {
   readonly account: CodexQuotaAccount;
-  /** Queries of exactly this card that have not answered yet. */
-  readonly pendingQueries: number;
-  readonly now: Date;
-  readonly onRetry: (connectionId: string) => void;
+  readonly isRetrying: boolean;
+  readonly targetAt: number;
+  readonly onRetry: () => void;
 }): React.ReactElement {
   const { t } = useTranslation();
-  const isQuerying = pendingQueries > 0;
+  const now = new Date();
   const view = codexCardView(account, now);
+  useQuotaWindowExpiry(
+    view.body.kind === "windows" && !view.body.isStale ? view.body.windows : [],
+    now,
+  );
   const isLoading = view.status.kind === "stored" && view.status.at === null;
-  const isHintShown = useRefreshHint(isQuerying && !isLoading);
-
-  function handleRetry(): void {
-    onRetry(account.connectionId);
-  }
 
   return (
     <article
       data-quota-card={account.connectionId}
       data-quota-provider="codex_cli"
       data-quota-loading={isLoading ? "true" : "false"}
-      aria-busy={isQuerying}
+      aria-busy={isLoading || isRetrying}
       className={QUOTA_CARD_CLASS}
     >
       <header className="flex h-11 shrink-0 items-center gap-3">
@@ -148,16 +146,15 @@ export function CodexQuotaCard({
       ) : (
         <CodexCardWindows
           body={view.body}
-          now={now}
+          targetAt={targetAt}
           hasPlan={account.plan !== null}
         />
       )}
       <QuotaStatusLine
         status={view.status}
-        now={now}
         source={{ provider: "codex_cli", generalLimit: view.limit }}
-        progress={{ isQuerying, isHintShown }}
-        onRetry={handleRetry}
+        isRetrying={isRetrying}
+        onRetry={onRetry}
       />
     </article>
   );
@@ -185,11 +182,11 @@ function codexWindowLabel(
 
 function CodexQuotaWindow({
   quotaWindow,
-  now,
+  targetAt,
   isStale = false,
 }: {
   readonly quotaWindow: ReportedWindow;
-  readonly now: Date;
+  readonly targetAt: number;
   readonly isStale?: boolean;
 }): React.ReactElement {
   const { t } = useTranslation();
@@ -203,7 +200,7 @@ function CodexQuotaWindow({
         durationMinutes: quotaWindow.durationMinutes,
         pace: quotaWindow.pace,
       }}
-      now={now}
+      targetAt={targetAt}
       isStale={isStale}
     />
   );

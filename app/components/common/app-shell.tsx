@@ -465,7 +465,10 @@ function MobileNavigation({
  *
  * @remarks
  * A collapsed sidebar keeps its navigation mounted but hidden, so open tree
- * branches stay open and nothing hidden stays in the tab order.
+ * branches stay open and nothing hidden stays in the tab order. The sidebar
+ * stands above the page area: the scroll mask of the page area makes it a
+ * stacking context that spans the full width and would otherwise cover the
+ * sidebar, which is earlier in the tree, and take its clicks.
  */
 function DesktopSidebar({
   layout,
@@ -485,7 +488,7 @@ function DesktopSidebar({
       ref={sidebarRef}
       id={sidebarId}
       className={cn(
-        "fixed inset-y-0 left-0 hidden w-(--app-sidebar-width) flex-col bg-sidebar pages-navigation-palette pages-sidebar-surface px-5 pt-7 pb-13 [--sidebar-scene-width:var(--app-sidebar-width)] md:flex xl:px-4 xl:pt-5 xl:pb-6",
+        "fixed inset-y-0 left-0 z-10 hidden w-(--app-sidebar-width) flex-col bg-sidebar pages-navigation-palette pages-sidebar-surface px-5 pt-7 pb-13 [--sidebar-scene-width:var(--app-sidebar-width)] md:flex xl:px-4 xl:pt-5 xl:pb-6",
         !layout.isCollapsed && "min-w-(--app-sidebar-minimum)",
       )}
     >

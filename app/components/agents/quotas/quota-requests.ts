@@ -93,9 +93,6 @@ export function followQuotaPushes(
       current.close();
       reopen = setTimeout(open, REOPEN_MILLISECONDS);
     };
-    current.addEventListener("quota-refreshing", () => {
-      dispatch({ type: "pushStarted" });
-    });
     current.addEventListener("quotas", (message) => {
       dispatchPush(dispatch, nextRequestNumber(), message.data);
     });
@@ -123,6 +120,7 @@ export class QuotaRequests {
   private readonly dispatch: QuotaDispatch;
   private readonly controllers = new Set<AbortController>();
   private lastRequestNumber = 0;
+  private loading: Promise<void> | null = null;
 
   public constructor(dispatch: QuotaDispatch) {
     this.dispatch = dispatch;
@@ -142,21 +140,22 @@ export class QuotaRequests {
    * Lists the cards from the stored figures, then queries each of them.
    * @remarks
    * A card the page already shows stays where it is while its query runs.
+   * Callers share one load until each card has answered.
    */
-  public load(): void {
+  public load(): Promise<void> {
+    if (this.loading !== null) return this.loading;
     const controller = this.track();
-    this.dispatch({ type: "listStarted" });
-    void this.list(controller, this.nextRequestNumber());
+    this.loading = this.list(controller, this.nextRequestNumber());
+    return this.loading;
   }
 
   /**
    * Asks Claude about one card and updates only that card.
    * @param connectionId - The connection of the card.
    */
-  public query(connectionId: string): void {
-    const controller = this.track();
-    this.dispatch({ type: "queryStarted", connectionId });
-    void this.queryCard(connectionId, controller, this.nextRequestNumber());
+  public query(connectionId: string): Promise<void> {
+    this.dispatch({ type: "queriesStarted", connectionIds: [connectionId] });
+    return this.queryCard(connectionId);
   }
 
   /** Saves one display and applies the returned card through the usual request ordering. */
@@ -166,7 +165,7 @@ export class QuotaRequests {
   ): Promise<OpenRouterBalanceSaveResult> {
     const controller = this.track();
     const requestNumber = this.nextRequestNumber();
-    this.dispatch({ type: "queryStarted", connectionId });
+    this.dispatch({ type: "queriesStarted", connectionIds: [connectionId] });
     let snapshot: QuotaSnapshot | null = null;
     try {
       const response = await fetch(cardUrl(connectionId), {
@@ -187,7 +186,7 @@ export class QuotaRequests {
       });
       if (!response.ok) return "baselineUnavailable";
       if (display.mode === "account" && !controller.signal.aborted)
-        this.query(connectionId);
+        void this.query(connectionId);
       return "saved";
     } catch {
       return "failed";
@@ -201,6 +200,7 @@ export class QuotaRequests {
   public abort(): void {
     for (const controller of this.controllers) controller.abort();
     this.controllers.clear();
+    this.loading = null;
   }
 
   private track(): AbortController {
@@ -218,28 +218,27 @@ export class QuotaRequests {
         CLAUDE_QUOTA_ENDPOINT,
         controller.signal,
       );
-      if (controller.signal.aborted) {
-        this.dispatch({ type: "listSettled" });
-        return;
-      }
+      if (controller.signal.aborted) return;
       this.dispatch({ type: "listed", snapshot, requestNumber });
-      for (const account of snapshot.accounts) this.query(account.connectionId);
-    } catch {
-      this.dispatch(
-        controller.signal.aborted
-          ? { type: "listSettled" }
-          : { type: "listFailed", requestNumber },
+      const connectionIds = snapshot.accounts.map(
+        (account) => account.connectionId,
       );
+      this.dispatch({ type: "queriesStarted", connectionIds });
+      await Promise.all(
+        connectionIds.map((connectionId) => this.queryCard(connectionId)),
+      );
+    } catch {
+      if (!controller.signal.aborted)
+        this.dispatch({ type: "listFailed", requestNumber });
     } finally {
       this.controllers.delete(controller);
+      if (!controller.signal.aborted) this.loading = null;
     }
   }
 
-  private async queryCard(
-    connectionId: string,
-    controller: AbortController,
-    requestNumber: number,
-  ): Promise<void> {
+  private async queryCard(connectionId: string): Promise<void> {
+    const controller = this.track();
+    const requestNumber = this.nextRequestNumber();
     try {
       const snapshot = await fetchSnapshot(
         cardUrl(connectionId),

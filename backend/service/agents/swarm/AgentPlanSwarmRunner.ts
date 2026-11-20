@@ -207,6 +207,7 @@ export class AgentPlanSwarmRunner {
           },
         });
         return {
+          attempt: opened.attempt,
           session: { run: opened.next, close: opened.close },
           turn: opened.turn,
         };

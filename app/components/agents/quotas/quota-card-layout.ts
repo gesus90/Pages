@@ -48,8 +48,5 @@ export const QUOTA_BAR_CLASSES: Readonly<Record<ClaudeQuotaTone, string>> = {
   destructive: "bg-destructive",
 };
 
-/** How long new figures take to run in, the bar and the number alike. */
-export const QUOTA_FIGURES_RUN_MILLISECONDS = 300;
-
 /** The most groups an Antigravity card shows without scrolling. */
 export const VISIBLE_GROUPS = 2;

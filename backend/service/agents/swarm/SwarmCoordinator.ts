@@ -8,12 +8,13 @@ import {
 import { SwarmAllowances } from "./SwarmAllowances";
 import { SwarmBoard, newSwarmWorkers } from "./SwarmBoard";
 import { SwarmLockTable } from "./SwarmLocks";
-import { swarmWorkerPrompt } from "./SwarmPrompts";
+import { swarmToolNamer, swarmWorkerPrompt } from "./SwarmPrompts";
 import { SwarmStartError } from "./SwarmPorts";
 
 import type { AgentPlanAgentTodo } from "@/definition/AgentPlanAgentTodos";
 import type {
   AgentPlanSwarmRun,
+  AgentPlanSwarmSessionView,
   AgentPlanSwarmTaskView,
   AgentPlanSwarmWorkerView,
 } from "@/definition/AgentPlanSwarmRun";
@@ -338,6 +339,23 @@ export class SwarmCoordinator {
     this.changed();
   }
 
+  /** Shows the session the main model opened. */
+  public showMainSession(session: AgentPlanSwarmSessionView): void {
+    this.main = { ...this.main, session };
+    this.changed();
+  }
+
+  /** Shows when the session of the main model closed. */
+  public endMainSession(): void {
+    const { session } = this.main;
+    if (!session || session.endedAt !== null) return;
+    this.main = {
+      ...this.main,
+      session: { ...session, endedAt: this.isoNow() },
+    };
+    this.changed();
+  }
+
   /** Extends the locks of every busy helper; called periodically while the node runs. */
   public renewLeases(): void {
     for (const worker of this.board.state().workers)
@@ -358,6 +376,8 @@ export class SwarmCoordinator {
     for (const controller of this.controllers.values()) controller.abort();
     await Promise.allSettled([...this.pending]);
     const sessions = [...this.sessions.values()];
+    for (const workerId of this.sessions.keys())
+      this.markSessionEnded(workerId);
     this.sessions.clear();
     await Promise.allSettled(sessions.map((session) => session.close()));
     this.locks.clear();
@@ -447,6 +467,7 @@ export class SwarmCoordinator {
       task,
       instruction: this.input.instruction,
       memory: await this.memoryPrompt(workerId),
+      toolName: swarmToolNamer(this.board.worker(workerId)?.provider ?? ""),
     });
     const started = await this.startTurn(workerId, taskId, { prompt, signal });
     if (started === null) {
@@ -485,6 +506,8 @@ export class SwarmCoordinator {
         },
       });
       this.sessions.set(workerId, opened.session);
+      this.board.showSession(workerId, opened.attempt);
+      this.changed();
       return { turn: opened.turn };
     } catch (error: unknown) {
       if (request.signal.aborted) {
@@ -582,7 +605,15 @@ export class SwarmCoordinator {
     const session = this.sessions.get(workerId);
     this.sessions.delete(workerId);
     this.locks.releaseOwner(workerId);
+    this.markSessionEnded(workerId);
     await session?.close();
+  }
+
+  /** Keeps the attempt of a closed helper session, with the time it closed. */
+  private markSessionEnded(workerId: string): void {
+    const attempt = this.board.worker(workerId)?.session;
+    if (!attempt || attempt.endedAt !== null) return;
+    this.board.showSession(workerId, { ...attempt, endedAt: this.isoNow() });
   }
 
   private async snapshot(): Promise<SwarmWorkspaceState | null> {

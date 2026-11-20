@@ -4,12 +4,24 @@ import { useTranslation } from "react-i18next";
 
 import { cn } from "@/app/lib/cn";
 import { claudeQuotaTone } from "@/definition/ClaudeQuota";
+import {
+  quotaForecast,
+  quotaLookback,
+  quotaWindowTiming,
+} from "@/definition/QuotaForecast";
 
 import { QUOTA_BAR_CLASSES } from "./quota-card-layout";
-import { formatQuotaDuration } from "./quota-time";
+import {
+  formatQuotaDuration,
+  nextQuotaCountdownChange,
+  nextQuotaMidnight,
+  useQuotaDeadline,
+} from "./quota-time";
 
 import type { TFunction } from "i18next";
 import type { QuotaForecast } from "@/definition/QuotaForecast";
+
+const MINUTE_MILLISECONDS = 60_000;
 
 const FORECAST_ICONS = {
   enough: Check,
@@ -22,6 +34,11 @@ const FORECAST_ICONS = {
 
 type Forecast = QuotaForecast["forecast"];
 
+interface QuotaWindowProjection {
+  readonly now: Date;
+  readonly projection: QuotaForecast;
+}
+
 interface ForecastText {
   readonly full: string;
   readonly short: string;
@@ -31,7 +48,7 @@ interface ForecastText {
 
 function forecastText(forecast: Forecast, t: TFunction): ForecastText {
   if (forecast.kind === "depleting") {
-    const isBelowMinute = forecast.timeToEmpty < 60_000;
+    const isBelowMinute = forecast.timeToEmpty < MINUTE_MILLISECONDS;
     const duration = isBelowMinute
       ? t("agentsPage.forecasts.underMinute")
       : formatQuotaDuration(forecast.timeToEmpty, t);
@@ -57,6 +74,53 @@ function forecastText(forecast: Forecast, t: TFunction): ForecastText {
     narrow: forecast.kind === "enough" ? "" : short,
     accessible: full,
   };
+}
+
+function nextForecastChange(forecast: Forecast, now: number): number {
+  if (
+    forecast.kind !== "depleting" ||
+    forecast.timeToEmpty < MINUTE_MILLISECONDS
+  )
+    return Infinity;
+  const emptyAt = now + forecast.timeToEmpty;
+  return Math.min(
+    nextQuotaCountdownChange(emptyAt, now),
+    emptyAt - MINUTE_MILLISECONDS + 1,
+  );
+}
+
+/** Updates a window when its countdown or forecast wording changes. */
+export function useQuotaWindowProjection(
+  input: Omit<Parameters<typeof quotaForecast>[0], "now">,
+  targetAt: number,
+): QuotaWindowProjection {
+  const now = new Date();
+  const time = now.getTime();
+  const projection = quotaForecast({ ...input, now: time });
+  const timing = quotaWindowTiming(input);
+  const staleAt =
+    !projection.isStale && input.pace && timing
+      ? input.pace.measuredAt + quotaLookback(timing.duration) + 1
+      : Infinity;
+  const resetTick = nextQuotaCountdownChange(
+    Date.parse(input.resetsAt ?? ""),
+    time,
+  );
+  useQuotaDeadline(
+    Math.min(
+      resetTick,
+      resetTick < Infinity ? nextQuotaMidnight(now) : Infinity,
+      staleAt,
+      nextForecastChange(projection.forecast, time),
+    ),
+  );
+
+  if (projection.target === null || !Number.isFinite(targetAt))
+    return { now, projection };
+  // The pacing marker moves with the next reading while the countdowns advance.
+  const target =
+    quotaForecast({ ...input, now: targetAt }).target ?? projection.target;
+  return { now, projection: { ...projection, target } };
 }
 
 /** Renders the forecast with a shorter label when space is limited. */
@@ -208,7 +272,7 @@ function QuotaForecastStripes({
       <div
         aria-hidden="true"
         className={cn(
-          "absolute inset-0 bg-[repeating-linear-gradient(135deg,var(--quota-stripe)_0_2px,transparent_2px_5px)] transition-[clip-path] duration-300 ease-out motion-reduce:transition-none",
+          "absolute inset-0 bg-[repeating-linear-gradient(135deg,var(--quota-stripe)_0_2px,transparent_2px_5px)]",
           isWarning
             ? "[--quota-stripe:var(--color-destructive)]"
             : "[--quota-stripe:color-mix(in_srgb,var(--color-surface)_78%,transparent)]",
@@ -218,7 +282,7 @@ function QuotaForecastStripes({
       {isWarning ? null : (
         <div
           aria-hidden="true"
-          className="absolute inset-y-0 w-0.5 bg-foreground/75 transition-[left] duration-300 ease-out motion-reduce:transition-none"
+          className="absolute inset-y-0 w-0.5 bg-foreground/75"
           style={{ left: `${left}%` }}
         />
       )}
@@ -264,7 +328,7 @@ export function QuotaProgress({
           <div
             data-quota-bar={tone}
             className={cn(
-              "relative h-full overflow-hidden rounded-[inherit] transition-[width,background-color,opacity] duration-300 ease-out motion-reduce:transition-none",
+              "relative h-full overflow-hidden rounded-[inherit]",
               fillClass(remaining, projection),
             )}
             style={{ width: `${remaining}%` }}
@@ -280,7 +344,7 @@ export function QuotaProgress({
             aria-hidden="true"
             data-quota-target={target}
             className={cn(
-              "absolute top-1/2 w-[3px] -translate-x-1/2 -translate-y-1/2 rounded-sm bg-quota-pace ring-[1.5px] ring-surface transition-[left] duration-300 ease-out motion-reduce:transition-none",
+              "absolute top-1/2 w-[3px] -translate-x-1/2 -translate-y-1/2 rounded-sm bg-quota-pace ring-[1.5px] ring-surface",
               isNarrow ? "h-3.5" : "h-4",
             )}
             style={{ left: `clamp(3.5px, ${target}%, calc(100% - 3.5px))` }}

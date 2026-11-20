@@ -6,23 +6,22 @@ import {
   remainingQuotaPercentage,
 } from "@/definition/AntigravityQuota";
 import { claudeQuotaTone } from "@/definition/ClaudeQuota";
-import { FIXED_QUOTA_MINUTES, quotaForecast } from "@/definition/QuotaForecast";
+import { FIXED_QUOTA_MINUTES } from "@/definition/QuotaForecast";
 
-import { QUOTA_FIGURES_RUN_MILLISECONDS } from "./quota-card-layout";
 import {
   QuotaForecastLabel,
   QuotaProgress,
   QuotaTargetLegend,
+  useQuotaWindowProjection,
 } from "./quota-forecast-details";
 import { formatQuotaReset } from "./quota-time";
-import { useAnimatedNumber } from "./use-animated-number";
 
 import type { AntigravityQuotaWindow as QuotaWindow } from "@/definition/AntigravityQuota";
 
 interface AntigravityQuotaWindowProps {
   readonly quotaWindow: QuotaWindow;
   readonly groupLabel: string;
-  readonly now: Date;
+  readonly targetAt: number;
   readonly isStale: boolean;
 }
 
@@ -30,30 +29,28 @@ interface AntigravityQuotaWindowProps {
 export function AntigravityQuotaWindow({
   quotaWindow,
   groupLabel,
-  now,
+  targetAt,
   isStale,
 }: AntigravityQuotaWindowProps): React.ReactElement {
   const { t, i18n } = useTranslation();
   const remaining = remainingQuotaPercentage(quotaWindow.remainingFraction);
-  const shownRemaining = useAnimatedNumber(
-    remaining,
-    QUOTA_FIGURES_RUN_MILLISECONDS,
-  );
   const isExhausted = isAntigravityWindowExhausted(quotaWindow);
   const label = t(`agentsPage.window.${quotaWindow.kind}`);
+  const measuredRemaining = quotaWindow.remainingFraction * 100;
+  const { now, projection } = useQuotaWindowProjection(
+    {
+      resetsAt: quotaWindow.resetsAt,
+      durationMinutes: FIXED_QUOTA_MINUTES[quotaWindow.kind],
+      pace: quotaWindow.pace,
+      remaining: measuredRemaining,
+      isStale,
+      isExhausted,
+    },
+    targetAt,
+  );
   const reset = formatQuotaReset(quotaWindow.resetsAt, now, {
     t,
     language: i18n.language,
-  });
-  const measuredRemaining = quotaWindow.remainingFraction * 100;
-  const projection = quotaForecast({
-    resetsAt: quotaWindow.resetsAt,
-    durationMinutes: FIXED_QUOTA_MINUTES[quotaWindow.kind],
-    pace: quotaWindow.pace,
-    now: now.getTime(),
-    remaining: measuredRemaining,
-    isStale,
-    isExhausted,
   });
   const canShowLabel =
     quotaWindow.resetsAt !== null && projection.forecast.kind !== "hidden";
@@ -72,17 +69,17 @@ export function AntigravityQuotaWindow({
         <span
           data-quota-tone={claudeQuotaTone(remaining)}
           className={cn(
-            "text-sm font-bold whitespace-nowrap transition-colors duration-300 motion-reduce:transition-none",
+            "text-sm font-bold whitespace-nowrap",
             isExhausted && "text-destructive",
           )}
         >
           <span className="@min-[210px]:hidden">
             {t("agentsPage.antigravity.remainingShort", {
-              percent: shownRemaining,
+              percent: remaining,
             })}
           </span>
           <span className="hidden @min-[210px]:inline">
-            {t("agentsPage.quota.remaining", { percent: shownRemaining })}
+            {t("agentsPage.quota.remaining", { percent: remaining })}
           </span>
         </span>
       </div>

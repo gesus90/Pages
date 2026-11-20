@@ -6008,6 +6008,27 @@
         "not_started": "This node has no session in the selected run yet.",
         "no_cli_session": "This node runs over an API connection and has no CLI session."
       },
+      "swarm": {
+        "title": "Sessions",
+        "main": "Main",
+        "roleMain": "Main",
+        "roleHelper": "Helper {{number}}",
+        "helpers": "Helpers {{done}} / {{total}}",
+        "open": "Open in terminal",
+        "unknown": "unknown",
+        "notStarted": "Not started yet",
+        "noOutput": "No output yet",
+        "readAt": "As of {{time}}",
+        "rhythm": "every 30 s",
+        "final": "final",
+        "status": {
+          "waiting": "Waiting",
+          "running": "Running",
+          "succeeded": "Done",
+          "failed": "Error",
+          "cancelled": "Cancelled"
+        }
+      },
       "openMessages": "Open instructions",
       "message": {
         "queued": "Queued",
@@ -6060,6 +6081,7 @@
         "interrupted": "Interrupted, waiting for your input",
         "reportReceived": "Report received · {{done}} of {{total}} todos, acceptance met",
         "sessionClosed": "Session closed · node succeeded",
+        "swarmClosed": "{{name}} finished",
         "abort": "Aborted: {{reason}}",
         "resume": "Restart {{restart}} / {{limit}} in {{seconds}} s · {{session}}",
         "repair": "Repair round {{restart}} / {{limit}} · {{session}}",
@@ -6096,6 +6118,7 @@
           "contextTokens": "{{used}} tokens",
           "unknown": "unknown",
           "session": "Session",
+          "role": "Role",
           "runtime": "Runtime",
           "model": "Model",
           "reasoning": "Reasoning",
@@ -9631,7 +9654,6 @@
       "loadFailed": "The cards could not be loaded. Try again with “Refresh quotas”."
     },
     "status": {
-      "refreshing": "refreshing …",
       "live": "live",
       "refresh": "Refresh quotas",
       "refreshAll": "Refresh",
@@ -9705,7 +9727,6 @@
     "state": {
       "loading": "Loading …",
       "stored": "As of {{time}}",
-      "refreshing": "As of {{time}} · refreshing …",
       "reported": "Reported by Claude · {{time}}",
       "noWindows": "No windows reported · queried {{time}}",
       "failedNever": "Query failed · no success yet",
