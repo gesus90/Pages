@@ -129,9 +129,9 @@ const CHAT_PROFILE: AcpSessionProfile = {
  * @remarks
  * In `default` mode `agy acp` asks before every call of an MCP tool, including
  * the step's own Pages tools, so refusing everything would leave the node
- * without them. Only a call of a Pages tool is approved. The node's native
- * tools are limited to the reading allowlist, so no other tool can exist in
- * the session, and anything else is refused.
+ * without them. Only a call of a Pages tool is approved. The reading allowlist
+ * does not keep `agy acp` from offering `run_command`, so a native command can
+ * reach this decision and is refused like anything else.
  */
 function decideReadOnlyPermission(
   request: RequestPermissionRequest,

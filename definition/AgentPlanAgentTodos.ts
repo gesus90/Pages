@@ -6,6 +6,23 @@ export const AGENT_TODO_STATUSES = [
   "failed",
 ] as const;
 
+/**
+ * The status names of the built-in task lists of Codex, Claude Code and OpenCode, accepted for an own list and assigned todos too.
+ * @remarks
+ * Agents that keep a built-in list send its names (pending, in_progress,
+ * completed) to `update_step_progress` as well, in `plan` and in `todos`;
+ * they mean open, active and done, so refusing them only delayed the first
+ * list by one call.
+ */
+export const AGENT_TODO_STATUS_ALIASES = [
+  "pending",
+  "in_progress",
+  "completed",
+] as const;
+
+/** The priorities of an entry of a built-in task list; Pages accepts them in an own list and ignores them. */
+export const AGENT_TODO_PRIORITIES = ["high", "medium", "low"] as const;
+
 /** The most TODOs of one list Pages keeps. */
 export const AGENT_TODO_LIMIT = 40;
 

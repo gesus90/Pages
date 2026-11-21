@@ -176,8 +176,9 @@ function refuse(options) {
 }
 
 // In `default` mode `agy acp` asks before every call of an MCP tool, the
-// step's own Pages tools included. A read-only job approves only those; its
-// native tools are limited to the reading allowlist, so nothing else exists.
+// step's own Pages tools included. A read-only job approves only those. The
+// reading allowlist does not keep `agy acp` from offering `run_command`, so a
+// native command reaches this decision too and is refused.
 function isPagesToolCall(toolCall) {
   return (
     (toolCall?.kind ?? "other") === "other" &&
@@ -186,8 +187,12 @@ function isPagesToolCall(toolCall) {
   );
 }
 
+function isRefused(access, toolCall) {
+  return access !== "yolo" && !isPagesToolCall(toolCall);
+}
+
 function decide(options, access, toolCall) {
-  if (access !== "yolo" && !isPagesToolCall(toolCall)) return refuse(options);
+  if (isRefused(access, toolCall)) return refuse(options);
   const option = options.find((entry) => entry.kind === "allow_once");
   return option
     ? { outcome: "selected", optionId: option.optionId }
@@ -219,6 +224,7 @@ function start(environment, directory, options = {}) {
   // Inventory and execution never start a new login or wait for a browser.
   let tail = "";
   let requiresLogin = false;
+  let refusals = 0;
   child.stderr.setEncoding("utf8").on("data", (chunk) => {
     tail = (tail + chunk).slice(-16384);
     if (
@@ -234,9 +240,16 @@ function start(environment, directory, options = {}) {
     get requiresLogin() {
       return requiresLogin;
     },
+    /** How many permission requests the run options refused. */
+    get refusals() {
+      return refusals;
+    },
     client: new OpenCodeAcpClient(
       child,
-      (choices, toolCall) => decide(choices, options.access, toolCall),
+      (choices, toolCall) => {
+        if (isRefused(options.access, toolCall)) refusals += 1;
+        return decide(choices, options.access, toolCall);
+      },
       options.publish,
     ),
   };
@@ -429,10 +442,11 @@ export async function executeAntigravity(job, prompt, base = process.env) {
   await requireAntigravityContext(environment, job.workspace);
   if (!["read_only", "yolo"].includes(job.access))
     throw new Error("Invalid Antigravity mode");
-  const { child, client } = start(environment, job.workspace, {
+  const running = start(environment, job.workspace, {
     access: job.access,
     publish,
   });
+  const { child, client } = running;
   try {
     const initialized = await initialize(client);
     const canResume =
@@ -515,32 +529,48 @@ export async function executeAntigravity(job, prompt, base = process.env) {
       prompt: [{ type: "text", text: prompt }],
     });
     await client.flushMessage();
-    const failure = antigravityTurnFailure(
-      client.text,
-      Array.isArray(job.mcpServers) && job.mcpServers.length > 0,
-    );
-    if (failure && turn.stopReason === "end_turn")
-      return {
-        type: "pages.result",
-        error: failure,
-        stopReason: turn.stopReason,
-      };
-    return turn.stopReason === "end_turn" && client.text.trim()
-      ? {
-          type: "pages.result",
-          sessionId: session.sessionId,
-          stopReason: turn.stopReason,
-          answer: client.text,
-          usage: turn.usage ?? null,
-        }
-      : {
-          type: "pages.result",
-          error: "antigravity_acp_session_failed",
-          stopReason: turn.stopReason,
-        };
+    return turnResult(job, session.sessionId, turn, running);
   } finally {
     await stop(child);
   }
+}
+
+/**
+ * The result of a prompt that returned.
+ * @remarks
+ * After a refused permission request `agy acp` ends the turn with
+ * `end_turn` and no answer. Like the Pages host, the runner names the refusal
+ * then instead of a broken session, so the plan does not retry it as an
+ * infrastructure failure.
+ */
+function turnResult(job, sessionId, turn, running) {
+  const { client } = running;
+  const failure = antigravityTurnFailure(
+    client.text,
+    Array.isArray(job.mcpServers) && job.mcpServers.length > 0,
+  );
+  if (failure && turn.stopReason === "end_turn")
+    return {
+      type: "pages.result",
+      error: failure,
+      stopReason: turn.stopReason,
+    };
+  if (turn.stopReason === "end_turn" && client.text.trim())
+    return {
+      type: "pages.result",
+      sessionId,
+      stopReason: turn.stopReason,
+      answer: client.text,
+      usage: turn.usage ?? null,
+    };
+  return {
+    type: "pages.result",
+    error:
+      running.refusals > 0
+        ? "plan_runner_permission_denied"
+        : "antigravity_acp_session_failed",
+    stopReason: turn.stopReason,
+  };
 }
 
 function enabledTools(job) {

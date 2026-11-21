@@ -24,10 +24,26 @@ function readCliModelId(value: unknown): string {
   return value;
 }
 
+function isPositiveCount(value: unknown): value is number {
+  return typeof value === "number" && Number.isSafeInteger(value) && value > 0;
+}
+
+// Codex keeps `effective_context_window_percent` of `context_window` for the
+// conversation and reports that share as `model_context_window` in every
+// turn, rounded down like its integer division. A missing share leaves the
+// listed window.
+function readCodexContextWindow(entry: Record<string, unknown>): number | null {
+  const { context_window: listed, effective_context_window_percent: share } =
+    entry;
+  if (!isPositiveCount(listed)) return null;
+  if (!isPositiveCount(share) || share > 100) return listed;
+  const effective = Math.floor((listed * share) / 100);
+  return effective > 0 ? effective : null;
+}
+
 function readCodexModel(entry: Record<string, unknown>): AgentCatalogModel {
   const id = readCliModelId(entry.slug);
   const name = entry.display_name;
-  const context = entry.context_window;
   const levels: unknown[] = Array.isArray(entry.supported_reasoning_levels)
     ? entry.supported_reasoning_levels
     : [];
@@ -38,12 +54,7 @@ function readCodexModel(entry: Record<string, unknown>): AgentCatalogModel {
     id,
     name:
       typeof name === "string" && /^[^\p{Cc}]{1,200}$/u.test(name) ? name : id,
-    contextWindow:
-      typeof context === "number" &&
-      Number.isSafeInteger(context) &&
-      context > 0
-        ? context
-        : null,
+    contextWindow: readCodexContextWindow(entry),
     promptPrice: null,
     completionPrice: null,
     isFree: false,
@@ -69,6 +80,8 @@ function readPriority(entry: Record<string, unknown>): number {
  * @throws {AgentError} `cli_unexpected_output` for anything but a model list.
  * @remarks
  * Hidden entries are Codex internals, so only `visibility: "list"` models appear.
+ * The context window is the effective one Codex reports during a turn, so the
+ * catalog fallback of a session matches its later readings.
  */
 export function readCodexModels(stdout: string): readonly AgentCatalogModel[] {
   let payload: unknown;

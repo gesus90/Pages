@@ -7,7 +7,16 @@ import { readPlanContract } from "@/backend/agents/AgentPlanSessionInput";
 import { AgentOperationError } from "@/backend/error/AgentOperationError";
 import { logCaughtError } from "@/backend/logging/Logger";
 import {
+  AGENT_TODO_LIMIT,
+  AGENT_TODO_PRIORITIES,
+  AGENT_TODO_STATUS_ALIASES,
+  AGENT_TODO_STATUSES,
+  AGENT_TODO_TEXT_LENGTH,
+  mergeAgentTodos,
+} from "@/definition/AgentPlanAgentTodos";
+import {
   AGENT_STEP_ACTIVITY_LENGTH,
+  AGENT_STEP_PROGRESS_STATUS_NAMES,
   AGENT_STEP_PROGRESS_STATUSES,
 } from "@/definition/AgentPlanStepProgress";
 
@@ -24,6 +33,10 @@ import type {
   AgentPlanContractItem,
 } from "@/definition/AgentPlanSession";
 import type { AgentPlanAgentTodoRepository } from "@/backend/database/repositories/agent/AgentPlanAgentTodoRepository";
+import type {
+  AgentPlanAgentTodo,
+  AgentPlanEntry,
+} from "@/definition/AgentPlanAgentTodos";
 import type { AgentTicketChecklistService } from "./AgentTicketChecklistService";
 
 import type {
@@ -40,14 +53,33 @@ import type {
 
 const MAXIMUM_PROBLEMS = 50;
 
+/** The obligation of an attempt that never sent its own work list. */
+const MISSING_WORK_LIST =
+  "Send your own work list before you report done: call update_step_progress with plan, one concrete entry per work step of this step, every finished entry done.";
+
+/** The hint of a progress call without plan while the attempt has no own work list yet. */
+const MISSING_WORK_LIST_NOTICE =
+  "Your own work list is missing. Send it now with the plan field: one concrete entry per work step, every entry open and the current one active; send it again after each finished entry. report_step_result refuses done without it.";
+
 const identifier = z.string().trim().min(1).max(200);
+// OpenCode models copy the entry shape of their own task list; its priority says nothing Pages shows, so it is ignored.
+const taskPriority = z.enum(AGENT_TODO_PRIORITIES).optional();
 const todoSchema = z.strictObject({
   id: identifier,
-  status: z.enum(AGENT_STEP_PROGRESS_STATUSES),
+  status: z
+    .enum([...AGENT_STEP_PROGRESS_STATUSES, ...AGENT_TODO_STATUS_ALIASES])
+    .transform((status) => AGENT_STEP_PROGRESS_STATUS_NAMES[status]),
+  priority: taskPriority,
+});
+const planEntrySchema = z.strictObject({
+  text: z.string().trim().min(1).max(AGENT_TODO_TEXT_LENGTH),
+  status: z.enum([...AGENT_TODO_STATUSES, ...AGENT_TODO_STATUS_ALIASES]),
+  priority: taskPriority,
 });
 const callSchema = z
   .strictObject({
     todos: z.array(todoSchema).max(1000),
+    plan: z.array(planEntrySchema).min(1).max(AGENT_TODO_LIMIT).optional(),
     activity: z
       .string()
       .trim()
@@ -56,12 +88,35 @@ const callSchema = z
       .optional(),
   })
   .refine(
-    (report) => report.todos.length > 0 || report.activity !== undefined,
+    (report) =>
+      report.todos.length > 0 ||
+      report.activity !== undefined ||
+      report.plan !== undefined,
     {
       path: ["activity"],
-      message: "Provide an activity line when todos is empty.",
+      message: "Provide an activity line or a plan when todos is empty.",
     },
   );
+
+/** The ACP name of each state, so an own list merges exactly like a structured CLI plan. */
+const ACP_PLAN_STATUS = {
+  open: "pending",
+  active: "in_progress",
+  done: "completed",
+  failed: "failed",
+  pending: "pending",
+  in_progress: "in_progress",
+  completed: "completed",
+} as const satisfies Record<z.infer<typeof planEntrySchema>["status"], string>;
+
+function planEntries(
+  plan: readonly z.infer<typeof planEntrySchema>[],
+): readonly AgentPlanEntry[] {
+  return plan.map((entry) => ({
+    content: sanitizeArtifactText(entry.text),
+    status: ACP_PLAN_STATUS[entry.status],
+  }));
+}
 
 function rejection(
   code: "INVALID_REQUEST" | "FORBIDDEN" | "CONFLICT",
@@ -79,6 +134,45 @@ function contractOf(termsJson: string): AgentPlanContract {
   const contract = readPlanContract(terms.contract);
   if (!contract) throw new Error("Invalid step report terms");
   return contract;
+}
+
+/** Which obligations on the agent's own work list the effective contract carries. */
+interface WorkListCheck {
+  /** Codex keeps the list in `update_plan` too, so a received list must be complete. */
+  readonly checksNativePlan?: boolean;
+  /** A report through Pages MCP: the attempt must have sent a list at all. */
+  readonly requiresWorkList?: boolean;
+}
+
+/**
+ * What the agent still owes on its own work list.
+ * @param check - The obligations of the caller.
+ * @param nativePlan - The stored list of the attempt; `null` before its first list, `undefined` without the repository.
+ * @returns The obligation as the agent reads it, or `null` when nothing is owed.
+ * @remarks
+ * Every session with Pages MCP is told to send its list first. A model that
+ * skips it would otherwise report done with no entry in the terminal; the
+ * refused report names the missing list, so the agent can still send it.
+ */
+function workListObligation(
+  check: WorkListCheck,
+  nativePlan: readonly AgentPlanAgentTodo[] | null | undefined,
+): string | null {
+  if (check.checksNativePlan && nativePlan != null) {
+    if (nativePlan.length === 0)
+      return "Complete your work list before continuing: send all entries with the plan field of update_step_progress (or your built-in update_plan tool). The Pages update_plan tool manages agent plans instead.";
+    const open = nativePlan.filter((todo) => todo.status !== "done");
+    if (open.length > 0)
+      return `Complete the open entries of your work list (plan field of update_step_progress or built-in update_plan; Pages update_plan manages agent plans): ${open
+        .slice(0, 20)
+        .map((todo) => todo.text)
+        .join("; ")
+        .slice(0, 3000)}`;
+  }
+  const isListMissing =
+    nativePlan === null ||
+    (nativePlan !== undefined && nativePlan.length === 0);
+  return check.requiresWorkList && isListMissing ? MISSING_WORK_LIST : null;
 }
 
 /**
@@ -120,7 +214,8 @@ export class AgentPlanStepProgressService {
   private readonly tickets:
     Pick<AgentTicketChecklistService, "read" | "set"> | undefined;
   private readonly agentTodos:
-    Pick<AgentPlanAgentTodoRepository, "findPlan"> | undefined;
+    | Pick<AgentPlanAgentTodoRepository, "findPlan" | "findEntries" | "save">
+    | undefined;
 
   public constructor(dependencies: {
     readonly reports: Pick<AgentPlanStepReportRepository, "find">;
@@ -130,7 +225,10 @@ export class AgentPlanStepProgressService {
     >;
     readonly clock?: () => string;
     readonly tickets?: Pick<AgentTicketChecklistService, "read" | "set">;
-    readonly agentTodos?: Pick<AgentPlanAgentTodoRepository, "findPlan">;
+    readonly agentTodos?: Pick<
+      AgentPlanAgentTodoRepository,
+      "findPlan" | "findEntries" | "save"
+    >;
   }) {
     this.reports = dependencies.reports;
     this.progress = dependencies.progress;
@@ -196,13 +294,19 @@ export class AgentPlanStepProgressService {
     const activity = parsed.data.activity
       ? sanitizeArtifactText(parsed.data.activity)
       : (earlier?.activity ?? null);
+    const updatedAt = this.clock();
+    const ownPlan = await this.saveOwnPlan(
+      slot.attemptId,
+      parsed.data.plan,
+      updatedAt,
+    );
     await this.progress.save({
       runId,
       stepId: slot.stepId,
       attemptId: slot.attemptId,
       todosJson: JSON.stringify({ ...readTodoState(earlier), contract, todos }),
       activity,
-      updatedAt: this.clock(),
+      updatedAt,
     });
     return {
       runId,
@@ -210,6 +314,8 @@ export class AgentPlanStepProgressService {
       attemptId: slot.attemptId,
       todos,
       activity,
+      ...ownPlan,
+      ...(await this.missingWorkList(slot.attemptId, ownPlan)),
     };
   }
 
@@ -272,8 +378,7 @@ export class AgentPlanStepProgressService {
       readonly runId: string;
       readonly stepId: string;
       readonly attemptId: string;
-      readonly checksNativePlan?: boolean;
-    },
+    } & WorkListCheck,
     contract: AgentPlanContract,
   ): Promise<AgentPlanContract> {
     const stored = await this.progress.find(scope.runId, scope.stepId);
@@ -291,39 +396,26 @@ export class AgentPlanStepProgressService {
           : {}),
       }));
     const nativePlan = await this.agentTodos?.findPlan(scope.attemptId);
-    const native = nativePlan ?? [];
     const current = withNativeTodoState(
       { ...contract, todos },
-      native,
+      nativePlan ?? [],
       statuses,
     );
-    if (
-      scope.checksNativePlan &&
-      nativePlan != null &&
-      (native.length === 0 || native.some((todo) => todo.status !== "done"))
-    )
-      return {
-        ...current,
-        todos: [
-          ...current.todos,
-          {
-            id: "PAGES_PLAN",
-            text:
-              native.length === 0
-                ? "Complete your native plan before continuing. If available, use the native update_plan tool; the Pages update_plan tool manages agent plans instead."
-                : `Complete the open TODOs in the native plan (use native update_plan if available; Pages update_plan manages agent plans): ${native
-                    .filter((todo) => todo.status !== "done")
-                    .slice(0, 20)
-                    .map((todo) => todo.text)
-                    .join("; ")
-                    .slice(0, 3000)}`,
-            ticket: null,
-            agent: true,
-            checked: false,
-          },
-        ],
-      };
-    return current;
+    const obligation = workListObligation(scope, nativePlan);
+    if (obligation === null) return current;
+    return {
+      ...current,
+      todos: [
+        ...current.todos,
+        {
+          id: "PAGES_PLAN",
+          text: obligation,
+          ticket: null,
+          agent: true,
+          checked: false,
+        },
+      ],
+    };
   }
 
   /**
@@ -400,5 +492,45 @@ export class AgentPlanStepProgressService {
           throw error;
       }
     }
+  }
+
+  /**
+   * Replaces the own work list of the running attempt.
+   * @returns The stored list for the receipt; empty when the call sent no `plan`.
+   * @remarks
+   * The list lands where a structured CLI plan of the same attempt lands, so
+   * the terminal, the reload and the completion check read one list per
+   * attempt; the newest report of either way wins and replays never add
+   * entries, because a plan always replaces the whole list.
+   */
+  /**
+   * Names a missing own work list in the receipt of a call without `plan`.
+   * @remarks
+   * Models that report only `activity` or the assigned `todos` read the
+   * receipt, so the hint brings the list while the work still runs instead of
+   * only at the refused closing report.
+   */
+  private async missingWorkList(
+    attemptId: string,
+    ownPlan: Pick<AgentPlanStepProgressReceipt, "plan">,
+  ): Promise<Pick<AgentPlanStepProgressReceipt, "notice">> {
+    if (ownPlan.plan || !this.agentTodos) return {};
+    const stored = await this.agentTodos.findPlan(attemptId);
+    return stored === null || stored.length === 0
+      ? { notice: MISSING_WORK_LIST_NOTICE }
+      : {};
+  }
+
+  private async saveOwnPlan(
+    attemptId: string,
+    plan: readonly z.infer<typeof planEntrySchema>[] | undefined,
+    updatedAt: string,
+  ): Promise<Pick<AgentPlanStepProgressReceipt, "plan">> {
+    if (!plan) return {};
+    if (!this.agentTodos) throw new AgentOperationError("FORBIDDEN");
+    const previous = await this.agentTodos.findEntries(attemptId);
+    const merged = mergeAgentTodos(planEntries(plan), previous, updatedAt);
+    await this.agentTodos.save(attemptId, merged, updatedAt);
+    return { plan: merged };
   }
 }

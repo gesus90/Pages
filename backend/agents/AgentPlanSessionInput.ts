@@ -154,6 +154,9 @@ export function readPlanContract(input: unknown): AgentPlanContract | null {
       return {
         id: text(ticket.id, 200),
         key: text(ticket.key, 200),
+        ...(ticket.title === undefined
+          ? {}
+          : { title: text(ticket.title, 500) }),
         ...(ticket.requirementsHash === undefined
           ? {}
           : { requirementsHash: text(ticket.requirementsHash, 64) }),

@@ -322,6 +322,13 @@ Missing and partial values:
   next `token_count` names what the compaction kept.
 - A rollout that cannot be read stops the reader of that job; the job goes on
   and its context stays as last reported.
+- Before the first reading the sidebar takes the window from the model's
+  catalog entry. Pages stores it for a Codex model as `context_window` ×
+  `effective_context_window_percent` / 100 of `codex debug models`, rounded
+  down, the same window Codex reports as `model_context_window` (for
+  `gpt-6-luna`: 272,000 × 95 % = 258,400), so the window does not change
+  with the first reading. Until an occupancy is reported the sidebar shows
+  "unknown / window" and no bar; it never counts a missing occupancy as 0.
 
 Reopening, resuming and switching the model:
 
@@ -604,6 +611,38 @@ every loop iteration and group member has its own list. An entry has the
 position as its identifier, its text, `open`, `active` or `done`, and the time
 of its last change; a plan replaces the list, an unchanged entry keeps its
 time. Text outside this structure is never read as a TODO.
+The `plan` field of `update_step_progress` (at most 40 entries of `text` and
+`open`, `active`, `done` or `failed`; `pending`, `in_progress` and `completed`,
+the names of the built-in task lists, count as `open`, `active` and `done`) is
+the same list for every runner: the
+call stores it in the same row of the running attempt, so the newest report of
+either way wins and a repeated call never adds entries. The run contract asks
+for this list in its own section "Your work list" before the working rules,
+with concrete steps instead of the node name: a fixed node derives them from
+its instruction and takes over an explicit checklist, a ticket node builds them
+per ticket from goal, requirements and acceptance criteria. The list is sent
+before the first command with every entry open and the first one in progress,
+and again after each finished entry; the closing report is no entry, because
+the report check requires every entry done. Claude Code 2.1 offers no built-in
+task list in `claude -p`, so its sessions keep the list only in this field.
+`agy acp` (Antigravity 1.5.9) offers no task list tool and sends no ACP plan
+update, so Antigravity keeps the list only in this field, and a session
+without Pages MCP gets no native work list rules. OpenCode (1.18.34) sent its
+first list in this field with the names of its own `todowrite` tool, which
+Pages refused before it accepted them, so the list arrived one call later;
+the `todos` field accepts these names too, and a `priority` copied from
+`todowrite` is ignored. OpenCode models, OpenRouter ones included, often keep
+the list in `todowrite` itself. Its ACP adapter reports that tool only as tool
+calls (title `todowrite`, then `N todos`, kind `other`, the list in `rawInput`
+and in the result metadata), so `AgentToolCallEvents` records such a call as
+a `plan` event of the attempt, and "Lesend" allows `todowrite`, which changes
+nothing on the host. A `done` report of an attempt that never sent a list is
+refused with the missing list named, so the agent can still send it; until
+then a progress call without `plan` names it in `notice`.
+The terminal shows the node name and the
+bound tickets with their titles (kept in the contract since then) as the
+heading of the list, and marks an entry a failed, cancelled or paused step left
+in progress as interrupted.
 `withAgentTodos` adds the list as `agentTodos` to every node result of a run,
 loop members included, and `read_plan_run` and `read_plan_run_reports` return
 it. Pages includes these entries in the step contract as `A` IDs and

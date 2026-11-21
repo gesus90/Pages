@@ -57,6 +57,9 @@ export const OPENCODE_PICA_PERMISSIONS: Readonly<Record<string, string>> = {
  * file names. "Lesend" denies every tool but reading, listing, searching and
  * the web, also outside the working folder; reading `.env` files stays
  * denied there, because a reading session has no task that needs a secret.
+ * OpenCode's own task list (`todowrite`) changes nothing on the host; models
+ * keep their work steps there from the first call, and Pages takes the list
+ * over as the attempt's work list.
  */
 export function openCodePlanPermissions(
   mode: AcpPermissionMode,
@@ -71,6 +74,7 @@ export function openCodePlanPermissions(
     grep: "allow",
     webfetch: "allow",
     websearch: "allow",
+    todowrite: "allow",
     "pages_*": "allow",
   };
 }

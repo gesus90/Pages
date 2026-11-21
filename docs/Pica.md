@@ -69,13 +69,18 @@ Pages owns transcripts, attachments and existing summaries. Native sessions,
 those of the CLIs, manage their own context;
 `/compact` is unavailable for Pica.
 
-Pica settings offer the models of CLI connections.
+Pica settings offer the models of CLI connections and of OpenRouter
+connections. An OpenRouter model answers through Pages' private OpenCode
+runtime, the same way a plan node of OpenRouter runs: the session receives only
+the key of its own connection, runs the verified native OpenCode build in
+_Read only_ and reports tokens and OpenCode's cost estimate like an OpenCode
+chat. Agent employees use OpenRouter models the same way.
 Free opencode Zen models are hidden because they require opencode's own tools;
 agent plans keep them. A saved selection of another API connection is retained
 but never answers: Pica asks for a new selection and never changes models
 silently. OpenAI and Anthropic API keys remain available to other Pages
-functions, while Pica uses the Codex and Claude CLI sign-ins. No direct API
-key answers in Pica.
+functions, while Pica uses the Codex and Claude CLI sign-ins. No other direct
+API key answers in Pica.
 
 A saved Pica selection of a connection of a retired provider is treated the
 same way: it is kept, never answers, and Pica asks for a new selection.
@@ -282,8 +287,11 @@ OpenCode is no pin for it and never makes the build "unsupported".
   resolved payload is reused unchanged for retries and follow-up turns.
   The native adapter's generic image capability does not guarantee that the
   assigned model supports vision; model refusals remain visible.
-- **Sessions.** `session/resume` continues only the same person's chat with
-  the same connection, model, variant and profile `pica-opencode-chat-1`.
+- **Sessions.** The verified Pica build binds the Pages tools to a new
+  session and refuses `session/resume`, so Pages does not try a resume: each
+  message starts a new native session seeded with the transcript. The stored
+  session record keeps the profile `pica-opencode-chat-1`, and OpenRouter keeps
+  `pica-openrouter-chat-1`. Agent employees keep their session pool.
   Losing or closing the browser leaves the server job running. _Stop_ ends
   it explicitly. A server restart marks interrupted jobs and does not replay
   them. Deleting a Pages conversation removes its Pages mapping, messages

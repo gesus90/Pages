@@ -2,13 +2,35 @@ import {
   AGENT_TODO_LIMIT,
   AGENT_TODO_TEXT_LENGTH,
 } from "@/definition/AgentPlanAgentTodos";
+import { AGENT_STEP_PROGRESS_STATUS_NAMES } from "@/definition/AgentPlanStepProgress";
 import { MAXIMUM_EVENT_TEXT } from "./AgentSessionJournal";
 
+import type { AgentPlanEntry } from "@/definition/AgentPlanAgentTodos";
 import type { SessionUpdate } from "@agentclientprotocol/sdk";
 import type { AgentSessionEventInput } from "./AgentSessionJournal";
 
 /** The Pages tool whose calls become todo lines instead of tool lines. */
 export const PROGRESS_TOOL = /update_step_progress/u;
+
+/**
+ * The titles of OpenCode's own task list tool in its ACP tool calls: the tool name until the call ended, then `N todos`.
+ * @remarks
+ * OpenCode's ACP adapter (1.18) sends no plan update for this tool, only tool
+ * calls whose input holds the complete list.
+ */
+export const TODO_LIST_TOOL = /^(?:todowrite|\d+ todos)$/u;
+
+/** The plan status of each state of OpenCode's task list, with the Pages names a model may write there. */
+const TODO_LIST_STATUSES: Readonly<Record<string, string>> = {
+  pending: "pending",
+  in_progress: "in_progress",
+  completed: "completed",
+  cancelled: "failed",
+  open: "pending",
+  active: "in_progress",
+  done: "completed",
+  failed: "failed",
+};
 
 /** Longest command or output kept of one tool call; the journal limits the event as a whole. */
 const TOOL_TEXT = 3_000;
@@ -362,9 +384,7 @@ export function toolText(state: ToolCallState, output?: ToolOutput): string {
  * A list that does not fit loses its last entries instead, so the text always
  * stays readable and the entries that are kept stay exact.
  */
-function planText(
-  entries: Extract<SessionUpdate, { sessionUpdate: "plan" }>["entries"],
-): string {
+function planText(entries: readonly AgentPlanEntry[]): string {
   const kept = entries.slice(0, AGENT_TODO_LIMIT).map((entry) => ({
     content: entry.content.trim().slice(0, AGENT_TODO_TEXT_LENGTH),
     status: entry.status,
@@ -375,6 +395,38 @@ function planText(
     text = JSON.stringify({ entries: kept });
   }
   return text;
+}
+
+/**
+ * The plan event of a call of OpenCode's own task list.
+ * @param rawInput - The input of the call while it runs.
+ * @param rawOutput - The result of the ended call, whose metadata repeats the list.
+ * @returns `null` when neither holds a readable list.
+ * @remarks
+ * The list reaches the attempt like a structured plan, so OpenCode models
+ * that keep their steps there show them from the first call on.
+ */
+export function todoListEvent(
+  rawInput: unknown,
+  rawOutput: unknown,
+): Omit<AgentSessionEventInput, "turn"> | null {
+  const todos =
+    readRecord(rawInput)?.todos ??
+    readRecord(readRecord(rawOutput)?.metadata)?.todos;
+  if (!Array.isArray(todos)) return null;
+  const entries = todos.flatMap((entry: unknown): AgentPlanEntry[] => {
+    const todo = readRecord(entry);
+    if (typeof todo?.content !== "string" || typeof todo.status !== "string")
+      return [];
+    if (todo.content.trim() === "") return [];
+    const status = Object.hasOwn(TODO_LIST_STATUSES, todo.status)
+      ? TODO_LIST_STATUSES[todo.status]
+      : todo.status;
+    return [{ content: todo.content, status }];
+  });
+  return entries.length === 0
+    ? null
+    : { kind: "plan", text: planText(entries) };
 }
 
 /** The event an update of plans or modes is recorded as; `null` for other updates. */
@@ -398,9 +450,13 @@ export function progressText(raw: unknown): string | null {
   if (!input || !Array.isArray(input.todos)) return null;
   const todos = input.todos.flatMap((entry: unknown) => {
     const todo = readRecord(entry);
-    return typeof todo?.id === "string" && typeof todo.status === "string"
-      ? [{ id: todo.id.slice(0, 200), status: todo.status.slice(0, 20) }]
-      : [];
+    if (typeof todo?.id !== "string" || typeof todo.status !== "string")
+      return [];
+    // Pages took the names of the built-in task lists as its own states; the terminal reads these.
+    const status = Object.hasOwn(AGENT_STEP_PROGRESS_STATUS_NAMES, todo.status)
+      ? AGENT_STEP_PROGRESS_STATUS_NAMES[todo.status]
+      : todo.status.slice(0, 20);
+    return [{ id: todo.id.slice(0, 200), status }];
   });
   if (todos.length === 0) return null;
   const activity =

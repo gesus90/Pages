@@ -69,6 +69,8 @@ export function employeeAcpRunner(
   return {
     ...base,
     profile: agentAccessSessionProfile(`employee-${base.provider}`, mode),
+    // A kept employee session continues in the pool, which tells the turn what the session already knows.
+    canResumeSession: true,
     hasBridgeMcp: hasEmployeeBridgeMcp(base.provider, mode),
     hostMcpServers: effectiveAgentAccess(mode).hostMcpServers
       ? hostMcpServers

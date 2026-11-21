@@ -295,7 +295,8 @@ export class McpPlanApi {
         "plans.read",
         cursor === null ? { planId } : { planId, cursor },
       );
-      if ("plan" in read) return read.plan.name;
+      if ("plan" in read && read.plan !== undefined && "name" in read.plan)
+        return read.plan.name;
       if (!("chunk" in read)) break;
       parts.push(read.chunk.text);
       cursor = read.chunk.nextCursor;

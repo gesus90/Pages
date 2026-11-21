@@ -1,8 +1,27 @@
+import type { AgentPlanAgentTodo } from "./AgentPlanAgentTodos.js";
+
 /** The operation of `update_step_progress`; only the credential of a plan session is ever offered it. */
 export const AGENT_STEP_PROGRESS_OPERATION = "run.step.progress" as const;
 
 /** Where one todo of a step stands while the turn runs. */
 export const AGENT_STEP_PROGRESS_STATUSES = ["open", "active", "done"] as const;
+
+/**
+ * The state of an assigned todo for each name Pages accepts.
+ * @remarks
+ * Agents that keep a built-in task list name the states pending,
+ * in_progress and completed; they mean open, active and done.
+ */
+export const AGENT_STEP_PROGRESS_STATUS_NAMES: Readonly<
+  Record<string, (typeof AGENT_STEP_PROGRESS_STATUSES)[number]>
+> = {
+  open: "open",
+  active: "active",
+  done: "done",
+  pending: "open",
+  in_progress: "active",
+  completed: "done",
+};
 
 /** The longest activity line Pages keeps. */
 export const AGENT_STEP_ACTIVITY_LENGTH = 200;
@@ -37,4 +56,8 @@ export interface AgentPlanStepProgressReceipt {
   readonly attemptId: string;
   readonly todos: readonly AgentPlanStepProgressTodo[];
   readonly activity: string | null;
+  /** The stored own work list of the attempt; absent when the call sent no `plan`. */
+  readonly plan?: readonly AgentPlanAgentTodo[];
+  /** What the agent still has to send: its own work list while the attempt has none; absent otherwise. */
+  readonly notice?: string;
 }

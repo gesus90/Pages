@@ -16,6 +16,14 @@ import type { AgentPlanProgressItem } from "@/definition/AgentPlanProgress";
 /** Length of the fade at the lower edge of the list, in px. */
 const LIST_FADE_PX = 34;
 const BOTTOM_EDGE = ["bottom"] as const;
+/** Step states in which the session no longer works on an entry it left in progress. */
+const INTERRUPTED_STEP_STATUSES: ReadonlySet<AgentPlanStepResult["status"]> =
+  new Set(["failed", "cancelled", "paused"]);
+
+/** One console entry; an interrupted entry keeps the failure mark but says why. */
+interface ConsoleTodo extends AgentPlanProgressItem {
+  readonly isInterrupted?: boolean;
+}
 
 /** The native list of the attempt the session runs now; a list of an earlier attempt never counts. */
 function currentAgentTodos(
@@ -70,11 +78,10 @@ function stepEntryStatus(
  * of them the title of the step is the only entry, so the list always
  * says what the step works on.
  */
-function displayedTodos(
-  step: AgentPlanStepResult,
-): readonly AgentPlanProgressItem[] {
+function displayedTodos(step: AgentPlanStepResult): readonly ConsoleTodo[] {
   const native = currentAgentTodos(step);
-  if (native && native.todos.length > 0) return native.todos;
+  if (native && native.todos.length > 0)
+    return withInterruptions(step, native.todos);
   const progress = currentProgressTodos(step);
   if (progress.length > 0) return progress;
   const contract = step.session?.contract;
@@ -89,6 +96,24 @@ function displayedTodos(
       status: stepEntryStatus(step),
     },
   ];
+}
+
+/**
+ * Marks the entries an ended attempt left in progress as interrupted.
+ * @remarks
+ * A failed, cancelled or paused step works on nothing any more, so an entry
+ * still in progress would claim live work that no longer happens.
+ */
+function withInterruptions(
+  step: AgentPlanStepResult,
+  todos: readonly AgentPlanProgressItem[],
+): readonly ConsoleTodo[] {
+  if (!INTERRUPTED_STEP_STATUSES.has(step.status)) return todos;
+  return todos.map((todo): ConsoleTodo =>
+    todo.status === "active"
+      ? { ...todo, status: "failed", isInterrupted: true }
+      : todo,
+  );
 }
 
 /** The live todo states of the current attempt; an observation of another attempt is left out. */
@@ -118,11 +143,13 @@ function currentProgressTodos(
 function ConsoleTodoRow({
   todo,
 }: {
-  readonly todo: AgentPlanProgressItem;
+  readonly todo: ConsoleTodo;
 }): React.ReactElement {
   const { t } = useTranslation();
   const text = todo.contractId ? `${todo.contractId} ${todo.text}` : todo.text;
-  const status = t(`plans.console.terminal.sidebar.todoStatus.${todo.status}`);
+  const status = t(
+    `plans.console.terminal.sidebar.todoStatus.${todo.isInterrupted ? "interrupted" : todo.status}`,
+  );
   return (
     <li className="min-w-0">
       <Tooltip content={text} isFloating className="flex w-full min-w-0">
@@ -137,7 +164,7 @@ function ConsoleTodoRow({
               todo.status === "active" && "font-semibold",
             )}
           >
-            <ConsoleTodoStatus status={todo.status} />
+            <ConsoleTodoStatus status={todo.status} label={status} />
             <span className="min-w-0 flex-1 truncate">{text}</span>
           </button>
         )}
@@ -147,7 +174,43 @@ function ConsoleTodoRow({
 }
 
 /**
- * The console's TODO block: the title, "done / total" and the entries.
+ * What the list belongs to: the node name, then each bound ticket with its title.
+ * @remarks
+ * The name and the titles head the list, so its entries can name the concrete
+ * steps. Tickets of records written before titles were kept show their key.
+ */
+function ConsoleTodoHeading({
+  step,
+}: {
+  readonly step: AgentPlanStepResult;
+}): React.ReactElement {
+  const tickets = step.session?.contract?.tickets ?? [];
+  return (
+    <div data-todo-heading="" className="mt-0.5 min-w-0 text-[13px] leading-5">
+      <p title={step.name} className="truncate font-medium">
+        {step.name}
+      </p>
+      {tickets.map((ticket) => {
+        const text = ticket.title
+          ? `${ticket.key} ${ticket.title}`
+          : ticket.key;
+        return (
+          <p
+            key={ticket.id}
+            title={text}
+            data-todo-ticket={ticket.key}
+            className="truncate text-agent-console-muted"
+          >
+            {text}
+          </p>
+        );
+      })}
+    </div>
+  );
+}
+
+/**
+ * The console's TODO block: the title, "done / total", the heading and the entries.
  * @remarks
  * The list is never empty, see {@link displayedTodos}. It takes the room
  * between the title and the blocks below; when it is longer than that room,
@@ -186,6 +249,7 @@ export function ConsoleTodoList({
           })}
         </span>
       </div>
+      <ConsoleTodoHeading step={step} />
       <ScrollViewport
         as="ul"
         key={isNative ? "agent" : "assignment"}
@@ -224,16 +288,18 @@ export function ConsoleTodoList({
 
 function ConsoleTodoStatus({
   status,
+  label,
 }: {
   readonly status: AgentPlanProgressItem["status"];
+  /** The translated state, which names an interruption apart from a failure. */
+  readonly label: string;
 }): React.ReactElement {
-  const { t } = useTranslation();
   const isOpen =
     status !== "done" && status !== "active" && status !== "failed";
   return (
     <span
       role="img"
-      aria-label={t(`plans.console.terminal.sidebar.todoStatus.${status}`)}
+      aria-label={label}
       data-todo-mark={status}
       className={cn(
         "flex size-[18px] shrink-0 items-center justify-center rounded-sm text-plan-todo-label",

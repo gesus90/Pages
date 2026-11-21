@@ -1,10 +1,12 @@
 import {
   PROGRESS_TOOL,
+  TODO_LIST_TOOL,
   describeCall,
   describeInput,
   describeOutput,
   progressText,
   reportedCall,
+  todoListEvent,
   toolText,
 } from "./AgentSessionRecorderEvents";
 
@@ -20,6 +22,8 @@ import type { SessionUpdate } from "@agentclientprotocol/sdk";
  */
 export class AgentToolCallEvents {
   private readonly tools = new Map<string, ToolCallState>();
+  /** Open calls of OpenCode's own task list, whose updates become plan events. */
+  private readonly todoLists = new Set<string>();
 
   /**
    * The journal event that a tool-call update adds, if it adds one.
@@ -29,6 +33,8 @@ export class AgentToolCallEvents {
   public event(
     update: SessionUpdate,
   ): Omit<AgentSessionEventInput, "turn"> | null {
+    const todoList = this.todoListUpdate(update);
+    if (todoList !== undefined) return todoList;
     if (update.sessionUpdate === "tool_call") {
       const call = reportedCall(update.rawInput, update._meta);
       const state: ToolCallState = {
@@ -61,6 +67,34 @@ export class AgentToolCallEvents {
       text: toolText(state, describeOutput(update)),
       dedupeKey: `tool:${update.toolCallId}:${update.status}`,
     };
+  }
+
+  /**
+   * The plan event of an update of OpenCode's own task list.
+   * @returns `undefined` for an update of any other call; `null` when the update holds no readable list.
+   * @remarks
+   * The list replaces the tool lines of the call, so the terminal and the
+   * report check read it like a structured plan of the attempt.
+   */
+  private todoListUpdate(
+    update: SessionUpdate,
+  ): Omit<AgentSessionEventInput, "turn"> | null | undefined {
+    if (update.sessionUpdate === "tool_call") {
+      if (update.kind !== "other" || !TODO_LIST_TOOL.test(update.title))
+        return undefined;
+      this.todoLists.add(update.toolCallId);
+      return todoListEvent(update.rawInput, update.rawOutput);
+    }
+    if (
+      update.sessionUpdate !== "tool_call_update" ||
+      !this.todoLists.has(update.toolCallId)
+    )
+      return undefined;
+    if (update.status === "completed" || update.status === "failed")
+      this.todoLists.delete(update.toolCallId);
+    // A failed call changed no list.
+    if (update.status === "failed") return null;
+    return todoListEvent(update.rawInput, update.rawOutput);
   }
 
   /** What a tool call reported so far, with this update applied. */

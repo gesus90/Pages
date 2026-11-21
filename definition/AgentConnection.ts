@@ -131,7 +131,9 @@ export type AgentConnectionLocation =
  * (a key without a drawn mark shows the neutral fallback), and `chatAdapter`
  * says how Pica answers with it: `acp` over an ACP session that reaches only
  * Pica's tools, and `null` for a provider Pica has no adapter for, such as a
- * direct API.
+ * direct API. OpenRouter answers over the ACP session of Pages' private
+ * OpenCode runtime, which receives only the key of its own connection, like a
+ * plan node of OpenRouter does.
  */
 export const AGENT_PROVIDERS = {
   openrouter: {
@@ -141,7 +143,7 @@ export const AGENT_PROVIDERS = {
     vendor: "openrouter",
     endpoint: "https://openrouter.ai/api/v1",
     mark: "openrouter",
-    chatAdapter: null,
+    chatAdapter: "acp",
   },
   openai: {
     accessKind: "api_key",

@@ -571,12 +571,7 @@ export class PicaAcpService {
       : "person";
     this.dependencies.requests.requireAdmission(actor.id, id, admission);
     const directory = await this.dependencies.workspace.prepare(sessionId);
-    const resumeSessionId = input.employee?.isFreshSession
-      ? null
-      : await this.compatibleSession(actor.id, sessionId, {
-          agent,
-          profile: run.runner.profile,
-        });
+    const resumeSessionId = await this.resumeSession(input, sessionId, run);
     const message = await this.store(actor, sessionId, input.request);
     await this.dependencies.jobs.create({
       id,
@@ -618,6 +613,20 @@ export class PicaAcpService {
       isEmployee: input.employee !== undefined,
     });
     return { job: started, messageId: message.id };
+  }
+
+  /** The native session a job resumes; none for a fresh employee session or a runner that cannot resume. */
+  private async resumeSession(
+    input: PicaAcpStart,
+    sessionId: string,
+    run: PicaAcpRun,
+  ): Promise<string | null> {
+    if (input.employee?.isFreshSession || run.runner.canResumeSession === false)
+      return null;
+    return await this.compatibleSession(input.actor.id, sessionId, {
+      agent: input.agent,
+      profile: run.runner.profile,
+    });
   }
 
   private async releaseJobWorkspace(

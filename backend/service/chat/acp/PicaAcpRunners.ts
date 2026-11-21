@@ -13,8 +13,8 @@ import type { AgentProviderId } from "@/definition/AgentConnection";
 import type { ChatAdapterProviderId } from "@/definition/AgentModelConsumers";
 
 /**
- * The runners Pica answers with over ACP, including native OpenCode and
- * Antigravity.
+ * The runners Pica answers with over ACP, including native OpenCode,
+ * OpenRouter over OpenCode and Antigravity.
  * @remarks
  * A provider registers its chat adapter once in `AGENT_PROVIDERS`; the runner
  * table below then has to name it, or the build fails.
@@ -26,6 +26,12 @@ export interface PicaAcpRunner {
   readonly provider: PicaAcpProvider;
   /** The profile a stored agent session carries; a session of another profile is not continued. */
   readonly profile: string;
+  /**
+   * Whether a stored agent session is continued with `session/resume`;
+   * `false` starts every job in a new native session seeded with the
+   * transcript.
+   */
+  readonly canResumeSession?: boolean;
   /** Whether the cost the adapter reports is its own estimate rather than a billed amount. */
   readonly isCostEstimated: boolean;
   /** OpenCode reports only the last model step of a tool loop, never its complete turn. */
@@ -80,10 +86,16 @@ const CLAUDE_RUNNER: PicaAcpRunner = {
   },
 };
 
-/** OpenCode's native ACP session shares the chat lifecycle and never exposes built-in tools. */
+/**
+ * OpenCode's native ACP session shares the chat lifecycle and never exposes
+ * built-in tools. Pica's verified OpenCode build binds its tools to a new
+ * session and refuses `session/resume`, so a resume would only fail before
+ * the transcript seeds a new session; Pages starts that session at once.
+ */
 const OPENCODE_RUNNER: PicaAcpRunner = {
   provider: "opencode",
   profile: "pica-opencode-chat-1",
+  canResumeSession: false,
   isCostEstimated: true,
   hasPartialTokenUsage: true,
   isCostSessionTotal: true,
@@ -93,6 +105,18 @@ const OPENCODE_RUNNER: PicaAcpRunner = {
       throw new ChatError("acpPermissionModeUnsupported");
     return run;
   },
+};
+
+/**
+ * OpenRouter answers through Pages' private OpenCode runtime with the key of
+ * its own connection, so its session behaves like OpenCode's: the same token
+ * and cost reports, which OpenCode computes from list prices, a new native
+ * session per job and only "Lesend".
+ */
+const OPENROUTER_RUNNER: PicaAcpRunner = {
+  ...OPENCODE_RUNNER,
+  provider: "openrouter",
+  profile: "pica-openrouter-chat-1",
 };
 
 /**
@@ -117,6 +141,7 @@ const RUNNERS: Readonly<Record<PicaAcpProvider, PicaAcpRunner>> = {
   codex_cli: CODEX_RUNNER,
   claude_code: CLAUDE_RUNNER,
   opencode: OPENCODE_RUNNER,
+  openrouter: OPENROUTER_RUNNER,
   antigravity: ANTIGRAVITY_RUNNER,
 };
 

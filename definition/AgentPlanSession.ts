@@ -77,6 +77,8 @@ export interface AgentPlanContract {
   readonly tickets: readonly {
     readonly id: string;
     readonly key: string;
+    /** The title when the node started, the heading of its work list; absent in older records. */
+    readonly title?: string;
     readonly requirementsHash?: string;
   }[];
 }

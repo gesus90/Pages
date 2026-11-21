@@ -103,9 +103,14 @@ generation. Pages requires membership and exact confirmation of `model`, the req
 `thought_level`, and `mode` before sending a prompt. It does not guess a Flash
 alias, choose another model or accept a silently remapped effort.
 
-Read-only plans use the adapter's `default` mode with an explicit allowlist of
-file-reading and web tools. Shell, writes, browser and delegation are excluded.
-Every unexpected permission request is denied. In `default` mode `agy acp` asks
+Read-only plans use the adapter's `default` mode and name an allowlist of
+file-reading and web tools. `agy acp` 1.5.9 still offers the model its
+`run_command` tool, so shell, writes, browser and delegation are excluded by
+the permission decision, not by the allowlist. Every unexpected permission
+request is denied. After a refusal `agy acp` ends the turn with `end_turn` and
+no answer; the Pages host and the runner then fail the node with
+`plan_runner_permission_denied`, which stops the plan for a person instead of
+retrying it as an infrastructure failure. In `default` mode `agy acp` asks
 before every call of an MCP tool, so a read-only node approves the calls of its
 own Pages tools, recognized by the title `Run mcp_pages_<tool>`, and nothing
 else. YOLO requires the explicit Pages YOLO choice. `agy acp` offers the modes `default`, `accept-edits` and `plan` and
@@ -124,10 +129,23 @@ tools, so the Antigravity driver declares HTTP itself; stdio and SSE stay
 unclaimed. Tokens travel through protocol input or
 a process environment, never the process argument list.
 
+`agy acp` offers no task list tool and sends no ACP `plan` update. A plan node
+with Pages tools keeps its own work list in the `plan` field of
+`update_step_progress`, which the read-only profile approves like every Pages
+tool; a session without Pages tools gets no work list rules.
+
 Plan turns, streaming, continuation, targeted session resume, deadlines,
 instance-wide leases and confirmed process cleanup use the shared ACP engine.
 Unconfirmed cleanup retains the connection lock. ACP usage is kept as reported;
 unreported prices remain unknown and token counts exclude delegated work.
+
+The model selectors carry no context window, so the catalog states none.
+`agy acp` names the window itself in every `usage_update` (`size`, 1,048,576
+for Gemini 4 Hydrogen) together with the current occupancy (`used`). Its only
+report before the prompt (`used` 0) arrives before the model is confirmed and
+is not attributed to the attempt, so the console reads "unknown" until the
+first report of the prompt. The token counts of the prompt response are
+cumulative over the model calls of a turn and stay separate from the occupancy.
 
 A separate mathematical OpenRouter comparison covers captured ACP usage, with
 explicit gaps and subscription charges kept separate. The reduced

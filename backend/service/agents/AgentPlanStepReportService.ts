@@ -288,6 +288,7 @@ export class AgentPlanStepReportService {
           projectId: terms.projectId,
           provider: terms.provider,
           progress: terms.progress,
+          requiresWorkList: true,
         },
         report,
       );

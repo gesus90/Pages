@@ -1,7 +1,10 @@
 import { readMarkdownTasks } from "@/backend/service/task/TicketChecklist";
 import { AGENT_STEP_ACTIVITY_LENGTH } from "@/definition/AgentPlanStepProgress";
 
-import { nativePlanProgressInstructions } from "./AgentPlanProgressInstructions";
+import {
+  nativeProgressInstructions,
+  workListLines,
+} from "./AgentPlanProgressInstructions";
 
 import type { AgentProviderId } from "@/definition/AgentConnection";
 import type {
@@ -121,23 +124,53 @@ const STEP_REPORT_LINE =
   "Report your result by calling the Pages MCP tool `report_step_result`: `status` (`done`, or `blocked` when a person has to decide), `message`, `todos` and `criteria` with the IDs above, `decisions` and `summary`. This is the intended way. Pages checks the call at once; when it refuses, correct what `details.problems` names and call again. A valid call is the result of this step, a later call of this attempt replaces it, and it takes precedence over any text in your closing message.";
 
 const MCP_PROGRESS_LINES = [
-  "- Use `update_step_progress` at the start of the step to report a list of concrete, verifiable tasks. Reuse the list when continuing the same step. Keep exactly one task `active` while working.",
-  `- Use the tool's own-task list field when its schema offers one. Otherwise summarize your own tasks and their state in \`activity\` (up to ${AGENT_STEP_ACTIVITY_LENGTH} characters). Use \`todos\` for the assigned IDs shown above. Send \`todos: []\` when only reporting activity.`,
-  "- Report progress, changes and blockers immediately. Mark finished tasks `done`. Keep the affected task `active` during a blockage and name the blocker in `activity`.",
+  `- Report live progress with \`update_step_progress\`: \`plan\` for your own work list, \`todos\` only for the assigned IDs shown above, \`activity\` for one short line on what you do now (up to ${AGENT_STEP_ACTIVITY_LENGTH} characters). Send \`todos: []\` when no assigned todo changes. Reuse the list when continuing the same step.`,
+] as const;
+
+/** The work list of an MCP session lives in `update_step_progress`, the same way for every runner. */
+const MCP_WORK_LIST_TARGET = {
+  tool: "the `plan` field of `update_step_progress` (if you also keep a built-in task list, keep it identical; Pages shows the newest of both)",
+  failure:
+    "Mark an entry `failed` when it failed or was interrupted and name the reason in `activity`.",
+} as const;
+
+const MCP_REPORTING_LINES = [
+  "- Report progress, changes and blockers immediately. Mark finished entries `done`. Keep the affected entry `active` during a blockage and name the blocker in `activity`.",
   "- During long work, send a short `activity` update at least every 5 minutes, even if nothing changed.",
-  "- Before your final report, update the list one last time. Mark unfinished tasks `open` and name each one with its reason in the final report.",
+  "- Before your final report, update the list one last time. Leave unfinished entries `open` or `failed` and name each one with its reason in the final report.",
 ] as const;
 
 function progressLines(assignment: AgentPlanAssignment): readonly string[] {
-  if (!assignment.usesMcp) return nativePlanProgressInstructions(assignment);
+  if (!assignment.usesMcp)
+    return nativeProgressInstructions({
+      ...assignment,
+      ticketCount: assignment.contract.tickets.length,
+    }).progress;
   return [
     ...MCP_PROGRESS_LINES,
+    ...MCP_REPORTING_LINES,
     ...(!assignment.isReadOnly && assignment.contract.todos.length > 0
       ? [
           "- When you mark an assigned ticket TODO `done` through `update_step_progress`, Pages also checks its ticket checkbox. TODOs requiring lint, check, typecheck, formatting, coverage or full test suites may be marked done with activity `an die Abschluss-QA übergeben` when handed to the final QA step.",
         ]
       : []),
   ];
+}
+
+/**
+ * The rules of the agent's own work list as a section of their own.
+ * @remarks
+ * The section stands before the working rules, because the list has to be
+ * sent before any command: a rule deep in the working rules was read too late
+ * and lists arrived with entries already done or finished in one batch.
+ * Empty for a runner without a work list.
+ */
+function workListSection(assignment: AgentPlanAssignment): readonly string[] {
+  const ticketCount = assignment.contract.tickets.length;
+  const lines = assignment.usesMcp
+    ? workListLines({ ...MCP_WORK_LIST_TARGET, ticketCount })
+    : nativeProgressInstructions({ ...assignment, ticketCount }).workList;
+  return lines.length > 0 ? ["", "### Your work list", ...lines] : [];
 }
 
 function gitHubLines(assignment: AgentPlanAssignment): readonly string[] {
@@ -248,9 +281,10 @@ export function buildPlanContract(
       : {}),
     todos,
     criteria,
-    tickets: tickets.map(({ id, key, checklist }) => ({
+    tickets: tickets.map(({ id, key, title, checklist }) => ({
       id,
       key,
+      title,
       requirementsHash: checklist.requirementsHash,
     })),
   };
@@ -340,6 +374,7 @@ function renderTodoAssignment(assignment: AgentPlanAssignment): string {
     ...(contract.todos.some((todo) => !todo.checked)
       ? contract.todos.filter((todo) => !todo.checked).map(itemLine)
       : ["- No assigned TODOs are open. Work on the instruction above."]),
+    ...workListSection(assignment),
     "",
     "### How to work",
     completionInstruction(assignment),
@@ -400,6 +435,7 @@ export function renderPlanAssignment(assignment: AgentPlanAssignment): string {
     "",
     "### Acceptance criteria",
     ...contract.criteria.map(itemLine),
+    ...workListSection(assignment),
     "",
     "### How to work",
     "- Nobody answers questions during this run: when a choice is needed, take the recommended option, otherwise decide yourself and list the decision in the report.",

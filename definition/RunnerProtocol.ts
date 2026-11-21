@@ -104,6 +104,7 @@ export const REMOTE_OPENCODE_FAILURES = [
   "antigravity_acp_session_failed",
   "antigravity_configuration_unmanaged",
   "plan_runner_session_failed",
+  "plan_runner_permission_denied",
   "plan_full_environment_forbidden",
   "plan_full_environment_owner_unavailable",
   "acp_session_resume_failed",

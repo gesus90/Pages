@@ -36,6 +36,8 @@ interface AssessmentScope {
   readonly userId: string;
   readonly projectId: string;
   readonly provider: AgentProviderId;
+  /** A report through Pages MCP, whose contract always asks for an own work list. */
+  readonly requiresWorkList?: boolean;
 }
 
 /** Reconciles the closing report with live ticket checklists, separately from process cleanup. */
@@ -76,6 +78,7 @@ export class AgentPlanStepAssessment {
           {
             ...scope.progress,
             checksNativePlan: scope.provider === "codex_cli",
+            requiresWorkList: scope.requiresWorkList,
           },
           terms.contract,
         )

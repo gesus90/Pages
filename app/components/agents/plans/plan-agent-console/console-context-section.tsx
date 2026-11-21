@@ -10,15 +10,18 @@ import type {
 } from "@/definition/AgentSessionJournal";
 
 /**
- * The share of the window in use, from 0 to 100; `null` without a window.
+ * The share of the window in use, from 0 to 100; `null` while the occupancy
+ * or the window is unknown.
  * @remarks
- * A known window without a report yet counts as empty, so a fresh attempt
- * starts at `0 / window` with an empty bar.
+ * An occupancy nobody reported yet is unknown, not empty, so a fresh attempt
+ * shows no bar until its first reading. A window from the catalog does not
+ * make it empty either: OpenCode reports the occupancy only when a turn ends,
+ * so a bar at 0 % during the first turn would state a value nobody measured.
  */
 function contextShare(context: AgentSessionContextUsage): number | null {
   const { contextUsed: used, contextLimit: limit } = context;
-  if (limit === null || limit <= 0) return null;
-  return Math.min(100, ((used ?? 0) / limit) * 100);
+  if (used === null || limit === null || limit <= 0) return null;
+  return Math.min(100, (used / limit) * 100);
 }
 
 /** From this share on the bar warns; from the second one it signals an almost full window. */
@@ -60,8 +63,8 @@ function ContextBar({
 /**
  * Formats whichever parts of the context are known.
  * @remarks
- * Without a report the known window stands as `0 / window`; without a window
- * the shared placeholder of the sidebar stands, or the tokens in use.
+ * Without a report the known window stands as `unknown / window`; without a
+ * window the shared placeholder of the sidebar stands, or the tokens in use.
  */
 function contextValue(
   context: AgentSessionContextUsage,
@@ -78,7 +81,11 @@ function contextValue(
       used: options.numbers.format(used),
     });
   }
-  return `${options.numbers.format(used ?? 0)} / ${options.numbers.format(limit)}`;
+  if (used === null)
+    return options.t(`${key}.contextUnknownOf`, {
+      limit: options.numbers.format(limit),
+    });
+  return `${options.numbers.format(used)} / ${options.numbers.format(limit)}`;
 }
 
 /**
@@ -86,7 +93,7 @@ function contextValue(
  * @remarks
  * The session view holds the last reported values of the attempt's model and
  * takes a window the adapter did not report from the model's catalog entry.
- * The bar is shown as soon as the window is known.
+ * The bar is shown once both the occupancy and the window are known.
  */
 export function ConsoleContextSection({
   view,
