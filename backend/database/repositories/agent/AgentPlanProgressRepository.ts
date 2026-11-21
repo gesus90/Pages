@@ -10,6 +10,7 @@ import {
 import { isActivePlanRun } from "@/definition/AgentPlanRunState";
 import { mergeConfirmedRunnerJobs } from "@/definition/PlanRunnerJob";
 import { readPlanScriptRun } from "@/backend/agents/AgentPlanScriptRunInput";
+import { readPlanContract } from "@/backend/agents/AgentPlanSessionInput";
 import { readPlanRun } from "@/backend/agents/AgentPlanRunInput";
 import { readAgentObject } from "@/backend/agents/AgentPayload";
 import { readTextColumn } from "@/backend/database/RowValue";
@@ -62,7 +63,7 @@ function successfulWorkDigest(step: AgentPlanStepResult): string {
           sessionId: session.sessionId,
           requested: session.requested,
           definition: session.definition,
-          contract: session.contract,
+          contract: readPlanContract(session.contract),
           acceptance: session.acceptance,
           dispatchedPromptDigest: session.dispatchedPromptDigest ?? null,
         }

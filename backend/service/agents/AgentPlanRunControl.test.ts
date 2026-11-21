@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 
 import { describe, expect, it, vi } from "vitest";
 
+import { readPlanSessionRecord } from "@/backend/agents/AgentPlanSessionInput";
 import { readPlanRecoveryCommand } from "@/backend/agents/AgentPlanRecoveryInput";
 import { AgentPlanProgressRepository } from "@/backend/database/repositories/agent/AgentPlanProgressRepository";
 import { AgentPlanRecoveryRepository } from "@/backend/database/repositories/agent/AgentPlanRecoveryRepository";
@@ -13,6 +14,7 @@ import { restartOption } from "./recovery/AgentPlanRecoveryPlanning";
 import { emptyAgentPlan } from "@/definition/AgentPlan";
 
 import type { DatabaseTransaction } from "@/backend/database/Database";
+import type { AgentPlanLoopRun } from "@/definition/AgentPlanLoopRun";
 import type { AgentPlanRun, AgentPlanView } from "@/definition/AgentPlan";
 
 function runFixture(): AgentPlanRun {
@@ -100,6 +102,127 @@ describe("run command contracts", () => {
     expect(() =>
       readPlanRecoveryCommand({ ...input, confirmRepeat: false }),
     ).toThrow();
+  });
+});
+
+function completedIteration(): AgentPlanLoopRun {
+  const session = readPlanSessionRecord({
+    runner: "codex_cli",
+    mode: "interactive",
+    instanceId: "instance",
+    closeout: "pending",
+    resultCode: 0,
+    requested: {
+      runner: "codex_cli",
+      connectionId: "connection",
+      connectionName: "Codex",
+      model: "model",
+      unattended: "yolo",
+      mcp: true,
+    },
+    events: [],
+  });
+  if (!session) throw new Error("Expected a session");
+  const at = "2026-01-01T00:00:00.000Z";
+  return {
+    id: "loop",
+    name: "Ticket loop",
+    status: "running",
+    count: { source: "value", parameterId: null, effective: 1, mode: "max" },
+    sessionPolicy: "reuse",
+    condition: null,
+    sessions: [],
+    completion: null,
+    cleanup: "pending",
+    startedAt: at,
+    endedAt: null,
+    error: null,
+    iterations: [
+      {
+        id: "loop#1",
+        number: 1,
+        status: "succeeded",
+        startedAt: at,
+        endedAt: at,
+        condition: { state: "not_evaluated", reason: "disabled" },
+        error: null,
+        nodes: [
+          {
+            id: "member",
+            name: "Work",
+            status: "succeeded",
+            cancellation: "none",
+            isBlocked: false,
+            output: "done",
+            error: null,
+            session: {
+              ...session,
+              contract: {
+                todos: [
+                  {
+                    id: "T1",
+                    text: "Check result",
+                    ticket: null,
+                    checked: true,
+                  },
+                ],
+                criteria: [],
+                tickets: [],
+              },
+            },
+          },
+        ],
+      },
+    ],
+  };
+}
+
+describe("completed loop progress", () => {
+  it("closes a loop after round-tripping a completed member's checked todo", async () => {
+    const loop = completedIteration();
+    const run = { ...runFixture(), status: "running" as const, loops: [loop] };
+    const execute = vi.fn(async () => {});
+    const transaction: DatabaseTransaction = {
+      execute,
+      query: async () => [
+        [JSON.stringify(run), 4, JSON.stringify({ plan: { nodes: [] } })],
+      ],
+    };
+    const database = {
+      query: transaction.query,
+      transaction: async <Result>(
+        work: (connection: DatabaseTransaction) => Promise<Result>,
+      ): Promise<Result> => work(transaction),
+    };
+    const progress = new AgentPlanProgressRepository(database);
+    await progress.persist(transaction, {
+      ...run,
+      loops: [{ ...loop, status: "succeeded", completion: "count_reached" }],
+    });
+    expect(execute).toHaveBeenCalledTimes(1);
+
+    const [iteration] = loop.iterations;
+    if (!iteration) throw new Error("Expected a completed iteration");
+    await expect(
+      progress.persist(transaction, {
+        ...run,
+        loops: [
+          {
+            ...loop,
+            iterations: [
+              {
+                ...iteration,
+                nodes: iteration.nodes.map((node) => ({
+                  ...node,
+                  output: "changed",
+                })),
+              },
+            ],
+          },
+        ],
+      }),
+    ).rejects.toThrow("checkpoint_invalid");
+    expect(execute).toHaveBeenCalledTimes(1);
   });
 });
 
