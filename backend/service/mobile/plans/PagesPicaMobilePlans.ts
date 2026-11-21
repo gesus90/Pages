@@ -13,6 +13,7 @@ import type { PicaMobilePlanRun } from "@/definition/PicaMobileProtocol";
 import type { PicaMobileSessionIdentity } from "../PicaMobileDashboardProvider";
 import type { PicaMobilePlanRunObserver } from "./PicaMobilePlanRunObserver";
 import type {
+  PicaMobilePlanControl,
   PicaMobilePlanOutcome,
   PicaMobilePlanReadOptions,
   PicaMobilePlansOutcome,
@@ -39,6 +40,8 @@ export interface PagesPicaMobilePlansOptions {
   readonly resolveServices: () => Promise<PicaMobilePlansServices>;
   /** Learns about run writes of this process. */
   readonly observer: Pick<PicaMobilePlanRunObserver, "watch">;
+  /** Pauses, resumes and stops own runs; without it `plans.control.v1` is not announced. */
+  readonly control?: PicaMobilePlanControl;
   /** Clock in milliseconds; tests replace it. */
   readonly now?: () => number;
 }
@@ -147,14 +150,17 @@ class PagesPicaMobilePlansReader implements PicaMobilePlansReader {
  * and row count.
  */
 export class PagesPicaMobilePlans implements PicaMobilePlansProvider {
+  /** The run control of `plans.control.v1`; absent while it is not offered. */
+  public readonly control: PicaMobilePlanControl | undefined;
   private readonly options: PagesPicaMobilePlansOptions;
 
   /**
    * Creates the provider.
-   * @param options - Services, run observer and clock.
+   * @param options - Services, run observer, run control and clock.
    */
   public constructor(options: PagesPicaMobilePlansOptions) {
     this.options = options;
+    this.control = options.control;
   }
 
   /** Creates the reader of one connection with its own checked runs. */

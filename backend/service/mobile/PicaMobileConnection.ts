@@ -88,8 +88,9 @@ export interface PicaMobileConnectionOptions {
    */
   readonly notifications?: PicaMobileNotificationProvider;
   /**
-   * Answers `plans_sync` and `plan_get`; without it the connection does not
-   * announce `plans.v1` and treats both messages as unknown.
+   * Answers `plans_sync` and `plan_get`, and `plan_run_control` when it
+   * offers run control; without it the connection does not announce
+   * `plans.v1` or `plans.control.v1` and treats the messages as unknown.
    */
   readonly plans?: PicaMobilePlansProvider;
   /**
@@ -461,7 +462,8 @@ export class PicaMobileConnection {
           | "notification_settings_get"
           | "notification_settings_set"
           | "plans_sync"
-          | "plan_get";
+          | "plan_get"
+          | "plan_run_control";
       }
     >,
   ): Promise<void> {
@@ -489,6 +491,7 @@ export class PicaMobileConnection {
         return;
       case "plans_sync":
       case "plan_get":
+      case "plan_run_control":
         await this.plans.handle(message);
     }
   }

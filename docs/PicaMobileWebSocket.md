@@ -2,7 +2,7 @@
 
 Pages stellt für die App Pica Mobile einen WebSocket-Endpunkt bereit. Dieses Dokument ist der Vertrag zwischen Pages und der App: Es beschreibt, wie ein Administrator den Endpunkt einrichtet, wie eine Verbindung aufgebaut wird und welche Nachrichten in Version 1 des Formats gelten.
 
-Version 1 spricht `ws://` ohne TLS. Anmeldedaten und Sitzungstoken sind im Netzwerk lesbar, solange kein `wss://` zur Verfügung steht; der Endpunkt gehört deshalb nur in ein vertrauenswürdiges Netz (siehe [Sicherheit](#sicherheit)). Version 1 enthält Authentifizierung, Verbindungsbestätigung, Heartbeat und strukturierte Fehler sowie die Erweiterungen `dashboard.v1` (Profil, eigene aktive Läufe, zugewiesene Projekte, Avatar; siehe [Erweiterung dashboard.v1](#erweiterung-dashboardv1)) `notifications.v1` (Android-Push über FCM zu eigenen Plan-Läufen; siehe [Erweiterung notifications.v1](#erweiterung-notificationsv1-android-fcm)), `plans.v1` (kompakte Liste der Agent-Pläne des Kontos mit Änderungen, die Pages von sich aus sendet; siehe [Erweiterung plans.v1](#erweiterung-plansv1)), `plans.flow.v1` (vollständige, eingefrorene Ablaufstruktur eines Laufs mit Start, Ende, Entscheidungen, Schleifen, Iterationen und Zuständen auf Anfrage; siehe [Erweiterung plans.flow.v1](#erweiterung-plansflowv1)) `chat.v1` (Chat mit Pica in denselben Unterhaltungen wie im Web, samt Dateianhängen über HTTP am selben Port; siehe [Erweiterung chat.v1](#erweiterung-chatv1)) `chat.delete` (Löschen einer Unterhaltung; siehe [Erweiterung chat.delete](#erweiterung-chatdelete)) und `conversations.v1` (gespeicherte Unterhaltungen mit Personen, Agents und Gruppen samt Sprachnachrichten und Push; siehe [Erweiterung conversations.v1](#erweiterung-conversationsv1)).
+Version 1 spricht `ws://` ohne TLS. Anmeldedaten und Sitzungstoken sind im Netzwerk lesbar, solange kein `wss://` zur Verfügung steht; der Endpunkt gehört deshalb nur in ein vertrauenswürdiges Netz (siehe [Sicherheit](#sicherheit)). Version 1 enthält Authentifizierung, Verbindungsbestätigung, Heartbeat und strukturierte Fehler sowie die Erweiterungen `dashboard.v1` (Profil, eigene aktive Läufe, zugewiesene Projekte, Avatar; siehe [Erweiterung dashboard.v1](#erweiterung-dashboardv1)) `notifications.v1` (Android-Push über FCM zu eigenen Plan-Läufen; siehe [Erweiterung notifications.v1](#erweiterung-notificationsv1-android-fcm)), `plans.v1` (kompakte Liste der Agent-Pläne des Kontos mit Änderungen, die Pages von sich aus sendet; siehe [Erweiterung plans.v1](#erweiterung-plansv1)), `plans.flow.v1` (vollständige, eingefrorene Ablaufstruktur eines Laufs mit Start, Ende, Entscheidungen, Schleifen, Iterationen und Zuständen auf Anfrage; siehe [Erweiterung plans.flow.v1](#erweiterung-plansflowv1)), `plans.control.v1` (Pausieren, Fortsetzen und Stoppen eigener Läufe über denselben Dienst wie die Planseite, ohne Starten; siehe [Erweiterung plans.control.v1](#erweiterung-planscontrolv1)) `chat.v1` (Chat mit Pica in denselben Unterhaltungen wie im Web, samt Dateianhängen über HTTP am selben Port; siehe [Erweiterung chat.v1](#erweiterung-chatv1)) `chat.delete` (Löschen einer Unterhaltung; siehe [Erweiterung chat.delete](#erweiterung-chatdelete)) und `conversations.v1` (gespeicherte Unterhaltungen mit Personen, Agents und Gruppen samt Sprachnachrichten und Push; siehe [Erweiterung conversations.v1](#erweiterung-conversationsv1)).
 
 ## Einrichtung durch einen Administrator
 
@@ -131,7 +131,7 @@ Pages prüft in dieser Reihenfolge: gültiges JSON-Objekt, `version` ganzzahlig 
 
 `sessionToken` ist bei `method: "password"` das neu ausgestellte Sitzungstoken und sonst `null`. Die App speichert das Token im sicheren Speicher des Geräts und meldet sich danach mit `method: "session"` an; das Passwort behält sie nicht.
 
-`server.capabilities` nennt die Erweiterungen von Version 1, die diese Verbindung beantwortet. Pages nennt `dashboard.v1` nur, wenn es den gesamten Vertrag der Erweiterung beantwortet; `notifications.v1`, `notifications.push.fcm` und `notifications.team.v1` folgen eigenen Regeln (siehe [Capabilities](#capabilities)), `plans.v1` nennt Pages nur, wenn es `plans_sync` und `plan_get` beantwortet (siehe [Erweiterung plans.v1](#erweiterung-plansv1)), `plans.flow.v1` nur zusammen mit `plans.v1` (siehe [Erweiterung plans.flow.v1](#erweiterung-plansflowv1)), `chat.v1` nur, wenn es die acht Chat-Anfragen und die Datei-Endpunkte beantwortet (siehe [Erweiterung chat.v1](#erweiterung-chatv1)), `chat.delete` nur zusammen mit `chat.v1` und nur, wenn es `chat_delete` beantwortet (siehe [Erweiterung chat.delete](#erweiterung-chatdelete)). Ein Pages ohne das Feld kennt die Erweiterungen nicht; ein Client behandelt ein fehlendes Feld wie eine leere Liste und fragt dann weder ein Dashboard ab noch registriert er sich für Push.
+`server.capabilities` nennt die Erweiterungen von Version 1, die diese Verbindung beantwortet. Pages nennt `dashboard.v1` nur, wenn es den gesamten Vertrag der Erweiterung beantwortet; `notifications.v1`, `notifications.push.fcm` und `notifications.team.v1` folgen eigenen Regeln (siehe [Capabilities](#capabilities)), `plans.v1` nennt Pages nur, wenn es `plans_sync` und `plan_get` beantwortet (siehe [Erweiterung plans.v1](#erweiterung-plansv1)), `plans.flow.v1` nur zusammen mit `plans.v1` (siehe [Erweiterung plans.flow.v1](#erweiterung-plansflowv1)), `plans.control.v1` nur zusammen mit `plans.v1` und nur, solange die Laufsteuerung verfügbar ist (siehe [Erweiterung plans.control.v1](#erweiterung-planscontrolv1)), `chat.v1` nur, wenn es die acht Chat-Anfragen und die Datei-Endpunkte beantwortet (siehe [Erweiterung chat.v1](#erweiterung-chatv1)), `chat.delete` nur zusammen mit `chat.v1` und nur, wenn es `chat_delete` beantwortet (siehe [Erweiterung chat.delete](#erweiterung-chatdelete)). Ein Pages ohne das Feld kennt die Erweiterungen nicht; ein Client behandelt ein fehlendes Feld wie eine leere Liste und fragt dann weder ein Dashboard ab noch registriert er sich für Push.
 
 **`pong`** antwortet auf `ping`:
 
@@ -158,7 +158,7 @@ Pages prüft in dieser Reihenfolge: gültiges JSON-Objekt, `version` ganzzahlig 
 }
 ```
 
-`message` ist englischer Entwicklertext; die App zeigt eigene Texte zum `code`. Zusatzfelder: `supportedVersions` (bei `unsupported_version`) und `retryAfterSeconds` (bei `too_many_attempts`).
+`message` ist englischer Entwicklertext; die App zeigt eigene Texte zum `code`. Zusatzfelder: `supportedVersions` (bei `unsupported_version`), `retryAfterSeconds` (bei `too_many_attempts`) und `currentRevision` (bei `conflict` von `plan_run_control`).
 
 ### Fehlercodes
 
@@ -176,6 +176,8 @@ Pages prüft in dieser Reihenfolge: gültiges JSON-Objekt, `version` ganzzahlig 
 | `server_unavailable`       | Pages kann die Nachricht gerade nicht entscheiden (zum Beispiel vor Abschluss des Setups); `notification_register`, solange Pages keinen verwendbaren FCM-Sender hat                                                                                                                                                                                                                                                                                           | Verbindung bleibt                                                                    |
 
 Fünf abgelehnte Nachrichten in Folge trennen die Verbindung (Code 1008, „Too many rejected messages“); eine gültige Nachricht setzt den Zähler zurück.
+
+Die fachlichen Ablehnungen `forbidden`, `not_found` und `invalid_request` von `calendar.v1` und `plans.control.v1` sowie `conflict` von `plans.control.v1` lassen die Verbindung bestehen; ihre Bedeutung beschreiben die Abschnitte der Erweiterungen. `plan_run_control` ergibt bei einem Pages ohne `plans.control.v1` `unknown_type`.
 
 ## Erweiterung dashboard.v1
 
@@ -696,6 +698,79 @@ Es gelten unverändert die Regeln von `plans.v1`: nur eigene Läufe des Kontos, 
 ### Abnahme
 
 Pages ist über ein isoliertes Pages mit eigener Datenbank auf einem freien Loopback-Port geprüft (Capability, Anfragen mit und ohne `flow`, Ablehnung eines falschen `flow`) und über einen gezielten Einzeltest der Abbildung mit einem Lauf aus Start, Entscheidung mit übersprungenem Zweig, Schleife mit Iterationen, parallelen Scripts und Ende (Änderungen nur in der Schleife, neue Iteration, Endzustand, Wiederverbindung, Framegrenze). Eine Abnahme mit der App Pica Mobile gegen einen echten Lauf steht aus, bis die App die Erweiterung umsetzt, und wird gesondert dokumentiert.
+
+## Erweiterung plans.control.v1
+
+Die Erweiterung ergänzt [plans.v1](#erweiterung-plansv1) um die Steuerung eines eigenen Laufs: Pausieren, Fortsetzen und Stoppen. **Starten gehört ausdrücklich nicht dazu**; einen Plan startet die App weiterhin nicht. Pages führt jede Aktion über denselben Dienst aus wie die Planseite (dieselben Befehle `plans.pause`, `plans.resume` und `plans.stop`, dieselben Rechte, dieselben Zustandsregeln) und trägt sie wie dort in den Verlauf ein.
+
+Pages nennt `plans.control.v1` in `connected.payload.server.capabilities` nur zusammen mit `plans.v1` und nur, solange die Laufsteuerung verfügbar ist. Ohne die Fähigkeit beantwortet Pages `plan_run_control` mit `unknown_type`. Eine App, die die Erweiterung nicht kennt, sieht keine Änderung: Keine Nachricht von `plans.v1`, `plans.flow.v1` oder `dashboard.v1` erhält ein neues Feld, und Pages sendet `plan_run_controlled` nur als Antwort auf `plan_run_control`. Die Anfrage ist nur nach erfolgreichem `auth` zulässig, sonst gilt `authentication_required`.
+
+### plan_run_control und plan_run_controlled
+
+```json
+{
+  "version": 1,
+  "type": "plan_run_control",
+  "requestId": "c1",
+  "payload": {
+    "planId": "…",
+    "runId": "…",
+    "action": "pause",
+    "expectedRevision": 41
+  }
+}
+```
+
+| Feld               | Inhalt                                                                                                                                                                                                           |
+| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `planId`           | ID des Plans, 1 bis 200 Zeichen                                                                                                                                                                                  |
+| `runId`            | ID des Laufs, wie ihn die Zeile (`runId`) oder `plan_get` (`run.id`) nennt, 1 bis 200 Zeichen                                                                                                                    |
+| `action`           | `pause`, `resume` oder `stop`; jeder andere Wert, auch ein Start, ergibt `invalid_message`                                                                                                                       |
+| `expectedRevision` | ganze Zahl ab 0: die `revision` des Laufs, die die App zuletzt gesehen hat, aus `run.flow.revision` von `plan_get` mit `flow: true`, aus `revision` der letzten `plan_run_controlled` oder aus `currentRevision` |
+
+Weitere Felder sind nicht erlaubt und ergeben `invalid_message`. Pages antwortet mit derselben `requestId`:
+
+```json
+{
+  "version": 1,
+  "type": "plan_run_controlled",
+  "requestId": "c1",
+  "payload": {
+    "planId": "…",
+    "runId": "…",
+    "action": "pause",
+    "status": "paused",
+    "canResume": true,
+    "revision": 43
+  }
+}
+```
+
+`status` ist der Laufzustand nach der Aktion mit den Werten von `plans.v1` (zum Beispiel `pausing` oder `paused` nach `pause`, `running` nach `resume`, `stopping` oder `cancelled` nach `stop`), `canResume` dasselbe Feld wie in `plan`, `revision` der Schreibzähler des Laufs nach der Aktion und damit die `expectedRevision` der nächsten Anfrage. `runId` nennt den gesteuerten Lauf.
+
+### Welcher Lauf und welche Aktion
+
+- Steuerbar ist nur der **neueste eigene Lauf** eines Plans der Liste, also genau der Lauf, den `plans` und `plan_get` zeigen.
+- Eine Aktion ist nur zulässig, solange die Planseite sie für diesen Lauf anbietet: Pausieren bei einem laufenden Lauf, Fortsetzen bei einem pausierten Lauf, dessen Plan seitdem nicht so geändert wurde, dass die Planseite das Fortsetzen sperrt, Stoppen bei jedem nicht beendeten Lauf (`running`, `pausing`, `paused`, `stopping`; ein zweites Stoppen beendet einen stoppenden Lauf hart). Ein Lauf, dessen Schritte blockiert sind, lässt sich so pausieren oder stoppen. Pages liest dafür denselben Steuerzustand (`canPause`, `canResume`, `canStop`) wie die Planseite und dazu, dass der Lauf deren aktueller Lauf des Plans ist.
+
+### Prüfreihenfolge und Fehler
+
+Pages prüft jede Anfrage frisch in dieser Reihenfolge; eine abgelehnte Anfrage ändert nichts:
+
+| `code`            | Wann                                                                                                                                                                                                   |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `not_found`       | Der Plan gehört nicht (mehr) zur Liste des Kontos, den Lauf gibt es nicht, oder er ist für das Konto nicht lesbar oder nicht der neueste eigene Lauf des Plans                                         |
+| `forbidden`       | Der Lauf gehört einer anderen Person (und das Konto darf ihn lesen), oder das Konto hat das Recht verloren, den Plan auszuführen                                                                       |
+| `conflict`        | `expectedRevision` ist nicht die aktuelle `revision` des Laufs; `currentRevision` nennt die aktuelle. Die App liest den Lauf neu (zum Beispiel mit `plan_get` und `flow: true`) und entscheidet erneut |
+| `invalid_request` | Die Aktion passt nicht zum Zustand des Laufs, zum Beispiel `pause` bei einem pausierten oder `resume` bei einem laufenden Lauf, oder der Dienst der Planseite lehnt sie aus demselben Grund ab         |
+
+`message` ist englischer Entwicklertext. Kann Pages die Anfrage nicht entscheiden, antwortet es mit `server_unavailable`; endet die Sitzung, mit `authentication_failed` und der Trennung wie bei `plans.v1`. Wie jede Nachricht zählt `plan_run_control` zum Rate-Limit und, wenn abgelehnt, zu den fünf abgelehnten Nachrichten in Folge.
+
+**Revision.** `revision` steigt mit jedem bestätigten Schreibvorgang des Laufs, bei einem laufenden Lauf also auch mit jedem Schrittwechsel. Pages überschreibt einen veränderten Lauf nie still: Eine veraltete `expectedRevision` ergibt immer `conflict`.
+
+### Live-Aktualisierungen
+
+Das Ergebnis einer Aktion erreicht `plans.v1` wie jede andere Änderung eines eigenen Laufs: Jede Verbindung des Kontos, die schon `plans_sync` beantwortet bekam, erhält die geänderte Zeile von sich aus (siehe [Rechte, Sitzung, Aktualität und Fehler](#rechte-sitzung-aktualität-und-fehler)); die Verbindung, die die Aktion auslöste, liest zusätzlich sofort neu. Dasselbe gilt für eine Aktion auf der Planseite oder durch Pica.
 
 ## Erweiterung chat.v1
 
@@ -1234,7 +1309,7 @@ Pica Mobile führt keinen eigenen Zugang ein, sondern nutzt die Pages-Konten:
 - `method: "session"` weist eine solche Sitzung vor. Sie ist 14 Tage gültig, wie im Browser.
 - Konten, die ihr Passwort erst ändern müssen, können sich nicht verbinden (`password_change_required`), ebenso wenig wie sie Pages im Browser nutzen können.
 
-Die Verbindung gehört nach `connected` genau diesem Benutzer. Alle späteren fachlichen Nachrichten prüft der Server bei jeder Nachricht gegen die aktuellen Rechte dieses Benutzers; was die App anzeigt, entscheidet nichts. Fachliche Nachrichten sind `dashboard_get` und `avatar_get` der Erweiterung `dashboard.v1`, `notification_register`, `notification_unregister` und `notification_event_get` der Erweiterung `notifications.v1` , `plans_sync` und `plan_get` der Erweiterung `plans.v1` (auch mit `flow` der Erweiterung `plans.flow.v1`) sowie die acht `chat_*`-Anfragen und die Datei-Endpunkte der Erweiterung `chat.v1` und `chat_delete` der Erweiterung `chat.delete`.
+Die Verbindung gehört nach `connected` genau diesem Benutzer. Alle späteren fachlichen Nachrichten prüft der Server bei jeder Nachricht gegen die aktuellen Rechte dieses Benutzers; was die App anzeigt, entscheidet nichts. Fachliche Nachrichten sind `dashboard_get` und `avatar_get` der Erweiterung `dashboard.v1`, `notification_register`, `notification_unregister` und `notification_event_get` der Erweiterung `notifications.v1` , `plans_sync` und `plan_get` der Erweiterung `plans.v1` (auch mit `flow` der Erweiterung `plans.flow.v1`), `plan_run_control` der Erweiterung `plans.control.v1` sowie die acht `chat_*`-Anfragen und die Datei-Endpunkte der Erweiterung `chat.v1` und `chat_delete` der Erweiterung `chat.delete`.
 
 Pages prüft die Sitzung einer Verbindung etwa jede Minute neu. Wurde sie beendet oder das Konto deaktiviert, sendet Pages `authentication_failed` und trennt mit Code 1008 („Session ended“). Schlägt nur die Prüfung selbst fehl (zum Beispiel wegen einer Störung der Datenbank), bleibt die Verbindung bestehen.
 

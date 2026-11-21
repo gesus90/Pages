@@ -68,11 +68,48 @@ export interface HybridSearchDependencies {
   readonly vectorTimeoutMilliseconds?: number;
 }
 
+/**
+ * The place of a section in the order of one search.
+ * @remarks
+ * The order is total: named ticket number, fused rank, source and section.
+ * A page continues strictly after this place, so the same section is never
+ * handed over twice and, while the sources stay unchanged, none is skipped.
+ */
+export interface HybridSearchPosition {
+  /** Position of the ticket number in the question; `null` when none named it. */
+  readonly keyRank: number | null;
+  /** Fused rank of the keyword and vector lists. */
+  readonly score: number;
+  readonly sourceType: AgentSourceType;
+  readonly sourceId: string;
+  readonly sectionIndex: number;
+}
+
 /** What one search asks for. */
 export interface HybridSearchRequest extends SourceSearchArea {
   readonly question: string;
   /** Most sections handed over. */
   readonly limit: number;
+  /** Only sections of these kinds of sources; `null` keeps every kind. */
+  readonly sourceTypes: readonly AgentSourceType[] | null;
+  /** Hands over only sections after this place; `null` starts with the best. */
+  readonly after: HybridSearchPosition | null;
+}
+
+/** One page of a search: the sections and the place to continue after. */
+export interface HybridSearchResult extends Omit<
+  AgentSourceSearch,
+  "nextCursor"
+> {
+  /** Place of the last section when further sections follow; `null` otherwise. */
+  readonly next: HybridSearchPosition | null;
+}
+
+/** Which sections of the ranking one page hands over. */
+interface SectionWindow {
+  readonly limit: number;
+  readonly sourceTypes: readonly AgentSourceType[] | null;
+  readonly after: HybridSearchPosition | null;
 }
 
 /** A visible source in its current revision. */
@@ -206,6 +243,53 @@ function resolveSources(current: CurrentSources): Map<string, ResolvedSource> {
   return new Map(resolved.map((source) => [keyOf(source), source]));
 }
 
+/** The place of a ranked section in the order of the search. */
+function positionOf(section: RankedSection): HybridSearchPosition {
+  return {
+    keyRank: section.keyRank,
+    score: section.score,
+    sourceType: section.source.sourceType,
+    sourceId: section.source.sourceId,
+    sectionIndex: section.sectionIndex,
+  };
+}
+
+/**
+ * Orders two places of a search.
+ * @returns Below zero when `left` comes first: exactly named ticket numbers
+ * first, in question order, then by fused rank; equal ranks by source and section.
+ */
+function comparePositions(
+  left: HybridSearchPosition,
+  right: HybridSearchPosition,
+): number {
+  return (
+    (left.keyRank ?? Number.MAX_SAFE_INTEGER) -
+      (right.keyRank ?? Number.MAX_SAFE_INTEGER) ||
+    right.score - left.score ||
+    keyOf(left).localeCompare(keyOf(right)) ||
+    left.sectionIndex - right.sectionIndex
+  );
+}
+
+/** The section as handed over, with the link of its source. */
+function toSourceSection(section: RankedSection): AgentSourceSection {
+  return {
+    sourceType: section.source.sourceType,
+    sourceId: section.source.sourceId,
+    title: section.source.title,
+    link: section.source.link,
+    ticketKey: section.source.ticketKey,
+    projectId: section.source.projectId,
+    sourceVersion: section.source.version,
+    sectionIndex: section.sectionIndex,
+    text: section.text,
+    matchedBy: (["ticketKey", "keyword", "vector"] as const).filter((match) =>
+      section.matches.has(match),
+    ),
+  };
+}
+
 /** The positions of the sections holding the most searched words, first section when none does. */
 function keywordSectionIndexes(
   sections: readonly string[],
@@ -262,36 +346,34 @@ class SectionRanking {
   }
 
   /**
-   * Orders the sections and keeps the best.
-   * @param limit - Most sections.
-   * @returns Exactly named ticket numbers first, in question order, then by
-   * fused rank; equal ranks by source and section.
+   * Orders the sections and hands over one page of them.
+   * @param window - Most sections, the kinds of sources and the place to continue after.
+   * @returns The sections in the order of {@link comparePositions} and the
+   * place of the last one when further sections follow.
    */
-  public best(limit: number): AgentSourceSection[] {
-    return [...this.sections.values()]
-      .sort(
-        (left, right) =>
-          (left.keyRank ?? Number.MAX_SAFE_INTEGER) -
-            (right.keyRank ?? Number.MAX_SAFE_INTEGER) ||
-          right.score - left.score ||
-          keyOf(left.source).localeCompare(keyOf(right.source)) ||
-          left.sectionIndex - right.sectionIndex,
+  public page(window: SectionWindow): {
+    readonly sections: AgentSourceSection[];
+    readonly next: HybridSearchPosition | null;
+  } {
+    const { after, sourceTypes } = window;
+    const remaining = [...this.sections.values()]
+      .filter(
+        (section) =>
+          sourceTypes === null ||
+          sourceTypes.includes(section.source.sourceType),
       )
-      .slice(0, limit)
-      .map((section) => ({
-        sourceType: section.source.sourceType,
-        sourceId: section.source.sourceId,
-        title: section.source.title,
-        link: section.source.link,
-        ticketKey: section.source.ticketKey,
-        projectId: section.source.projectId,
-        sourceVersion: section.source.version,
-        sectionIndex: section.sectionIndex,
-        text: section.text,
-        matchedBy: (["ticketKey", "keyword", "vector"] as const).filter(
-          (match) => section.matches.has(match),
-        ),
-      }));
+      .map((section) => ({ section, position: positionOf(section) }))
+      .filter(
+        (entry) =>
+          after === null || comparePositions(entry.position, after) > 0,
+      )
+      .sort((left, right) => comparePositions(left.position, right.position));
+    const selected = remaining.slice(0, window.limit);
+    const last = selected.at(-1);
+    return {
+      sections: selected.map((entry) => toSourceSection(entry.section)),
+      next: remaining.length > selected.length && last ? last.position : null,
+    };
   }
 }
 
@@ -385,14 +467,19 @@ export class HybridSearchService {
 
   /**
    * Finds the sections that answer a question best.
-   * @param request - Reader scope, optional project, question and limit.
-   * @returns Sections with source link and current revision, the state of
-   * the vector search and the number of outdated vector hits left out.
+   * @param request - Reader scope, optional project, question, limit, kinds
+   * of sources and the place to continue after.
+   * @returns One page of sections with source link and current revision,
+   * the place to continue after, the state of the vector search and the
+   * number of outdated vector hits left out.
    * @throws {RangeError} For an empty question.
+   * @remarks
+   * Every page ranks the same candidates anew, so a continuation keeps the
+   * order of the first page while the sources and the vector state stay unchanged.
    */
   public async search(
     request: HybridSearchRequest,
-  ): Promise<AgentSourceSearch> {
+  ): Promise<HybridSearchResult> {
     const question = request.question.trim();
     if (!question) throw new RangeError("The search question is empty.");
     const { ticketKeys, needles } = readQuestion(question);
@@ -447,11 +534,8 @@ export class HybridSearchService {
       needles,
     });
     const staleSections = addVectorHits(ranking, sources, vector.hits);
-    return {
-      sections: ranking.best(request.limit),
-      vectorSearch: vector.state,
-      staleSections,
-    };
+    const { sections, next } = ranking.page(request);
+    return { sections, next, vectorSearch: vector.state, staleSections };
   }
 
   private async searchPages(

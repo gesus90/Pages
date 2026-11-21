@@ -1,7 +1,45 @@
 import type { RouteBuilder } from "./route-builder";
 import type { RouteConfigEntry } from "@react-router/dev/routes";
 
-/** The ticket API of the stand-alone Pages MCP program, admitted by the device token. */
+/** The milestone API of the stand-alone Pages MCP program, admitted by the device token. */
+function mcpMilestoneRoutes(routes: RouteBuilder): RouteConfigEntry[] {
+  const { resource } = routes;
+  const project = "api/mcp/v1/projects/:projectId";
+  const milestone = `${project}/milestones/:milestoneId`;
+  const dependencies = `${project}/milestone-dependencies`;
+  return [
+    resource(
+      `${project}/milestones`,
+      "routes/api-mcp-v1-project-milestones.ts",
+    ),
+    resource(
+      "api/mcp/v1/milestones/:milestoneId",
+      "routes/api-mcp-v1-milestone.ts",
+    ),
+    resource(
+      `${milestone}/initiatives`,
+      "routes/api-mcp-v1-project-milestone-initiatives.ts",
+    ),
+    resource(
+      `${milestone}/initiatives/:initiativeId/remove`,
+      "routes/api-mcp-v1-project-milestone-initiative-remove.ts",
+    ),
+    resource(
+      `${milestone}/archive`,
+      "routes/api-mcp-v1-project-milestone-archive.ts",
+    ),
+    resource(
+      dependencies,
+      "routes/api-mcp-v1-project-milestone-dependencies.ts",
+    ),
+    resource(
+      `${dependencies}/:dependencyId/remove`,
+      "routes/api-mcp-v1-project-milestone-dependency-remove.ts",
+    ),
+  ];
+}
+
+/** The ticket, milestone and source search API of the stand-alone Pages MCP program, admitted by the device token. */
 export function mcpTicketRoutes(routes: RouteBuilder): RouteConfigEntry[] {
   const { resource } = routes;
   const tickets = "api/mcp/v1/tickets";
@@ -48,5 +86,7 @@ export function mcpTicketRoutes(routes: RouteBuilder): RouteConfigEntry[] {
       "api/mcp/v1/ticket-templates/:templateId",
       "routes/api-mcp-v1-ticket-template.ts",
     ),
+    ...mcpMilestoneRoutes(routes),
+    resource("api/mcp/v1/search", "routes/api-mcp-v1-search.ts"),
   ];
 }

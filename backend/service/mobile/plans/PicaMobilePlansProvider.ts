@@ -1,7 +1,10 @@
 import type {
+  PicaMobileErrorCode,
   PicaMobilePlanPayload,
   PicaMobilePlanRow,
+  PicaMobilePlanRunControlledPayload,
 } from "@/definition/PicaMobileProtocol";
+import type { PicaMobilePlanRunControlPayload } from "@/definition/PicaMobilePlanControl";
 import type { PicaMobileSessionIdentity } from "../PicaMobileDashboardProvider";
 
 /**
@@ -53,12 +56,48 @@ export interface PicaMobilePlansReader {
 }
 
 /**
+ * What the run control answers to one `plan_run_control`.
+ * @remarks
+ * `refused` carries `forbidden`, `not_found`, `conflict` or
+ * `invalid_request` and a message without foreign data; a refused action
+ * changed nothing. `sessionEnded` means the session or the account no longer
+ * holds; the connection ends then.
+ */
+export type PicaMobilePlanControlOutcome =
+  | {
+      readonly kind: "controlled";
+      readonly payload: PicaMobilePlanRunControlledPayload;
+    }
+  | {
+      readonly kind: "refused";
+      readonly code: PicaMobileErrorCode;
+      readonly message: string;
+      /** The revision the run has now; only for `conflict`. */
+      readonly currentRevision?: number;
+    }
+  | { readonly kind: "sessionEnded" };
+
+/** Pauses, resumes and stops own runs for Pica Mobile (`plans.control.v1`). */
+export interface PicaMobilePlanControl {
+  /** Applies one action to one own run of the account behind the session. */
+  control(
+    session: PicaMobileSessionIdentity,
+    request: PicaMobilePlanRunControlPayload,
+  ): Promise<PicaMobilePlanControlOutcome>;
+}
+
+/**
  * The business answers of an authenticated Pica Mobile connection for `plans.v1`.
  * @remarks
  * A connection without a provider does not announce `plans.v1` and answers
  * `plans_sync` and `plan_get` as unknown.
  */
 export interface PicaMobilePlansProvider {
+  /**
+   * Controls own runs; without it the connection does not announce
+   * `plans.control.v1` and answers `plan_run_control` as unknown.
+   */
+  readonly control?: PicaMobilePlanControl;
   /** Creates the reader of one connection. */
   open(): PicaMobilePlansReader;
   /**

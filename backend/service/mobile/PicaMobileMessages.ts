@@ -15,6 +15,7 @@ import {
 } from "@/definition/PicaMobileProtocol";
 
 import { picaMobileConversationRequestSchema } from "@/definition/PicaMobileConversations";
+import { picaMobilePlanRunControlPayloadSchema } from "@/definition/PicaMobilePlanControl";
 
 import { parsePicaMobileCalendarPayload } from "./calendar/PicaMobileCalendarMessages";
 import { parsePicaMobileNotificationPayload } from "./notifications/PicaMobileNotificationMessages";
@@ -31,9 +32,11 @@ import type {
   PicaMobileErrorCode,
   PicaMobileErrorPayload,
   PicaMobilePlanPayload,
+  PicaMobilePlanRunControlledPayload,
   PicaMobilePlansPayload,
   PicaMobileServerMessage,
 } from "@/definition/PicaMobileProtocol";
+import type { PicaMobilePlanRunControlPayload } from "@/definition/PicaMobilePlanControl";
 import type {
   PicaMobileConversationAnswer,
   PicaMobileConversationRequest,
@@ -76,7 +79,7 @@ export type PicaMobileChatClientMessage = PicaMobileChatRequest & {
   readonly requestId: string;
 };
 
-/** A message of `plans.v1` that passed every check of its payload. */
+/** A message of `plans.v1` or `plans.control.v1` that passed every check of its payload. */
 export type PicaMobilePlansClientMessage =
   | {
       readonly type: "plans_sync";
@@ -90,6 +93,11 @@ export type PicaMobilePlansClientMessage =
       readonly type: "plan_get";
       readonly requestId: string;
       readonly payload: { readonly planId: string; readonly flow?: boolean };
+    }
+  | {
+      readonly type: "plan_run_control";
+      readonly requestId: string;
+      readonly payload: PicaMobilePlanRunControlPayload;
     };
 
 /** Why a frame is not a usable message, with what the answer needs. */
@@ -100,6 +108,7 @@ export interface PicaMobileRejection {
   readonly requestId: string | null;
   readonly supportedVersions?: readonly number[];
   readonly retryAfterSeconds?: number;
+  readonly currentRevision?: number;
 }
 
 /** The outcome of reading one text frame. */
@@ -273,6 +282,24 @@ function parsePlanGetPayload(
       );
 }
 
+function parsePlanRunControlPayload(
+  requestId: string,
+  payload: unknown,
+): PicaMobileParseResult {
+  const parsed = picaMobilePlanRunControlPayloadSchema.safeParse(payload);
+
+  return parsed.success
+    ? {
+        ok: true,
+        message: { type: "plan_run_control", requestId, payload: parsed.data },
+      }
+    : reject(
+        PICA_MOBILE_ERROR_CODE.INVALID_MESSAGE,
+        'The payload of "plan_run_control" needs only a "planId" and a "runId" of 1 to 200 characters, an "action" of "pause", "resume" or "stop" and an integer "expectedRevision" of at least 0.',
+        requestId,
+      );
+}
+
 /** Reads a chat request; `null` when the type belongs to no chat request. */
 function parseChatPayload(
   type: string,
@@ -355,6 +382,8 @@ function parsePayload(
       return parsePlansSyncPayload(requestId, payload);
     case PICA_MOBILE_CLIENT_MESSAGE_TYPE.PLAN_GET:
       return parsePlanGetPayload(requestId, payload);
+    case PICA_MOBILE_CLIENT_MESSAGE_TYPE.PLAN_RUN_CONTROL:
+      return parsePlanRunControlPayload(requestId, payload);
     default:
       return (
         parsePicaMobileNotificationPayload(type, requestId, payload) ??
@@ -469,6 +498,9 @@ export function encodePicaMobileError(rejection: PicaMobileRejection): string {
     ...(rejection.retryAfterSeconds === undefined
       ? {}
       : { retryAfterSeconds: rejection.retryAfterSeconds }),
+    ...(rejection.currentRevision === undefined
+      ? {}
+      : { currentRevision: rejection.currentRevision }),
   };
 
   return encode({
@@ -589,6 +621,25 @@ export function encodePicaMobilePlan(
   return encode({
     version: PICA_MOBILE_PROTOCOL_VERSION,
     type: PICA_MOBILE_SERVER_MESSAGE_TYPE.PLAN,
+    requestId,
+    payload,
+  });
+}
+
+/**
+ * Builds the text frame that answers `plan_run_control`.
+ *
+ * @param requestId - Identifier of the `plan_run_control` message that is answered.
+ * @param payload - The run as it is after the action.
+ * @returns The frame content.
+ */
+export function encodePicaMobilePlanRunControlled(
+  requestId: string,
+  payload: PicaMobilePlanRunControlledPayload,
+): string {
+  return encode({
+    version: PICA_MOBILE_PROTOCOL_VERSION,
+    type: PICA_MOBILE_SERVER_MESSAGE_TYPE.PLAN_RUN_CONTROLLED,
     requestId,
     payload,
   });

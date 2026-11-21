@@ -7,6 +7,7 @@ import { SourceSearchRepository } from "@/backend/database/repositories/search/S
 import { WikiSearchRepository } from "@/backend/database/repositories/wiki/WikiSearchRepository";
 import { AgentOperationError } from "@/backend/error/AgentOperationError";
 import { McpAuthorizationError } from "@/backend/error/McpAuthorizationError";
+import { logCaughtError } from "@/backend/logging/Logger";
 import { ProjectAccessService } from "@/backend/service/project/ProjectAccessService";
 import { HybridSearchService } from "@/backend/service/search/HybridSearchService";
 import { WikiAccess } from "@/backend/service/wiki/WikiAccess";
@@ -14,14 +15,21 @@ import {
   AGENT_SOURCE_SEARCH_MAX_QUESTION,
   AGENT_SOURCE_SEARCH_MAX_SECTIONS,
   AGENT_SOURCE_SEARCH_OPERATIONS,
+  AGENT_SOURCE_TYPES,
 } from "@/definition/AgentSourceSearch";
 import { PAGES_AGENT_LIMITS } from "@/definition/PagesAgentOperations";
+
+import { createAgentCursor, readAgentCursor } from "./AgentCursor";
 
 import type { AgentChannel } from "@/backend/auth/McpActorContext";
 import type { Database } from "@/backend/database/Database";
 import type { EmbeddingModelFactory } from "@/backend/service/search/EmbeddingModels";
+import type { HybridSearchPosition } from "@/backend/service/search/HybridSearchService";
 import type { UserService } from "@/backend/service/UserService";
-import type { AgentSourceSearchOperation } from "@/definition/AgentSourceSearch";
+import type {
+  AgentSourceSearchOperation,
+  AgentSourceType,
+} from "@/definition/AgentSourceSearch";
 import type { AgentIdentity } from "@/definition/McpAuthorization";
 import type { PagesAgentReadResponse } from "@/definition/PagesAgentOperations";
 import type { User } from "@/definition/User";
@@ -33,7 +41,13 @@ const DEFAULT_SECTIONS = 10;
 /** Longest project identifier accepted. */
 const MAX_IDENTIFIER_LENGTH = 200;
 
-const PARAMETERS = new Set(["question", "projectId", "limit"]);
+const PARAMETERS = new Set([
+  "question",
+  "projectId",
+  "sourceTypes",
+  "limit",
+  "cursor",
+]);
 
 /** What the search runs with; the reader comes from the verified identity only. */
 export interface AgentSourceSearchDependencies {
@@ -49,7 +63,11 @@ export interface AgentSourceSearchDependencies {
 interface SourceSearchParameters {
   readonly question: string;
   readonly projectId: string | null;
+  /** Kinds of sources in catalog order; `null` keeps every kind. */
+  readonly sourceTypes: readonly AgentSourceType[] | null;
   readonly limit: number;
+  /** The continuation as received; checked against account and query later. */
+  readonly cursor: unknown;
 }
 
 function isSourceSearchOperation(
@@ -81,6 +99,28 @@ function readProjectId(value: unknown): string | null {
   return value.trim();
 }
 
+function isSourceType(value: unknown): value is AgentSourceType {
+  return AGENT_SOURCE_TYPES.some((type) => type === value);
+}
+
+/**
+ * Reads the kinds of sources a search keeps.
+ * @returns The kinds in catalog order, so the same choice binds the same cursor.
+ * @throws {AgentOperationError} `INVALID_REQUEST` for no list, an empty list,
+ * an unknown kind or a repeated kind.
+ */
+function readSourceTypes(value: unknown): readonly AgentSourceType[] | null {
+  if (value === undefined) return null;
+  if (
+    !Array.isArray(value) ||
+    value.length === 0 ||
+    new Set(value).size !== value.length ||
+    !value.every(isSourceType)
+  )
+    throw new AgentOperationError("INVALID_REQUEST");
+  return AGENT_SOURCE_TYPES.filter((type) => value.includes(type));
+}
+
 function readLimit(value: unknown): number {
   if (value === undefined) return DEFAULT_SECTIONS;
   if (
@@ -110,8 +150,74 @@ function readSearchParameters(input: unknown): SourceSearchParameters {
   return {
     question: readQuestion(parameters.get("question")),
     projectId: readProjectId(parameters.get("projectId")),
+    sourceTypes: readSourceTypes(parameters.get("sourceTypes")),
     limit: readLimit(parameters.get("limit")),
+    cursor: parameters.get("cursor"),
   };
+}
+
+/**
+ * Names what a cursor is bound to: the account, the question, the project
+ * and the kinds of sources. The page size may change between pages.
+ */
+function cursorContext(
+  identity: AgentIdentity,
+  parameters: SourceSearchParameters,
+): string {
+  return JSON.stringify([
+    "search.sources",
+    identity.userId,
+    parameters.question,
+    parameters.projectId,
+    parameters.sourceTypes,
+  ]);
+}
+
+function isPositionIndex(value: unknown): value is number {
+  return typeof value === "number" && Number.isSafeInteger(value) && value >= 0;
+}
+
+/**
+ * Reads the place a continuation starts after.
+ * @param context - What the cursor must be bound to.
+ * @param cursor - The cursor as received; absent or `null` starts with the best section.
+ * @throws {AgentOperationError} `INVALID_REQUEST` for a cursor of another
+ * account or query, or one Pages did not issue.
+ */
+function readPosition(
+  context: string,
+  cursor: unknown,
+): HybridSearchPosition | null {
+  const after = readAgentCursor({ cursor, context });
+  if (after === null) return null;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(after);
+  } catch (caughtError: unknown) {
+    logCaughtError("AgentSourceSearchService", caughtError);
+
+    throw new AgentOperationError("INVALID_REQUEST");
+  }
+  if (typeof parsed !== "object" || parsed === null)
+    throw new AgentOperationError("INVALID_REQUEST");
+  const fields: ReadonlyMap<string, unknown> = new Map<string, unknown>(
+    Object.entries(parsed),
+  );
+  const keyRank = fields.get("keyRank");
+  const score = fields.get("score");
+  const sourceType = fields.get("sourceType");
+  const sourceId = fields.get("sourceId");
+  const sectionIndex = fields.get("sectionIndex");
+  if (
+    (keyRank !== null && !isPositionIndex(keyRank)) ||
+    typeof score !== "number" ||
+    !Number.isFinite(score) ||
+    !isSourceType(sourceType) ||
+    typeof sourceId !== "string" ||
+    !isPositionIndex(sectionIndex)
+  )
+    throw new AgentOperationError("INVALID_REQUEST");
+  return { keyRank, score, sourceType, sourceId, sectionIndex };
 }
 
 /**
@@ -147,9 +253,11 @@ export class AgentSourceSearchService {
    * @param identity - The verified identity of the call.
    * @param operation - The operation name as received.
    * @param input - The raw parameters.
-   * @returns The sections, the state of the vector search and the number of outdated hits left out.
-   * @throws {AgentOperationError} `INVALID_REQUEST`, `NOT_FOUND` for a hidden
-   * or missing project, or `PAYLOAD_TOO_LARGE`.
+   * @returns One page of sections, the cursor of the next page, the state
+   * of the vector search and the number of outdated hits left out.
+   * @throws {AgentOperationError} `INVALID_REQUEST`, also for a cursor of
+   * another account or query, `NOT_FOUND` for a hidden or missing project,
+   * or `PAYLOAD_TOO_LARGE`.
    */
   public async handle(
     identity: AgentIdentity,
@@ -158,6 +266,8 @@ export class AgentSourceSearchService {
   ): Promise<PagesAgentReadResponse | null> {
     if (!isSourceSearchOperation(operation)) return null;
     const parameters = readSearchParameters(input ?? {});
+    const context = cursorContext(identity, parameters);
+    const after = readPosition(context, parameters.cursor);
     const actor = await this.requireActor(identity);
     const scope = await this.resolveScope(actor);
     if (
@@ -165,9 +275,23 @@ export class AgentSourceSearchService {
       !scope.projectIds.includes(parameters.projectId)
     )
       throw new AgentOperationError("NOT_FOUND");
+    const { next, ...page } = await this.search.search({
+      scope,
+      question: parameters.question,
+      projectId: parameters.projectId,
+      sourceTypes: parameters.sourceTypes,
+      limit: parameters.limit,
+      after,
+    });
     const response: PagesAgentReadResponse = {
       apiVersion: "1",
-      result: await this.search.search({ scope, ...parameters }),
+      result: {
+        ...page,
+        nextCursor:
+          next === null
+            ? null
+            : createAgentCursor(context, JSON.stringify(next)),
+      },
     };
     if (
       Buffer.byteLength(JSON.stringify(response)) >

@@ -87,6 +87,8 @@ import type { Database } from "@/backend/database/Database";
 import type { AdministrationService } from "@/backend/service/AdministrationService";
 import type { UserService } from "@/backend/service/UserService";
 import type { McpPlanServices } from "@/backend/service/mcp/plan/McpPlanApi";
+import type { McpMilestoneServices } from "@/backend/service/mcp/milestone/McpMilestoneApi";
+import type { McpSearchServices } from "@/backend/service/mcp/search/McpSearchApi";
 
 /** The operation services behind the agent API, the plan bridge and the chat. */
 export interface McpApplicationServices extends McpDeviceApplicationServices {
@@ -102,6 +104,10 @@ export interface McpApplicationServices extends McpDeviceApplicationServices {
   readonly mcpPlanServices: () => McpPlanServices;
   /** The plan service of the paired Pages MCP machines, bound to the `mcp` channel. */
   readonly mcpPlanService: () => AgentPlanService;
+  /** The milestone operations of the paired Pages MCP machines: the agent operations on the `mcp` channel. */
+  readonly mcpMilestoneServices: McpMilestoneServices;
+  /** The hybrid source search of the paired Pages MCP machines: `search.sources` on the `mcp` channel. */
+  readonly mcpSearchServices: McpSearchServices;
   /** The saves of the wiki API of the paired Pages MCP machines by operation ID. */
   readonly mcpWikiOperations: AgentOperationKeyRepository;
   /** The user management API of the paired Pages MCP machines. */
@@ -628,6 +634,11 @@ export function createMcpServices(
     creation,
   };
   const devices = createMcpDeviceServices(database);
+  const mcpOperations = createMcpOperationRouter(
+    routers,
+    workspace.agentWorkspaces,
+    workspace.pageAgents,
+  );
   return {
     ...devices,
     agentAssetService,
@@ -639,13 +650,9 @@ export function createMcpServices(
     agentUploadTicketService,
     agentAssetDownloadService,
     pagesEventPublisher,
-    pagesAgentApiService: apiFor(
-      createMcpOperationRouter(
-        routers,
-        workspace.agentWorkspaces,
-        workspace.pageAgents,
-      ),
-    ),
+    pagesAgentApiService: apiFor(mcpOperations),
+    mcpMilestoneServices: { operations: mcpOperations, identities },
+    mcpSearchServices: { operations: mcpOperations, identities },
     mcpPlanServices: lazyMcpPlanServices(
       database,
       mcpPlanService,

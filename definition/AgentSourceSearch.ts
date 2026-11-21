@@ -11,7 +11,13 @@ export const AGENT_SOURCE_SEARCH_MAX_SECTIONS = 20;
 export const AGENT_SOURCE_SEARCH_MAX_QUESTION = 1000;
 
 /** The kinds of sources a section is cut from. */
-export type AgentSourceType = "ticket" | "wiki_page" | "ticket_asset";
+export const AGENT_SOURCE_TYPES = [
+  "ticket",
+  "wiki_page",
+  "ticket_asset",
+] as const;
+
+export type AgentSourceType = (typeof AGENT_SOURCE_TYPES)[number];
 
 /**
  * Why a section was found: `ticketKey` for a ticket number named exactly in
@@ -64,4 +70,9 @@ export interface AgentSourceSearch {
   readonly vectorSearch: AgentVectorSearchState;
   /** Vector hits left out because their source changed since it was indexed. */
   readonly staleSections: number;
+  /**
+   * Continues the same question, project and source kinds after the last
+   * section of this page; `null` when no further section exists.
+   */
+  readonly nextCursor: string | null;
 }

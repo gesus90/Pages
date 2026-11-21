@@ -251,7 +251,7 @@ const CHAT_OPERATIONS: Readonly<Record<ChatOperation, string>> = {
   "wiki.tree.read": `{projectId?, ${WINDOW}} Seitenbaum des Wikis`,
   "wiki.search": `{text, projectId?, ${WINDOW}} Wiki durchsuchen`,
   "search.sources":
-    "{question, projectId?, limit?} Tickets, Wiki-Seiten und freigegebene Ticket-Anhänge per Stichwort- und Vektorsuche nach Abschnitten durchsuchen, die eine Frage beantworten; jeder Abschnitt mit link zum Zitieren",
+    "{question, projectId?, sourceTypes?, limit?, cursor?} Tickets, Wiki-Seiten und freigegebene Ticket-Anhänge per Stichwort- und Vektorsuche nach Abschnitten durchsuchen, die eine Frage beantworten; jeder Abschnitt mit link zum Zitieren",
   "wiki.page.read":
     "{pageId} Seite mit Markdown, revision, icon, cover und anchors lesen",
   "wiki.outline.read": `{${PAGE}} Überschriften einer Seite`,

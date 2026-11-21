@@ -74,6 +74,7 @@ export const PICA_MOBILE_CLIENT_MESSAGE_TYPE = {
   NOTIFICATION_SETTINGS_SET: "notification_settings_set",
   PLANS_SYNC: "plans_sync",
   PLAN_GET: "plan_get",
+  PLAN_RUN_CONTROL: "plan_run_control",
   CHAT_OPEN: "chat_open",
   CHAT_NEW: "chat_new",
   CHAT_SESSIONS: "chat_sessions",
@@ -120,6 +121,7 @@ export const PICA_MOBILE_SERVER_MESSAGE_TYPE = {
   NOTIFICATION_SETTINGS: "notification_settings",
   PLANS: "plans",
   PLAN: "plan",
+  PLAN_RUN_CONTROLLED: "plan_run_controlled",
   CHAT_VIEW: "chat_view",
   CHAT_SESSIONS: "chat_sessions",
   CHAT_STATE: "chat_state",
@@ -181,6 +183,12 @@ export const PICA_MOBILE_SERVER_MESSAGE_TYPE = {
  * `plan_get`: the frozen structure of a run with every node, its
  * states, loop iterations, progress and revision in `plan`, and the `state`
  * key in the plan rows; a server names it only together with `plans.v1`.
+ * `plans.control.v1` stands for `plan_run_control` with its answer
+ * `plan_run_controlled`: pausing, resuming and stopping an own run through
+ * the same service as the plan page; starting a plan is no part of it. A
+ * refused request is answered with `error` and `forbidden`, `not_found`,
+ * `conflict` or `invalid_request`. A server names it only together with
+ * `plans.v1` and only while the run control is available.
  * `speech.v1` stands for the speech recognition of the instance:
  * `speech_config_get` with its answer `speech_config`, and the chunked
  * recording `speech_start`, `speech_chunk`, `speech_finish`, `speech_cancel`
@@ -203,6 +211,7 @@ export const PICA_MOBILE_CAPABILITY = {
   DASHBOARD_V1: "dashboard.v1",
   PLANS_V1: "plans.v1",
   PLANS_FLOW_V1: "plans.flow.v1",
+  PLANS_CONTROL_V1: "plans.control.v1",
   CHAT_V1: "chat.v1",
   CHAT_DELETE: "chat.delete",
   CONVERSATIONS_V1: "conversations.v1",
@@ -230,12 +239,17 @@ export const PICA_MOBILE_ERROR_CODE = {
   ALREADY_AUTHENTICATED: "already_authenticated",
   RATE_LIMITED: "rate_limited",
   SERVER_UNAVAILABLE: "server_unavailable",
-  /** `calendar.v1`: the account may not do this with the entry. */
+  /** `calendar.v1` and `plans.control.v1`: the account may not do this with the entry or run. */
   FORBIDDEN: "forbidden",
-  /** `calendar.v1`: the entry is missing or not visible to the account. */
+  /** `calendar.v1` and `plans.control.v1`: the entry or run is missing or not visible to the account. */
   NOT_FOUND: "not_found",
-  /** `calendar.v1`: the request breaks a rule, such as an end before its start. */
+  /**
+   * `calendar.v1`: the request breaks a rule, such as an end before its start;
+   * `plans.control.v1`: the action does not fit the state of the run.
+   */
   INVALID_REQUEST: "invalid_request",
+  /** `plans.control.v1`: the run changed since the revision the client named. */
+  CONFLICT: "conflict",
 } as const;
 
 /** One reason of {@link PICA_MOBILE_ERROR_CODE}. */
@@ -417,6 +431,8 @@ export interface PicaMobileErrorPayload {
   readonly supportedVersions?: readonly number[];
   /** Set for `too_many_attempts`. */
   readonly retryAfterSeconds?: number;
+  /** Set for `conflict`: the revision the run has now; absent when Pages cannot name it. */
+  readonly currentRevision?: number;
 }
 
 /** The current avatar image of an account as the dashboard announces it. */
@@ -709,6 +725,20 @@ export type PicaMobilePlanPayload =
     }
   | { readonly planId: string; readonly access: "gone" };
 
+/** What `plan_run_control` (`plans.control.v1`) does with a run; there is no start. */
+export type PicaMobilePlanRunAction = "pause" | "resume" | "stop";
+
+/** The answer to `plan_run_control`: the run as it is after the action. */
+export interface PicaMobilePlanRunControlledPayload {
+  readonly planId: string;
+  readonly runId: string;
+  readonly action: PicaMobilePlanRunAction;
+  readonly status: PicaMobileRunStatus;
+  readonly canResume: boolean;
+  /** Write counter of the run after the action; the `expectedRevision` of the next request. */
+  readonly revision: number;
+}
+
 /** A chat session as `chat.v1` describes it. */
 export interface PicaMobileChatSession {
   readonly id: string;
@@ -909,6 +939,10 @@ export type PicaMobileServerMessage =
     >
   | PicaMobileEnvelope<"plans", PicaMobilePlansPayload>
   | PicaMobileEnvelope<"plan", PicaMobilePlanPayload>
+  | PicaMobileEnvelope<
+      "plan_run_controlled",
+      PicaMobilePlanRunControlledPayload
+    >
   | (PicaMobileChatAnswer & {
       readonly version: typeof PICA_MOBILE_PROTOCOL_VERSION;
       readonly requestId: string;

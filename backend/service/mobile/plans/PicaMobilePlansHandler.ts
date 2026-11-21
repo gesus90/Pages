@@ -4,7 +4,10 @@ import {
   PICA_MOBILE_MAXIMUM_PLANS_FRAME_LENGTH,
 } from "@/definition/PicaMobileProtocol";
 
-import { encodePicaMobilePlans } from "../PicaMobileMessages";
+import {
+  encodePicaMobilePlanRunControlled,
+  encodePicaMobilePlans,
+} from "../PicaMobileMessages";
 import { encodePlanWithinLimit } from "./PicaMobilePlanFrame";
 import { diffPlanRows, selectPlanRows } from "./PicaMobilePlanRows";
 
@@ -18,6 +21,7 @@ import type {
   PicaMobileRejection,
 } from "../PicaMobileMessages";
 import type {
+  PicaMobilePlanControl,
   PicaMobilePlansProvider,
   PicaMobilePlansReader,
 } from "./PicaMobilePlansProvider";
@@ -61,6 +65,10 @@ type PlanMessage = Extract<
   PicaMobilePlansClientMessage,
   { readonly type: "plan_get" }
 >;
+type ControlMessage = Extract<
+  PicaMobilePlansClientMessage,
+  { readonly type: "plan_run_control" }
+>;
 
 /** The rows to leave out so a frame that is `excess` code units too long can fit. */
 function rowsToDrop(
@@ -79,7 +87,8 @@ function rowsToDrop(
 }
 
 /**
- * Answers `plans.v1` for one connection and sends its changes on its own.
+ * Answers `plans.v1` and `plans.control.v1` for one connection and sends the
+ * changes of `plans.v1` on its own.
  * @remarks
  * The handler keeps the `seq` of the connection and the rows it sent last, so
  * an answer to `plans_sync` and a change Pages sends on its own come from
@@ -90,7 +99,9 @@ function rowsToDrop(
  * without any difference in the rows sends nothing. The rows carry their
  * `state` key only while the latest `plans_sync` asked for `flow`; the
  * change is compared against the rows as they were sent, so switching it
- * sends the keys as changed fields.
+ * sends the keys as changed fields. A run action of `plan_run_control` is
+ * answered with `plan_run_controlled` and then reaches the rows like any
+ * other change of the run.
  */
 export class PicaMobilePlansHandler {
   private readonly provider: PicaMobilePlansProvider | undefined;
@@ -119,7 +130,7 @@ export class PicaMobilePlansHandler {
   }
 
   /**
-   * Handles one message of `plans.v1`.
+   * Handles one message of `plans.v1` or `plans.control.v1`.
    * @param message - A message that passed every check of its payload.
    */
   public async handle(message: PicaMobilePlansClientMessage): Promise<void> {
@@ -130,7 +141,10 @@ export class PicaMobilePlansHandler {
       return;
     }
 
-    if (provider === undefined || reader === null) {
+    const isUnknownControl =
+      message.type === "plan_run_control" && provider?.control === undefined;
+
+    if (provider === undefined || reader === null || isUnknownControl) {
       host.reject({
         code: PICA_MOBILE_ERROR_CODE.UNKNOWN_TYPE,
         message: "The message type is not known.",
@@ -149,9 +163,7 @@ export class PicaMobilePlansHandler {
     }
 
     try {
-      await (message.type === "plans_sync"
-        ? this.answerSync(provider, reader, session, message)
-        : this.answerPlan(reader, session, message));
+      await this.answer(provider, reader, session, message);
     } catch (error: unknown) {
       // The rows the connection holds stay as they are; the next sync compares against them.
       logCaughtError(COMPONENT, error);
@@ -171,6 +183,29 @@ export class PicaMobilePlansHandler {
 
     this.stopWatching?.();
     this.stopWatching = null;
+  }
+
+  private async answer(
+    provider: PicaMobilePlansProvider,
+    reader: PicaMobilePlansReader,
+    session: PicaMobileSessionIdentity,
+    message: PicaMobilePlansClientMessage,
+  ): Promise<void> {
+    switch (message.type) {
+      case "plans_sync":
+        await this.answerSync(provider, reader, session, message);
+
+        return;
+      case "plan_get":
+        await this.answerPlan(reader, session, message);
+
+        return;
+      case "plan_run_control":
+        // `handle` answers a connection without run control as unknown.
+        if (provider.control !== undefined) {
+          await this.answerControl(provider.control, session, message);
+        }
+    }
   }
 
   private async answerSync(
@@ -256,6 +291,49 @@ export class PicaMobilePlansHandler {
 
     this.host.acknowledge();
     this.host.send(frame);
+  }
+
+  private async answerControl(
+    control: PicaMobilePlanControl,
+    session: PicaMobileSessionIdentity,
+    message: ControlMessage,
+  ): Promise<void> {
+    const { requestId } = message;
+    const outcome = await control.control(session, message.payload);
+
+    if (!this.host.isOpen()) {
+      return;
+    }
+
+    if (outcome.kind === "sessionEnded") {
+      this.host.endSession(requestId);
+
+      return;
+    }
+
+    if (outcome.kind === "refused") {
+      this.host.reject({
+        code: outcome.code,
+        message: outcome.message,
+        requestId,
+        ...(outcome.currentRevision === undefined
+          ? {}
+          : { currentRevision: outcome.currentRevision }),
+      });
+
+      return;
+    }
+
+    this.host.acknowledge();
+    this.host.send(
+      encodePicaMobilePlanRunControlled(requestId, outcome.payload),
+    );
+
+    // The run observer tells every connection of the account; this one
+    // reads at once as well, so its rows never wait for another change.
+    if (this.stopWatching !== null) {
+      this.schedulePush();
+    }
   }
 
   /** Bundles the run changes of 300 milliseconds into one read. */

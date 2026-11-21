@@ -10,6 +10,7 @@ import { PagesPicaMobileChat } from "@/backend/service/mobile/chat/PagesPicaMobi
 import { PagesPicaMobileConversations } from "@/backend/service/mobile/conversations/PagesPicaMobileConversations";
 import { PagesPicaMobileNotifications } from "@/backend/service/mobile/notifications/PagesPicaMobileNotifications";
 import { PagesPicaMobilePlans } from "@/backend/service/mobile/plans/PagesPicaMobilePlans";
+import { PagesPicaMobilePlanControl } from "@/backend/service/mobile/plans/PagesPicaMobilePlanControl";
 import { PagesPicaMobileSpeech } from "@/backend/service/mobile/speech/PagesPicaMobileSpeech";
 import { PicaMobilePlanRunObserver } from "@/backend/service/mobile/plans/PicaMobilePlanRunObserver";
 import { sharedAgentPlanRunObservers } from "@/backend/service/agents/AgentPlanRunObservers";
@@ -115,6 +116,16 @@ export function obtainPicaMobileGateway(
           };
         },
         observer: runs,
+        control: new PagesPicaMobilePlanControl(async () => {
+          const services = await getApplicationServices();
+
+          return {
+            authService: services.authService,
+            agentPlanOverviewService: services.agentPlanOverviewService,
+            agentPlanService: services.agentPlanService,
+            agentPlanCommands: services.agentPlanCommands,
+          };
+        }),
       }),
       chat: new PagesPicaMobileChat(async () => {
         const services = await getApplicationServices();

@@ -64,7 +64,7 @@ import type { AgentTicketAnnouncer } from "./AgentTicketAnnouncer";
 const WRITE_KEYS: Readonly<
   Record<AgentExtensionWriteOperation, readonly string[]>
 > = {
-  "wiki.page.delete": ["pageId", "expectedRevision", "confirmation"],
+  "wiki.page.delete": ["pageId", "expectedRevision"],
   "projects.create": ["name", "description", "status", "departmentIds"],
   "projects.setName": ["projectId", "name"],
   "projects.setDescription": ["projectId", "description"],
@@ -81,8 +81,8 @@ const WRITE_KEYS: Readonly<
     "expectedDepartmentId",
   ],
   "ticket.assignMilestone": ["ticketId", "milestoneId", "expectedMilestoneId"],
-  "ticket.delete": ["ticketId", "confirmation"],
-  "milestone.delete": ["projectId", "milestoneId", "confirmation"],
+  "ticket.delete": ["ticketId"],
+  "milestone.delete": ["projectId", "milestoneId"],
   "ticket.setTags": ["ticketId", "tagIds", "expectedTagIds"],
   "ticket.setDepartments": [
     "ticketId",
@@ -93,6 +93,26 @@ const WRITE_KEYS: Readonly<
   "milestone.initiative.remove": ["projectId", "milestoneId", "initiativeId"],
   "wiki.page.setAnchors": ["pageId", "anchors", "expectedAnchors"],
 };
+
+/**
+ * Deletions whose former `confirmation` field older clients may still send.
+ * @remarks
+ * The field is no part of their schema; Pages drops it unread, so it neither
+ * fails the call nor changes its effect or its `operationId` replay.
+ */
+const LEGACY_CONFIRMATION_OPERATIONS: ReadonlySet<AgentExtensionWriteOperation> =
+  new Set(["wiki.page.delete", "ticket.delete", "milestone.delete"]);
+
+/** Drops the ignored legacy `confirmation` field of a deletion; other operations keep every key. */
+function withoutLegacyConfirmation(
+  operation: AgentExtensionWriteOperation,
+  parameters: Readonly<Record<string, unknown>>,
+): Readonly<Record<string, unknown>> {
+  if (!LEGACY_CONFIRMATION_OPERATIONS.has(operation)) return parameters;
+  return Object.fromEntries(
+    Object.entries(parameters).filter(([key]) => key !== "confirmation"),
+  );
+}
 
 /** The server-stored result and current call parameters used for replay authorization. */
 interface AgentExtensionReplay {
@@ -217,23 +237,19 @@ export class AgentExtensionService {
   private async write(
     identity: AgentIdentity,
     operation: AgentExtensionWriteOperation,
-    parameters: Readonly<Record<string, unknown>>,
+    received: Readonly<Record<string, unknown>>,
   ): Promise<PagesAgentWriteResponse> {
+    const parameters = withoutLegacyConfirmation(operation, received);
     const keys = ["operationId", ...WRITE_KEYS[operation]];
     if (
       Object.keys(parameters).some((key) => !keys.includes(key)) ||
       keys
-        .filter(
-          (key) => key !== "confirmation" && key !== "expectedDepartmentId",
-        )
+        .filter((key) => key !== "expectedDepartmentId")
         .some((key) => !(key in parameters))
     )
       throw new AgentOperationError("INVALID_REQUEST");
-    const acceptedParameters = Object.fromEntries(
-      Object.entries(parameters).filter(([key]) => key !== "confirmation"),
-    );
     const request = {
-      ...acceptedParameters,
+      ...parameters,
       operationId: readIdentifier(parameters.operationId),
     };
     const completed = await this.transaction.run<AgentExtensionChanged>({

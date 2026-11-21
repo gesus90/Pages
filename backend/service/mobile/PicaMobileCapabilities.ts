@@ -20,6 +20,20 @@ async function isSpeechAvailable(
   }
 }
 
+// `plans.control.v1` is named only while the plans provider offers run control.
+function planCapabilities(
+  plans: PicaMobileConnectionOptions["plans"],
+): readonly PicaMobileCapability[] {
+  if (plans === undefined) return [];
+  const reading = [
+    PICA_MOBILE_CAPABILITY.PLANS_V1,
+    PICA_MOBILE_CAPABILITY.PLANS_FLOW_V1,
+  ];
+  return plans.control === undefined
+    ? reading
+    : [...reading, PICA_MOBILE_CAPABILITY.PLANS_CONTROL_V1];
+}
+
 /**
  * Reads the extensions a connection answers, for its `connected` message.
  * @param options - The providers of the connection; each one that is present
@@ -50,12 +64,7 @@ export async function readPicaMobileCapabilities(
     capabilities.push(PICA_MOBILE_CAPABILITY.DASHBOARD_V1);
   }
 
-  if (plans !== undefined) {
-    capabilities.push(
-      PICA_MOBILE_CAPABILITY.PLANS_V1,
-      PICA_MOBILE_CAPABILITY.PLANS_FLOW_V1,
-    );
-  }
+  capabilities.push(...planCapabilities(plans));
 
   if (chat !== undefined) {
     capabilities.push(PICA_MOBILE_CAPABILITY.CHAT_V1);
