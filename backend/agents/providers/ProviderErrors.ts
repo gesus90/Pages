@@ -2,35 +2,23 @@ import { readAgentObject } from "@/backend/agents/AgentPayload";
 
 import type { AgentErrorCode } from "@/backend/error/AgentErrors";
 
-const AUTH_CODES = new Set([
-  "401",
-  "API_KEY_INVALID",
-  "1000",
-  "1001",
-  "1002",
-  "1003",
-  "1004",
-  "1005",
-]);
+const AUTH_CODES = new Set(["401", "API_KEY_INVALID"]);
 const QUOTA_CODES = new Set([
   "402",
   "insufficient_quota",
   "billing_error",
   "billing_hard_limit_reached",
   "billing_not_active",
-  "1113",
 ]);
-const PERMISSION_CODES = new Set(["403", "1220"]);
-const MODEL_CODES = new Set(["404", "model_not_found", "1211"]);
-const RATE_CODES = new Set(["429", "1302", "1305"]);
+const PERMISSION_CODES = new Set(["403"]);
+const MODEL_CODES = new Set(["404", "model_not_found"]);
+const RATE_CODES = new Set(["429"]);
 const UNAVAILABLE_CODES = new Set(["500", "502", "503", "504", "529"]);
 
 function readCodes(payload: unknown): string[] {
   const envelope = readAgentObject(payload);
   const error = readAgentObject(envelope.error);
   const fields: unknown[] = [error.code, error.type, error.status];
-  // The usage monitor of Z.AI reports a business failure as `{ success: false, code }`.
-  if (envelope.success === false) fields.push(envelope.code);
   if (Array.isArray(error.details))
     fields.push(
       ...error.details.map((entry: unknown) => readAgentObject(entry).reason),

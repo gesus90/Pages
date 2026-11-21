@@ -12,6 +12,7 @@ import {
 } from "./PlanResources.js";
 import { PLAN_READ_TOOLS } from "./Plans.js";
 import { PROJECT_DELETION_SCOPE_TOOL } from "./ProjectDeletion.js";
+import { SOURCE_SEARCH_TOOL } from "./SourceSearch.js";
 import { STRUCTURED_IMPORT_PLAN_TOOL } from "./StructuredImportPlan.js";
 import {
   TICKET_READ_DESCRIPTION_RANGE_TOOL,
@@ -142,6 +143,7 @@ const READ_TOOL_ENTRIES = [
       annotations: READ_ANNOTATIONS,
     },
   },
+  { operation: "search.sources", tool: SOURCE_SEARCH_TOOL },
   { operation: "wiki.page.readRange", tool: WIKI_READ_RANGE_TOOL },
   { operation: "wiki.import.plan", tool: WIKI_IMPORT_PLAN_TOOL },
   { operation: "ticket.read", tool: TICKET_READ_TOOL },

@@ -58,7 +58,6 @@ const ERROR_CLASSES: Readonly<Record<AgentErrorCode, AgentPlanBlockerClass>> = {
   parameter_asset_conflict: "open",
   parameter_asset_write_denied: "harm",
   parameter_asset_output_invalid: "form",
-  zai_account_type_invalid: "open",
   profile_management_retired: "open",
   agent_tool_not_ready: "open",
   opencode_acceptance_failed: "open",

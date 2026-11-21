@@ -64,7 +64,7 @@ export class ApiTextExecution implements TextExecution {
       );
       signal.throwIfAborted();
       const response = await this.request(
-        `${apiProviderEndpoint(connection.provider, current.zaiAccountType)}${request.path}`,
+        `${apiProviderEndpoint(connection.provider)}${request.path}`,
         {
           method: "POST",
           headers: requestHeaders(connection.provider, apiKey),

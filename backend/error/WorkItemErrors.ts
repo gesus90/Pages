@@ -28,6 +28,8 @@ export const WORK_ITEM_ERROR_MESSAGES = {
   attachmentFileEmpty: "An attachment must not be empty.",
   attachmentFileNameTooLong: "The file name of an attachment is too long.",
   attachmentTooLarge: "The attachment exceeds the upload limit.",
+  attachmentUploadIncomplete:
+    "The upload was interrupted before the whole file arrived.",
   descendantsHidden: "The ticket has descendants that are not visible to you.",
   descriptionConflict:
     "The description was changed by someone else since it was opened.",

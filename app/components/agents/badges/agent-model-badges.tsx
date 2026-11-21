@@ -24,7 +24,7 @@ export type AgentModelBadgeValues = Pick<
  * The model and reasoning of an agent in a chat.
  * @remarks
  * The order is model, "Free", reasoning, 6 px apart. Claude Code, Codex,
- * Antigravity, OpenCode, OpenRouter and direct Z.AI models get the shared
+ * Antigravity, OpenCode and OpenRouter models get the shared
  * model and reasoning badges. A known model source appears in the tooltip.
  * Every other provider
  * keeps the grey pill of model and level until it is moved to badges of its own; its text is joined from the
@@ -54,7 +54,6 @@ export function AgentModelBadges({
         <ModelBadge
           vendor={vendor}
           name={name}
-          modelId={model.modelId}
           source={source}
           status={model.modelStatus}
           isVendorHiddenWhenNarrow={isCompactWhenNarrow}

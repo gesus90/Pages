@@ -13,8 +13,8 @@ import type { AgentProviderId } from "@/definition/AgentConnection";
 import type { ChatAdapterProviderId } from "@/definition/AgentModelConsumers";
 
 /**
- * The runners Pica answers with over ACP, including native OpenCode, a z.ai
- * connection over native OpenCode, and Antigravity.
+ * The runners Pica answers with over ACP, including native OpenCode and
+ * Antigravity.
  * @remarks
  * A provider registers its chat adapter once in `AGENT_PROVIDERS`; the runner
  * table below then has to name it, or the build fails.
@@ -96,18 +96,6 @@ const OPENCODE_RUNNER: PicaAcpRunner = {
 };
 
 /**
- * A z.ai connection answers over the same native OpenCode session as an
- * OpenCode connection, with its own key as the only model connection and the
- * endpoint of its saved account type. It keeps a profile of its own, so a
- * stored session of one connection kind is never continued by the other.
- */
-const ZAI_RUNNER: PicaAcpRunner = {
-  ...OPENCODE_RUNNER,
-  provider: "zai",
-  profile: "pica-zai-chat-1",
-};
-
-/**
  * Antigravity runs without any native tool; Pica's tools reach it as the one
  * MCP server of the session. Like Claude Code and OpenCode it answers only in
  * "Lesend", and an agent stored with YOLO is refused, never narrowed.
@@ -129,7 +117,6 @@ const RUNNERS: Readonly<Record<PicaAcpProvider, PicaAcpRunner>> = {
   codex_cli: CODEX_RUNNER,
   claude_code: CLAUDE_RUNNER,
   opencode: OPENCODE_RUNNER,
-  zai: ZAI_RUNNER,
   antigravity: ANTIGRAVITY_RUNNER,
 };
 

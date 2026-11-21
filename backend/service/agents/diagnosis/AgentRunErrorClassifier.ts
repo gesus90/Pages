@@ -54,7 +54,6 @@ const EXACT_CODES: Readonly<Record<AgentRunErrorClass, ReadonlySet<string>>> = {
     "plan_reasoning_unsupported",
     "model_assignment_missing",
     "opencode_free_tier_refused",
-    "zai_account_type_invalid",
     "agent_usage_denied",
     "agent_inactive",
     "modelUnavailable",

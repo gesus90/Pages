@@ -161,9 +161,7 @@ export class SpeechRecognitionService {
     const { connection } = model;
     if (connection === null) return failure("not_configured");
     const provider: SpeechProviderId | null =
-      connection.provider === "openrouter" || connection.provider === "zai"
-        ? connection.provider
-        : null;
+      connection.provider === "openrouter" ? connection.provider : null;
     const apiKey = await this.readApiKey(connection.id);
     if (provider === null || apiKey === null) return failure("not_configured");
     const outcome = await this.dependencies.client.transcribe({

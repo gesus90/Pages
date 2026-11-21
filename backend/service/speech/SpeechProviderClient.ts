@@ -4,7 +4,7 @@ import { AGENT_PROVIDERS } from "@/definition/AgentConnection";
 import type { SpeechMimeType } from "@/definition/SpeechRecognition";
 
 /** The providers Pages recognizes speech with; no other connection offers it. */
-export type SpeechProviderId = "openrouter" | "zai";
+export type SpeechProviderId = "openrouter";
 
 /** One recognition request to a provider. */
 export interface SpeechProviderRequest {
@@ -24,10 +24,6 @@ export type SpeechProviderOutcome =
       readonly ok: false;
       readonly code: "provider_failed" | "provider_unreachable";
     };
-
-/** Z.AI's documented transcription endpoint for `glm-asr-2512`. */
-const ZAI_TRANSCRIPTION_URL =
-  "https://api.z.ai/api/paas/v4/audio/transcriptions";
 
 /** OpenRouter's dedicated speech-to-text endpoint. */
 const OPENROUTER_TRANSCRIPTION_URL = `${AGENT_PROVIDERS.openrouter.endpoint}/audio/transcriptions`;
@@ -70,26 +66,7 @@ function openRouterRequest(request: SpeechProviderRequest): RequestInit {
   };
 }
 
-function zaiRequest(request: SpeechProviderRequest): RequestInit {
-  const form = new FormData();
-  form.set("model", request.model);
-  form.set("stream", "false");
-  form.set(
-    "file",
-    new Blob([new Uint8Array(request.audio)], { type: request.mimeType }),
-    request.mimeType === "audio/wav" ? "audio.wav" : "audio.mp3",
-  );
-  return {
-    method: "POST",
-    headers: {
-      Accept: "application/json",
-      Authorization: `Bearer ${request.apiKey}`,
-    },
-    body: form,
-  };
-}
-
-// Both transcription APIs answer with the recognized text in the string field `text`.
+// The transcription API answers with the recognized text in the string field `text`.
 function readTranscriptionText(payload: unknown): string | null {
   return isRecord(payload) && typeof payload.text === "string"
     ? payload.text
@@ -124,16 +101,15 @@ async function readBody(response: Response): Promise<unknown> {
 }
 
 /**
- * Sends one recording to OpenRouter or Z.AI and reads the text.
+ * Sends one recording to OpenRouter and reads the text.
  *
  * @remarks
  * The key travels only in the header, redirects are refused, and neither the
  * audio, the key nor a provider's answer is logged; only the provider, the
  * HTTP status and the outcome are. OpenRouter is asked through its
  * speech-to-text endpoint `POST /api/v1/audio/transcriptions` with `model`,
- * `input_audio` and `response_format: "json"`, Z.AI through its
- * own transcription endpoint. Neither gets an instruction or a language, and
- * a failed transcription is never retried through another API.
+ * `input_audio` and `response_format: "json"`. It gets no instruction or
+ * language, and a failed transcription is never retried through another API.
  */
 export class SpeechProviderClient {
   private readonly request: typeof fetch;
@@ -158,18 +134,11 @@ export class SpeechProviderClient {
     ]);
     let response: Response;
     try {
-      response = await this.request(
-        input.provider === "zai"
-          ? ZAI_TRANSCRIPTION_URL
-          : OPENROUTER_TRANSCRIPTION_URL,
-        {
-          ...(input.provider === "zai"
-            ? zaiRequest(input)
-            : openRouterRequest(input)),
-          signal,
-          redirect: "error",
-        },
-      );
+      response = await this.request(OPENROUTER_TRANSCRIPTION_URL, {
+        ...openRouterRequest(input),
+        signal,
+        redirect: "error",
+      });
     } catch {
       input.signal.throwIfAborted();
       this.log(input.provider, null, "provider_unreachable");

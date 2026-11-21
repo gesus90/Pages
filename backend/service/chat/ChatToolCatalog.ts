@@ -21,6 +21,7 @@ import type {
   AgentPlanReadOperation,
   AgentPlanWriteOperation,
 } from "@/definition/AgentPlanOperations";
+import type { AgentSourceSearchOperation } from "@/definition/AgentSourceSearch";
 import type { AgentTextRangeWriteOperation } from "@/definition/AgentTextRange";
 import type { AgentWorkspaceWriteOperation } from "@/definition/AgentWorkspaceOperations";
 import type { ChatAgentWriteOperation } from "@/definition/ChatAgentOperations";
@@ -76,6 +77,7 @@ export type ChatOperation = Exclude<
   | AutomationReadOperation
   | AutomationWriteOperation
   | PicaCalendarOperation
+  | AgentSourceSearchOperation
   | "ticket.archive"
   | "ticket.archiveSelection"
   | "ticket.restore",
@@ -248,6 +250,8 @@ const CHAT_OPERATIONS: Readonly<Record<ChatOperation, string>> = {
   "people.visible.list": `{${WINDOW}} sichtbare Personen mit Abteilung und Gruppe`,
   "wiki.tree.read": `{projectId?, ${WINDOW}} Seitenbaum des Wikis`,
   "wiki.search": `{text, projectId?, ${WINDOW}} Wiki durchsuchen`,
+  "search.sources":
+    "{question, projectId?, limit?} Tickets, Wiki-Seiten und freigegebene Ticket-Anhänge per Stichwort- und Vektorsuche nach Abschnitten durchsuchen, die eine Frage beantworten; jeder Abschnitt mit link zum Zitieren",
   "wiki.page.read":
     "{pageId} Seite mit Markdown, revision, icon, cover und anchors lesen",
   "wiki.outline.read": `{${PAGE}} Überschriften einer Seite`,

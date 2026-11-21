@@ -17,6 +17,8 @@
     "test:backend": "vitest run --config vitest.backend.config.ts --coverage; test_status=$?; node --import tsx scripts/backend-coverage-report.ts; report_status=$?; test \"$test_status\" -eq 0 && test \"$report_status\" -eq 0",
     "postgres:restore-check": "tsx scripts/postgres-restore-check.ts",
     "db:transfer": "tsx scripts/db-transfer.ts",
+    "search:index": "tsx scripts/search-index.ts",
+    "rag:acceptance": "tsx scripts/rag-acceptance.ts",
     "clean": "node -e \"require('node:fs').rmSync('build', { recursive: true, force: true })\""
   },
   "dependencies": {

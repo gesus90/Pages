@@ -47,7 +47,6 @@ function readConnectionInput(formData: FormData): AgentConnectionInput {
     name: readTextOrEmpty(formData, "name"),
     codexPriceMappings: readText(formData, "codexPriceMappings") ?? undefined,
     provider: readText(formData, "provider") ?? undefined,
-    zaiAccountType: readText(formData, "zaiAccountType") ?? undefined,
     apiKey: readTextOrEmpty(formData, "apiKey"),
     openRouterManagementKey:
       formData.get("removeOpenRouterManagementKey") === "true"
@@ -183,7 +182,7 @@ const AGENT_ACTION_HANDLERS: Readonly<Record<string, AgentActionHandler>> = {
   "update-connection": async ({ actor, services, formData, id }) => {
     const input = readConnectionInput(formData);
     await services.agentConnectionService.update(actor, id, input);
-    if (input.apiKey || input.zaiAccountType)
+    if (input.apiKey)
       await services.openCodeProviderLinks.afterKeyChange(actor, id);
     return { ok: true, connectionId: id };
   },

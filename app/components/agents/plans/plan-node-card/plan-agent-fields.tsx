@@ -305,8 +305,6 @@ export function PlanModelValue(props: {
   readonly choice: {
     readonly mark: string;
     readonly name: string;
-    /** The model's ID; a Z.AI model names it in the tooltip beside the catalog name. */
-    readonly modelId?: string;
     /** The tool the model is listed under, such as `Claude Code`. */
     readonly tool: string;
     /** Where the tool takes the model from, such as `OpenCode Zen`; `null` when unknown. */

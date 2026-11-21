@@ -238,7 +238,7 @@ export interface AgentSessionView {
   /**
    * The model as catalog identity for the shared badges; present only for
    * the providers with model badges: Claude Code, Codex, Antigravity,
-   * OpenCode and direct Z.AI.
+   * OpenCode and OpenRouter.
    */
   readonly modelIdentity?: AgentModelIdentity | null;
   /**

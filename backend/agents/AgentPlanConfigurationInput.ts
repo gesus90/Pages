@@ -1,28 +1,23 @@
 import { runnerModelRouteSchema } from "@/definition/RunnerExecution";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { emptyAgentConfiguration } from "@/definition/AgentConfiguration";
-import { isAgentProvider } from "@/definition/AgentConnection";
+import {
+  isAgentProvider,
+  isRetiredProviderId,
+} from "@/definition/AgentConnection";
 import { agentParameterIssues } from "@/definition/AgentParameters";
 
 import { readAgentConfiguration } from "./AgentConfigurationInput";
 import { readAgentObject } from "./AgentPayload";
 
+import type { AgentProviderId } from "@/definition/AgentConnection";
 import type { AgentPlanConfiguration } from "@/definition/AgentPlanConfiguration";
 
 /** Validates a secret-free node copy using the same parameter and run-option readers as templates. */
 export function readPlanConfiguration(input: unknown): AgentPlanConfiguration {
   const entry = readAgentObject(input);
   const template = readAgentObject(entry.template);
-  if (
-    typeof entry.revision !== "number" ||
-    !Number.isSafeInteger(entry.revision) ||
-    entry.revision < 1 ||
-    (entry.provider !== null && !isAgentProvider(entry.provider)) ||
-    (entry.reasoningEffort !== null &&
-      (typeof entry.reasoningEffort !== "string" ||
-        entry.reasoningEffort.length > 100))
-  )
-    throw new AgentError("configuration_invalid");
+  const envelope = readEnvelope(entry);
   const configuration = readAgentConfiguration({
     ...emptyAgentConfiguration(),
     markdown: template.markdown,
@@ -42,14 +37,16 @@ export function readPlanConfiguration(input: unknown): AgentPlanConfiguration {
       ? {}
       : { runnerRoute: runnerModelRouteSchema.parse(entry.runnerRoute) }),
     name: readText(entry.name, 200, true),
-    revision: entry.revision,
+    revision: envelope.revision,
     modelProfileId: readText(entry.modelProfileId, 1500, true),
     ...(entry.connectionId === undefined
       ? {}
       : { connectionId: readText(entry.connectionId, 100) }),
     model: readText(entry.model, 500, entry.model === ""),
-    provider: entry.provider,
-    reasoningEffort: entry.reasoningEffort,
+    // A saved node of a retired provider stays editable without a provider; its
+    // connection is gone, so the node cannot run until another model is chosen.
+    provider: envelope.provider,
+    reasoningEffort: envelope.reasoningEffort,
     template: {
       markdown: configuration.markdown,
       parameters: configuration.parameters,
@@ -57,6 +54,31 @@ export function readPlanConfiguration(input: unknown): AgentPlanConfiguration {
       ...(template.run === undefined ? {} : { run: configuration.run }),
     },
   };
+}
+
+interface PlanEnvelope {
+  readonly revision: number;
+  readonly provider: AgentProviderId | null;
+  readonly reasoningEffort: string | null;
+}
+
+function readEnvelope(entry: ReturnType<typeof readAgentObject>): PlanEnvelope {
+  const { revision, provider, reasoningEffort } = entry;
+  if (
+    typeof revision !== "number" ||
+    !Number.isSafeInteger(revision) ||
+    revision < 1
+  )
+    throw new AgentError("configuration_invalid");
+  if (
+    reasoningEffort !== null &&
+    (typeof reasoningEffort !== "string" || reasoningEffort.length > 100)
+  )
+    throw new AgentError("configuration_invalid");
+  if (provider === null || isRetiredProviderId(provider))
+    return { revision, provider: null, reasoningEffort };
+  if (!isAgentProvider(provider)) throw new AgentError("configuration_invalid");
+  return { revision, provider, reasoningEffort };
 }
 
 function readText(input: unknown, maximum: number, allowEmpty = false): string {

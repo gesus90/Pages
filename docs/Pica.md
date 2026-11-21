@@ -12,7 +12,6 @@ include the [Storage interface](StorageApi.md) and administrator tools.
 - [Pica over Codex ACP](#pica-over-codex-acp)
 - [Pica over Claude Code ACP](#pica-over-claude-code-acp)
 - [Pica over native OpenCode ACP](#pica-over-native-opencode-acp)
-- [Pica with a z.ai connection](#pica-with-a-zai-connection)
 - [Pica live activity](#pica-live-activity)
 - [Pica sessions and conversation context](#pica-sessions-and-conversation-context)
 - [Pica quota demo](#pica-quota-demo)
@@ -21,19 +20,19 @@ include the [Storage interface](StorageApi.md) and administrator tools.
 
 ## Pica native tools
 
-The Pica chat runs Codex CLI, Claude Code, opencode, a z.ai connection
-(through native opencode) and Antigravity through ACP; Antigravity reaches
-the catalog as the one MCP server of its session, without native tools.
+The Pica chat runs Codex CLI, Claude Code, opencode and Antigravity through
+ACP; Antigravity reaches the catalog as the one MCP server of its session,
+without native tools.
 Its native catalog has fixed tools, each on an existing Pages operation with
 the current account rights:
 
-| Kind       | Tools                                                                                                                                                                                                                                                                                      |
-| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Reads      | `projects_list`, `projects_read`, `departments_list`, `tickets_search` (in one project; `assignedToMe` for the person's own tickets), `tickets_read`, `assignment_targets_search`, `tags_list`, `milestones_read`, `wiki_search`, `wiki_tree_read`, `wiki_page_read`, `wiki_comments_read` |
-| Tickets    | `tickets_create`, `tickets_set_title`, `tickets_set_status`, `tickets_set_description`, `tickets_set_assignee`, `tickets_set_tags`, `tickets_set_departments`, `tickets_set_parent`, `tickets_set_milestone`, `tickets_delete`                                                             |
-| Projects   | `projects_create`, `projects_set_name`, `projects_set_description`, `projects_set_status`, `projects_set_dates`                                                                                                                                                                            |
-| Milestones | `milestones_create`, `milestones_set_name`, `milestones_set_description`, `milestones_set_status`, `milestones_set_start_at`, `milestones_set_due_at`, `milestones_delete`                                                                                                                 |
-| Wiki       | `wiki_page_create`, `wiki_page_set_title`, `wiki_page_set_content`, `wiki_page_move`, `wiki_page_delete`, `wiki_comment_add`, `wiki_comment_edit`, `wiki_comment_resolve`, `wiki_comment_delete`                                                                                           |
+| Kind       | Tools                                                                                                                                                                                                                                                                                                                                          |
+| ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Reads      | `projects_list`, `projects_read`, `departments_list`, `tickets_search` (in one project; `assignedToMe` for the person's own tickets), `tickets_read`, `assignment_targets_search`, `tags_list`, `milestones_read`, `wiki_search`, `sources_search` (hybrid search with source links), `wiki_tree_read`, `wiki_page_read`, `wiki_comments_read` |
+| Tickets    | `tickets_create`, `tickets_set_title`, `tickets_set_status`, `tickets_set_description`, `tickets_set_assignee`, `tickets_set_tags`, `tickets_set_departments`, `tickets_set_parent`, `tickets_set_milestone`, `tickets_delete`                                                                                                                 |
+| Projects   | `projects_create`, `projects_set_name`, `projects_set_description`, `projects_set_status`, `projects_set_dates`                                                                                                                                                                                                                                |
+| Milestones | `milestones_create`, `milestones_set_name`, `milestones_set_description`, `milestones_set_status`, `milestones_set_start_at`, `milestones_set_due_at`, `milestones_delete`                                                                                                                                                                     |
+| Wiki       | `wiki_page_create`, `wiki_page_set_title`, `wiki_page_set_content`, `wiki_page_move`, `wiki_page_delete`, `wiki_comment_add`, `wiki_comment_edit`, `wiki_comment_resolve`, `wiki_comment_delete`                                                                                                                                               |
 
 Sessions of agent employees (not Pica) additionally get `chats_list`,
 `chat_read` and `chat_send`: an agent reads the chats it takes part
@@ -67,20 +66,19 @@ is sent again unchanged in the same turn. A text of a write holds at most
 The production composition selects ACP explicitly. `legacy-actions` retains
 its earlier text protocol for compatibility tests and never acts as a fallback.
 Pages owns transcripts, attachments and existing summaries. Native sessions,
-those of the CLIs and of a z.ai connection, manage their own context;
+those of the CLIs, manage their own context;
 `/compact` is unavailable for Pica.
 
-Pica settings offer the models of CLI connections and of z.ai connections.
+Pica settings offer the models of CLI connections.
 Free opencode Zen models are hidden because they require opencode's own tools;
 agent plans keep them. A saved selection of another API connection is retained
 but never answers: Pica asks for a new selection and never changes models
 silently. OpenAI and Anthropic API keys remain available to other Pages
-functions, while Pica uses the Codex and Claude CLI sign-ins. A z.ai connection
-is the one direct API key Pica answers with, see
-[Pica with a z.ai connection](#pica-with-a-zai-connection).
+functions, while Pica uses the Codex and Claude CLI sign-ins. No direct API
+key answers in Pica.
 
-The z.ai account choice and additive migration rollback are documented in
-[z.ai account routing](ZaiAccountType.md).
+A saved Pica selection of a connection of a retired provider is treated the
+same way: it is kept, never answers, and Pica asks for a new selection.
 
 ## Pica execution budgets
 
@@ -303,36 +301,6 @@ The protocol observations and upstream source references are in
 [backend/agents/acp/OpenCodeAcpCapabilities.md](../backend/agents/acp/OpenCodeAcpCapabilities.md).
 OpenCode plan nodes also use the native ACP entry point; see
 [OpenCode plan setup](AgentRuntime.md#opencode-plan-nodes-with-a-console--zen-key).
-
-## Pica with a z.ai connection
-
-A z.ai connection under _Settings › Agents_ answers in Pica over the same
-native `opencode acp` session as an OpenCode connection. Nothing else answers
-for it: there is no direct request to the z.ai API and no other model or
-provider as a fallback. The only differences from the section above are
-these.
-
-- **Connection and key.** The session reads the key of exactly the connection
-  the administration assigned to Pica, after the connection's access check
-  passed. Its only model connection is `zai`, with the fixed endpoint of the
-  saved account type (standard API or GLM Coding Plan, see
-  [z.ai account routing](ZaiAccountType.md)). The key reaches the session only
-  as the credential of this one start and is never part of a prompt, a
-  journal or a log.
-- **Model and level.** The model is the ID of the catalog, such as
-  `glm-5.3-flash`; the session starts it as `zai/<model>`. The reasoning
-  level is the stored one, sent as the variant of the model (`low`, `high` or
-  `max` for the GLM 5.3 family). A level the model does not list is refused
-  when the choice is saved, never changed.
-- **Tools and mode.** Like OpenCode, the session runs only in _Read only_ and
-  only with the authorized Pages tools; every built-in tool of the runtime is
-  refused.
-- **Sessions.** A stored session of this runner carries the profile
-  `pica-zai-chat-1`, so it is never continued by an OpenCode connection and the
-  other way round.
-- **Context.** The context lives in the native session. The context
-  indicator shows what the adapter reported, never a Pages estimate, and
-  `/compact` is refused as for the other native sessions.
 
 ## Pica live activity
 

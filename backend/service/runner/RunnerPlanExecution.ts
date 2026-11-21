@@ -576,8 +576,8 @@ function isBoundAntigravity(input: AgentPlanExecutionInput): boolean {
 
 function linkedCliProvider(
   provider: AgentProviderId,
-): "openrouter" | "zai" | undefined {
-  return provider === "openrouter" || provider === "zai" ? provider : undefined;
+): "openrouter" | undefined {
+  return provider === "openrouter" ? provider : undefined;
 }
 
 function turnTimeoutSeconds(

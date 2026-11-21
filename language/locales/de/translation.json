@@ -782,7 +782,6 @@
         "openrouter": "OpenRouter",
         "openai": "OpenAI",
         "google_ai_studio": "Google AI Studio (Gemini)",
-        "zai": "Z.AI",
         "anthropic": "Anthropic",
         "codex_cli": "Codex CLI (ChatGPT-Konto)",
         "claude_code": "Claude Code (Claude-Abo)",
@@ -793,7 +792,6 @@
         "openrouter": "OpenRouter API",
         "openai": "OpenAI API",
         "google_ai_studio": "Google AI Studio API",
-        "zai": "Z.AI API",
         "anthropic": "Anthropic API",
         "codex_cli": "Codex CLI",
         "claude_code": "Claude Code CLI",
@@ -808,7 +806,6 @@
         "name_required": "Ein Name für die Anbindung ist erforderlich.",
         "name_too_long": "Der Name darf höchstens 80 Zeichen enthalten.",
         "name_taken": "Dieser Name wird bereits verwendet.",
-        "zai_account_type_invalid": "Bitte die z.ai-Kontoart auswählen: GLM Coding Plan oder normale API mit Guthaben.",
         "provider_invalid": "Wählen Sie einen unterstützten Anbieter.",
         "provider_immutable": "Der Anbieter kann nicht geändert werden.",
         "api_key_required": "Ein API-Key ist erforderlich.",
@@ -1185,12 +1182,6 @@
       "testModelAction": "Modelltest ausführen",
       "apiAuthHint": "Zugangsprüfung: kostenfrei, ohne Modellanfrage.",
       "cliAuthHint": "Anmeldestatus: lokal, ohne Serverabfrage. Ein Modelltest ist eine separate Aktion.",
-      "zaiAuthHint": "Zugangsprüfung: Modellliste am Endpunkt der gespeicherten Kontoart, ohne Modellaufruf.",
-      "zaiAccountType": "z.ai-Kontoart",
-      "zaiChooseAccount": "Kontoart auswählen …",
-      "zaiCodingPlan": "Abo · GLM Coding Plan",
-      "zaiStandardApi": "Normale API · Guthaben / Ressourcenpaket",
-      "zaiAccountHint": "Wähle die Kontoart deines Schlüssels. Der Coding Plan verwendet seinen eigenen Endpunkt und wird bei opencode als zai-coding-plan registriert. Ein Wechsel setzt die Zugangs- und Modellprüfung zurück.",
       "modelRequiredHint": "Wählen und speichern Sie ein Modell, bevor Sie einen Modelltest ausführen.",
       "neverChecked": "Noch nicht geprüft",
       "cliCheckSnapshot": "Gespeichertes Ergebnis dieser Prüfung zum genannten Zeitpunkt, kein neuer Aufruf. Die jetzt wirksame CLI zeigt Agent-Tools & Laufzeiten.",
@@ -1811,7 +1802,7 @@
       "freeBadge": "Kostenlos",
       "openCodeFreeGroup": "opencode · Kostenlos",
       "openCodeProviders": "Provider über die Schlüssel in Pages",
-      "openCodeProvidersHint": "OpenCode erhält die Schlüssel der API-Verbindungen für z.ai, Google AI Studio und OpenRouter automatisch, sobald ihre Zugangsprüfung bestanden ist. Der Schlüssel bleibt nur in seiner API-Verbindung gespeichert und wird hier weder angezeigt noch ein zweites Mal eingegeben.",
+      "openCodeProvidersHint": "OpenCode erhält die Schlüssel der API-Verbindungen für Google AI Studio und OpenRouter automatisch, sobald ihre Zugangsprüfung bestanden ist. Der Schlüssel bleibt nur in seiner API-Verbindung gespeichert und wird hier weder angezeigt noch ein zweites Mal eingegeben.",
       "openCodeLink": {
         "free": "ohne Schlüssel verfügbar",
         "linked": "eingebunden über „{{connection}}“",
@@ -1821,7 +1812,7 @@
       },
       "openCodeLinkedHint": "auch über opencode nutzbar",
       "openRouterModelIds": "OpenRouter-Preis-IDs für OpenCode-Modelle",
-      "openRouterModelIdsHint": "JSON-Objekt, zum Beispiel {\"zai/glm-5.3\":\"z-ai/glm-5.3\"}. Für automatische Zuordnung {} belassen.",
+      "openRouterModelIdsHint": "JSON-Objekt, zum Beispiel {\"opencode/beispiel-modell\":\"hersteller/beispiel-modell\"}. Für automatische Zuordnung {} belassen.",
       "antigravityHint": "Google-Anmeldung über den offiziellen ACP-Adapter im isolierten Pages-Kontext dieser Anbindung. Google leitet danach auf den Loopback-Callback des Adapters (127.0.0.1) am Pages-Server weiter: Ein Browser auf dem Server schließt die Anmeldung direkt ab, von einem anderen Gerät wird die Adresse aus dem Browser hier eingefügt. Pica kann diese Anbindung nutzen; dort stehen nur Picas autorisierte Pages-Werkzeuge zur Verfügung, keine eingebauten Antigravity-Werkzeuge.",
       "antigravityLoginHint": "Anmeldeseite öffnen, Google-Konto wählen und selbst zustimmen. Läuft dieser Browser auf dem Pages-Server, schließt die Anmeldung danach automatisch ab.",
       "antigravityRedirectLabel": "Adresse nach der Google-Zustimmung",
@@ -2351,6 +2342,7 @@
       "attachmentFileEmpty": "Die Datei ist leer.",
       "attachmentFileNameTooLong": "Der Dateiname ist zu lang.",
       "attachmentTooLarge": "Die Datei ist größer als erlaubt.",
+      "attachmentUploadIncomplete": "Das Hochladen wurde unterbrochen, bevor die ganze Datei ankam. Bitte erneut hochladen.",
       "descriptionConflict": "Die Beschreibung wurde inzwischen von jemand anderem geändert.",
       "ticketConflict": "Dieses Ticket wurde zwischenzeitlich geändert. Bitte prüfe die aktuellen Werte und versuche es erneut.",
       "invalidTreeKey": "Dieser Zweig ist unbekannt.",
@@ -2643,10 +2635,14 @@
       "add": "Datei anhängen",
       "empty": "Noch keine Anhänge.",
       "remove": "{{name}} entfernen",
+      "view": "{{name}} ansehen",
       "download": "{{name}} herunterladen",
       "uploading": "{{name}} wird hochgeladen … {{percent}} %",
       "meta": "{{size}} · {{user}}",
-      "failed": "Hochladen fehlgeschlagen: {{reason}}"
+      "failed": "Hochladen fehlgeschlagen: {{reason}}",
+      "searchRelease": "Text von {{name}} für die Suche freigeben",
+      "searchWithdraw": "{{name}} aus der Suche zurückziehen",
+      "searchReleased": "Für die Suche freigegeben"
     },
     "parent": {
       "none": "Keine Zuordnung",
@@ -3794,15 +3790,15 @@
       "general": "Das hat nicht geklappt. Bitte versuch es noch einmal.",
       "contextChanged": "Der Kontext wurde inzwischen geändert. Es wurde nichts überschrieben; bitte /compact erneut aufrufen.",
       "compactionFailed": "Der Kontext konnte nicht komprimiert werden. Der vorhandene Gesprächsverlauf bleibt erhalten.",
-      "nativeContextManaged": "Codex, Claude Code, opencode und z.ai verwalten den Kontext ihrer nativen Sitzung selbst; /compact ist dort nicht verfügbar.",
-      "picaModelSelectionRequired": "Pica verwendet nur Codex CLI, Claude Code, OpenCode, z.ai oder Antigravity über ACP. Die gespeicherte API-Auswahl bleibt erhalten. Bitte in den Pica-Einstellungen die Übernahme über opencode bestätigen oder ein neues Modell wählen. OpenAI- und Anthropic-API-Schlüssel werden von Pica nicht mehr verwendet.",
+      "nativeContextManaged": "Codex, Claude Code und opencode verwalten den Kontext ihrer nativen Sitzung selbst; /compact ist dort nicht verfügbar.",
+      "picaModelSelectionRequired": "Pica verwendet nur Codex CLI, Claude Code, OpenCode oder Antigravity über ACP. Die gespeicherte API-Auswahl bleibt erhalten. Bitte in den Pica-Einstellungen die Übernahme über opencode bestätigen oder ein neues Modell wählen. OpenAI- und Anthropic-API-Schlüssel werden von Pica nicht mehr verwendet.",
       "picaZenUnsupported": "Dieses kostenlose opencode-Zen-Modell benötigt die eigenen Werkzeuge von opencode und kann in Pica nicht ausgeführt werden. Bitte ein anderes Modell wählen. In Agent-Plänen bleibt es verfügbar.",
       "picaModelUnsupported": "Laut Katalog kann dieses Modell nicht im Chat antworten oder keine Werkzeuge aufrufen und ist für Pica nicht nutzbar. Die gespeicherte Auswahl bleibt erhalten; es wurde nichts gesendet und kein anderes Modell eingesetzt. Bitte unter Einstellungen › Agents ein anderes Modell wählen.",
       "picaCodexConfigurationUnmanaged": "Der Codex-Zugang von Pica enthält eine eigene Konfigurationsdatei (config.toml), die Pages nicht verwaltet. Damit startet Pica nicht; die Datei bleibt unverändert. Ein Admin weist Pica unter Einstellungen › Agents eine saubere, getrennte Codex-Verbindung ohne eigene config.toml zu. Es wurde nichts gesendet.",
       "plan_codex_configuration_unmanaged": "Eine Codex-Konfigurationsdatei außerhalb von Pages (config.toml im Zugang oder im Arbeitsordner von Pica) verhindert den Start. Die Datei bleibt unverändert. Ein Admin weist Pica unter Einstellungen › Agents eine saubere, getrennte Codex-Verbindung zu.",
       "instructionsUnavailable": "Pica kann gerade nicht antworten: Die geschützten Vorgaben von Pica fehlen auf dem Server oder sind nicht lesbar. Deine Nachricht wurde nicht gesendet. Bitte wende dich an einen Admin.",
-      "acpProviderUnsupported": "Pica unterstützt Codex CLI, Claude Code, OpenCode, z.ai und Antigravity über ACP. Ein Admin muss unter Einstellungen › Agents einen solchen Agenten für den Chat zuweisen.",
-      "acpPermissionModeUnsupported": "Pica antwortet mit Claude Code, OpenCode, z.ai und Antigravity nur im Modus „Lesend“. Es stehen ausschließlich die autorisierten Pages-Werkzeuge zur Verfügung, keine Shell, Dateien oder Webwerkzeuge. Ein Admin muss den Modus des Chat-Agenten anpassen. Deine Nachricht wurde nicht gesendet.",
+      "acpProviderUnsupported": "Pica unterstützt Codex CLI, Claude Code, OpenCode und Antigravity über ACP. Ein Admin muss unter Einstellungen › Agents einen solchen Agenten für den Chat zuweisen.",
+      "acpPermissionModeUnsupported": "Pica antwortet mit Claude Code, OpenCode und Antigravity nur im Modus „Lesend“. Es stehen ausschließlich die autorisierten Pages-Werkzeuge zur Verfügung, keine Shell, Dateien oder Webwerkzeuge. Ein Admin muss den Modus des Chat-Agenten anpassen. Deine Nachricht wurde nicht gesendet.",
       "pica_codex_adapter_unavailable": "Pica benötigt das geprüfte Codex-ACP-Paket 2.2.2. Bitte die Administration, dieses Paket für den nativen Pica-Runner bereitzustellen.",
       "pica_native_artifact_unavailable": "Der geprüfte native Runner für Pica fehlt oder seine Dateien stimmen nicht mit dem Manifest überein. Bitte wende dich an die Administration.",
       "accessModeRequired": "Dieser Agent hat noch die frühere Zugriffsstufe „Arbeitsplatz“. Ein Admin muss „Lesend“ oder „YOLO“ wählen. Deine Nachricht wurde nicht gesendet.",
@@ -5755,7 +5751,6 @@
         "claude_code": "Claude Code",
         "opencode": "OpenCode",
         "openrouter": "OpenRouter",
-        "zai": "z.AI",
         "api": "API-Verbindung"
       },
       "access": {
@@ -6058,9 +6053,6 @@
         "opencode": {
           "name": "OpenCode CLI",
           "account": "Verbindung"
-        },
-        "zai": {
-          "name": "Z.AI"
         },
         "openrouter": {
           "name": "OpenRouter"
@@ -6798,7 +6790,6 @@
         "claude_code": "Claude Code",
         "opencode": "OpenCode",
         "openrouter": "OpenRouter",
-        "zai": "z.AI",
         "api": "API"
       },
       "notApplicable": "Nicht anwendbar",
@@ -7799,15 +7790,12 @@
         "openrouter": "OpenRouter",
         "openai": "OpenAI API",
         "anthropic": "Anthropic API",
-        "google_ai_studio": "Google AI Studio",
-        "zai": "Z.AI"
+        "google_ai_studio": "Google AI Studio"
       },
       "sources": {
         "opencode": "OpenCode Zen",
         "openrouter": "OpenRouter",
-        "google": "Google",
-        "zai": "Z.AI",
-        "zai-coding-plan": "Z.AI Coding Plan"
+        "google": "Google"
       },
       "access": {
         "antigravity": "Google-Konto",
@@ -7818,7 +7806,6 @@
         "openai": "API-Key",
         "anthropic": "API-Key",
         "google_ai_studio": "API-Key",
-        "zai": "API-Key",
         "opencodeFree": "Free-Modelle"
       },
       "accessCount_one": "{{count}} Zugang",
@@ -8458,7 +8445,7 @@
     "description": "Wandelt gesprochene Sprache in Text um. Gilt für die ganze Instanz.",
     "model": "Modell",
     "chooseModel": "Modell auswählen …",
-    "noModels": "Keine eingerichtete Anbindung bietet ein Spracherkennungsmodell. Unter Agents eine OpenRouter- oder Z.AI-Anbindung mit API-Schlüssel einrichten und bei OpenRouter den Modellkatalog aktualisieren.",
+    "noModels": "Keine eingerichtete Anbindung bietet ein Spracherkennungsmodell. Unter Agents eine OpenRouter-Anbindung mit API-Schlüssel einrichten und den Modellkatalog aktualisieren.",
     "maxDuration": "Längste Aufnahme",
     "minutes_one": "{{count}} Minute",
     "minutes_other": "{{count}} Minuten",
@@ -9899,62 +9886,6 @@
         "signedOut": {
           "title": "Für diese Verbindung fehlt die Anmeldung bei ChatGPT.",
           "detail": "Ohne Anmeldung kann Pages weder Tarif noch Werte abrufen."
-        }
-      }
-    },
-    "zai": {
-      "subtitle": {
-        "coding-plan": "Z.AI · GLM Coding Plan",
-        "api": "Z.AI · Standard-API"
-      },
-      "plan": {
-        "lite": "Lite",
-        "pro": "Pro",
-        "max": "Max"
-      },
-      "window": {
-        "tokens": "Token-Kontingent",
-        "credits": "Credit-Kontingent",
-        "mcp": "MCP-Nutzung",
-        "named": "{{name}} · {{length}}"
-      },
-      "length": {
-        "hours_one": "{{count}} Stunde",
-        "hours_other": "{{count}} Stunden",
-        "weeks_one": "{{count}} Woche",
-        "weeks_other": "{{count}} Wochen",
-        "months_one": "{{count}} Monat",
-        "months_other": "{{count}} Monate"
-      },
-      "counts": "{{used}} von {{total}} genutzt",
-      "reported": "Von Z.AI gemeldet · {{time}}",
-      "signedOut": "Schlüssel fehlt oder abgelehnt",
-      "notice": {
-        "noWindows": {
-          "title": "Z.AI hat für diesen Schlüssel keine Kontingente gemeldet.",
-          "detail": "Pages hat erfolgreich abgefragt."
-        },
-        "failed": {
-          "title": "Pages konnte noch keine Werte abrufen.",
-          "detail": "Der Tarif ist unbekannt, bis Z.AI ihn meldet."
-        },
-        "signedOut": {
-          "title": "Für diese Verbindung fehlt ein gültiger Z.AI-Schlüssel.",
-          "detail": "Ohne gültigen Schlüssel kann Pages weder Tarif noch Werte abrufen."
-        }
-      },
-      "absence": {
-        "none_reported": {
-          "title": "Z.AI hat für diesen Schlüssel keine Kontingente gemeldet.",
-          "detail": "Die Abfrage war erfolgreich, die Liste der Kontingente war leer."
-        },
-        "unusable": {
-          "title": "Z.AI hat Einträge gemeldet, die Pages nicht anzeigen kann.",
-          "detail": "Sie haben einen unbekannten Typ oder keinen auswertbaren Verbrauch. Pages zeigt keine Werte, die Z.AI nicht belegt."
-        },
-        "elapsed": {
-          "title": "Z.AI hat nur Kontingente gemeldet, deren Zeitraum schon zu Ende ist.",
-          "detail": "Der gemeldete Reset-Zeitpunkt liegt in der Vergangenheit, die Werte gelten nicht mehr."
         }
       }
     }

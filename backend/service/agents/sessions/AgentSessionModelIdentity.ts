@@ -62,9 +62,9 @@ function catalogContextWindow(
 /**
  * The model and reasoning of a session as structured identity for the badges.
  * @remarks
- * Claude Code, Codex, Antigravity, OpenCode, OpenRouter and direct Z.AI
+ * Claude Code, Codex, Antigravity, OpenCode and OpenRouter
  * sessions have model badges. Codex, Antigravity and OpenCode, including its
- * linked OpenRouter and Z.AI connections, confirm their model and level
+ * linked OpenRouter connections, confirm their model and level
  * through their configuration options.
  * The concrete model the adapter reported with its usage, or the Claude CLI
  * of a runner in its events, is kept apart from the configuration it

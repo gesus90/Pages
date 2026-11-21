@@ -27,7 +27,7 @@ function profileFields(
     web: options.web,
     browser: options.browser === true,
   };
-  if (["opencode", "openrouter", "zai"].includes(provider)) {
+  if (["opencode", "openrouter"].includes(provider)) {
     const profile = openCodeAcpProfile(mode);
     return {
       tools: JSON.stringify(tools),

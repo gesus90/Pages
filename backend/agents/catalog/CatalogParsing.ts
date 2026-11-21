@@ -4,23 +4,17 @@ import {
   isModelAliasToken,
   isReasoningEffortToken,
 } from "@/definition/AgentModelCatalog";
-import {
-  describeClaudeModel,
-  describeZaiModel,
-} from "@/definition/AgentModelVersion";
+import { isRetiredOpenCodeModel } from "@/definition/AgentConnection";
+import { describeClaudeModel } from "@/definition/AgentModelVersion";
 
 import { isCatalogModel } from "./CatalogTextModels";
-import { withDocumentedZaiCapabilities } from "./DocumentedZaiModels";
 import {
   documentedGoogleThinkingLevels,
   OPENROUTER_BUDGET_EFFORTS,
   OPENROUTER_GATEWAY_EFFORTS,
 } from "./DocumentedReasoningLevels";
 
-import type {
-  AgentProviderId,
-  ApiProviderId,
-} from "@/definition/AgentConnection";
+import type { ApiProviderId } from "@/definition/AgentConnection";
 import type {
   AgentCatalogModel,
   AgentReasoningSupport,
@@ -356,14 +350,6 @@ function readOpenRouterCursor(
   return String(offset + count);
 }
 
-// The Z.AI listing names the model ID only; its documented capabilities fill the rest.
-function withProviderFacts(
-  model: AgentCatalogModel,
-  provider: AgentProviderId,
-): AgentCatalogModel {
-  return provider === "zai" ? withDocumentedZaiCapabilities(model) : model;
-}
-
 /**
  * Strictly parses a complete page without storing raw descriptions or provider bodies.
  * @param payload - One page as the provider returned it.
@@ -389,7 +375,7 @@ export function parseCatalogPage(
   return {
     models: entries
       .filter((entry) => isCatalogModel(entry, provider))
-      .map((entry) => withProviderFacts(readModel(entry, provider), provider)),
+      .map((entry) => readModel(entry, provider)),
     nextCursor:
       provider === "openrouter"
         ? readOpenRouterCursor(result, offset, entries.length)
@@ -443,35 +429,28 @@ function readStoredModalities(
 /**
  * Reads a persisted snapshot; older snapshots have no reasoning data.
  * @param entries - The stored `models_json` array.
- * @param provider - The provider of the connection the snapshot belongs to.
  * @returns The models with the reasoning support saved for each of them. A
- * Z.AI snapshot saved before its capabilities were documented here gets them
- * on reading, so no new listing is needed to show them.
+ * snapshot saved before a provider was retired loses that provider's OpenCode
+ * models on reading.
  */
 export function parseStoredCatalog(
   entries: unknown,
-  provider: AgentProviderId,
 ): readonly AgentCatalogModel[] {
   // Snapshots retain the explicit input capability, including text-only models.
-  return readEntries(entries).map((entry) => {
-    const model = {
-      ...readModel(entry, "openrouter"),
-      ...readStoredReasoning(entry),
-      ...readStoredAliases(entry),
-      ...readStoredToolCall(entry),
-      ...readStoredModalities(entry),
-    };
-    // Snapshots of the Claude CLI picker from before the version was part of the name keep their stored name.
-    // The Z.AI listing names no model, so its stored name is the ID until it is read here.
-    return withProviderFacts(
-      {
+  return readEntries(entries)
+    .map((entry) => {
+      const model = {
+        ...readModel(entry, "openrouter"),
+        ...readStoredReasoning(entry),
+        ...readStoredAliases(entry),
+        ...readStoredToolCall(entry),
+        ...readStoredModalities(entry),
+      };
+      // Snapshots of the Claude CLI picker from before the version was part of the name keep their stored name.
+      return {
         ...model,
-        name: describeZaiModel(
-          model.id,
-          describeClaudeModel(model.id, model.name),
-        ),
-      },
-      provider,
-    );
-  });
+        name: describeClaudeModel(model.id, model.name),
+      };
+    })
+    .filter((model) => !isRetiredOpenCodeModel(model.id));
 }

@@ -3,19 +3,60 @@ import type { AgentConnectionScope } from "./AgentConnectionScope";
 
 /** API keys and CLI accounts remain separate connection types. */
 export type ApiProviderId =
-  "openrouter" | "openai" | "google_ai_studio" | "zai" | "anthropic";
+  "openrouter" | "openai" | "google_ai_studio" | "anthropic";
 export type CliProviderId =
   "codex_cli" | "claude_code" | "opencode" | "antigravity";
 export type AgentProviderId = ApiProviderId | CliProviderId;
 export type AgentAccessKind = "api_key" | "cli_account";
 export type AgentCheckKind = "auth" | "model";
 
-/** The subscription and prepaid APIs use separate fixed endpoints and OpenCode providers. */
-export type ZaiAccountType = "api" | "coding-plan";
+/**
+ * Provider IDs Pages no longer offers.
+ * @remarks
+ * Stored connections, saved model choices and finished sessions of such a
+ * provider stay in the database. They are recognised only to keep old data
+ * readable: a retired provider is never listed, selected or run.
+ */
+export const RETIRED_PROVIDER_IDS = ["zai"] as const;
+export type RetiredProviderId = (typeof RETIRED_PROVIDER_IDS)[number];
 
-/** Validates an explicit account choice without inspecting credentials. */
-export function isZaiAccountType(input: unknown): input is ZaiAccountType {
-  return input === "api" || input === "coding-plan";
+/** Whether a stored provider ID names a provider Pages retired. */
+export function isRetiredProviderId(
+  value: unknown,
+): value is RetiredProviderId {
+  return RETIRED_PROVIDER_IDS.some((retired) => retired === value);
+}
+
+/**
+ * The native OpenCode provider IDs of a retired provider.
+ * @remarks
+ * OpenCode ships these providers itself. Their models are neither listed nor
+ * run, even when OpenCode still reports them.
+ */
+const RETIRED_OPENCODE_PROVIDERS: readonly string[] = [
+  "zai",
+  "zai-coding-plan",
+  "zhipuai",
+  "zhipuai-coding-plan",
+];
+
+/**
+ * Whether a full OpenCode model ID belongs to a retired native provider.
+ * @param model - A model ID such as `provider/model`.
+ */
+export function isRetiredOpenCodeModel(model: string): boolean {
+  return RETIRED_OPENCODE_PROVIDERS.includes(model.split("/")[0]);
+}
+
+/**
+ * The runner an earlier session of a retired provider ran on.
+ * @param provider - A stored provider or runner ID.
+ * @returns `opencode` for a retired provider, which ran on the native OpenCode
+ * session, and the unchanged ID otherwise. History stays readable without the
+ * retired provider's brand.
+ */
+export function historicalRunnerOf(provider: string): string {
+  return isRetiredProviderId(provider) ? "opencode" : provider;
 }
 
 /** Native OpenCode key destinations; a Zen key must never be assigned to OpenRouter. */
@@ -31,7 +72,6 @@ export function isOpenCodeKeyProvider(
 
 /** Legacy native provider names and the ordering of API connection choices. */
 export const OPENCODE_LINKED_PROVIDERS = {
-  zai: "zai",
   google_ai_studio: "google",
   openrouter: "openrouter",
 } as const;
@@ -51,7 +91,6 @@ export function isOpenCodeLinkedProvider(
 export function linkedApiProviderOf(
   modelProvider: string,
 ): OpenCodeLinkedProvider | null {
-  if (modelProvider === "zai-coding-plan") return "zai";
   for (const [provider, native] of Object.entries(OPENCODE_LINKED_PROVIDERS))
     if (
       native === modelProvider &&
@@ -62,15 +101,11 @@ export function linkedApiProviderOf(
   return null;
 }
 
-/** Legacy native key destination, respecting z.ai's saved account type. */
+/** Legacy native key destination of a linked API connection. */
 export function openCodeLinkedModelProvider(connection: {
   readonly provider: OpenCodeLinkedProvider;
-  readonly zaiAccountType?: ZaiAccountType;
 }): string {
-  return connection.provider === "zai" &&
-    connection.zaiAccountType === "coding-plan"
-    ? "zai-coding-plan"
-    : OPENCODE_LINKED_PROVIDERS[connection.provider];
+  return OPENCODE_LINKED_PROVIDERS[connection.provider];
 }
 
 /** The native provider of a full OpenCode model ID such as `google/gemini-3.8-flash`. */
@@ -96,9 +131,7 @@ export type AgentConnectionLocation =
  * (a key without a drawn mark shows the neutral fallback), and `chatAdapter`
  * says how Pica answers with it: `acp` over an ACP session that reaches only
  * Pica's tools, and `null` for a provider Pica has no adapter for, such as a
- * direct API. z.ai answers over `acp` too: its direct key runs as the private
- * model connection of the native OpenCode session, with the endpoint of the
- * saved account type.
+ * direct API.
  */
 export const AGENT_PROVIDERS = {
   openrouter: {
@@ -127,15 +160,6 @@ export const AGENT_PROVIDERS = {
     endpoint: "https://generativelanguage.googleapis.com/v1beta",
     mark: "gemini",
     chatAdapter: null,
-  },
-  zai: {
-    accessKind: "api_key",
-    labelKey: "settings.agents.provider.zai",
-    location: "local",
-    vendor: "zai",
-    endpoint: "https://api.z.ai/api/paas/v4",
-    mark: "zai",
-    chatAdapter: "acp",
   },
   anthropic: {
     accessKind: "api_key",
@@ -182,14 +206,9 @@ export const AGENT_PROVIDERS = {
 
 export const MODEL_TEST_PROMPT = "Reply with exactly: OK";
 
-/** Credentials may only be sent to the fixed endpoint for the saved account type. */
-export function apiProviderEndpoint(
-  provider: ApiProviderId,
-  zaiAccountType?: ZaiAccountType,
-): string {
-  return provider === "zai" && zaiAccountType === "coding-plan"
-    ? "https://api.z.ai/api/coding/paas/v4"
-    : AGENT_PROVIDERS[provider].endpoint;
+/** Credentials may only be sent to the fixed endpoint of the provider. */
+export function apiProviderEndpoint(provider: ApiProviderId): string {
+  return AGENT_PROVIDERS[provider].endpoint;
 }
 
 /** Narrows untrusted provider identifiers to the fixed catalog. */
@@ -287,8 +306,6 @@ export interface AgentConnectionSummary {
   readonly id: string;
   readonly name: string;
   readonly provider: AgentProviderId;
-  /** Absent on earlier projections means the unchanged standard API. */
-  readonly zaiAccountType?: ZaiAccountType;
   readonly accessKind: AgentAccessKind;
   readonly hasApiKey: boolean;
   readonly testModel: string | null;
@@ -311,7 +328,6 @@ export interface AgentConnectionInput {
   readonly claudePriceModels?: unknown;
   readonly name: string;
   readonly provider?: string;
-  readonly zaiAccountType?: string;
   readonly apiKey?: string;
   readonly openRouterManagementKey?: string | null;
   readonly testModel?: string;

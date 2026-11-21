@@ -269,8 +269,8 @@ export class PicaSettingsService {
       const connection = await this.dependencies.connections.find(
         selection.connectionId,
       );
-      // An API connection without a chat adapter never answers in Pica; one with
-      // an adapter, such as z.ai, reports the real reason it cannot be resolved.
+      // An API connection without a chat adapter never answers in Pica; any
+      // other connection reports the real reason it cannot be resolved.
       if (
         connection &&
         isApiProvider(connection.provider) &&

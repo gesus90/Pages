@@ -15,14 +15,13 @@ export type SwarmToolNamer = (tool: string) => string;
  * OpenCode as `pages_swarm_assign`, Claude Code as `mcp__pages__swarm_assign`
  * and Antigravity as `mcp_pages_swarm_assign`. A model told to call
  * `swarm_assign` gets "unavailable tool" from OpenCode and never reaches Pages.
- * @param provider - The provider of the session; OpenRouter and Z.AI run on OpenCode.
+ * @param provider - The provider of the session; OpenRouter runs on OpenCode.
  * @returns The namer of the runner; Codex lists the plain tool names.
  */
 export function swarmToolNamer(provider: string): SwarmToolNamer {
   switch (provider) {
     case "opencode":
     case "openrouter":
-    case "zai":
       return (tool) => `${PAGES_MCP_SERVER}_${tool}`;
     case "claude_code":
       return (tool) => `mcp__${PAGES_MCP_SERVER}__${tool}`;

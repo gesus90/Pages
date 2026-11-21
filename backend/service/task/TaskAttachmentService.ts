@@ -17,6 +17,7 @@ import { logCaughtError } from "@/backend/logging/Logger";
 import type { ReadStream } from "node:fs";
 import type {
   StoredWorkItemAttachment,
+  TicketAssetChange,
   WorkItemAttachmentRepository,
 } from "@/backend/database/repositories/task/WorkItemAttachmentRepository";
 import type { UploadedFile } from "@/backend/service/wiki/WikiAttachmentService";
@@ -53,6 +54,9 @@ export interface OpenedTicketAttachment {
 /** Files younger than this are never swept; an upload may still be running. */
 const SWEEP_AGE_MILLISECONDS = 60 * 60 * 1000;
 
+/** Most asset changes one read returns. */
+const MAX_ASSET_CHANGES = 500;
+
 function toPublic(attachment: StoredWorkItemAttachment): WorkItemAttachment {
   return {
     contentType: attachment.contentType,
@@ -60,6 +64,7 @@ function toPublic(attachment: StoredWorkItemAttachment): WorkItemAttachment {
     fileName: attachment.fileName,
     id: attachment.id,
     isEmbeddable: isEmbeddableType(attachment.contentType, attachment.kind),
+    isSearchReleased: attachment.isSearchReleased,
     kind: attachment.kind,
     size: attachment.size,
     uploadedBy: attachment.uploadedBy,
@@ -111,7 +116,8 @@ export class TaskAttachmentService {
    * @throws {WorkItemNotFoundError} When the ticket is missing or hidden.
    * @throws {WorkItemAccessDeniedError} Without the right to change tickets.
    * @throws {WorkItemValidationError} For an archived ticket, an empty file,
-   * a file name that is too long or a file above its limit.
+   * a file name that is too long, a file above its limit or an upload that
+   * ended before the announced number of bytes arrived.
    */
   public async upload(
     actor: User,
@@ -157,6 +163,14 @@ export class TaskAttachmentService {
           : error;
       });
 
+    // A connection cut off mid-upload may end the body without an error; the
+    // announced length shows that bytes are missing, so no partial file is kept.
+    if (file.contentLength !== null && stored.size !== file.contentLength) {
+      await this.files.remove([stored.storageName]);
+
+      throw new WorkItemValidationError("attachmentUploadIncomplete");
+    }
+
     if (stored.size === 0) {
       await this.files.remove([stored.storageName]);
 
@@ -184,6 +198,7 @@ export class TaskAttachmentService {
       return toPublic({
         ...draft,
         ...created,
+        isSearchReleased: false,
         uploadedByName: actor.displayName,
       });
     } catch (error: unknown) {
@@ -258,6 +273,30 @@ export class TaskAttachmentService {
   }
 
   /**
+   * Releases the text of an attachment for the local search index or
+   * withdraws the release.
+   * @param actor - The person deciding; needs the right to change the ticket.
+   * @param id - Attachment identifier.
+   * @param isReleased - Whether the asset may be indexed.
+   * @throws {WorkItemNotFoundError} When the attachment or its ticket is not visible.
+   * @throws {WorkItemAccessDeniedError} Without the right to change tickets.
+   * @throws {WorkItemValidationError} For an archived ticket.
+   * @remarks
+   * Only released assets are read by the indexer; a withdrawn release removes
+   * the asset's sections on the next indexing run.
+   */
+  public async setSearchRelease(
+    actor: User,
+    id: string,
+    isReleased: boolean,
+  ): Promise<void> {
+    const stored = await this.requireStored(id);
+
+    await this.requireWritable(actor, stored.workItemId);
+    await this.repository.setSearchRelease(id, isReleased ? actor.id : null);
+  }
+
+  /**
    * Removes stored files, for example those of tickets deleted for good.
    * @param storageNames - Names the file store gave the files.
    */
@@ -275,6 +314,67 @@ export class TaskAttachmentService {
       new Set(await this.repository.listStorageNames()),
       SWEEP_AGE_MILLISECONDS,
     );
+  }
+
+  /**
+   * Reads the changes of ticket assets after a position, for server-side
+   * readers that process the stored bytes, such as a text extraction.
+   * @param afterPosition - Highest position the reader processed, `0` at the start.
+   * @param limit - Most changes wanted, at most 500.
+   * @returns Attachment, ticket, checksum, MIME type and whether the asset
+   * was stored or deleted, in commit order.
+   * @throws {RangeError} For a negative position or a limit outside 1 to 500.
+   * @remarks
+   * No person is involved, so no ticket access is checked; whatever the
+   * reader shows later must check the ticket again. The bytes of a `stored`
+   * change are opened with {@link TaskAttachmentService.openStored}.
+   */
+  public async listAssetChanges(
+    afterPosition: number,
+    limit: number = MAX_ASSET_CHANGES,
+  ): Promise<TicketAssetChange[]> {
+    if (!Number.isSafeInteger(afterPosition) || afterPosition < 0) {
+      throw new RangeError("The asset change position must not be negative.");
+    }
+
+    if (
+      !Number.isSafeInteger(limit) ||
+      limit < 1 ||
+      limit > MAX_ASSET_CHANGES
+    ) {
+      throw new RangeError(
+        "The asset change limit must lie between 1 and 500.",
+      );
+    }
+
+    return this.repository.listChangesAfter(afterPosition, limit);
+  }
+
+  /**
+   * Opens the bytes of an attachment for server-side processing.
+   * @param id - Attachment identifier from an asset change.
+   * @returns The attachment and its bytes, or `null` when the attachment or
+   * its file is gone; a removed attachment also has a later `deleted` change.
+   */
+  public async openStored(id: string): Promise<OpenedTicketAttachment | null> {
+    const stored = await this.repository.find(id);
+
+    if (!stored) {
+      return null;
+    }
+
+    try {
+      await this.files.requireFile(stored.storageName);
+    } catch (error: unknown) {
+      logCaughtError("TaskAttachmentService", error);
+
+      return null;
+    }
+
+    return {
+      attachment: toPublic(stored),
+      stream: this.files.open(stored.storageName),
+    };
   }
 
   private async requireStored(id: string): Promise<StoredWorkItemAttachment> {

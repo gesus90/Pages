@@ -55,8 +55,7 @@ function AgentChecks({
   readonly onCommand: AgentCommandHandler;
 }): React.ReactElement {
   const { t } = useTranslation();
-  const standardHint = connection.cli ? "cliAuthHint" : "apiAuthHint";
-  const authHint = connection.provider === "zai" ? "zaiAuthHint" : standardHint;
+  const authHint = connection.cli ? "cliAuthHint" : "apiAuthHint";
   return (
     <section className="space-y-3">
       <h3 className="text-sm font-semibold">{t("settings.agents.checks")}</h3>

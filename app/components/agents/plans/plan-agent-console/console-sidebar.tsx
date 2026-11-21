@@ -132,7 +132,6 @@ function ModelValue({
         isVendorHidden
         vendor={vendor}
         name={badge.name}
-        modelId={modelIdentity.modelId}
         source={badge.source}
         status={modelIdentity.status}
       />

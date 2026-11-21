@@ -1,6 +1,7 @@
 import { requireManagedOpenCodeConfiguration } from "@/backend/agents/acp/OpenCodeAcpConfiguration";
 import { AgentError } from "@/backend/error/AgentErrors";
 import {
+  isRetiredOpenCodeModel,
   MODEL_TEST_PROMPT,
   OPENCODE_FREE_PROVIDER,
   openCodeModelProvider,
@@ -126,7 +127,10 @@ export class OpenCodeCli implements CliToolAdapter {
       return { ok: false, errorCode: "test_model_required", detail: {} };
     const credentials = await this.access(home);
     const modelProvider = openCodeModelProvider(selection.model);
-    if (!credentials.modelProviders.includes(modelProvider))
+    if (
+      isRetiredOpenCodeModel(selection.model) ||
+      !credentials.modelProviders.includes(modelProvider)
+    )
       return { ok: false, errorCode: "plan_model_unavailable", detail: {} };
     await requireManagedOpenCodeConfiguration(home);
     const args = ["run", "--format", "json", "--pure", "-m", selection.model];

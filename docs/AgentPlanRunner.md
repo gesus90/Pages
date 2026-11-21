@@ -44,13 +44,13 @@ takes the native meaning with this version.
 
 ### Provider and start-path matrix
 
-| Start path                                | Codex CLI                                                                | Claude Code           | OpenCode (incl. OpenRouter, z.AI) | Antigravity           |
-| ----------------------------------------- | ------------------------------------------------------------------------ | --------------------- | --------------------------------- | --------------------- |
-| Agent chat (`AgentEmployeeSessionLaunch`) | shared launcher, native in YOLO                                          | shared launcher       | shared launcher                   | shared launcher       |
-| Agent own job (`AgentEmployeeJobRun`)     | same as chat via `employeeAccessRun`                                     | same                  | same                              | same                  |
-| Local plan node, swarm main and helpers   | `CliSessionExecution`                                                    | `CliSessionExecution` | `CliSessionExecution`             | `CliSessionExecution` |
-| Durable local owner session               | same launcher inside the owner unit                                      | same                  | same                              | same                  |
-| Remote runner (`scripts/runner`)          | YOLO in a `systemd-run --user --scope` unit; Lesend in the job namespace | same                  | same                              | same                  |
+| Start path                                | Codex CLI                                                                | Claude Code           | OpenCode (incl. OpenRouter) | Antigravity           |
+| ----------------------------------------- | ------------------------------------------------------------------------ | --------------------- | --------------------------- | --------------------- |
+| Agent chat (`AgentEmployeeSessionLaunch`) | shared launcher, native in YOLO                                          | shared launcher       | shared launcher             | shared launcher       |
+| Agent own job (`AgentEmployeeJobRun`)     | same as chat via `employeeAccessRun`                                     | same                  | same                        | same                  |
+| Local plan node, swarm main and helpers   | `CliSessionExecution`                                                    | `CliSessionExecution` | `CliSessionExecution`       | `CliSessionExecution` |
+| Durable local owner session               | same launcher inside the owner unit                                      | same                  | same                        | same                  |
+| Remote runner (`scripts/runner`)          | YOLO in a `systemd-run --user --scope` unit; Lesend in the job namespace | same                  | same                        | same                  |
 
 OpenCode reads its host configuration (MCP servers included) natively in YOLO,
 so Pages hands it no host server a second time. Lesend for OpenCode,
@@ -869,9 +869,9 @@ call the tools of an agent plan, reads "Modell nicht nutzbar" there and names
 its reason in the tooltip; it is neither replaced nor offered as a new choice.
 Its panel starts with a search field and lists the target's models under
 collapsible tools in a fixed order (Claude Code, Codex, Antigravity, OpenCode,
-OpenRouter, Z.AI, then other API connections), each header naming the access
-and model count. OpenRouter and z.AI are independent agent providers with the
-catalogs of their own API connections and model IDs without an added runtime
+OpenRouter, then other API connections), each header naming the access
+and model count. OpenRouter is an independent agent provider with the
+catalog of its own API connections and model IDs without an added runtime
 prefix. OpenCode lists only its own free `opencode/…` models, including when its connection has
 an explicitly stored key. Pages never attaches keys from other API connections
 to an OpenCode connection. Rows show the short catalog name without
@@ -909,9 +909,7 @@ follow another account than the viewer's, the model dialog of an agent in a
 chat, receives the states of exactly the connections of the agent's account
 that an agent can run with its model overview, so a connection without a model
 stands there too; an administrator's reload makes the dialog read that
-overview again. Z.AI answers over ACP in the native OpenCode session, so its
-models appear for Pica, agent profiles, the chat, plan nodes and speech
-recognition. OpenRouter and the other direct API connections have no chat
+overview again. OpenRouter and the other direct API connections have no chat
 adapter: they appear for plan nodes and (OpenRouter for speech recognition,
 speech output and decisions), but not for Pica, agent profiles and the chat.
 The selection stores the listed model's full connection, route, model and
@@ -1013,13 +1011,12 @@ adapter of its CLI (`codex-acp` or `claude-agent-acp`, installed for the server
 account next to the CLI, whose sign-in it reuses; see
 [ACP adapters](AgentRuntime.md#acp-adapters-for-the-cli-runners)); an OpenCode connection starts
 its native `opencode acp` session in the node's workspace, without an adapter
-package or a fallback to `opencode run`. OpenRouter and z.AI plan nodes use
+package or a fallback to `opencode run`. OpenRouter plan nodes use
 that same installed OpenCode ACP runtime internally. At the process boundary
-Pages prefixes their catalog model IDs with `openrouter/` or `zai/` and supplies
+Pages prefixes their catalog model IDs with `openrouter/` and supplies
 only the selected connection's verified key in the isolated child environment.
-z.AI keeps its saved API or coding-plan endpoint. The editor, run panel, usage
-and journal retain OpenRouter or z.AI and the unprefixed catalog ID. Both offer
-Lesend and YOLO with the same meaning as every other ACP agent, native files,
+The editor, run panel, usage and journal retain OpenRouter and the unprefixed
+catalog ID. It offers Lesend and YOLO with the same meaning as every other ACP agent, native files,
 shell, TODO events, pause, resume and stop. YOLO keeps `enabled_providers` on
 the connection's model provider, so host logins cannot switch the session to
 another provider key. Other API providers
@@ -1027,11 +1024,40 @@ remain requests without tools; chat and Pica keep their existing API policy.
 
 Migration 061 moves editable definitions, nodes in all saved plans (including
 groups and loops), decision/swarm assignments and pinned node templates from
-OpenCode plus `openrouter/<id>` or `zai/<id>` to the matching active API
+OpenCode plus `openrouter/<id>` (and earlier `zai/<id>`) to the matching active API
 connection whose access check passed. Reasoning stays unchanged. If several
 connections qualify, the first by case-insensitive name and ID wins. Without
 a qualifying connection the assignment stays and reports Model unavailable;
 `opencode/…` assignments and completed runs with their snapshots stay unchanged.
+
+### Retired provider: Z.AI
+
+Z.AI is no longer an agent provider. Pages offers no connection, key entry,
+account type, model, quota card, badge or speech model for it, and OpenCode's
+own `zai`, `zai-coding-plan`, `zhipuai` and `zhipuai-coding-plan` models are
+neither listed nor run. A request to create a connection with the provider ID
+`zai` is refused as an unsupported provider. Existing Z.AI connections stay in
+the database, but every connection read leaves them out
+(`AgentConnectionRepository.list` and `find`), so a request to check, change,
+delete or use one reports a missing connection, no catalog refresh visits it
+and nothing runs on it.
+
+Saved plans, templates, automations, agent assignments and chat settings that
+still name such a connection keep loading. A plan node of it reads "Model or
+connection unavailable", can be saved unchanged (its provider is stored empty)
+and starts only after another model is chosen; Pages never substitutes a
+provider. Finished sessions, run reports and chats stay readable: a stored
+runner `zai` reads as the OpenCode session it ran on, without a Z.AI badge.
+Their identifiers are recognized only through `RETIRED_PROVIDER_IDS` and
+`historicalRunnerOf` in `definition/AgentConnection.ts`. The encrypted keys of
+the old connections are not touched; removing those rows is a separate,
+explicitly approved operation on live data.
+
+The remaining occurrences of the provider in the repository are the retired
+identifiers above, the historical migrations and the frozen migration names
+of the offline transfer command, the `zai_account_type` and `zai_reading`
+columns that no code reads or writes any more, and the exported wiki
+snapshots under `docs/wiki`.
 
 Play stores a stable snapshot of each node's effective
 configuration. Before a node starts, Pages uses that snapshot and binds every

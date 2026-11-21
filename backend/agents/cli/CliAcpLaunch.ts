@@ -1,6 +1,6 @@
 import { openCodeModelProvider } from "@/definition/AgentConnection";
 
-import { openCodeAgentModel, openCodeAgentLaunch } from "./OpenCodeAgentModel";
+import { openCodeAgentModel } from "./OpenCodeAgentModel";
 import { CLI_DEFAULT_RUNTIME_MS } from "./CliPausableDeadline";
 
 import type { AgentPlanSessionInput } from "@/backend/agents/AgentPlanExecution";
@@ -145,20 +145,17 @@ export function planAcpLaunch(
   file: string,
   profile: ReturnType<AcpDriver["profile"]>,
 ): AcpLaunch {
-  return openCodeAgentLaunch(
-    input,
-    driver.plan({
-      instanceId: input.instanceId,
-      runnerFile: file,
-      profile,
-      mcp: input.mcp ?? null,
-      purpose: input.chat ? "chat" : (input.purpose ?? "plan"),
-      model: {
-        model: openCodeAgentModel(input),
-        reasoningEffort: input.agent.reasoningEffort,
-      },
-    }),
-  );
+  return driver.plan({
+    instanceId: input.instanceId,
+    runnerFile: file,
+    profile,
+    mcp: input.mcp ?? null,
+    purpose: input.chat ? "chat" : (input.purpose ?? "plan"),
+    model: {
+      model: openCodeAgentModel(input),
+      reasoningEffort: input.agent.reasoningEffort,
+    },
+  });
 }
 
 /** What the ACP session runs; a chat session brings its own MCP bridge and continuation. */

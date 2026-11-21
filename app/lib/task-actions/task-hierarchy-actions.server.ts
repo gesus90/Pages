@@ -95,6 +95,28 @@ export const handleRemoveAttachment: TaskActionHandler = async ({
   );
 };
 
+/** Releases the text of a ticket attachment for the search index or withdraws it. */
+export const handleSetAttachmentSearchRelease: TaskActionHandler = async ({
+  actor,
+  formData,
+  services,
+}) => {
+  const attachmentId = readRequiredText(formData, "attachmentId");
+  const released = readText(formData, "released");
+
+  if (attachmentId === null || (released !== "1" && released !== "0")) {
+    return invalidInput("set-attachment-search-release");
+  }
+
+  return runTaskAction("set-attachment-search-release", () =>
+    services.taskAttachmentService.setSearchRelease(
+      actor,
+      attachmentId,
+      released === "1",
+    ),
+  );
+};
+
 /** Stores that the person opened or closed a branch of the ticket tree. */
 export const handleSetTreeExpanded: TaskActionHandler = async ({
   actor,

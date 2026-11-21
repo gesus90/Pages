@@ -232,7 +232,7 @@ export function agentToolDefinition(id: AgentToolId): AgentToolDefinition {
 
 /** Provider identity, rather than a model name, determines the native prerequisites. */
 export function providerToolIds(
-  provider: CliProviderId | "openrouter" | "zai",
+  provider: CliProviderId | "openrouter",
 ): readonly AgentToolId[] {
   switch (provider) {
     case "codex_cli":
@@ -240,7 +240,6 @@ export function providerToolIds(
     case "claude_code":
       return ["claude", "claude_acp"];
     case "openrouter":
-    case "zai":
     case "opencode":
       return ["opencode"];
     case "antigravity":

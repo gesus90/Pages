@@ -63,7 +63,6 @@ Markdown.
 | Schritt   | Verbindung                         | Stand                                                                                            |
 | --------- | ---------------------------------- | ------------------------------------------------------------------------------------------------ |
 | Erkennung | OpenRouter `/audio/transcriptions` | Pages sendet einen Beitrag und liest eine vollständige JSON-Antwort; kein Streaming              |
-| Erkennung | Z.AI `glm-asr`                     | Pages sendet `stream=false`; kein Streaming                                                      |
 | Synthese  | OpenRouter `/audio/speech`         | Der Client liest die Audioantwort eines Satzes vollständig; Streaming entsteht durch Satzgrenzen |
 | Antwort   | ACP-Runner                         | Textstrom über das Journal, während die Antwort entsteht                                         |
 

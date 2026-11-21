@@ -7,7 +7,8 @@ a Pages instance or its private wiki. Some specialized guides are in German.
 ## Use Pages
 
 - [User guide](UserGuide.md): navigation, drafts, archive rights and design themes.
-- [Ticket attachments](TicketAssets.md): upload, image viewing, inventory and offline migration.
+- [Ticket attachments](TicketAssets.md): upload, attachment list, change log, image viewing, inventory and offline migration;
+  [asset bytes in PostgreSQL](TicketAssetsPostgresStorage.md) as an assessment of file sizes, backup and restore.
 - [Pica chat and models](Pica.md), [administrator operator](PicaAdminOperator.md),
   [administrator browser/files](PicaAdminTools.md) and [visual operator browser](PicaOperatorBrowser.md).
 - [Agent Plans](AgentPlanRunner.md): editor, ticket parameters, teams, plans that call each other, execution and recovery.
@@ -20,6 +21,10 @@ a Pages instance or its private wiki. Some specialized guides are in German.
 - [Configuration and operations](Operations.md): first setup, paths, environment and proxy behavior.
 - [PostgreSQL migration, development database, backup and restore](PostgresMigration.md).
 - [Database executor](DatabaseExecutor.md): transaction and multi-process writer contracts.
+- [Search embeddings and pgvector](SearchEmbeddings.md): schema, optional activation, exact search, restore and index measurements.
+- [Local search indexing](SearchIndexing.md): worker, models and revisions, sections, replacement and removal, released text assets, retrieval format and sample data.
+- [Hybrid search for agents](HybridSearch.md): keyword and vector search with current read rights, current revisions, source links, keyword fallback and sample data with allowed and withdrawn rights.
+- [RAG and ticket asset acceptance](RagAcceptance.md): comparison of keyword and hybrid search on a fixed German and English question set, checks of rights, archiving, changes, assets, fallback, backup and restore, repetition and live release prerequisites.
 - [Platform services](PlatformServices.md), [static ingress](../deploy/ingress/README.md),
   [core service](../deploy/core/README.md), [plan engine deployment](../deploy/runs/README.md),
   [reverse proxy](../deploy/proxy/README.md) and [backup status service](../deploy/backups/README.md).
@@ -57,7 +62,7 @@ a Pages instance or its private wiki. Some specialized guides are in German.
   [Claude](../backend/agents/acp/ClaudeAcpCapabilities.md),
   [OpenCode](../backend/agents/acp/OpenCodeAcpCapabilities.md).
 - [Paired-device user management API](McpUserManagement.md),
-  [Storage API](StorageApi.md#pages-mcp-api) and [z.ai account routing](ZaiAccountType.md).
+  [Storage API](StorageApi.md#pages-mcp-api).
   The standalone MCP client is outside this repository; these are server contracts,
   not a verified public client installation guide.
 

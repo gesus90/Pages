@@ -129,7 +129,6 @@ function ModelValues(props: {
             ? {
                 mark: selected.group.mark,
                 name: selected.choice.label,
-                modelId: selected.choice.model.model,
                 tool: selected.group.label,
                 source: modelChoiceSource(selected.choice.model, t),
               }

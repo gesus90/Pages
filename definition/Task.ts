@@ -99,6 +99,8 @@ export interface WorkItemAttachment {
   readonly size: number;
   /** Whether the file may be shown as an image inside a description. */
   readonly isEmbeddable: boolean;
+  /** Whether a person released the file's text for the local search index. */
+  readonly isSearchReleased: boolean;
   readonly uploadedBy: string;
   readonly uploadedByName: string | null;
   readonly createdAt: string;

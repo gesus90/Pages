@@ -782,7 +782,6 @@
         "openrouter": "OpenRouter",
         "openai": "OpenAI",
         "google_ai_studio": "Google AI Studio (Gemini)",
-        "zai": "Z.AI",
         "anthropic": "Anthropic",
         "codex_cli": "Codex CLI (ChatGPT account)",
         "claude_code": "Claude Code (Claude subscription)",
@@ -793,7 +792,6 @@
         "openrouter": "OpenRouter API",
         "openai": "OpenAI API",
         "google_ai_studio": "Google AI Studio API",
-        "zai": "Z.AI API",
         "anthropic": "Anthropic API",
         "codex_cli": "Codex CLI",
         "claude_code": "Claude Code CLI",
@@ -808,7 +806,6 @@
         "name_required": "A connection needs a name.",
         "name_too_long": "The name must not exceed 80 characters.",
         "name_taken": "A connection already uses this name.",
-        "zai_account_type_invalid": "Choose the z.ai account type: GLM Coding Plan or standard prepaid API.",
         "provider_invalid": "Choose a supported provider.",
         "provider_immutable": "The provider cannot be changed.",
         "api_key_required": "An API key is required.",
@@ -1185,12 +1182,6 @@
       "testModelAction": "Run model test",
       "apiAuthHint": "Access check: free, with no model request.",
       "cliAuthHint": "Sign-in status: local, without a server request. A model test is a separate action.",
-      "zaiAuthHint": "Access check: model listing at the saved account type’s endpoint, without a model call.",
-      "zaiAccountType": "z.ai account type",
-      "zaiChooseAccount": "Choose account type …",
-      "zaiCodingPlan": "Subscription · GLM Coding Plan",
-      "zaiStandardApi": "Standard API · prepaid balance / resource package",
-      "zaiAccountHint": "Choose the account type of your key. Coding Plan uses its own endpoint and is registered in opencode as zai-coding-plan. Switching resets access and model checks.",
       "modelRequiredHint": "Choose and save a model before running a model test.",
       "neverChecked": "Not checked yet",
       "cliCheckSnapshot": "Stored result of this check at the time shown, not a new call. Agent tools & runtimes shows the CLI now in effect.",
@@ -1811,7 +1802,7 @@
       "freeBadge": "Free",
       "openCodeFreeGroup": "opencode · Free",
       "openCodeProviders": "Providers through the keys in Pages",
-      "openCodeProvidersHint": "OpenCode receives the keys of the API connections for z.ai, Google AI Studio and OpenRouter automatically once their access check has passed. A key stays stored only with its API connection; it is neither shown here nor entered a second time.",
+      "openCodeProvidersHint": "OpenCode receives the keys of the API connections for Google AI Studio and OpenRouter automatically once their access check has passed. A key stays stored only with its API connection; it is neither shown here nor entered a second time.",
       "openCodeLink": {
         "free": "available without a key",
         "linked": "registered through “{{connection}}”",
@@ -1821,7 +1812,7 @@
       },
       "openCodeLinkedHint": "also usable through opencode",
       "openRouterModelIds": "OpenRouter price IDs for OpenCode models",
-      "openRouterModelIdsHint": "JSON object, for example {\"zai/glm-5.3\":\"z-ai/glm-5.3\"}. Leave {} for automatic matching.",
+      "openRouterModelIdsHint": "JSON object, for example {\"opencode/example-model\":\"vendor/example-model\"}. Leave {} for automatic matching.",
       "antigravityHint": "Google sign-in through the official ACP adapter in this connection's isolated Pages context. Google then redirects to the adapter's loopback callback (127.0.0.1) on the Pages server: a browser on the server completes sign-in directly; from another device, paste the browser's address here. Pica can use this connection; it gets only Pica’s authorized Pages tools there, no built-in Antigravity tools.",
       "antigravityLoginHint": "Open the sign-in page, choose the Google account and give consent yourself. If this browser runs on the Pages server, sign-in then completes automatically.",
       "antigravityRedirectLabel": "Address after Google's consent",
@@ -2351,6 +2342,7 @@
       "attachmentFileEmpty": "The file is empty.",
       "attachmentFileNameTooLong": "The file name is too long.",
       "attachmentTooLarge": "The file is larger than allowed.",
+      "attachmentUploadIncomplete": "The upload was interrupted before the whole file arrived. Please upload it again.",
       "descriptionConflict": "Someone else changed the description in the meantime.",
       "ticketConflict": "This ticket changed in the meantime. Review the current values and try again.",
       "invalidTreeKey": "This branch is unknown.",
@@ -2643,10 +2635,14 @@
       "add": "Attach file",
       "empty": "No attachments yet.",
       "remove": "Remove {{name}}",
+      "view": "View {{name}}",
       "download": "Download {{name}}",
       "uploading": "Uploading {{name}} … {{percent}} %",
       "meta": "{{size}} · {{user}}",
-      "failed": "Upload failed: {{reason}}"
+      "failed": "Upload failed: {{reason}}",
+      "searchRelease": "Release the text of {{name}} for the search",
+      "searchWithdraw": "Withdraw {{name}} from the search",
+      "searchReleased": "Released for the search"
     },
     "parent": {
       "none": "None",
@@ -3794,15 +3790,15 @@
       "general": "That did not work. Please try again.",
       "contextChanged": "The context changed meanwhile. Nothing was overwritten; please try /compact again.",
       "compactionFailed": "The context could not be compacted. Your existing conversation history is preserved.",
-      "nativeContextManaged": "Codex, Claude Code, opencode and z.ai manage their native session context themselves; /compact is unavailable for them.",
-      "picaModelSelectionRequired": "Pica uses only Codex CLI, Claude Code, OpenCode, z.ai or Antigravity over ACP. The saved API selection is retained. Confirm its adoption through opencode in Pica settings or choose a new model. Pica no longer uses OpenAI or Anthropic API keys.",
+      "nativeContextManaged": "Codex, Claude Code and opencode manage their native session context themselves; /compact is unavailable for them.",
+      "picaModelSelectionRequired": "Pica uses only Codex CLI, Claude Code, OpenCode or Antigravity over ACP. The saved API selection is retained. Confirm its adoption through opencode in Pica settings or choose a new model. Pica no longer uses OpenAI or Anthropic API keys.",
       "picaZenUnsupported": "This free opencode Zen model requires opencode’s own tools and cannot run in Pica. Choose another model. It remains available in agent plans.",
       "picaModelUnsupported": "According to its catalog, this model cannot answer in chat or call tools, so Pica cannot use it. The saved selection is retained; nothing was sent and no other model was substituted. Choose another model under Settings › Agents.",
       "picaCodexConfigurationUnmanaged": "Pica's Codex connection holds its own configuration file (config.toml) that Pages does not manage, so Pica does not start with it. The file stays unchanged. An admin assigns Pica a clean, separate Codex connection without a config.toml under Settings › Agents. Nothing was sent.",
       "plan_codex_configuration_unmanaged": "A Codex configuration file outside Pages (config.toml in the connection or in Pica's working folder) prevents the start. The file stays unchanged. An admin assigns Pica a clean, separate Codex connection under Settings › Agents.",
       "instructionsUnavailable": "Pica cannot answer right now: the protected instructions of Pica are missing on the server or cannot be read. Your message was not sent. Please contact an administrator.",
-      "acpProviderUnsupported": "Pica supports Codex CLI, Claude Code, OpenCode, z.ai and Antigravity over ACP. An administrator must assign one of these agents to chat under Settings › Agents.",
-      "acpPermissionModeUnsupported": "Pica requires the “Lesend” (read only) mode for Claude Code, OpenCode, z.ai and Antigravity. Only the authorized Pages tools are available, with no shell, files or web tools. An administrator must update the chat agent’s mode. Your message was not sent.",
+      "acpProviderUnsupported": "Pica supports Codex CLI, Claude Code, OpenCode and Antigravity over ACP. An administrator must assign one of these agents to chat under Settings › Agents.",
+      "acpPermissionModeUnsupported": "Pica requires the “Lesend” (read only) mode for Claude Code, OpenCode and Antigravity. Only the authorized Pages tools are available, with no shell, files or web tools. An administrator must update the chat agent’s mode. Your message was not sent.",
       "pica_codex_adapter_unavailable": "Pica needs the verified codex-acp 2.2.2 package. Ask an administrator to make it available for Pica's native runner.",
       "pica_native_artifact_unavailable": "Pica's verified native runner is missing or its files differ from the manifest. Please contact an administrator.",
       "accessModeRequired": "This agent still has the earlier access level “Workspace”. An administrator must choose “Lesend” (read only) or “YOLO”. Your message was not sent.",
@@ -5755,7 +5751,6 @@
         "claude_code": "Claude Code",
         "opencode": "OpenCode",
         "openrouter": "OpenRouter",
-        "zai": "z.AI",
         "api": "API connection"
       },
       "access": {
@@ -6058,9 +6053,6 @@
         "opencode": {
           "name": "OpenCode CLI",
           "account": "Connection"
-        },
-        "zai": {
-          "name": "Z.AI"
         },
         "openrouter": {
           "name": "OpenRouter"
@@ -6798,7 +6790,6 @@
         "claude_code": "Claude Code",
         "opencode": "OpenCode",
         "openrouter": "OpenRouter",
-        "zai": "z.AI",
         "api": "API"
       },
       "notApplicable": "Not applicable",
@@ -7799,15 +7790,12 @@
         "openrouter": "OpenRouter",
         "openai": "OpenAI API",
         "anthropic": "Anthropic API",
-        "google_ai_studio": "Google AI Studio",
-        "zai": "Z.AI"
+        "google_ai_studio": "Google AI Studio"
       },
       "sources": {
         "opencode": "OpenCode Zen",
         "openrouter": "OpenRouter",
-        "google": "Google",
-        "zai": "Z.AI",
-        "zai-coding-plan": "Z.AI Coding Plan"
+        "google": "Google"
       },
       "access": {
         "antigravity": "Google account",
@@ -7818,7 +7806,6 @@
         "openai": "API key",
         "anthropic": "API key",
         "google_ai_studio": "API key",
-        "zai": "API key",
         "opencodeFree": "Free models"
       },
       "accessCount_one": "{{count}} access",
@@ -8451,7 +8438,7 @@
     "description": "Turns spoken language into text. Applies to the whole instance.",
     "model": "Model",
     "chooseModel": "Choose a model …",
-    "noModels": "No configured connection offers a speech recognition model. Set up an OpenRouter or Z.AI connection with an API key under Agents and, for OpenRouter, refresh its model catalog.",
+    "noModels": "No configured connection offers a speech recognition model. Set up an OpenRouter connection with an API key under Agents and refresh its model catalog.",
     "maxDuration": "Longest recording",
     "minutes_one": "{{count}} minute",
     "minutes_other": "{{count}} minutes",
@@ -9892,62 +9879,6 @@
         "signedOut": {
           "title": "This connection is not signed in to ChatGPT.",
           "detail": "Without a sign-in Pages can retrieve neither the plan nor values."
-        }
-      }
-    },
-    "zai": {
-      "subtitle": {
-        "coding-plan": "Z.AI · GLM Coding Plan",
-        "api": "Z.AI · Standard API"
-      },
-      "plan": {
-        "lite": "Lite",
-        "pro": "Pro",
-        "max": "Max"
-      },
-      "window": {
-        "tokens": "Token allowance",
-        "credits": "Credit allowance",
-        "mcp": "MCP usage",
-        "named": "{{name}} · {{length}}"
-      },
-      "length": {
-        "hours_one": "{{count}} hour",
-        "hours_other": "{{count}} hours",
-        "weeks_one": "{{count}} week",
-        "weeks_other": "{{count}} weeks",
-        "months_one": "{{count}} month",
-        "months_other": "{{count}} months"
-      },
-      "counts": "{{used}} of {{total}} used",
-      "reported": "Reported by Z.AI · {{time}}",
-      "signedOut": "Key missing or rejected",
-      "notice": {
-        "noWindows": {
-          "title": "Z.AI reported no allowances for this key.",
-          "detail": "Pages queried successfully."
-        },
-        "failed": {
-          "title": "Pages could not retrieve any values yet.",
-          "detail": "The plan stays unknown until Z.AI reports it."
-        },
-        "signedOut": {
-          "title": "This connection has no valid Z.AI key.",
-          "detail": "Without a valid key Pages can retrieve neither the plan nor values."
-        }
-      },
-      "absence": {
-        "none_reported": {
-          "title": "Z.AI reported no allowances for this key.",
-          "detail": "The query succeeded and the list of allowances was empty."
-        },
-        "unusable": {
-          "title": "Z.AI reported entries that Pages cannot show.",
-          "detail": "They have an unknown type or no usable usage. Pages shows no value that Z.AI does not back."
-        },
-        "elapsed": {
-          "title": "Z.AI reported only allowances whose period has already ended.",
-          "detail": "The reported reset time lies in the past, so the values no longer apply."
         }
       }
     }

@@ -224,8 +224,14 @@ export class WikiLinkRepository {
   }
 }
 
-/** Applies the ticket rule to a viewer: administrators see every department. */
-function createTicketVisibility(
+/**
+ * Applies the ticket rule of the wiki to a viewer: administrators see every
+ * department, everybody else the tickets of readable projects without a
+ * department or of one of their own departments.
+ * @param scope - What the viewer may see.
+ * @returns The condition on the alias `work_items` and its values.
+ */
+export function createTicketVisibility(
   scope: WikiVisibilityScope,
 ): ReturnType<typeof createWorkItemVisibility> {
   return createWorkItemVisibility({

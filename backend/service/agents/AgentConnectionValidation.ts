@@ -1,7 +1,7 @@
 import { claudePriceModelsSchema } from "@/definition/ClaudePriceModels";
 import { readAgentObject } from "@/backend/agents/AgentPayload";
 import { AgentError } from "@/backend/error/AgentErrors";
-import { isApiProvider, isZaiAccountType } from "@/definition/AgentConnection";
+import { isApiProvider } from "@/definition/AgentConnection";
 import {
   GLOBAL_CONNECTION_SCOPE,
   isAgentConnectionScopeKind,
@@ -13,7 +13,6 @@ import { isCatalogModelId } from "@/backend/agents/catalog/CatalogParsing";
 import type {
   AgentConnectionInput,
   AgentProviderId,
-  ZaiAccountType,
 } from "@/definition/AgentConnection";
 import type {
   AgentConnectionScope,
@@ -48,19 +47,6 @@ export function readOpenCodePriceMapping(
     mapping[model] = router;
   }
   return mapping;
-}
-
-/** Requires a deliberate z.ai account choice, preserving an existing choice on partial updates. */
-export function readZaiAccountType(
-  input: AgentConnectionInput,
-  provider: AgentProviderId,
-  previous?: ZaiAccountType,
-): ZaiAccountType | undefined {
-  if (provider !== "zai") return undefined;
-  const choice = input.zaiAccountType ?? previous;
-  if (!isZaiAccountType(choice))
-    throw new AgentError("zai_account_type_invalid");
-  return choice;
 }
 
 export interface ValidatedAgentInput {

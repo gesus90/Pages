@@ -24,7 +24,6 @@ const RUNNER_LABELS: Readonly<Record<AcpProviderId, string>> = {
   claude_code: "Claude Code over ACP",
   opencode: "OpenCode over native ACP",
   openrouter: "OpenRouter over ACP",
-  zai: "z.AI over ACP",
   antigravity: "Google Antigravity over official ACP",
 };
 

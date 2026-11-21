@@ -7,6 +7,7 @@ import {
 } from "@/backend/agents/catalog/CatalogParsing";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { logCaughtError } from "@/backend/logging/Logger";
+import { isRetiredOpenCodeModel } from "@/definition/AgentConnection";
 import { isModelAliasToken } from "@/definition/AgentModelCatalog";
 import { isChatModel } from "@/definition/AgentModelFilter";
 import { describeClaudeModel } from "@/definition/AgentModelVersion";
@@ -283,13 +284,13 @@ function isListedOpenCodeModel(entry: Record<string, unknown>): boolean {
  * Reads `opencode models <provider> --verbose`, the catalog OpenCode itself uses.
  * @param stdout - The listing printed by the CLI.
  * @returns The models under their full OpenCode IDs, such as
- * `openrouter/z-ai/glm-5.2`, with the variants OpenCode offers as efforts.
+ * `openrouter/vendor/model`, with the variants OpenCode offers as efforts.
  * @throws {AgentError} `cli_unexpected_output` for anything but a model list.
  * @remarks
  * The global model filter leaves out models that are not active or that
- * generate images, video or audio. IDs Pages cannot store unchanged, such as
- * aliases with a `~` after the provider, are left out instead of failing the
- * list.
+ * generate images, video or audio, and the models of a provider Pages
+ * retired. IDs Pages cannot store unchanged, such as aliases with a `~` after
+ * the provider, are left out instead of failing the list.
  */
 export function readOpenCodeModels(
   stdout: string,
@@ -305,7 +306,12 @@ export function readOpenCodeModels(
 
       throw unexpected();
     }
-    if (!isCatalogModelId(match[1]) || !isListedOpenCodeModel(entry)) continue;
+    if (
+      !isCatalogModelId(match[1]) ||
+      isRetiredOpenCodeModel(match[1]) ||
+      !isListedOpenCodeModel(entry)
+    )
+      continue;
     models.push(readOpenCodeModel(match[1], entry));
     if (models.length > MAXIMUM_OPENCODE_MODELS) throw unexpected();
   }

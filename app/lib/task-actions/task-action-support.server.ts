@@ -49,6 +49,7 @@ export type TaskActionIntent =
   | "update-description"
   | "change-parent"
   | "remove-attachment"
+  | "set-attachment-search-release"
   | "set-tree-expanded";
 
 /** Why a ticket action failed; the client translates it as `tasks.error.<code>`. */

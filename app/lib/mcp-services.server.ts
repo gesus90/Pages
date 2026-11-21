@@ -57,6 +57,8 @@ import { AgentOperationKeyRepository } from "@/backend/database/repositories/age
 import { McpUserApi } from "@/backend/service/mcp/users/McpUserApi";
 import { PasswordHasher } from "@/backend/auth/PasswordHasher";
 import { AutomationOperationService } from "@/backend/service/automation/AutomationOperationService";
+import { AgentSourceSearchService } from "@/backend/service/agents/AgentSourceSearchService";
+import { readSearchEmbeddingModel } from "@/backend/service/search/EmbeddingModels";
 
 import { runnerAssetUpload } from "./agent-asset-return.server";
 import { createMcpDeviceServices } from "./mcp-device-services.server";
@@ -226,6 +228,12 @@ function createMcpOperationRouter(
       },
     }),
     ...automationOperations(context, "mcp"),
+    sourceSearch: new AgentSourceSearchService({
+      database: context.database,
+      users: context.users,
+      channel: "mcp",
+      createModel: readSearchEmbeddingModel(),
+    }),
     projects: new ProjectRepository(context.database),
     wiki: new WikiRepository(context.database),
     users: context.users,
@@ -294,6 +302,12 @@ function createChatOperationRouter(
       },
     }),
     ...automationOperations(context, channel),
+    sourceSearch: new AgentSourceSearchService({
+      database: context.database,
+      users: context.users,
+      channel,
+      createModel: readSearchEmbeddingModel(),
+    }),
     projects: new ProjectRepository(context.database),
     wiki: new WikiRepository(context.database),
     users: context.users,

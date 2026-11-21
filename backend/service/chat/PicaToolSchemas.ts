@@ -97,6 +97,13 @@ export const PICA_READ_SCHEMAS = {
   wiki_tree_read: z
     .object({ projectId: identifier.optional(), cursor: cursor.optional() })
     .strict(),
+  sources_search: z
+    .object({
+      question: z.string().trim().min(1).max(1000),
+      projectId: identifier.optional(),
+      limit: z.number().int().min(1).max(20).optional(),
+    })
+    .strict(),
   wiki_page_read: z.object({ pageId: identifier }).strict(),
   wiki_comments_read: z.object({ pageId: identifier }).strict(),
 } as const;

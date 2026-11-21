@@ -35,6 +35,7 @@ const TREE_NEUTRAL_INTENTS: ReadonlySet<string> = new Set([
   "link-add",
   "link-remove",
   "remove-attachment",
+  "set-attachment-search-release",
 ]);
 
 /**

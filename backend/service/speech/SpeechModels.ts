@@ -18,21 +18,6 @@ import type { PageAgentModel } from "@/definition/PageAgent";
 import type { SpeechModelSelection } from "@/definition/SpeechRecognition";
 import type { SpeechSimulationMode } from "./SpeechSimulation";
 
-/**
- * Z.AI's speech recognition model.
- * @remarks
- * Z.AI's model listing names no capabilities, so this documented entry is
- * the one place in Pages that names its recognition model
- * (https://docs.z.ai/guides/audio/glm-asr-2512): WAV and MP3, at most 30
- * seconds and 25 MB per recording, through
- * `POST https://api.z.ai/api/paas/v4/audio/transcriptions`.
- */
-export const ZAI_SPEECH_MODEL = {
-  id: "glm-asr-2512",
-  name: "GLM-ASR-2512",
-  maxDurationMs: 30_000,
-} as const;
-
 /** A speech model of the instance with what running it needs. */
 export interface SpeechModelEntry {
   readonly choice: PageAgentModel;
@@ -58,24 +43,6 @@ function speechChoice(
     ...catalogModelChoice(connection, model),
     isChatCapable: undefined,
     isSpeechCapable: true,
-  };
-}
-
-function zaiEntry(connection: AgentConnectionRecord): SpeechModelEntry {
-  return {
-    choice: speechChoice(connection, {
-      id: ZAI_SPEECH_MODEL.id,
-      name: ZAI_SPEECH_MODEL.name,
-      contextWindow: null,
-      promptPrice: null,
-      completionPrice: null,
-      isFree: false,
-      reasoning: "none",
-      reasoningEfforts: [],
-      defaultReasoningEffort: null,
-    }),
-    connection,
-    limitMs: ZAI_SPEECH_MODEL.maxDurationMs,
   };
 }
 
@@ -116,12 +83,12 @@ function simulationEntry(mode: SpeechSimulationMode): SpeechModelEntry {
   };
 }
 
-// Only the two connected APIs recognize speech; CLI tools offer none.
+// Only the OpenRouter API recognizes speech; CLI tools offer none.
 function isSpeechConnection(connection: AgentConnectionRecord): boolean {
   return (
     connection.isActive &&
     connection.hasApiKey &&
-    (connection.provider === "openrouter" || connection.provider === "zai")
+    connection.provider === "openrouter"
   );
 }
 
@@ -147,8 +114,8 @@ async function isUsableSpeechConnection(
  * @remarks
  * OpenRouter's stored catalog states the modalities of each model; only a
  * transcription model ({@link isTranscriptionModel}) is listed, never a chat
- * model that also accepts audio or a model that states nothing. Z.AI lists
- * its documented {@link ZAI_SPEECH_MODEL}. No provider is called.
+ * model that also accepts audio or a model that states nothing. No provider
+ * is called.
  */
 export async function listSpeechModels(
   source: SpeechModelSource,
@@ -157,11 +124,7 @@ export async function listSpeechModels(
   const entries: SpeechModelEntry[] = [];
   for (const connection of await source.connections.list()) {
     if (!(await isUsableSpeechConnection(source, viewer, connection))) continue;
-    if (connection.provider === "zai") entries.push(zaiEntry(connection));
-    else
-      entries.push(
-        ...(await openRouterEntries(source.connections, connection)),
-      );
+    entries.push(...(await openRouterEntries(source.connections, connection)));
   }
   if (source.simulation.isActive)
     entries.push(simulationEntry(source.simulation));

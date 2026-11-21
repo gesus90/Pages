@@ -48,10 +48,7 @@ function selectionModels(
   connection: AgentConnectionRecord,
   models: readonly AgentCatalogModel[],
 ): readonly AgentCatalogModel[] {
-  if (
-    !supportsModelCatalog(connection.provider) ||
-    (connection.provider === "zai" && models.length === 0)
-  )
+  if (!supportsModelCatalog(connection.provider))
     return manualModels(connection);
   return connection.provider === "opencode"
     ? models.filter((model) => model.id.startsWith("opencode/") && model.isFree)

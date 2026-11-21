@@ -29,8 +29,7 @@ interface AgentTriggerProps {
 /**
  * The short name of the model of an agent, such as "Opus", where the chat
  * deviates from the agent's own model; nothing otherwise. A Claude Code,
- * Codex, Antigravity, OpenCode or OpenRouter model, or a model of a direct Z.AI
- * connection, shows the shared model badge of its vendor or tool instead.
+ * Codex, Antigravity, OpenCode or OpenRouter model shows the shared model badge of its vendor or tool instead.
  * `className` changes its size, such as to the 32 px of the direct chat's
  * head.
  */
@@ -59,7 +58,6 @@ export function ChatModelBadge({
         <ModelBadge
           vendor={vendor}
           name={name}
-          modelId={model.modelId}
           source={source}
           hasKeyboardTooltip={vendor === "openrouter" && !isInsideButton}
         />

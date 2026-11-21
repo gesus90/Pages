@@ -1,7 +1,6 @@
 import type {
   AgentCheckDetail,
   ApiProviderId,
-  ZaiAccountType,
 } from "@/definition/AgentConnection";
 import type { AgentErrorCode } from "@/backend/error/AgentErrors";
 
@@ -14,7 +13,6 @@ export type ProviderCheckOutcome =
     };
 
 export interface ModelTestRequest {
-  readonly zaiAccountType?: ZaiAccountType;
   readonly apiKey: string;
   readonly model: string;
   /** Only set when the stored catalog lists this effort for the model. */
@@ -27,7 +25,6 @@ export interface ApiProviderAdapter {
   checkAccess(
     apiKey: string,
     signal: AbortSignal,
-    zaiAccountType?: ZaiAccountType,
   ): Promise<ProviderCheckOutcome>;
   runModelTest(
     request: ModelTestRequest,

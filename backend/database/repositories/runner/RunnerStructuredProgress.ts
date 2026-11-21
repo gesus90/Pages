@@ -97,7 +97,7 @@ async function persistRunnerUsage(
   const provider = readTextColumn(attempt, 0, "provider");
   if (!isAgentProvider(provider) || !isAcpProvider(provider)) return;
   const normalized = runnerTurnTokens(
-    provider === "openrouter" || provider === "zai" ? "opencode" : provider,
+    provider === "openrouter" ? "opencode" : provider,
     usage,
   );
   if (!normalized) return;

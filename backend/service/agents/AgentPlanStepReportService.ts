@@ -6,7 +6,10 @@ import {
 } from "@/backend/agents/AgentPlanStepReportInput";
 import { AgentOperationError } from "@/backend/error/AgentOperationError";
 import { logCaughtError } from "@/backend/logging/Logger";
-import { isAgentProvider } from "@/definition/AgentConnection";
+import {
+  historicalRunnerOf,
+  isAgentProvider,
+} from "@/definition/AgentConnection";
 import { AGENT_RUN_REACHES } from "@/definition/McpAuthorization";
 
 import { sanitizeArtifactText } from "./AgentPlanOutput";
@@ -67,12 +70,17 @@ function readTerms(text: string): PlanStepReportTerms {
   const terms = readAgentObject(JSON.parse(text));
   const contract = readPlanContract(terms.contract);
   const reach = AGENT_RUN_REACHES.find((entry) => entry === terms.reach);
+  // Terms stored for a retired provider name the runtime that ran it.
+  const provider =
+    typeof terms.provider === "string"
+      ? historicalRunnerOf(terms.provider)
+      : null;
   if (
     !contract ||
     !reach ||
     typeof terms.instruction !== "string" ||
     typeof terms.projectId !== "string" ||
-    !isAgentProvider(terms.provider)
+    !isAgentProvider(provider)
   )
     throw new Error("Invalid step report terms");
   return {
@@ -80,7 +88,7 @@ function readTerms(text: string): PlanStepReportTerms {
     reach,
     instruction: terms.instruction,
     projectId: terms.projectId,
-    provider: terms.provider,
+    provider,
   };
 }
 

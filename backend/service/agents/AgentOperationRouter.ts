@@ -38,6 +38,7 @@ import type { AgentAdministrationService } from "./AgentAdministrationService";
 import type { AgentAdminWriteResponse } from "@/definition/AgentAdministration";
 import type { AgentExtensionService } from "./AgentExtensionService";
 import type { AgentProjectDeletionService } from "./AgentProjectDeletionService";
+import type { AgentSourceSearchService } from "./AgentSourceSearchService";
 import type { AgentPlanningServices } from "./AgentPlanningServices";
 import type { AgentWikiCommentService } from "./AgentWikiCommentService";
 import type { AgentWikiFieldService } from "./AgentWikiFieldService";
@@ -110,6 +111,8 @@ export interface AgentOperationDependencies {
   readonly pageAgents?: Pick<PageAgentOperationService, "handle">;
   /** Automations, offered to the agent tools and the chat alike. */
   readonly automations?: Pick<AutomationOperationService, "handle">;
+  /** The hybrid search over tickets, wiki pages and released ticket assets. */
+  readonly sourceSearch?: Pick<AgentSourceSearchService, "handle">;
   /** The agent surface the reads run for; MCP when absent. */
   readonly channel?: AgentChannel;
 }
@@ -325,6 +328,7 @@ export class AgentOperationRouter {
       dependencies.plans,
       dependencies.pageAgents,
       dependencies.automations,
+      dependencies.sourceSearch,
     ];
     for (const service of services) {
       const response = await service?.handle(

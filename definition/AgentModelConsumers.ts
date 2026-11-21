@@ -96,14 +96,14 @@ export function hasChatAdapter(
 /**
  * The providers whose adapters run a place that is not a chat or a plan.
  * @remarks
- * Speech recognition goes through OpenRouter and Z.AI, speech output and the
- * decisions of group chats through OpenRouter. A place without an entry
+ * Speech recognition, speech output and the decisions of group chats go
+ * through OpenRouter. A place without an entry
  * runs every provider's models.
  */
 const PLACE_PROVIDERS: Partial<
   Record<AgentModelConsumer, readonly AgentProviderId[]>
 > = {
-  stt: ["openrouter", "zai"],
+  stt: ["openrouter"],
   tts: ["openrouter"],
   decision: ["openrouter"],
 };

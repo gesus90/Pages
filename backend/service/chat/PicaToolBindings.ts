@@ -68,6 +68,11 @@ export const READ_TOOLS: Readonly<Record<PicaReadTool, PicaToolBinding>> = {
       "Search visible wiki pages by text, optionally within one project; returns titles, page IDs and snippets.",
     operation: "wiki.search",
   },
+  sources_search: {
+    description:
+      "Answer a question from visible tickets, wiki pages and ticket assets released for the search: keyword and vector search together, so rephrased questions match too, and a ticket number written in the question comes first. projectId limits it to one project. Returns at most limit (default 10, at most 20) sections with title, link, current revision and text; cite the link of every section you use. vectorSearch.status unavailable means only the keyword search answered.",
+    operation: "search.sources",
+  },
   wiki_tree_read: {
     description:
       "Read the page tree of a project wiki, or of the instance wiki without projectId.",

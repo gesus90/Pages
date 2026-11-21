@@ -16,13 +16,11 @@ import { ClaudeQuotaRepository } from "./agent/ClaudeQuotaRepository";
 import {
   CONNECTION_COLUMNS,
   readAgentConnection,
+  RETIRED_PROVIDER_SQL_LIST,
 } from "./agent/AgentConnectionRows";
 
 import type { Database } from "@/backend/database/Database";
-import type {
-  AgentProviderId,
-  ZaiAccountType,
-} from "@/definition/AgentConnection";
+import type { AgentProviderId } from "@/definition/AgentConnection";
 import type { AgentConnectionScope } from "@/definition/AgentConnectionScope";
 import type { AgentUsage } from "@/definition/AgentUsage";
 import type { AgentConnectionRecord } from "./agent/AgentConnectionRows";
@@ -33,7 +31,6 @@ export interface AgentConnectionWrite {
   readonly id: string;
   readonly name: string;
   readonly provider: AgentProviderId;
-  readonly zaiAccountType?: ZaiAccountType;
   readonly secretEncrypted: string | null;
   readonly openRouterManagementSecret?: string | null;
   readonly testModel: string | null;
@@ -47,8 +44,6 @@ export interface AgentConnectionChange {
   readonly codexPriceMappings?: Readonly<Record<string, string>>;
   readonly claudePriceModels?: Readonly<Record<string, string>>;
   readonly name: string;
-  readonly zaiAccountType?: ZaiAccountType;
-  readonly clearAccess?: boolean;
   /** Null keeps the stored key; replacing a key always clears both checks. */
   readonly secretEncrypted: string | null;
   readonly openRouterManagementSecret?: string | null;
@@ -120,19 +115,39 @@ export class AgentConnectionRepository {
     return new AgentConnectionScopeRepository(this.database);
   }
 
-  /** Lists safe metadata without selecting secret ciphertext. */
+  /**
+   * Lists safe metadata without selecting secret ciphertext.
+   * @remarks
+   * A connection of a retired provider is not listed.
+   */
   public async list(): Promise<readonly AgentConnectionRecord[]> {
     return (
       await this.database.query(
-        `SELECT ${CONNECTION_COLUMNS} FROM agent_connections ORDER BY lower(name), id;`,
+        `
+        SELECT ${CONNECTION_COLUMNS}
+        FROM agent_connections
+        WHERE provider NOT IN (${RETIRED_PROVIDER_SQL_LIST})
+        ORDER BY lower(name), id;
+      `,
       )
     ).map(readAgentConnection);
   }
 
-  /** Reads safe metadata for one connection. */
+  /**
+   * Reads safe metadata for one connection.
+   * @remarks
+   * A connection of a retired provider reads as absent, so every model choice,
+   * plan node and agent that still names it is reported as unavailable instead
+   * of running, and no other provider is substituted.
+   */
   public async find(id: string): Promise<AgentConnectionRecord | null> {
     const rows = await this.database.query(
-      `SELECT ${CONNECTION_COLUMNS} FROM agent_connections WHERE id = $id;`,
+      `
+      SELECT ${CONNECTION_COLUMNS}
+      FROM agent_connections
+      WHERE id = $id
+          AND provider NOT IN (${RETIRED_PROVIDER_SQL_LIST});
+    `,
       { id },
     );
     return rows[0] ? readAgentConnection(rows[0]) : null;
@@ -141,7 +156,11 @@ export class AgentConnectionRepository {
   /** Counts connections while the service serializes creation. */
   public async count(): Promise<number> {
     const rows = await this.database.query(
-      "SELECT COUNT(*) AS count FROM agent_connections;",
+      `
+      SELECT COUNT(*) AS count
+      FROM agent_connections
+      WHERE provider NOT IN (${RETIRED_PROVIDER_SQL_LIST});
+    `,
     );
     return readCountColumn(rows[0], 0, "count");
   }
@@ -286,7 +305,6 @@ export class AgentConnectionRepository {
             name,
             provider,
             claude_price_models,
-            zai_account_type,
             codex_price_mappings,
             secret_encrypted,
             openrouter_management_secret_encrypted,
@@ -299,7 +317,6 @@ export class AgentConnectionRepository {
             $name,
             $provider,
             $claude_price_models,
-            $zai_account_type,
             $codex_price_mappings,
             $secret_encrypted,
             $openrouter_management_secret,
@@ -316,7 +333,6 @@ export class AgentConnectionRepository {
           claude_price_models: JSON.stringify(
             connection.claudePriceModels ?? {},
           ),
-          zai_account_type: connection.zaiAccountType ?? "api",
           codex_price_mappings: JSON.stringify(
             connection.codexPriceMappings ?? {},
           ),
@@ -349,7 +365,6 @@ export class AgentConnectionRepository {
         SET
             name = $name,
             claude_price_models = COALESCE($claude_price_models, claude_price_models),
-            zai_account_type = COALESCE($zai_account_type, zai_account_type),
             codex_price_mappings = COALESCE($codex_price_mappings, codex_price_mappings),
             secret_encrypted = COALESCE($secret_encrypted, secret_encrypted),
             openrouter_management_secret_encrypted = CASE
@@ -374,7 +389,6 @@ export class AgentConnectionRepository {
             change.claudePriceModels === undefined
               ? null
               : JSON.stringify(change.claudePriceModels),
-          zai_account_type: change.zaiAccountType ?? null,
           codex_price_mappings:
             change.codexPriceMappings === undefined
               ? null
@@ -399,7 +413,7 @@ export class AgentConnectionRepository {
           change.scope,
         );
       const checks = new AgentCheckRepository(transaction);
-      if (change.secretEncrypted !== null || change.clearAccess) {
+      if (change.secretEncrypted !== null) {
         await checks.clear(id);
         await new AgentCatalogRepository(transaction).invalidate(id);
       } else if (change.clearModel) await checks.clearModel(id);

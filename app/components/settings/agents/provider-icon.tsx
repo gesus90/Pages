@@ -21,8 +21,8 @@ interface ProviderMark {
 }
 
 /*
- * The tools of the model choice (Claude Code, Codex, Antigravity, OpenCode,
- * OpenRouter and Z.AI) show their own app icons, the same tiles as in the
+ * The tools of the model choice (Claude Code, Codex, Antigravity, OpenCode
+ * and OpenRouter) show their own app icons, the same tiles as in the
  * model choice. The other providers have no icon of their own in this
  * repository and keep a neutral Lucide icon on a tile in their brand color.
  * The keys are the native OpenCode provider IDs, the mark keys of the

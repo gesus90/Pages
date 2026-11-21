@@ -6,10 +6,8 @@ import {
   readTextColumn,
 } from "@/backend/database/RowValue";
 import { quotaPaceSchema } from "@/definition/QuotaForecast";
-import { zaiQuotaReadingSchema } from "@/definition/ZaiQuota";
 
 import type { Database } from "@/backend/database/Database";
-import type { ZaiQuotaReading } from "@/definition/ZaiQuota";
 
 const measuredWindowSchema = z.object({
   resetsAt: z.string(),
@@ -33,7 +31,6 @@ export interface QuotaMeasurement {
   readonly observedAt: number;
   readonly credentialRevision: string | null;
   readonly windows: Readonly<Record<string, QuotaSeries>>;
-  readonly zaiReading?: ZaiQuotaReading;
 }
 
 /** Latest readings and forecast inputs without the raw points. */
@@ -97,30 +94,24 @@ export class QuotaMeasurementRepository {
             connection_id,
             observed_at,
             credential_revision,
-            windows,
-            zai_reading
+            windows
         )
         VALUES (
             $connection_id,
             $observed_at,
             $credential_revision,
-            $windows::JSONB,
-            $zai_reading::JSONB
+            $windows::JSONB
         )
         ON CONFLICT (connection_id) DO UPDATE SET
             observed_at = excluded.observed_at,
             credential_revision = excluded.credential_revision,
-            windows = excluded.windows,
-            zai_reading = excluded.zai_reading;
+            windows = excluded.windows;
         `,
         {
           ...parameters,
           observed_at: observedAt,
           credential_revision: measurement.credentialRevision,
           windows: JSON.stringify(measurement.windows),
-          zai_reading: measurement.zaiReading
-            ? JSON.stringify(measurement.zaiReading)
-            : null,
         },
       );
     });
@@ -151,49 +142,6 @@ export class QuotaMeasurementRepository {
           JSON.parse(readTextColumn(row, 1, "windows")),
         ),
       ]),
-    );
-  }
-
-  /** Reads the stored Z.AI figures only for the current credential revision. */
-  public async readZaiReading(
-    connectionId: string,
-    revision: string,
-  ): Promise<(ZaiQuotaReading & { readonly at: string }) | null> {
-    const [row] = await this.database.query(
-      `
-      SELECT
-          observed_at,
-          zai_reading::TEXT
-      FROM agent_quota_measurements
-      WHERE connection_id = $connection_id
-          AND credential_revision = $revision
-          AND zai_reading IS NOT NULL;
-      `,
-      { connection_id: connectionId, revision },
-    );
-    if (!row) return null;
-    return {
-      ...zaiQuotaReadingSchema.parse(
-        JSON.parse(readTextColumn(row, 1, "zai_reading")),
-      ),
-      at: new Date(readCountColumn(row, 0, "observed_at")).toISOString(),
-    };
-  }
-
-  /** Drops the displayed figures when Z.AI rejects the current credential. */
-  public async clearZaiReading(
-    connectionId: string,
-    revision: string,
-  ): Promise<void> {
-    await this.database.execute(
-      `
-      UPDATE agent_quota_measurements
-      SET zai_reading = NULL
-      WHERE connection_id = $connection_id
-          AND credential_revision = $revision
-          AND zai_reading IS NOT NULL;
-      `,
-      { connection_id: connectionId, revision },
     );
   }
 }

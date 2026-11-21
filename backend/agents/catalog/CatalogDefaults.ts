@@ -33,7 +33,7 @@ function readsText(model: AgentCatalogModel): boolean {
  *   with its first free model for the same reason.
  * - Google starts with its "latest Flash" alias when listed.
  * - OpenAI's listing marks no default and also contains models that cannot
- *   chat, so OpenAI and Z.AI get none and the administrator chooses.
+ *   chat, so OpenAI gets none and the administrator chooses.
  */
 export function defaultCatalogModel(
   provider: AgentProviderId,
@@ -55,7 +55,6 @@ export function defaultCatalogModel(
       return listed(models, GOOGLE_FLASH_LATEST);
     case "antigravity":
     case "openai":
-    case "zai":
       return null;
   }
 }

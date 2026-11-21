@@ -60,14 +60,14 @@ Schreib-/Bestätigungsregeln. Sie dürfen nicht mit dem alten API-Dienst entfall
 
 ## API-Code, der andere Funktionen bedient
 
-| Dateien / Bereich                                                                                                                             | Weitere Verwendung                                                                                          | Vorgesehene Behandlung                                                                                                         |
-| --------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| `ApiProviderRegistry.ts`, `OpenAiProvider.ts`, `AnthropicProvider.ts`, `GoogleAiStudioProvider.ts`, `OpenRouterProvider.ts`, `ZaiProvider.ts` | `AgentCheckService`: Zugangsprüfung und ausdrücklicher Modelltest                                           | Erhalten; z.ai-Endpunktwahl separat korrigieren.                                                                               |
-| `ProviderContracts.ts`, `ProviderHttpClient.ts`, `ProviderResponses.ts`, `ProviderErrors.ts`                                                  | Prüfadapter; Header und Fehlerklassifikation zusätzlich im Modellkatalog                                    | Erhalten.                                                                                                                      |
-| `ApiTextExecution.ts`, `TextProviderPayload.ts`, `TicketAssetPayload.ts`                                                                      | `AgentPlanExecution.run` und `agentChatExecution`; die bisherige Chat-Kontextverdichtung verwendet Letztere | Kein ausschließlich Pica gehörender Code. Nicht pauschal entfernen; bestehende API-Planknoten und deren Datenvertrag bewahren. |
-| `ProviderReset.ts`                                                                                                                            | API-Ausführung sowie `AgentProviderFailure.ts` und damit CLI-/Plan-Fehlerauswertung                         | Erhalten.                                                                                                                      |
-| `backend/agents/catalog/*`                                                                                                                    | Modellkatalog, Standardmodell und dessen Aktualisierung                                                     | Erhalten.                                                                                                                      |
-| `AgentCredentialStore`, `OpenCodeCredentials`, `OpenCodeProviderKeys` und `OpenCodeProviderLinks`                                             | CLI-Umgebungen, Verknüpfung geprüfter API-Schlüssel, Katalog und Zugriffsprüfung für opencode               | Erhalten; z.ai-Providerwahl konsistent ergänzen.                                                                               |
+| Dateien / Bereich                                                                                                           | Weitere Verwendung                                                                                          | Vorgesehene Behandlung                                                                                                         |
+| --------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `ApiProviderRegistry.ts`, `OpenAiProvider.ts`, `AnthropicProvider.ts`, `GoogleAiStudioProvider.ts`, `OpenRouterProvider.ts` | `AgentCheckService`: Zugangsprüfung und ausdrücklicher Modelltest                                           | Erhalten.                                                                                                                      |
+| `ProviderContracts.ts`, `ProviderHttpClient.ts`, `ProviderResponses.ts`, `ProviderErrors.ts`                                | Prüfadapter; Header und Fehlerklassifikation zusätzlich im Modellkatalog                                    | Erhalten.                                                                                                                      |
+| `ApiTextExecution.ts`, `TextProviderPayload.ts`, `TicketAssetPayload.ts`                                                    | `AgentPlanExecution.run` und `agentChatExecution`; die bisherige Chat-Kontextverdichtung verwendet Letztere | Kein ausschließlich Pica gehörender Code. Nicht pauschal entfernen; bestehende API-Planknoten und deren Datenvertrag bewahren. |
+| `ProviderReset.ts`                                                                                                          | API-Ausführung sowie `AgentProviderFailure.ts` und damit CLI-/Plan-Fehlerauswertung                         | Erhalten.                                                                                                                      |
+| `backend/agents/catalog/*`                                                                                                  | Modellkatalog, Standardmodell und dessen Aktualisierung                                                     | Erhalten.                                                                                                                      |
+| `AgentCredentialStore`, `OpenCodeCredentials`, `OpenCodeProviderKeys` und `OpenCodeProviderLinks`                           | CLI-Umgebungen, Verknüpfung geprüfter API-Schlüssel, Katalog und Zugriffsprüfung für opencode               | Erhalten.                                                                                                                      |
 
 `AgentPlanExecution` importiert weder das Paket noch die API-Runtime und
 verwendet für CLI-Knoten `CliSessionExecution`. Es besitzt daneben einen
@@ -89,8 +89,7 @@ werden; dieses Ticket verlangt zugleich deren unveränderte Nutzbarkeit.
   unzulässige Auswahl benötigt eine sichtbare Erklärung.
 - `language/locales/de/translation.json` und
   `language/locales/en/translation.json`: API-/ACP-Hinweise, Pica-Auswahl,
-  nicht mehr benötigte API-Modus-Texte und z.ai-Zugangsprüfungsbeschreibung
-  konsistent anpassen. Allgemeine API-Verbindungstexte bleiben erforderlich.
+  nicht mehr benötigte API-Modus-Texte konsistent anpassen. Allgemeine API-Verbindungstexte bleiben erforderlich.
 - `backend/error/ChatErrors.ts`: `apiModeRequired` wird auch bei der
   Kontextverdichtung verwendet; beim Entfernen dessen komplette Fehlerführung
   und Übersetzungen berücksichtigen.
@@ -100,23 +99,15 @@ werden; dieses Ticket verlangt zugleich deren unveränderte Nutzbarkeit.
   `backend/service/agents/sessions/PageAgentCliSessions.md`. Historische
   Integrationsannahmen durch den tatsächlichen ACP-Stand ersetzen.
 - `backend/agents/acp/OpenCodeAcpCapabilities.md` beschreibt die
-  Schlüsselverknüpfung einschließlich des bisher festen z.ai-Providers und
-  muss bei dessen Änderung aktualisiert werden.
+  Schlüsselverknüpfung und muss bei deren Änderung aktualisiert werden.
 
-## z.ai im Ausgangsstand
+## Entfernter Anbieter
 
-`definition/AgentConnection.ts` setzt `OPENCODE_LINKED_PROVIDERS.zai` fest auf
-`zai` und den direkten Endpunkt fest auf `https://api.z.ai/api/paas/v4`.
-`ZaiProvider` schließt den Coding-Plan-Endpunkt ausdrücklich aus und prüft
-`glm-4.7-flash`. `supportsModelCatalog` in `AgentModelCatalog.ts` schließt z.ai
-vom direkten Katalog aus. `OpenCodeProviderKeys.read` übernimmt die feste
-Provider-ID. Es gibt an diesen Grenzen noch keine Kontoartwahl.
-
-Damit ist eine fehlende Coding-Plan-Unterscheidung im Code belegt. Ein
-aktueller Anbieterfehler oder die Verfügbarkeit von `glm-5.3-flash` ist damit
-ausdrücklich nicht live belegt. Die verlangte CLI-Katalogprüfung und der
-freigegebene Modellaufruf wurden vor dem unten beschriebenen Blocker nicht
-ausgeführt. Kein Schlüssel wurde gelesen, kopiert oder ausgegeben.
+Der frühere direkte Anbieter z.ai ist aus Pages entfernt: kein Adapter, keine
+Verbindungsart, kein Katalog, keine Kontingentkarte und keine Pica-Auswahl.
+Gespeicherte Verbindungen und Auswahlen bleiben als Altbestand lesbar, werden
+aber nie aufgelistet oder ausgeführt; siehe
+[Entfernter Anbieter Z.AI](AgentPlanRunner.md#retired-provider-zai).
 
 ## Historischer Auftragskonflikt
 

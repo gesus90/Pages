@@ -111,45 +111,6 @@ function AgentKeyField({
   );
 }
 
-function AgentZaiAccountField({
-  form,
-}: {
-  readonly form: AgentForm;
-}): React.ReactElement | null {
-  const { t } = useTranslation();
-  if (form.fields.provider !== "zai") return null;
-  return (
-    <div className="space-y-2">
-      <label
-        htmlFor="agent-zai-account-type"
-        className="block text-sm font-medium"
-      >
-        {t("settings.agents.zaiAccountType")}
-      </label>
-      <Select
-        id="agent-zai-account-type"
-        value={form.fields.zaiAccountType}
-        onValueChange={(choice) => form.setField("zaiAccountType", choice)}
-        placeholder={t("settings.agents.zaiChooseAccount")}
-        ariaLabel={t("settings.agents.zaiAccountType")}
-        className="w-full border border-border [&>span]:truncate"
-        options={[
-          {
-            value: "",
-            label: t("settings.agents.zaiChooseAccount"),
-            disabled: true,
-          },
-          { value: "coding-plan", label: t("settings.agents.zaiCodingPlan") },
-          { value: "api", label: t("settings.agents.zaiStandardApi") },
-        ]}
-      />
-      <p className="text-xs text-muted-foreground">
-        {t("settings.agents.zaiAccountHint")}
-      </p>
-    </div>
-  );
-}
-
 function ClaudePriceFields({
   form,
 }: {
@@ -334,7 +295,6 @@ export function AgentFormFields({
       {form.fields.provider === "openrouter" ? (
         <OpenRouterManagementKeyField form={form} isExisting={isExisting} />
       ) : null}
-      <AgentZaiAccountField form={form} />
       <AgentManualModelField form={form} />
       <CodexPriceMappingFields form={form} />
       <ClaudePriceFields form={form} />

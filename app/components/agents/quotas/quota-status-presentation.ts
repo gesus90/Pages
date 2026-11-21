@@ -142,7 +142,6 @@ const REPORTED_TEXT: Readonly<Record<QuotaAccount["provider"], string>> = {
   openrouter: "agentsPage.openRouter.reported",
   codex_cli: "agentsPage.state.reportedCodex",
   antigravity: "agentsPage.state.reportedAntigravity",
-  zai: "agentsPage.zai.reported",
 };
 
 function reportedPresentation(
@@ -228,11 +227,7 @@ export function statusPresentation(
       return {
         icon: TriangleAlert,
         tone: "warning",
-        text: t(
-          format.provider === "zai"
-            ? "agentsPage.zai.signedOut"
-            : "agentsPage.state.signedOut",
-        ),
+        text: t("agentsPage.state.signedOut"),
         action: "openConnection",
       };
   }

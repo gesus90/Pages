@@ -25,7 +25,7 @@ export const SPEECH_SIMULATION_CONNECTION = "pages-stt-simulation";
 /** The model name the simulated connection offers. */
 export const SPEECH_SIMULATION_MODEL = "simulation";
 
-/** The limit of the scenario `short_limit`, like Z.AI's 30 seconds. */
+/** The limit of the scenario `short_limit`, a recording limit shorter than usual. */
 export const SPEECH_SIMULATION_SHORT_LIMIT_MS = 30_000;
 
 /** The wait of the scenario `slow`. */

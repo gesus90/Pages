@@ -80,42 +80,6 @@ export function describeClaudeModel(id: string, name: string): string {
   return `${capitalize(parts.family)} ${parts.version}${context}${addition}`;
 }
 
-// `glm-<major>[.<minor>]` followed by words of letters, such as `glm-5.3-flash`;
-// a letter glued to the version (`glm-4.6v`) or digits after it do not read as one name.
-const ZAI_GLM_MODEL_ID = /^glm-(\d{1,2}(?:\.\d{1,2})?)((?:-[a-z]+)*)$/u;
-
-// Z.AI writes `FlashX` with a capital X, which capitalizing the first letter alone would not give.
-const ZAI_MODEL_WORD_SPELLING: Readonly<Record<string, string>> = {
-  flashx: "FlashX",
-};
-
-function zaiModelWord(word: string): string {
-  return Object.hasOwn(ZAI_MODEL_WORD_SPELLING, word)
-    ? (ZAI_MODEL_WORD_SPELLING[word] ?? capitalize(word))
-    : capitalize(word);
-}
-
-/**
- * The name a Z.AI model carries in a model choice.
- * @param id - The model ID as the Z.AI model listing states it.
- * @param name - The name the catalog stores, which is the ID itself when the listing names none.
- * @returns `GLM 5.3 Flash` for `glm-5.3-flash` stored without a name of its
- * own; a name the catalog states stays as it is, and so does an ID that does
- * not read as a GLM version with words.
- * @remarks
- * The Z.AI listing carries the ID only, so the catalog stores it as the name.
- * A name is derived only from an ID of the plain form, never guessed for any
- * other, which keeps the ID.
- */
-export function describeZaiModel(id: string, name: string): string {
-  if (name !== id) return name;
-  const match = ZAI_GLM_MODEL_ID.exec(id);
-  if (match === null) return name;
-  const [, version, suffix = ""] = match;
-  const words = suffix.split("-").filter(Boolean).map(zaiModelWord);
-  return ["GLM", version, ...words].join(" ");
-}
-
 /** A model of one target as far as alias resolution is concerned. */
 export interface AliasCandidate {
   readonly id: string;

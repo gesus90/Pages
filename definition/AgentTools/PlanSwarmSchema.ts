@@ -23,7 +23,6 @@ const MODEL: PropertySchema = {
             "opencode",
             "antigravity",
             "openrouter",
-            "zai",
           ],
         },
         model: { type: "string", minLength: 1, maxLength: 200 },

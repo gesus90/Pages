@@ -18,7 +18,6 @@ import {
   readAgentConnectionScope,
   readClaudePriceModels,
   readOpenCodePriceMapping,
-  readZaiAccountType,
   validateAgentInput,
 } from "./AgentConnectionValidation";
 import {
@@ -92,7 +91,6 @@ export class AgentConnectionService {
           id: connection.id,
           name: connection.name,
           provider: connection.provider,
-          zaiAccountType: connection.zaiAccountType,
           accessKind: AGENT_PROVIDERS[connection.provider].accessKind,
           hasApiKey: connection.hasApiKey,
           testModel: connection.testModel,
@@ -121,7 +119,6 @@ export class AgentConnectionService {
       const validated = validateAgentInput(input, provider);
       const openRouterModelIds =
         readOpenCodePriceMapping(input.openRouterModelIds, provider) ?? {};
-      const zaiAccountType = readZaiAccountType(input, provider);
       const scope =
         input.scope === undefined
           ? GLOBAL_CONNECTION_SCOPE
@@ -148,7 +145,6 @@ export class AgentConnectionService {
             provider,
           ),
           provider,
-          zaiAccountType,
           openRouterManagementSecret: managementSecret(input, {
             id,
             provider,
@@ -188,14 +184,6 @@ export class AgentConnectionService {
         input.openRouterModelIds,
         connection.provider,
       );
-      const zaiAccountType = readZaiAccountType(
-        input,
-        connection.provider,
-        connection.zaiAccountType ?? "api",
-      );
-      const hasAccountChanged =
-        zaiAccountType !== undefined &&
-        zaiAccountType !== (connection.zaiAccountType ?? "api");
       const scope =
         input.scope === undefined
           ? null
@@ -221,8 +209,6 @@ export class AgentConnectionService {
             input.claudePriceModels,
             connection.provider,
           ),
-          zaiAccountType,
-          clearAccess: hasAccountChanged,
           openRouterManagementSecret: managementSecret(input, {
             id,
             provider: connection.provider,

@@ -191,11 +191,10 @@ export class OpenRouterPriceCatalog {
     if (exact || mapped || model.startsWith("openrouter/"))
       return exact ?? null;
     const [provider, ...parts] = model.split("/");
-    const upstream = provider === "zai" ? "z-ai" : provider;
     const name = parts.join("/");
     const matches = this.current.models.filter(
       (entry) =>
-        entry.id.startsWith(`${upstream}/`) &&
+        entry.id.startsWith(`${provider}/`) &&
         entry.id.split("/").slice(1).join("/") === name,
     );
     return matches.length === 1 ? (matches[0] ?? null) : null;

@@ -33,6 +33,7 @@ import type {
 import type { AgentMilestones, AgentTicket } from "./AgentTickets.js";
 import type { AgentTicketChecklist } from "./AgentTicketChecklist.js";
 import type { AgentWikiComments } from "./AgentWikiComments.js";
+import type { AgentSourceSearch } from "./AgentSourceSearch.js";
 import type { ChatSession } from "./ChatSessionOperations.js";
 import type { WikiCover } from "./Wiki.js";
 
@@ -236,6 +237,7 @@ export interface PagesAgentReadResponse {
     | AgentTicketDescriptionRange
     | AgentWikiTree
     | AgentWikiSearch
+    | AgentSourceSearch
     | AgentImportPlan
     | AgentTicket
     | AgentTicketChecklist

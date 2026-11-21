@@ -176,7 +176,7 @@ Context occupancy and token counts are separate values:
   `.size`. The latest reported value of each field stays for that model and
   attempt. Claude's zero after an unmeasured compaction leaves the previous
   occupancy in place. The runner uses the ACP session and its confirmed
-  selector to attribute Antigravity, OpenCode, OpenRouter and Z.AI readings.
+  selector to attribute Antigravity, OpenCode and OpenRouter readings.
 - A Claude Code CLI job of a runner sends its own session readings instead of
   `usage_update`, kept apart from its token counters: `cli_assistant_usage` is
   input, output, cache read and cache write of the latest top-level answer

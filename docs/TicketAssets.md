@@ -47,6 +47,62 @@ uploads require the saving person to own the upload. Removing an attachment or p
 removing a ticket deletes its file and removes an empty ticket folder. Archiving
 retains files so they can be restored.
 
+## Attachment list
+
+The attachment section of a ticket lists every asset with name, size and the
+person who uploaded it. People who may read the ticket can open an asset by its
+name in a new tab and download it with the download button. Image attachments
+show a small preview; a click on it opens the image viewer for the image
+attachments of this ticket in the order of the list, with the same paging,
+keyboard and closing behavior as the viewer of the description. The viewer can
+open the image in a new tab. People who may change the ticket also upload and
+remove assets there. All of this uses the existing
+`/aufgaben/attachments/<attachment-uuid>` route and the existing upload route.
+
+People who may change the ticket also release the text of a file for the local
+search with the search button of its row, and withdraw the release with the same
+button; images, audio and video have none. A released file shows "Released for
+the search" to everyone who can read the ticket. Only released files are read by
+the [local search indexer](SearchIndexing.md#released-ticket-assets).
+
+An upload that ends before the announced number of bytes arrived, for example
+because the connection was cut off, is refused with
+`attachmentUploadIncomplete`. The partial file is removed and no attachment
+row is created, so the person uploads the file again. A body stream that fails
+outright removes its partial file as well; files a crashed server left behind
+are swept after one hour.
+
+## Change log for content readers
+
+Readers that process the bytes of ticket assets, such as a text extraction,
+follow the table `ticket_asset_changes` instead of polling attachments.
+Triggers on `work_item_attachments` write one row in the transaction of every
+change:
+
+| Column          | Meaning                                                              |
+| --------------- | -------------------------------------------------------------------- |
+| `position`      | Increases in commit order; a reader continues after the highest one. |
+| `attachment_id` | Attachment UUID.                                                     |
+| `work_item_id`  | UUID of the ticket the attachment belongs to.                        |
+| `change`        | `stored` for a new attachment or new facts, `deleted` for a removal. |
+| `checksum`      | SHA-256 of the bytes; it is the version of the asset.                |
+| `content_type`  | MIME type detected from the first bytes.                             |
+
+The bytes of an attachment never change under its UUID. A new upload is a new
+attachment, the storage migration only moves the file and records a new row
+when the detected type changes. Removing an attachment, permanently deleting a
+ticket and deleting a project each write `deleted` rows, which keep ticket,
+checksum and type after the attachment row is gone. The migration announced
+every asset that existed before as `stored`, so a reader starting at position
+`0` sees every current asset.
+
+`TaskAttachmentService.listAssetChanges(afterPosition, limit)` reads up to 500
+changes after a position, and `openStored(attachmentId)` opens the bytes of a
+`stored` change. Neither checks a person's access: whatever a reader shows to
+people later must check the ticket again. Whether the bytes could live in
+PostgreSQL instead of the file store is assessed separately in
+[Ticket asset bytes in PostgreSQL](TicketAssetsPostgresStorage.md).
+
 ## Viewing images
 
 A click on an image in the rendered description opens that image in a viewer

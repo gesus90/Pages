@@ -1,17 +1,14 @@
-import { apiProviderEndpoint } from "@/definition/AgentConnection";
-
 import type {
   AgentPlanSessionInput,
   PlanSessionObserver,
 } from "@/backend/agents/AgentPlanExecution";
 import type { AgentProviderId } from "@/definition/AgentConnection";
-import type { AcpLaunch } from "@/backend/agents/acp/AcpLaunch";
 
 /** Whether a plan connection uses OpenCode as a private runtime for its own API catalog. */
 export function isOpenCodeApiAgent(
   provider: AgentProviderId,
-): provider is "openrouter" | "zai" {
-  return provider === "openrouter" || provider === "zai";
+): provider is "openrouter" {
+  return provider === "openrouter";
 }
 
 /** Adds the runtime provider prefix only at the native ACP boundary. */
@@ -20,38 +17,6 @@ export function openCodeAgentModel(input: AgentPlanSessionInput): string {
   return isOpenCodeApiAgent(connection.provider)
     ? `${connection.provider}/${model}`
     : model;
-}
-
-/** Keeps the saved z.AI account endpoint while using its public native provider ID. */
-export function openCodeAgentLaunch(
-  input: AgentPlanSessionInput,
-  launch: AcpLaunch,
-): AcpLaunch {
-  if (input.agent.connection.provider !== "zai") return launch;
-  const configuration: unknown = JSON.parse(
-    launch.environment.OPENCODE_CONFIG_CONTENT,
-  );
-  if (typeof configuration !== "object" || configuration === null)
-    return launch;
-  return {
-    ...launch,
-    environment: {
-      ...launch.environment,
-      OPENCODE_CONFIG_CONTENT: JSON.stringify({
-        ...configuration,
-        provider: {
-          zai: {
-            options: {
-              baseURL: apiProviderEndpoint(
-                "zai",
-                input.agent.connection.zaiAccountType,
-              ),
-            },
-          },
-        },
-      }),
-    },
-  };
 }
 
 /** Presents native runtime diagnostics under the connection and model the user selected. */
@@ -63,10 +28,10 @@ export function describeOpenCodeAgent(
   if (!isOpenCodeApiAgent(provider)) return text;
   return text
     .replaceAll(openCodeAgentModel(input), input.agent.model)
-    .replaceAll("OpenCode", provider === "openrouter" ? "OpenRouter" : "z.AI");
+    .replaceAll("OpenCode", "OpenRouter");
 }
 
-/** Rewrites reported ACP capabilities so OpenRouter and z.AI keep their public adapter label. */
+/** Rewrites reported ACP capabilities so OpenRouter keeps its public adapter label. */
 export function openCodeAgentObserver(
   input: AgentPlanSessionInput,
   observer: PlanSessionObserver,

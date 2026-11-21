@@ -16,9 +16,8 @@ export const SPEECH_MAXIMUM_BYTES = 25 * 1024 * 1024;
 /**
  * The audio formats Pages passes on unchanged.
  * @remarks
- * WAV and MP3 are the formats both connected providers accept: the
- * transcription API of OpenRouter takes `wav` and `mp3`, Z.AI's transcription
- * `.wav` and `.mp3`. Pages converts no audio.
+ * WAV and MP3 are the formats the transcription API of OpenRouter accepts as
+ * `wav` and `mp3`. Pages converts no audio.
  */
 export const SPEECH_MIME_TYPES = ["audio/wav", "audio/mpeg"] as const;
 

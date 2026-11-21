@@ -8,7 +8,6 @@ import {
   isCodexWindowExhausted,
   visibleCodexQuotaWindows,
 } from "@/definition/CodexQuota";
-import { visibleZaiQuotaWindows } from "@/definition/ZaiQuota";
 
 import type {
   AntigravityQuotaAccount,
@@ -25,11 +24,6 @@ import type {
   CodexQuotaAccount,
   CodexQuotaWindow,
 } from "@/definition/CodexQuota";
-import type {
-  ZaiAbsence,
-  ZaiQuotaAccount,
-  ZaiQuotaWindow,
-} from "@/definition/ZaiQuota";
 
 /** The notices a card shows in place of windows. */
 export type QuotaNoticeKind = "noWindows" | "skipped" | "failed" | "signedOut";
@@ -265,83 +259,5 @@ export function antigravityCardView(
       status.kind === "reported" || status.kind === "stored"
         ? firstAntigravityQuotaLimit(groups)
         : null,
-  };
-}
-
-/** What the window area of a Z.AI card holds. */
-export type ZaiCardBody =
-  | {
-      readonly kind: "windows";
-      readonly windows: readonly ZaiQuotaWindow[];
-      readonly isStale: boolean;
-    }
-  | {
-      readonly kind: "notice";
-      readonly notice: QuotaNoticeKind;
-      /** Why an answered card has no entry; `null` for a notice without an answer. */
-      readonly absence: ZaiAbsence | null;
-    };
-
-/**
- * Why a Z.AI card without entries has none.
- * @remarks
- * The server names the reason at the moment of its answer; entries that were
- * still ahead of their reset then and have run out since leave the card in the
- * browser, which makes the reason "elapsed".
- */
-function zaiCardAbsence(
-  account: ZaiQuotaAccount,
-  shownCount: number,
-): ZaiAbsence | null {
-  if (shownCount > 0 || account.status.kind === "signed_out") return null;
-  if (account.absence !== null) return account.absence;
-  return account.windows.length > 0 ? "elapsed" : null;
-}
-
-/** What a Z.AI card shows at a moment. */
-export interface ZaiCardView {
-  readonly status: ClaudeQuotaStatus;
-  readonly body: ZaiCardBody;
-  readonly limit: QuotaLimit | null;
-}
-
-/**
- * What a Z.AI card shows at a moment.
- * @param account - The card as the server answered it.
- * @param now - The moment of display.
- * @returns The status line and the window area.
- * @remarks
- * An entry leaves the card once its reset passed. When the last entry of a
- * reported card leaves, the card reads "Keine Fenster gemeldet" at the time of
- * the answer and its notice says that the entries Z.AI reported have run out;
- * an answer without any entry or without a readable one says that instead.
- * A missed query keeps the entries from the last measurement.
- */
-export function zaiCardView(account: ZaiQuotaAccount, now: Date): ZaiCardView {
-  const isStale = isStaleReading(account.status);
-  const windows = isStale
-    ? account.windows
-    : visibleZaiQuotaWindows(account.windows, now);
-  const status: ClaudeQuotaStatus =
-    account.status.kind === "reported" && windows.length === 0
-      ? { kind: "no_windows", at: account.status.at }
-      : account.status;
-  if (status.kind === "signed_out" || windows.length === 0)
-    return {
-      status,
-      body: {
-        kind: "notice",
-        notice: NOTICE_BY_STATUS[status.kind],
-        absence: zaiCardAbsence(account, windows.length),
-      },
-      limit: null,
-    };
-  return {
-    status,
-    body: { kind: "windows", windows, isStale },
-    limit: quotaLimit(
-      status,
-      windows.filter((window) => window.usedPercent >= 100),
-    ),
   };
 }

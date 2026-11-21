@@ -1,5 +1,7 @@
 import { useTranslation } from "react-i18next";
 
+import { historicalRunnerOf } from "@/definition/AgentConnection";
+
 import { elapsedTime } from "./plan-run-status-model";
 
 import type { AgentPlanSessionRecord } from "@/definition/AgentPlanSession";
@@ -44,7 +46,10 @@ export function PlanStatusConfiguration({
       .join(" · ") || null;
   const isRequest = session.runner === "api";
   const rows: readonly [string, React.ReactNode][] = [
-    ["runner", t(`plans.progress.runner.${session.runner}`)],
+    [
+      "runner",
+      t(`plans.progress.runner.${historicalRunnerOf(session.runner)}`),
+    ],
     [
       "model",
       <ConfirmedValue

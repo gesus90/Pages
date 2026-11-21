@@ -201,7 +201,6 @@ function configFiles(
     case "openrouter":
     case "openai":
     case "google_ai_studio":
-    case "zai":
     case "anthropic":
       return [];
   }

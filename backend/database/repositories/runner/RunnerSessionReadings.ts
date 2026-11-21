@@ -25,7 +25,6 @@ const READING_SOURCES = {
   antigravity: ["acp_usage_update"],
   opencode: ["acp_usage_update"],
   openrouter: ["acp_usage_update"],
-  zai: ["acp_usage_update"],
 } as const;
 
 type ReadingProvider = keyof typeof READING_SOURCES;

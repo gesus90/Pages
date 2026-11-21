@@ -100,7 +100,7 @@ export const runnerExecutionSchema = z
           reasoningEffort: z.string().max(40).nullable(),
           prompt: z.string().max(MAX_RUNNER_PROMPT_CHARACTERS),
           access: z.enum(["read_only", "yolo", "full_environment"]),
-          linkedProvider: z.enum(["openrouter", "zai"]).optional(),
+          linkedProvider: z.literal("openrouter").optional(),
           purpose: z.enum(["decision", "observer"]).optional(),
         })
         .strict(),
@@ -118,7 +118,6 @@ export const runnerExecutionSchema = z
             "openrouter",
             "openai",
             "google_ai_studio",
-            "zai",
             "anthropic",
           ]),
           connectionId: z.string().uuid(),

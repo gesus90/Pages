@@ -22,7 +22,6 @@ const DRIVERS: Readonly<Record<NativeAcpProviderId, AcpDriver>> = {
  * @returns What differs between the runners' verified ACP contracts.
  */
 export function acpDriverFor(provider: AcpProviderId): AcpDriver {
-  if (provider === "openrouter" || provider === "zai")
-    return OPENCODE_ACP_DRIVER;
+  if (provider === "openrouter") return OPENCODE_ACP_DRIVER;
   return DRIVERS[provider];
 }

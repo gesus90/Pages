@@ -3,6 +3,7 @@ import {
   readNullableTextColumn,
   readTextColumn,
 } from "@/backend/database/RowValue";
+import { historicalRunnerOf } from "@/definition/AgentConnection";
 import { readOwnedNamespace } from "@/definition/AcpNamespace";
 import {
   ACP_RELEASE_REASONS,
@@ -100,14 +101,13 @@ export class AcpResourceRepository implements AcpResourceStore {
       ORDER BY since, instance_id;
     `);
     return rows.map((row) => {
-      const provider = readTextColumn(row, 2, "provider");
+      const provider = historicalRunnerOf(readTextColumn(row, 2, "provider"));
       if (
         provider !== "codex_cli" &&
         provider !== "claude_code" &&
         provider !== "opencode" &&
         provider !== "antigravity" &&
-        provider !== "openrouter" &&
-        provider !== "zai"
+        provider !== "openrouter"
       )
         throw new Error("Invalid ACP lease provider");
       return {

@@ -54,9 +54,4 @@ export const ACP_USAGE_CAPABILITIES: Readonly<
     inputIncludesCache: null,
     isPartial: true,
   },
-  zai: {
-    counting: "per_prompt",
-    inputIncludesCache: null,
-    isPartial: true,
-  },
 };

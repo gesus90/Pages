@@ -1,0 +1,136 @@
+{
+  "description": "Fixed sample sources of the local search indexer and the sections and retrieval result the deterministic fake model pages/deterministic-word-hash@1-d8 produces for them. See SearchIndexing.md.",
+  "modelVersion": "pages/deterministic-word-hash@1-d8",
+  "sources": {
+    "tickets": [
+      {
+        "id": "00000000-0000-4000-8000-000000000101",
+        "key": "SAMPLE-1",
+        "title": "Session refresh fails after a password change",
+        "description": "After a password change the session refresh answers 401.\n\n## Steps\n\nChange the password, wait one minute, reload the board."
+      },
+      {
+        "id": "00000000-0000-4000-8000-000000000102",
+        "key": "SAMPLE-2",
+        "title": "Sicherung vor dem Update prüfen",
+        "description": "Vor jedem Update wird die Sicherung zurückgespielt und geprüft.\n\nDie Prüfung vergleicht Zeilenzahlen und Prüfsummen."
+      }
+    ],
+    "wikiPages": [
+      {
+        "id": "00000000-0000-4000-8000-000000000201",
+        "title": "Backup und Restore",
+        "content": "# Backup\n\nDer Dump enthält alle Tabellen der Pages-Datenbank.\n\n# Restore\n\nVor dem Restore wird die Erweiterung vector geprüft.",
+        "revision": 4
+      }
+    ],
+    "ticketAssets": [
+      {
+        "id": "00000000-0000-4000-8000-000000000301",
+        "ticketId": "00000000-0000-4000-8000-000000000101",
+        "fileName": "server.log",
+        "text": "2026-11-20T08:15:02Z 401 Unauthorized on /session/refresh\n\nToken expired after password change.",
+        "isSearchReleased": true
+      },
+      {
+        "id": "00000000-0000-4000-8000-000000000302",
+        "ticketId": "00000000-0000-4000-8000-000000000101",
+        "fileName": "private-notes.txt",
+        "text": "Not released, never indexed.",
+        "isSearchReleased": false
+      }
+    ]
+  },
+  "runReports": [
+    {
+      "modelVersion": "pages/deterministic-word-hash@1-d8",
+      "removedSources": 0,
+      "indexedSources": 4,
+      "unchangedSources": 0,
+      "writtenSections": 6,
+      "skippedAssets": 0
+    },
+    {
+      "modelVersion": "pages/deterministic-word-hash@1-d8",
+      "removedSources": 0,
+      "indexedSources": 0,
+      "unchangedSources": 4,
+      "writtenSections": 0,
+      "skippedAssets": 0
+    }
+  ],
+  "sections": [
+    {
+      "sourceType": "ticket",
+      "sourceId": "00000000-0000-4000-8000-000000000101",
+      "sourceVersion": "sha256:21312f2fedbec59288ad388491afb591ef7aafe0d69b3f0a7238b03dd9c02436",
+      "sectionIndex": 0,
+      "sectionText": "SAMPLE-1: Session refresh fails after a password change\n\nAfter a password change the session refresh answers 401."
+    },
+    {
+      "sourceType": "ticket",
+      "sourceId": "00000000-0000-4000-8000-000000000101",
+      "sourceVersion": "sha256:21312f2fedbec59288ad388491afb591ef7aafe0d69b3f0a7238b03dd9c02436",
+      "sectionIndex": 1,
+      "sectionText": "## Steps\n\nChange the password, wait one minute, reload the board."
+    },
+    {
+      "sourceType": "ticket",
+      "sourceId": "00000000-0000-4000-8000-000000000102",
+      "sourceVersion": "sha256:bbaaf259f047c5470bdc554ec8fd298e891785592537eade64525747db10c117",
+      "sectionIndex": 0,
+      "sectionText": "SAMPLE-2: Sicherung vor dem Update prüfen\n\nVor jedem Update wird die Sicherung zurückgespielt und geprüft.\n\nDie Prüfung vergleicht Zeilenzahlen und Prüfsummen."
+    },
+    {
+      "sourceType": "ticket_asset",
+      "sourceId": "00000000-0000-4000-8000-000000000301",
+      "sourceVersion": "7d25eac7568b51854de396f6e9efd02330f5a67dbc7c8f397b41b9eb13d11639",
+      "sectionIndex": 0,
+      "sectionText": "server.log\n\n2026-11-20T08:15:02Z 401 Unauthorized on /session/refresh\n\nToken expired after password change."
+    },
+    {
+      "sourceType": "wiki_page",
+      "sourceId": "00000000-0000-4000-8000-000000000201",
+      "sourceVersion": "4",
+      "sectionIndex": 0,
+      "sectionText": "Backup und Restore\n\n# Backup\n\nDer Dump enthält alle Tabellen der Pages-Datenbank."
+    },
+    {
+      "sourceType": "wiki_page",
+      "sourceId": "00000000-0000-4000-8000-000000000201",
+      "sourceVersion": "4",
+      "sectionIndex": 1,
+      "sectionText": "# Restore\n\nVor dem Restore wird die Erweiterung vector geprüft."
+    }
+  ],
+  "question": "session refresh 401 after password change",
+  "retrieval": {
+    "modelVersion": "pages/deterministic-word-hash@1-d8",
+    "hits": [
+      {
+        "sourceType": "ticket",
+        "sourceId": "00000000-0000-4000-8000-000000000101",
+        "sourceVersion": "sha256:21312f2fedbec59288ad388491afb591ef7aafe0d69b3f0a7238b03dd9c02436",
+        "sectionIndex": 0,
+        "sectionText": "SAMPLE-1: Session refresh fails after a password change\n\nAfter a password change the session refresh answers 401.",
+        "cosineDistance": 0.157299
+      },
+      {
+        "sourceType": "ticket_asset",
+        "sourceId": "00000000-0000-4000-8000-000000000301",
+        "sourceVersion": "7d25eac7568b51854de396f6e9efd02330f5a67dbc7c8f397b41b9eb13d11639",
+        "sectionIndex": 0,
+        "sectionText": "server.log\n\n2026-11-20T08:15:02Z 401 Unauthorized on /session/refresh\n\nToken expired after password change.",
+        "cosineDistance": 0.554565
+      },
+      {
+        "sourceType": "ticket",
+        "sourceId": "00000000-0000-4000-8000-000000000101",
+        "sourceVersion": "sha256:21312f2fedbec59288ad388491afb591ef7aafe0d69b3f0a7238b03dd9c02436",
+        "sectionIndex": 1,
+        "sectionText": "## Steps\n\nChange the password, wait one minute, reload the board.",
+        "cosineDistance": 0.679744
+      }
+    ]
+  }
+}

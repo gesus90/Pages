@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 
 import { WorkItemNotFoundError } from "@/backend/error/WorkItemErrors";
 import {
+  readBooleanColumn,
   readCountColumn,
   readNullableTextColumn,
   readTextColumn,
@@ -31,6 +32,29 @@ export interface StoredWorkItemAttachment extends NewWorkItemAttachment {
   readonly id: string;
   readonly uploadedByName: string | null;
   readonly createdAt: string;
+  /** Whether a person released the asset's text for the search index. */
+  readonly isSearchReleased: boolean;
+}
+
+/**
+ * One change of a ticket asset, as readers that process asset content receive
+ * it, for example a text extraction.
+ * @remarks
+ * The content of an attachment never changes under its identifier; a new
+ * upload is a new attachment. `stored` therefore announces new bytes or new
+ * facts about them, and the newest change of an attachment is its current
+ * state. `checksum` is the SHA-256 of the bytes and serves as the version.
+ */
+export interface TicketAssetChange {
+  /** Increases in commit order; a reader continues after the highest it processed. */
+  readonly position: number;
+  readonly attachmentId: string;
+  readonly ticketId: string;
+  readonly change: "stored" | "deleted";
+  readonly checksum: string;
+  /** MIME type detected from the first bytes when the file was stored. */
+  readonly contentType: string;
+  readonly createdAt: string;
 }
 
 const COLUMNS = `
@@ -44,7 +68,15 @@ const COLUMNS = `
     attachment.storage_name,
     attachment.uploaded_by,
     uploader.display_name AS uploader_name,
-    attachment.created_at
+    attachment.created_at,
+    CASE
+        WHEN EXISTS (
+            SELECT release.attachment_id
+            FROM ticket_asset_search_releases AS release
+            WHERE release.attachment_id = attachment.id
+        ) THEN 1
+        ELSE 0
+    END AS is_search_released
 `;
 
 function readAttachment(
@@ -56,12 +88,26 @@ function readAttachment(
     createdAt: readTextColumn(row, 10, "created_at"),
     fileName: readTextColumn(row, 2, "file_name"),
     id: readTextColumn(row, 0, "id"),
+    isSearchReleased: readBooleanColumn(row, 11, "is_search_released"),
     kind: readTextColumn(row, 4, "kind") === "media" ? "media" : "file",
     size: readCountColumn(row, 5, "size"),
     storageName: readTextColumn(row, 7, "storage_name"),
     uploadedBy: readTextColumn(row, 8, "uploaded_by"),
     uploadedByName: readNullableTextColumn(row, 9, "uploader_name"),
     workItemId: readTextColumn(row, 1, "work_item_id"),
+  };
+}
+
+function readAssetChange(row: readonly DatabaseValue[]): TicketAssetChange {
+  return {
+    attachmentId: readTextColumn(row, 1, "attachment_id"),
+    change:
+      readTextColumn(row, 3, "change") === "deleted" ? "deleted" : "stored",
+    checksum: readTextColumn(row, 4, "checksum"),
+    contentType: readTextColumn(row, 5, "content_type"),
+    createdAt: readTextColumn(row, 6, "created_at"),
+    position: readCountColumn(row, 0, "position"),
+    ticketId: readTextColumn(row, 2, "work_item_id"),
   };
 }
 
@@ -236,6 +282,45 @@ export class WorkItemAttachmentRepository {
   }
 
   /**
+   * Releases the text of an attachment for the search index or withdraws it.
+   * @param id - Attachment identifier.
+   * @param releasedBy - The releasing person, or `null` to withdraw the release.
+   * @remarks
+   * A repeated release keeps the first person and time. The local indexer
+   * reads only released assets and removes withdrawn ones on its next run.
+   */
+  public async setSearchRelease(
+    id: string,
+    releasedBy: string | null,
+  ): Promise<void> {
+    if (releasedBy === null) {
+      await this.database.execute(
+        `
+          DELETE FROM ticket_asset_search_releases
+          WHERE attachment_id = $attachment_id;
+        `,
+        { attachment_id: id },
+      );
+      return;
+    }
+
+    await this.database.execute(
+      `
+        INSERT INTO ticket_asset_search_releases (
+            attachment_id,
+            released_by
+        )
+        VALUES (
+            $attachment_id,
+            $released_by
+        )
+        ON CONFLICT (attachment_id) DO NOTHING;
+      `,
+      { attachment_id: id, released_by: releasedBy },
+    );
+  }
+
+  /**
    * Lists the stored files of some tickets, for example before they are
    * deleted for good.
    *
@@ -264,6 +349,42 @@ export class WorkItemAttachmentRepository {
     );
 
     return rows.map((row) => readTextColumn(row, 0, "storage_name"));
+  }
+
+  /**
+   * Reads the asset changes after a position, oldest first.
+   * @param afterPosition - Highest position the reader already processed, `0` at the start.
+   * @param limit - Most changes returned at once.
+   * @returns The changes; fewer than `limit` once the reader caught up.
+   * @remarks
+   * Triggers of migration 081 write the changes in the transaction of every
+   * insert, content update and deletion of an attachment, including the
+   * deletion of a whole ticket or project, and announced every asset that
+   * existed before.
+   */
+  public async listChangesAfter(
+    afterPosition: number,
+    limit: number,
+  ): Promise<TicketAssetChange[]> {
+    const rows = await this.database.query(
+      `
+        SELECT
+            position,
+            attachment_id,
+            work_item_id,
+            change,
+            checksum,
+            content_type,
+            to_char(created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS created_at
+        FROM ticket_asset_changes
+        WHERE position > $after_position
+        ORDER BY position
+        LIMIT $limit;
+      `,
+      { after_position: afterPosition, limit },
+    );
+
+    return rows.map(readAssetChange);
   }
 
   /**

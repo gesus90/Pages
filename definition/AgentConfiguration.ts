@@ -66,12 +66,11 @@ export const ACP_PROVIDERS = [
   "opencode",
   "antigravity",
   "openrouter",
-  "zai",
 ] as const;
 export type AcpProviderId = (typeof ACP_PROVIDERS)[number];
 
 /** Native ACP drivers shared by plans and Pica. */
-export type NativeAcpProviderId = Exclude<AcpProviderId, "openrouter" | "zai">;
+export type NativeAcpProviderId = Exclude<AcpProviderId, "openrouter">;
 
 /** Whether an agent of this provider runs as an ACP session in one of the two modes. */
 export function isAcpProvider(
@@ -82,8 +81,7 @@ export function isAcpProvider(
     provider === "claude_code" ||
     provider === "opencode" ||
     provider === "antigravity" ||
-    provider === "openrouter" ||
-    provider === "zai"
+    provider === "openrouter"
   );
 }
 
@@ -256,6 +254,6 @@ export function isAgentWriteAccess(access: AgentRunAccess): boolean {
 export function nativeAcpProvider(
   provider: AgentProviderId,
 ): NativeAcpProviderId | null {
-  if (provider === "openrouter" || provider === "zai") return "opencode";
+  if (provider === "openrouter") return "opencode";
   return isAcpProvider(provider) ? provider : null;
 }

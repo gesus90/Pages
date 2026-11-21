@@ -22,6 +22,7 @@ export const BOARD_DETAIL_INTENTS: ReadonlySet<string> = new Set([
   "link-add",
   "link-remove",
   "remove-attachment",
+  "set-attachment-search-release",
 ]);
 
 const OVERLAY_TICKET_INTENTS: ReadonlySet<string> = new Set([

@@ -211,7 +211,7 @@ export class RunnerManagedAccess {
       throw new AgentError("plan_context_changed");
     const apiKey = await this.apiKey(program.connectionId);
     return {
-      url: `${apiProviderEndpoint(program.provider, connection.zaiAccountType)}${program.path}`,
+      url: `${apiProviderEndpoint(program.provider)}${program.path}`,
       headers: requestHeaders(program.provider, apiKey),
     };
   }
@@ -241,20 +241,6 @@ export class RunnerManagedAccess {
       auth: JSON.stringify({
         [program.linkedProvider]: { type: "api", key: apiKey },
       }),
-      ...(program.linkedProvider === "zai"
-        ? {
-            providerConfiguration: {
-              zai: {
-                options: {
-                  baseURL: apiProviderEndpoint(
-                    "zai",
-                    connection.zaiAccountType,
-                  ),
-                },
-              },
-            },
-          }
-        : {}),
     };
   }
 

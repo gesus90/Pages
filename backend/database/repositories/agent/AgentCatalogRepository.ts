@@ -5,11 +5,12 @@ import {
   readTextColumn,
 } from "@/backend/database/RowValue";
 import { AgentError, isAgentErrorCode } from "@/backend/error/AgentErrors";
-import { isAgentProvider } from "@/definition/AgentConnection";
 import {
   emptyModelCatalog,
   isCatalogInterval,
 } from "@/definition/AgentModelCatalog";
+
+import { RETIRED_PROVIDER_SQL_LIST } from "./AgentConnectionRows";
 
 import type { DatabaseTransaction } from "@/backend/database/Database";
 import type {
@@ -78,11 +79,8 @@ export class AgentCatalogRepository {
           agent_model_catalogs.attempted_at,
           agent_model_catalogs.refreshed_at,
           agent_model_catalogs.error_code,
-          agent_model_catalogs.models_json,
-          agent_connections.provider
+          agent_model_catalogs.models_json
       FROM agent_model_catalogs
-      INNER JOIN agent_connections
-          ON agent_connections.id = agent_model_catalogs.connection_id
       WHERE agent_model_catalogs.connection_id = $id;
     `,
       { id },
@@ -94,15 +92,13 @@ export class AgentCatalogRepository {
       throw new AgentError("catalog_interval_invalid");
     const error = readNullableTextColumn(row, 4, "error_code");
     const entries: unknown = JSON.parse(readTextColumn(row, 5, "models_json"));
-    const provider = readTextColumn(row, 6, "provider");
-    if (!isAgentProvider(provider)) throw new AgentError("provider_invalid");
     return {
       intervalHours,
       nextRefreshAt: readNullableTextColumn(row, 1, "next_refresh_at"),
       attemptedAt: readNullableTextColumn(row, 2, "attempted_at"),
       refreshedAt: readNullableTextColumn(row, 3, "refreshed_at"),
       errorCode: isAgentErrorCode(error) ? error : null,
-      models: parseStoredCatalog(entries, provider),
+      models: parseStoredCatalog(entries),
     };
   }
 
@@ -165,6 +161,7 @@ export class AgentCatalogRepository {
           ON agent_connections.id = agent_model_catalogs.connection_id
       WHERE agent_model_catalogs.interval_hours > 0
           AND agent_model_catalogs.next_refresh_at <= $now
+          AND agent_connections.provider NOT IN (${RETIRED_PROVIDER_SQL_LIST})
       ORDER BY agent_model_catalogs.next_refresh_at, agent_model_catalogs.connection_id
       LIMIT 1;
     `,

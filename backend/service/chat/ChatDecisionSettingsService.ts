@@ -221,10 +221,7 @@ export class ChatDecisionSettingsService {
     const catalogs = await Promise.all(
       usable.map(async (entry) => {
         const catalog = await connections.catalogs().find(entry.id);
-        return (
-          catalog.models.length > 0 ||
-          (entry.provider === "zai" && entry.testModel !== null)
-        );
+        return catalog.models.length > 0;
       }),
     );
     return catalogs.some(Boolean) ? "noTextModels" : "emptyCatalog";

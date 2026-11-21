@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 
 import { modelBadgeDisplay } from "@/app/components/agents/model-picker/model-catalog";
 import { cn } from "@/app/lib/cn";
+import { historicalRunnerOf } from "@/definition/AgentConnection";
 
 import { ConsoleComposer } from "./console-composer";
 import { providerBadgeKey } from "./console-header-badges";
@@ -207,7 +208,9 @@ function SessionBody(
         step={step}
         session={props.session}
         commands={commands}
-        provider={t(`settings.agents.provider.${view.provider}`)}
+        provider={t(
+          `settings.agents.provider.${historicalRunnerOf(view.provider)}`,
+        )}
         model={modelLabel(view, step)}
         prompt={props.prompt}
         sessionLabel={props.swarm?.sessionLabel}

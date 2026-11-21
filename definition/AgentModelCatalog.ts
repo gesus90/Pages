@@ -38,8 +38,7 @@ export interface AgentCatalogModel {
    */
   readonly aliases?: readonly string[];
   /**
-   * Whether the model calls tools, as OpenCode or OpenRouter states it, or as
-   * the Z.AI documentation states it for a documented model.
+   * Whether the model calls tools, as OpenCode or OpenRouter states it.
    * @remarks
    * Absent where the catalog does not say, which is every other API and CLI
    * catalog. Agents leave out only a model that states `false`.

@@ -8,6 +8,7 @@ import type { AgentExtensionReadOperation } from "./AgentExtensions.js";
 import type { AgentAdminReadOperation } from "./AgentAdministration.js";
 import type { AgentProjectDeletionReadOperation } from "./AgentProjectDeletion.js";
 import type { AgentTextRangeReadOperation } from "./AgentTextRange.js";
+import type { AgentSourceSearchOperation } from "./AgentSourceSearch.js";
 import type { AgentWorkspaceReadOperation } from "./AgentWorkspaceOperations.js";
 import type { AgentPlanReadOperation } from "./AgentPlanOperations.js";
 import type { PageAgentReadOperation } from "./PageAgentOperations.js";
@@ -57,6 +58,7 @@ export type PagesAgentApiBusinessOperation =
   | PagesAgentTicketReadOperation
   | PagesAgentCommentOperation
   | AgentTextRangeReadOperation
+  | AgentSourceSearchOperation
   | PagesAgentWriteOperation;
 
 /** Result of `verify`: the current identity and the business operations it may call. */

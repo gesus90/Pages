@@ -1,5 +1,6 @@
 import { allPlanRunResults } from "@/definition/AgentPlanLoopResults";
 import { AgentError } from "@/backend/error/AgentErrors";
+import { historicalRunnerOf } from "@/definition/AgentConnection";
 import { planSwarmSessionEntries } from "@/definition/AgentPlanSwarmSession";
 import { sessionAttemptId } from "@/definition/AgentSessionJournal";
 
@@ -172,6 +173,12 @@ export function requireSessionAttempt(
   return attempt;
 }
 
+// A stored run of a retired provider names it as its runner; it ran on OpenCode.
+function isOpenCodeRunner(runner: string): boolean {
+  const native = historicalRunnerOf(runner);
+  return native === "opencode" || native === "openrouter";
+}
+
 function legacyConfirmation(
   record: AgentPlanSessionRecord,
   field: "model" | "reasoningEffort",
@@ -180,13 +187,12 @@ function legacyConfirmation(
   // Pages fills in OpenCode's default effort itself; the adapter never confirmed it.
   if (
     value === undefined ||
-    (["opencode", "openrouter", "zai"].includes(record.runner) &&
-      value === "default")
+    (isOpenCodeRunner(record.runner) && value === "default")
   )
     return UNKNOWN;
   return {
     value,
-    source: ["opencode", "openrouter", "zai"].includes(record.runner)
+    source: isOpenCodeRunner(record.runner)
       ? "adapter_selector"
       : "acp_config_option",
     reportedAt: record.turnEndedAt,

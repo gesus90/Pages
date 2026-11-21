@@ -4,7 +4,6 @@ import {
   quotaLookback,
   quotaWindowTiming,
 } from "@/definition/QuotaForecast";
-import { zaiWindowDurationMinutes } from "@/definition/ZaiQuota";
 
 import type {
   MeasuredQuotaWindows,
@@ -19,7 +18,6 @@ import type {
 import type { ClaudeQuotaWindow } from "@/definition/ClaudeQuota";
 import type { CodexQuotaWindow } from "@/definition/CodexQuota";
 import type { QuotaFrame, QuotaPace } from "@/definition/QuotaForecast";
-import type { ZaiQuotaReading, ZaiQuotaWindow } from "@/definition/ZaiQuota";
 
 interface WindowReading extends QuotaFrame {
   readonly key: string;
@@ -38,8 +36,7 @@ type ProviderReading =
   | {
       readonly provider: "antigravity";
       readonly groups: readonly AntigravityQuotaGroup[];
-    }
-  | ({ readonly provider: "zai" } & ZaiQuotaReading);
+    };
 
 interface MeasurementInput {
   readonly connectionId: string;
@@ -73,19 +70,6 @@ function antigravityReading(
   };
 }
 
-function zaiReading(window: ZaiQuotaWindow): WindowReading {
-  return {
-    key: JSON.stringify([
-      window.kind,
-      window.length?.unit,
-      window.length?.count,
-    ]),
-    used: window.usedPercent,
-    resetsAt: window.resetsAt,
-    durationMinutes: zaiWindowDurationMinutes(window),
-  };
-}
-
 function windowReadings(reading: ProviderReading): WindowReading[] {
   switch (reading.provider) {
     case "claude_code":
@@ -96,8 +80,6 @@ function windowReadings(reading: ProviderReading): WindowReading[] {
       return reading.groups.flatMap((group) =>
         group.windows.map((window) => antigravityReading(window, group.name)),
       );
-    case "zai":
-      return reading.windows.map(zaiReading);
   }
 }
 
@@ -264,13 +246,6 @@ function cardWithPace(
           ),
         })),
       };
-    case "zai":
-      return {
-        ...card,
-        windows: card.windows.map((window) =>
-          withPace(window, zaiReading(window), measured),
-        ),
-      };
     case "openrouter":
       return card;
   }
@@ -291,16 +266,6 @@ export class QuotaMeasurementService {
     const readings = windowReadings(reading);
     await this.repository.update(connectionId, observedAt, (previous) => ({
       credentialRevision,
-      zaiReading:
-        reading.provider === "zai"
-          ? {
-              executionLocation: reading.executionLocation,
-              plan: reading.plan,
-              windows: reading.windows,
-              tally: reading.tally,
-              entries: reading.entries,
-            }
-          : undefined,
       windows: measureWindows(
         readings,
         observedAt,
@@ -309,22 +274,6 @@ export class QuotaMeasurementService {
           : {},
       ),
     }));
-  }
-
-  /** Reads the last usable answer for the current Z.AI key. */
-  public readZaiReading(
-    connectionId: string,
-    revision: string,
-  ): ReturnType<QuotaMeasurementRepository["readZaiReading"]> {
-    return this.repository.readZaiReading(connectionId, revision);
-  }
-
-  /** Invalidates the displayed figures when Z.AI rejects a key. */
-  public clearZaiReading(
-    connectionId: string,
-    revision: string,
-  ): Promise<void> {
-    return this.repository.clearZaiReading(connectionId, revision);
   }
 
   /** Adds forecast inputs only to windows that match their stored measurement. */

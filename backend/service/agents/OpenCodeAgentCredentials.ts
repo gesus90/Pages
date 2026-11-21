@@ -29,7 +29,7 @@ export class OpenCodeAgentCredentials {
       !connection.isActive ||
       !connection.hasApiKey ||
       connection.provider !== selected.provider ||
-      (connection.provider !== "openrouter" && connection.provider !== "zai")
+      connection.provider !== "openrouter"
     )
       throw new AgentError("plan_model_unavailable");
     const auth = await this.connections.checks().find(connection.id, "auth");

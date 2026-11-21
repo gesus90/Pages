@@ -19,7 +19,6 @@ import { simulationGuardedFetch } from "@/backend/agents/simulation/SimulatedPla
 import { CatalogHttpClient } from "@/backend/agents/catalog/CatalogHttpClient";
 import { OpenRouterProvider } from "@/backend/agents/providers/OpenRouterProvider";
 import { ProviderHttpClient } from "@/backend/agents/providers/ProviderHttpClient";
-import { ZaiProvider } from "@/backend/agents/providers/ZaiProvider";
 import { AuthorizationRepository } from "@/backend/database/repositories/AuthorizationRepository";
 import { UserGroupRepository } from "@/backend/database/repositories/UserGroupRepository";
 import { AgentConnectionAccess } from "@/backend/service/agents/AgentConnectionAccess";
@@ -36,8 +35,6 @@ import { CodexQuotaService } from "@/backend/service/agents/CodexQuotaService";
 import { OpenRouterQuotaProbe } from "@/backend/service/agents/OpenRouterQuotaProbe";
 import { OpenRouterQuotaService } from "@/backend/service/agents/OpenRouterQuotaService";
 import { QuotaMeasurementService } from "@/backend/service/agents/QuotaMeasurementService";
-import { ZaiQuotaProbe } from "@/backend/service/agents/ZaiQuotaProbe";
-import { ZaiQuotaService } from "@/backend/service/agents/ZaiQuotaService";
 import { LocalSessions } from "@/backend/agents/local/LocalSessions";
 import { CHAT_REQUEST_TIMEOUT_MS } from "@/backend/service/chat/ChatExecutionLimits";
 import { ChatRequestRegistry } from "@/backend/service/chat/ChatRequestRegistry";
@@ -127,7 +124,7 @@ export interface AgentApplicationServices
 /**
  * The connection scope check, the quota page and the decision model, which
  * share one reading of the groups; the quota page asks Claude, Codex and
- * Antigravity through the CLI runtime and OpenRouter and Z.AI over HTTP.
+ * Antigravity through the CLI runtime and OpenRouter over HTTP.
  */
 function createAccessServices(
   database: Database,
@@ -192,21 +189,6 @@ function createAccessServices(
           connections: repository,
           cipher,
           provider: new OpenRouterProvider(
-            new ProviderHttpClient(
-              simulationGuardedFetch(currentAgentSimulationMode()),
-            ),
-          ),
-        }),
-      }),
-      zai: new ZaiQuotaService({
-        connections: repository,
-        authorization,
-        groups,
-        probe: new ZaiQuotaProbe({
-          measurements,
-          connections: repository,
-          cipher,
-          provider: new ZaiProvider(
             new ProviderHttpClient(
               simulationGuardedFetch(currentAgentSimulationMode()),
             ),

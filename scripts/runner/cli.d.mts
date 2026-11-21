@@ -28,7 +28,7 @@ export interface CliCommand {
   resultPayloadVersion?: number;
   continuation?: { resumeSessionId?: string } | undefined;
   program: {
-    linkedProvider?: "openrouter" | "zai";
+    linkedProvider?: "openrouter";
     purpose?: "decision" | "observer";
     model: string;
     access: string;

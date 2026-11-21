@@ -44,7 +44,7 @@ function statedModalities(list: unknown): readonly string[] {
  *   speech, embedding, rerank and decision models stay out.
  * - Google states `supportedGenerationMethods`; Pages generates text through
  *   `generateContent`, so embedding, Imagen, Veo and answer-only models stay out.
- * - OpenAI, Anthropic and Z.AI listings carry no modality data, so no entry is
+ * - OpenAI and Anthropic listings carry no modality data, so no entry is
  *   removed by guessing from its name.
  */
 export function isTextModel(entry: unknown, provider: ApiProviderId): boolean {

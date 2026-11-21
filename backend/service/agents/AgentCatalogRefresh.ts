@@ -183,12 +183,7 @@ export class AgentCatalogRefresh {
 
       throw new AgentError("secret_unavailable");
     }
-    const models = await client.list(
-      provider,
-      apiKey,
-      signal,
-      connection.zaiAccountType,
-    );
+    const models = await client.list(provider, apiKey, signal);
     if (provider !== "openrouter") return models;
     // OpenRouter names its speech-to-text, text-to-speech
     // and decision models only in listings of their own.

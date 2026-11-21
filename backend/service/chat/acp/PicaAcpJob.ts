@@ -70,7 +70,7 @@ const TOOL_CANCELLED_NOTE =
 
 /**
  * One Pica answer over ACP that runs on the server with the assigned
- * runner: Codex, Claude Code, OpenCode, a z.ai connection or Antigravity.
+ * runner: Codex, Claude Code, OpenCode or Antigravity.
  * @remarks
  * The job pins the agent that was assigned when the message was sent. It
  * holds one ACP lease of the shared scheduler while it runs: the turn of its

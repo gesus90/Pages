@@ -1,3 +1,4 @@
+import { historicalRunnerOf } from "@/definition/AgentConnection";
 import { codexAccountingSchema } from "@/definition/CodexPlanUsage";
 import { claudeAccountingSchema } from "@/definition/ClaudeUsage";
 import { readAgentPayload } from "@/backend/storage/AgentPayloadFileStore";
@@ -34,7 +35,6 @@ const PROVIDERS: readonly AcpProviderId[] = [
   "opencode",
   "antigravity",
   "openrouter",
-  "zai",
 ];
 const STATES: readonly AgentSessionState[] = [
   "starting",
@@ -224,7 +224,11 @@ export function readAttemptRow(row: Row): AgentSessionAttemptRecord {
       stepId: readTextColumn(row, 3, "step_id"),
     },
     userId: readTextColumn(row, 4, "user_id"),
-    provider: oneOf(readTextColumn(row, 5, "provider"), PROVIDERS, "provider"),
+    provider: oneOf(
+      historicalRunnerOf(readTextColumn(row, 5, "provider")),
+      PROVIDERS,
+      "provider",
+    ),
     instanceId: readTextColumn(row, 6, "instance_id"),
     connectionId: readNullableTextColumn(row, 26, "connection_id") ?? undefined,
     agentId: readNullableTextColumn(row, 27, "agent_id") ?? undefined,
@@ -287,7 +291,11 @@ export function readUsageRow(row: Row): AgentSessionTurnUsage {
     stepId: typeof row[15] === "string" ? row[15] : undefined,
     attemptId: readTextColumn(row, 0, "attempt_id"),
     turn: readCountColumn(row, 1, "turn"),
-    provider: oneOf(readTextColumn(row, 2, "provider"), PROVIDERS, "provider"),
+    provider: oneOf(
+      historicalRunnerOf(readTextColumn(row, 2, "provider")),
+      PROVIDERS,
+      "provider",
+    ),
     model: readNullableTextColumn(row, 3, "model"),
     inputTokens: nullableCount(row, 4, "input_tokens"),
     outputTokens: nullableCount(row, 5, "output_tokens"),

@@ -269,7 +269,7 @@ Twenty-five current guides were edited: `AgentPlanRunner.md`,
 `PicaAdminOperator.md`, `PicaAdminTools.md`, `PicaMobileNotifications.md`,
 `PicaMobileWebSocket.md`, `PicaOperatorBrowser.md`, `PlanRuntimeFootprint.md`,
 `PostgresMigration.md`, `README.md`, `RemoteConsole.md`, `RemoteSetup.md`,
-`RequestCorrelation.md`, `StorageApi.md`, `UserGuide.md` and `ZaiAccountType.md`.
+`RequestCorrelation.md`, `StorageApi.md` and `UserGuide.md`.
 Seventy-five headings that contained a ticket key were renamed and their anchors
 were updated in the same guides, in the historical reports and in the one
 affected wiki cross-reference. The changed anchors include the runner,

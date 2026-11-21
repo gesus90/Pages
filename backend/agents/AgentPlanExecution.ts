@@ -290,7 +290,6 @@ export class AgentPlanExecution implements PlanExecution {
     const mustConfirmCleanup = [
       "opencode",
       "openrouter",
-      "zai",
       "antigravity",
     ].includes(input.agent.connection.provider);
     function observe(target: PlanSessionObserver): PlanSessionObserver {

@@ -1,0 +1,632 @@
+{
+  "description": "Hybrid search sample: load HybridSearch.fixture.sql into a disposable migrated database with pgvector, store the asset bytes, run the steps in order and compare every search with expected. Section texts are left out; they are the current sections of the sources, as SearchIndexing.md describes.",
+  "readers": {
+    "alice": "a0000000-0000-4000-8000-000000000001",
+    "bob": "a0000000-0000-4000-8000-000000000002"
+  },
+  "asset": {
+    "path": "<data directory>/assets/c0000000-0000-4000-8000-000000000001/f0000000-0000-4000-8000-000000000001.log",
+    "utf8": "POST /session/refresh 401 Unauthorized\nreason: refresh token revoked after password change\nclient kept the old refresh token\n",
+    "sha256": "1a583d912cb23e5e717f34e4fee466a9bb1e3713dc2775262ab930ed42e47a9f"
+  },
+  "steps": [
+    {
+      "step": "index",
+      "action": "pnpm run search:index <config.toml> --model fake",
+      "report": {
+        "modelVersion": "pages/deterministic-word-hash@1-d64",
+        "removedSources": 0,
+        "indexedSources": 7,
+        "unchangedSources": 0,
+        "writtenSections": 8,
+        "skippedAssets": 0
+      }
+    },
+    {
+      "step": "index-again",
+      "action": "pnpm run search:index <config.toml> --model fake",
+      "report": {
+        "modelVersion": "pages/deterministic-word-hash@1-d64",
+        "removedSources": 0,
+        "indexedSources": 0,
+        "unchangedSources": 7,
+        "writtenSections": 0,
+        "skippedAssets": 0
+      }
+    },
+    {
+      "step": "allowed-exact-ticket-key",
+      "reader": "alice",
+      "model": "PAGES_SEARCH_EMBEDDING=fake",
+      "tool": "search_sources",
+      "parameters": {
+        "question": "Was ist der Stand von sample-1?",
+        "limit": 3
+      },
+      "expected": {
+        "vectorSearch": {
+          "status": "used",
+          "modelVersion": "pages/deterministic-word-hash@1-d64"
+        },
+        "staleSections": 0,
+        "sections": [
+          {
+            "sourceType": "ticket",
+            "sourceId": "c0000000-0000-4000-8000-000000000001",
+            "title": "SAMPLE-1: Session refresh fails with 401 after password change",
+            "link": "/tasks/SAMPLE-1",
+            "ticketKey": "SAMPLE-1",
+            "projectId": "b0000000-0000-4000-8000-000000000001",
+            "sourceVersion": "sha256:e99fc1ad9c61b865ad54e3da8dc32baf608d6ec899137e378fd04c40db08e059",
+            "sectionIndex": 0,
+            "matchedBy": ["ticketKey", "vector"]
+          },
+          {
+            "sourceType": "wiki_page",
+            "sourceId": "e0000000-0000-4000-8000-000000000001",
+            "title": "Anmeldung und Sitzungen",
+            "link": "/wiki/e0000000-0000-4000-8000-000000000001",
+            "ticketKey": null,
+            "projectId": null,
+            "sourceVersion": "3",
+            "sectionIndex": 1,
+            "matchedBy": ["vector"]
+          },
+          {
+            "sourceType": "ticket",
+            "sourceId": "c0000000-0000-4000-8000-000000000002",
+            "title": "SAMPLE-2: Export time sheets as CSV",
+            "link": "/tasks/SAMPLE-2",
+            "ticketKey": "SAMPLE-2",
+            "projectId": "b0000000-0000-4000-8000-000000000001",
+            "sourceVersion": "sha256:e14a023ce80ecb6a5fb7357e89f8444f63761141532f5123d3682e714e2366cb",
+            "sectionIndex": 0,
+            "matchedBy": ["vector"]
+          }
+        ]
+      }
+    },
+    {
+      "step": "allowed-rephrased-question",
+      "reader": "alice",
+      "model": "PAGES_SEARCH_EMBEDDING=fake",
+      "tool": "search_sources",
+      "parameters": {
+        "question": "Why does the client get 401 on refresh once the password was changed?",
+        "limit": 3
+      },
+      "expected": {
+        "vectorSearch": {
+          "status": "used",
+          "modelVersion": "pages/deterministic-word-hash@1-d64"
+        },
+        "staleSections": 0,
+        "sections": [
+          {
+            "sourceType": "ticket_asset",
+            "sourceId": "f0000000-0000-4000-8000-000000000001",
+            "title": "refresh-trace.log",
+            "link": "/aufgaben/attachments/f0000000-0000-4000-8000-000000000001",
+            "ticketKey": "SAMPLE-1",
+            "projectId": "b0000000-0000-4000-8000-000000000001",
+            "sourceVersion": "1a583d912cb23e5e717f34e4fee466a9bb1e3713dc2775262ab930ed42e47a9f",
+            "sectionIndex": 0,
+            "matchedBy": ["vector"]
+          },
+          {
+            "sourceType": "ticket",
+            "sourceId": "c0000000-0000-4000-8000-000000000001",
+            "title": "SAMPLE-1: Session refresh fails with 401 after password change",
+            "link": "/tasks/SAMPLE-1",
+            "ticketKey": "SAMPLE-1",
+            "projectId": "b0000000-0000-4000-8000-000000000001",
+            "sourceVersion": "sha256:e99fc1ad9c61b865ad54e3da8dc32baf608d6ec899137e378fd04c40db08e059",
+            "sectionIndex": 0,
+            "matchedBy": ["vector"]
+          },
+          {
+            "sourceType": "wiki_page",
+            "sourceId": "e0000000-0000-4000-8000-000000000001",
+            "title": "Anmeldung und Sitzungen",
+            "link": "/wiki/e0000000-0000-4000-8000-000000000001",
+            "ticketKey": null,
+            "projectId": null,
+            "sourceVersion": "3",
+            "sectionIndex": 1,
+            "matchedBy": ["vector"]
+          }
+        ]
+      }
+    },
+    {
+      "step": "other-department-rephrased-question",
+      "reader": "bob",
+      "model": "PAGES_SEARCH_EMBEDDING=fake",
+      "tool": "search_sources",
+      "parameters": {
+        "question": "Why does the client get 401 on refresh once the password was changed?",
+        "limit": 3
+      },
+      "expected": {
+        "vectorSearch": {
+          "status": "used",
+          "modelVersion": "pages/deterministic-word-hash@1-d64"
+        },
+        "staleSections": 0,
+        "sections": [
+          {
+            "sourceType": "ticket",
+            "sourceId": "c0000000-0000-4000-8000-000000000004",
+            "title": "SALES-1: Customer cannot refresh the session after a password change",
+            "link": "/tasks/SALES-1",
+            "ticketKey": "SALES-1",
+            "projectId": "b0000000-0000-4000-8000-000000000002",
+            "sourceVersion": "sha256:559162e4485d784e170eb9d0c7387e2bed8dc6ece2a2df9cc217a0e01a860c7a",
+            "sectionIndex": 0,
+            "matchedBy": ["vector"]
+          },
+          {
+            "sourceType": "wiki_page",
+            "sourceId": "e0000000-0000-4000-8000-000000000001",
+            "title": "Anmeldung und Sitzungen",
+            "link": "/wiki/e0000000-0000-4000-8000-000000000001",
+            "ticketKey": null,
+            "projectId": null,
+            "sourceVersion": "3",
+            "sectionIndex": 1,
+            "matchedBy": ["vector"]
+          },
+          {
+            "sourceType": "wiki_page",
+            "sourceId": "e0000000-0000-4000-8000-000000000001",
+            "title": "Anmeldung und Sitzungen",
+            "link": "/wiki/e0000000-0000-4000-8000-000000000001",
+            "ticketKey": null,
+            "projectId": null,
+            "sourceVersion": "3",
+            "sectionIndex": 0,
+            "matchedBy": ["vector"]
+          }
+        ]
+      }
+    },
+    {
+      "step": "hidden-exact-ticket-key",
+      "reader": "bob",
+      "model": "PAGES_SEARCH_EMBEDDING=fake",
+      "tool": "search_sources",
+      "parameters": {
+        "question": "SAMPLE-1",
+        "limit": 3
+      },
+      "expected": {
+        "vectorSearch": {
+          "status": "used",
+          "modelVersion": "pages/deterministic-word-hash@1-d64"
+        },
+        "staleSections": 0,
+        "sections": [
+          {
+            "sourceType": "wiki_page",
+            "sourceId": "e0000000-0000-4000-8000-000000000002",
+            "title": "Vertriebsleitfaden",
+            "link": "/wiki/e0000000-0000-4000-8000-000000000002",
+            "ticketKey": null,
+            "projectId": "b0000000-0000-4000-8000-000000000002",
+            "sourceVersion": "1",
+            "sectionIndex": 0,
+            "matchedBy": ["keyword", "vector"]
+          },
+          {
+            "sourceType": "ticket",
+            "sourceId": "c0000000-0000-4000-8000-000000000004",
+            "title": "SALES-1: Customer cannot refresh the session after a password change",
+            "link": "/tasks/SALES-1",
+            "ticketKey": "SALES-1",
+            "projectId": "b0000000-0000-4000-8000-000000000002",
+            "sourceVersion": "sha256:559162e4485d784e170eb9d0c7387e2bed8dc6ece2a2df9cc217a0e01a860c7a",
+            "sectionIndex": 0,
+            "matchedBy": ["vector"]
+          },
+          {
+            "sourceType": "wiki_page",
+            "sourceId": "e0000000-0000-4000-8000-000000000001",
+            "title": "Anmeldung und Sitzungen",
+            "link": "/wiki/e0000000-0000-4000-8000-000000000001",
+            "ticketKey": null,
+            "projectId": null,
+            "sourceVersion": "3",
+            "sectionIndex": 1,
+            "matchedBy": ["vector"]
+          }
+        ]
+      }
+    },
+    {
+      "step": "project-boundary",
+      "reader": "alice",
+      "model": "PAGES_SEARCH_EMBEDDING=fake",
+      "tool": "search_sources",
+      "parameters": {
+        "question": "session refresh password change",
+        "projectId": "b0000000-0000-4000-8000-000000000001",
+        "limit": 10
+      },
+      "expected": {
+        "vectorSearch": {
+          "status": "used",
+          "modelVersion": "pages/deterministic-word-hash@1-d64"
+        },
+        "staleSections": 0,
+        "sections": [
+          {
+            "sourceType": "ticket",
+            "sourceId": "c0000000-0000-4000-8000-000000000001",
+            "title": "SAMPLE-1: Session refresh fails with 401 after password change",
+            "link": "/tasks/SAMPLE-1",
+            "ticketKey": "SAMPLE-1",
+            "projectId": "b0000000-0000-4000-8000-000000000001",
+            "sourceVersion": "sha256:e99fc1ad9c61b865ad54e3da8dc32baf608d6ec899137e378fd04c40db08e059",
+            "sectionIndex": 0,
+            "matchedBy": ["keyword", "vector"]
+          },
+          {
+            "sourceType": "ticket_asset",
+            "sourceId": "f0000000-0000-4000-8000-000000000001",
+            "title": "refresh-trace.log",
+            "link": "/aufgaben/attachments/f0000000-0000-4000-8000-000000000001",
+            "ticketKey": "SAMPLE-1",
+            "projectId": "b0000000-0000-4000-8000-000000000001",
+            "sourceVersion": "1a583d912cb23e5e717f34e4fee466a9bb1e3713dc2775262ab930ed42e47a9f",
+            "sectionIndex": 0,
+            "matchedBy": ["vector"]
+          },
+          {
+            "sourceType": "ticket",
+            "sourceId": "c0000000-0000-4000-8000-000000000003",
+            "title": "SAMPLE-3: Rotate the signing keys of session tokens",
+            "link": "/tasks/SAMPLE-3",
+            "ticketKey": "SAMPLE-3",
+            "projectId": "b0000000-0000-4000-8000-000000000001",
+            "sourceVersion": "sha256:ff3d488ffea27b27f3571170075ec47dd43e1177fb0416bb7553f3ba98a865dc",
+            "sectionIndex": 0,
+            "matchedBy": ["vector"]
+          },
+          {
+            "sourceType": "ticket",
+            "sourceId": "c0000000-0000-4000-8000-000000000002",
+            "title": "SAMPLE-2: Export time sheets as CSV",
+            "link": "/tasks/SAMPLE-2",
+            "ticketKey": "SAMPLE-2",
+            "projectId": "b0000000-0000-4000-8000-000000000001",
+            "sourceVersion": "sha256:e14a023ce80ecb6a5fb7357e89f8444f63761141532f5123d3682e714e2366cb",
+            "sectionIndex": 0,
+            "matchedBy": ["vector"]
+          }
+        ]
+      }
+    },
+    {
+      "step": "hidden-project",
+      "reader": "alice",
+      "model": "PAGES_SEARCH_EMBEDDING=fake",
+      "tool": "search_sources",
+      "parameters": {
+        "question": "session",
+        "projectId": "b0000000-0000-4000-8000-000000000002"
+      },
+      "expected": {
+        "error": "NOT_FOUND"
+      }
+    },
+    {
+      "step": "fallback-not-configured",
+      "reader": "alice",
+      "model": "PAGES_SEARCH_EMBEDDING not set",
+      "tool": "search_sources",
+      "parameters": {
+        "question": "session refresh password",
+        "limit": 3
+      },
+      "expected": {
+        "vectorSearch": {
+          "status": "unavailable",
+          "reason": "notConfigured"
+        },
+        "staleSections": 0,
+        "sections": [
+          {
+            "sourceType": "ticket",
+            "sourceId": "c0000000-0000-4000-8000-000000000001",
+            "title": "SAMPLE-1: Session refresh fails with 401 after password change",
+            "link": "/tasks/SAMPLE-1",
+            "ticketKey": "SAMPLE-1",
+            "projectId": "b0000000-0000-4000-8000-000000000001",
+            "sourceVersion": "sha256:e99fc1ad9c61b865ad54e3da8dc32baf608d6ec899137e378fd04c40db08e059",
+            "sectionIndex": 0,
+            "matchedBy": ["keyword"]
+          }
+        ]
+      }
+    },
+    {
+      "step": "fallback-embedding-failed",
+      "reader": "alice",
+      "model": "embedding server refuses the connection",
+      "tool": "search_sources",
+      "parameters": {
+        "question": "session refresh password",
+        "limit": 3
+      },
+      "expected": {
+        "vectorSearch": {
+          "status": "unavailable",
+          "reason": "embeddingFailed"
+        },
+        "staleSections": 0,
+        "sections": [
+          {
+            "sourceType": "ticket",
+            "sourceId": "c0000000-0000-4000-8000-000000000001",
+            "title": "SAMPLE-1: Session refresh fails with 401 after password change",
+            "link": "/tasks/SAMPLE-1",
+            "ticketKey": "SAMPLE-1",
+            "projectId": "b0000000-0000-4000-8000-000000000001",
+            "sourceVersion": "sha256:e99fc1ad9c61b865ad54e3da8dc32baf608d6ec899137e378fd04c40db08e059",
+            "sectionIndex": 0,
+            "matchedBy": ["keyword"]
+          }
+        ]
+      }
+    },
+    {
+      "step": "fallback-timeout",
+      "reader": "alice",
+      "model": "embedding server answers after 7 seconds",
+      "tool": "search_sources",
+      "parameters": {
+        "question": "session refresh password",
+        "limit": 3
+      },
+      "expected": {
+        "vectorSearch": {
+          "status": "unavailable",
+          "reason": "timeout"
+        },
+        "staleSections": 0,
+        "sections": [
+          {
+            "sourceType": "ticket",
+            "sourceId": "c0000000-0000-4000-8000-000000000001",
+            "title": "SAMPLE-1: Session refresh fails with 401 after password change",
+            "link": "/tasks/SAMPLE-1",
+            "ticketKey": "SAMPLE-1",
+            "projectId": "b0000000-0000-4000-8000-000000000001",
+            "sourceVersion": "sha256:e99fc1ad9c61b865ad54e3da8dc32baf608d6ec899137e378fd04c40db08e059",
+            "sectionIndex": 0,
+            "matchedBy": ["keyword"]
+          }
+        ]
+      }
+    },
+    {
+      "step": "deactivate-pgvector",
+      "superuserSql": "DROP EXTENSION vector;"
+    },
+    {
+      "step": "fallback-pgvector-unavailable",
+      "reader": "alice",
+      "model": "PAGES_SEARCH_EMBEDDING=fake",
+      "tool": "search_sources",
+      "parameters": {
+        "question": "SAMPLE-2 export",
+        "limit": 3
+      },
+      "expected": {
+        "vectorSearch": {
+          "status": "unavailable",
+          "reason": "vectorSearchUnavailable"
+        },
+        "staleSections": 0,
+        "sections": [
+          {
+            "sourceType": "ticket",
+            "sourceId": "c0000000-0000-4000-8000-000000000002",
+            "title": "SAMPLE-2: Export time sheets as CSV",
+            "link": "/tasks/SAMPLE-2",
+            "ticketKey": "SAMPLE-2",
+            "projectId": "b0000000-0000-4000-8000-000000000001",
+            "sourceVersion": "sha256:e14a023ce80ecb6a5fb7357e89f8444f63761141532f5123d3682e714e2366cb",
+            "sectionIndex": 0,
+            "matchedBy": ["ticketKey", "keyword"]
+          }
+        ]
+      }
+    },
+    {
+      "step": "fallback-rephrased-question-without-vectors",
+      "reader": "alice",
+      "model": "PAGES_SEARCH_EMBEDDING=fake",
+      "tool": "search_sources",
+      "parameters": {
+        "question": "Why does the client get 401 on refresh once the password was changed?",
+        "limit": 3
+      },
+      "expected": {
+        "vectorSearch": {
+          "status": "unavailable",
+          "reason": "vectorSearchUnavailable"
+        },
+        "staleSections": 0,
+        "sections": []
+      }
+    },
+    {
+      "step": "activate-pgvector",
+      "superuserSql": "CREATE EXTENSION vector;"
+    },
+    {
+      "step": "change-ticket-without-reindex",
+      "sql": "UPDATE work_items SET description = 'The monthly time sheet export writes one CSV row per booking with person, project, day and hours.' WHERE \"key\" = 'SAMPLE-2';"
+    },
+    {
+      "step": "changed-ticket-current-revision",
+      "reader": "alice",
+      "model": "PAGES_SEARCH_EMBEDDING=fake",
+      "tool": "search_sources",
+      "parameters": {
+        "question": "monthly time sheet export CSV",
+        "limit": 2
+      },
+      "expected": {
+        "vectorSearch": {
+          "status": "used",
+          "modelVersion": "pages/deterministic-word-hash@1-d64"
+        },
+        "staleSections": 1,
+        "sections": [
+          {
+            "sourceType": "ticket",
+            "sourceId": "c0000000-0000-4000-8000-000000000002",
+            "title": "SAMPLE-2: Export time sheets as CSV",
+            "link": "/tasks/SAMPLE-2",
+            "ticketKey": "SAMPLE-2",
+            "projectId": "b0000000-0000-4000-8000-000000000001",
+            "sourceVersion": "sha256:310c2a05a80ace5a9eaa99f58fbfd67c064f96fcf8e34794d38ff39ad4bd1b5e",
+            "sectionIndex": 0,
+            "matchedBy": ["keyword"]
+          },
+          {
+            "sourceType": "ticket_asset",
+            "sourceId": "f0000000-0000-4000-8000-000000000001",
+            "title": "refresh-trace.log",
+            "link": "/aufgaben/attachments/f0000000-0000-4000-8000-000000000001",
+            "ticketKey": "SAMPLE-1",
+            "projectId": "b0000000-0000-4000-8000-000000000001",
+            "sourceVersion": "1a583d912cb23e5e717f34e4fee466a9bb1e3713dc2775262ab930ed42e47a9f",
+            "sectionIndex": 0,
+            "matchedBy": ["vector"]
+          }
+        ]
+      }
+    },
+    {
+      "step": "withdraw-asset-release",
+      "sql": "DELETE FROM ticket_asset_search_releases WHERE attachment_id = 'f0000000-0000-4000-8000-000000000001';"
+    },
+    {
+      "step": "move-ticket-to-other-department",
+      "sql": "INSERT INTO work_item_departments (work_item_id, department_id) VALUES ('c0000000-0000-4000-8000-000000000001', 'd0000000-0000-4000-8000-000000000002');"
+    },
+    {
+      "step": "withdrawn-ticket-and-asset",
+      "reader": "alice",
+      "model": "PAGES_SEARCH_EMBEDDING=fake",
+      "tool": "search_sources",
+      "parameters": {
+        "question": "SAMPLE-1 session refresh 401",
+        "limit": 10
+      },
+      "expected": {
+        "vectorSearch": {
+          "status": "used",
+          "modelVersion": "pages/deterministic-word-hash@1-d64"
+        },
+        "staleSections": 1,
+        "sections": [
+          {
+            "sourceType": "ticket",
+            "sourceId": "c0000000-0000-4000-8000-000000000003",
+            "title": "SAMPLE-3: Rotate the signing keys of session tokens",
+            "link": "/tasks/SAMPLE-3",
+            "ticketKey": "SAMPLE-3",
+            "projectId": "b0000000-0000-4000-8000-000000000001",
+            "sourceVersion": "sha256:ff3d488ffea27b27f3571170075ec47dd43e1177fb0416bb7553f3ba98a865dc",
+            "sectionIndex": 0,
+            "matchedBy": ["vector"]
+          },
+          {
+            "sourceType": "wiki_page",
+            "sourceId": "e0000000-0000-4000-8000-000000000001",
+            "title": "Anmeldung und Sitzungen",
+            "link": "/wiki/e0000000-0000-4000-8000-000000000001",
+            "ticketKey": null,
+            "projectId": null,
+            "sourceVersion": "3",
+            "sectionIndex": 1,
+            "matchedBy": ["vector"]
+          },
+          {
+            "sourceType": "wiki_page",
+            "sourceId": "e0000000-0000-4000-8000-000000000001",
+            "title": "Anmeldung und Sitzungen",
+            "link": "/wiki/e0000000-0000-4000-8000-000000000001",
+            "ticketKey": null,
+            "projectId": null,
+            "sourceVersion": "3",
+            "sectionIndex": 0,
+            "matchedBy": ["vector"]
+          }
+        ]
+      }
+    },
+    {
+      "step": "remove-department-membership",
+      "sql": "DELETE FROM department_members WHERE user_id = 'a0000000-0000-4000-8000-000000000001';"
+    },
+    {
+      "step": "withdrawn-project",
+      "reader": "alice",
+      "model": "PAGES_SEARCH_EMBEDDING=fake",
+      "tool": "search_sources",
+      "parameters": {
+        "question": "SAMPLE-3 signing keys session tokens",
+        "limit": 10
+      },
+      "expected": {
+        "vectorSearch": {
+          "status": "used",
+          "modelVersion": "pages/deterministic-word-hash@1-d64"
+        },
+        "staleSections": 0,
+        "sections": [
+          {
+            "sourceType": "wiki_page",
+            "sourceId": "e0000000-0000-4000-8000-000000000001",
+            "title": "Anmeldung und Sitzungen",
+            "link": "/wiki/e0000000-0000-4000-8000-000000000001",
+            "ticketKey": null,
+            "projectId": null,
+            "sourceVersion": "3",
+            "sectionIndex": 1,
+            "matchedBy": ["vector"]
+          },
+          {
+            "sourceType": "wiki_page",
+            "sourceId": "e0000000-0000-4000-8000-000000000001",
+            "title": "Anmeldung und Sitzungen",
+            "link": "/wiki/e0000000-0000-4000-8000-000000000001",
+            "ticketKey": null,
+            "projectId": null,
+            "sourceVersion": "3",
+            "sectionIndex": 0,
+            "matchedBy": ["vector"]
+          }
+        ]
+      }
+    },
+    {
+      "step": "withdrawn-project-filter",
+      "reader": "alice",
+      "model": "PAGES_SEARCH_EMBEDDING=fake",
+      "tool": "search_sources",
+      "parameters": {
+        "question": "session",
+        "projectId": "b0000000-0000-4000-8000-000000000001"
+      },
+      "expected": {
+        "error": "NOT_FOUND"
+      }
+    }
+  ]
+}

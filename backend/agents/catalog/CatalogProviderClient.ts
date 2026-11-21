@@ -4,10 +4,7 @@ import { supportsModelCatalog } from "@/definition/AgentModelCatalog";
 import { CatalogHttpClient } from "./CatalogHttpClient";
 import { parseCatalogPage } from "./CatalogParsing";
 
-import type {
-  ApiProviderId,
-  ZaiAccountType,
-} from "@/definition/AgentConnection";
+import type { ApiProviderId } from "@/definition/AgentConnection";
 import type { AgentCatalogModel } from "@/definition/AgentModelCatalog";
 
 /** The most models one catalog keeps; a stored snapshot holds no more. */
@@ -18,7 +15,6 @@ interface CatalogListing {
   readonly provider: ApiProviderId;
   readonly apiKey: string;
   readonly signal: AbortSignal;
-  readonly zaiAccountType?: ZaiAccountType;
   readonly path: (cursor: string | null) => string;
 }
 
@@ -77,7 +73,6 @@ export class CatalogProviderClient {
     provider: ApiProviderId,
     apiKey: string,
     signal: AbortSignal,
-    zaiAccountType?: ZaiAccountType,
   ): Promise<readonly AgentCatalogModel[]> {
     if (!supportsModelCatalog(provider))
       throw new AgentError("catalog_unsupported");
@@ -85,7 +80,6 @@ export class CatalogProviderClient {
       provider,
       apiKey,
       signal,
-      zaiAccountType,
       path: (cursor) => catalogPath(provider, cursor),
     });
     return orderCatalog(provider, [...models.values()]);
@@ -197,7 +191,6 @@ export class CatalogProviderClient {
     for (let pageNumber = 0; pageNumber < 32; pageNumber += 1) {
       const response = await this.http.get({
         provider,
-        zaiAccountType: listing.zaiAccountType,
         apiKey: listing.apiKey,
         signal: listing.signal,
         path: listing.path(cursor),

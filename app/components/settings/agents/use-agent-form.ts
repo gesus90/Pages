@@ -19,7 +19,6 @@ interface AgentFormFields {
   readonly name: string;
   readonly claudePriceModels?: string;
   readonly provider: AgentProviderId;
-  readonly zaiAccountType: string;
   readonly apiKey: string;
   readonly openRouterManagementKey: string;
   readonly removeOpenRouterManagementKey: boolean;
@@ -36,7 +35,6 @@ type StoredChoice = Pick<
   | "testModel"
   | "reasoningEffort"
   | "scope"
-  | "zaiAccountType"
   | "codexPriceMappings"
   | "claudePriceModels"
   | "openRouterModelIds"
@@ -93,7 +91,6 @@ function storedChoice(
       : {}),
     reasoningEffort: connection?.reasoningEffort ?? "",
     scope: connection?.scope ?? GLOBAL_CONNECTION_SCOPE,
-    zaiAccountType: connection?.zaiAccountType ?? (connection ? "api" : ""),
     openRouterModelIds: JSON.stringify(
       connection?.openRouterModelIds ?? {},
       null,
@@ -108,7 +105,6 @@ function isSameChoice(left: StoredChoice, right: StoredChoice): boolean {
     left.testModel === right.testModel &&
     left.claudePriceModels === right.claudePriceModels &&
     left.reasoningEffort === right.reasoningEffort &&
-    left.zaiAccountType === right.zaiAccountType &&
     left.openRouterModelIds === right.openRouterModelIds &&
     isSameScope(left.scope, right.scope)
   );
@@ -242,10 +238,6 @@ function changedProviderFields(
       : {}),
     ...(fields.provider === "opencode"
       ? { openRouterModelIds: fields.openRouterModelIds ?? "" }
-      : {}),
-    ...(fields.provider === "zai" &&
-    (!connection || fields.zaiAccountType !== saved.zaiAccountType)
-      ? { zaiAccountType: fields.zaiAccountType }
       : {}),
   };
 }

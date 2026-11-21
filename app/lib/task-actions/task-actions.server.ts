@@ -23,6 +23,7 @@ import { handleSaveBoardPreferences } from "./task-board-actions.server";
 import {
   handleChangeParent,
   handleRemoveAttachment,
+  handleSetAttachmentSearchRelease,
   handleSetTreeExpanded,
   handleUpdateDescription,
 } from "./task-hierarchy-actions.server";
@@ -79,6 +80,7 @@ const TASK_ACTION_HANDLERS: Readonly<
   "restore-task": handleRestoreTask,
   "save-board-preferences": handleSaveBoardPreferences,
   "save-template": handleSaveTemplate,
+  "set-attachment-search-release": handleSetAttachmentSearchRelease,
   "set-department": handleSetDepartment,
   "set-ticket-status": handleSetTicketStatus,
   "set-tree-expanded": handleSetTreeExpanded,

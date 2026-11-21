@@ -79,8 +79,6 @@ export const AGENT_ERROR_MESSAGES = {
     "This run cannot upload files. Check the executor write rights and full workspace/tool mode; read-only and Pica cannot edit or upload.",
   parameter_asset_output_invalid:
     "The output file or upload metadata is invalid, or the selected source is byte-identical. Make a real edit and verify filename, content and destination before returning it.",
-  zai_account_type_invalid:
-    "Choose the z.ai account type: Coding Plan subscription or standard prepaid API.",
   profile_management_retired:
     "Agent profile management has been replaced by direct model configuration in Agent Plans.",
   agent_tool_not_ready:

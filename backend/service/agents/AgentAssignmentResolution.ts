@@ -83,8 +83,7 @@ function isManualModelSelection(
   storedModel: string,
 ): boolean {
   return (
-    (!supportsModelCatalog(connection.provider) ||
-      connection.provider === "zai") &&
+    !supportsModelCatalog(connection.provider) &&
     connection.testModel === storedModel
   );
 }

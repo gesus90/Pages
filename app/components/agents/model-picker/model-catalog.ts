@@ -21,7 +21,6 @@ const TOOL_ORDER: readonly AgentProviderId[] = [
   "antigravity",
   "opencode",
   "openrouter",
-  "zai",
 ];
 
 /** OpenCode's own models first, then those of other linked providers. */
@@ -30,7 +29,7 @@ const OPENCODE_SOURCE_ORDER = [OPENCODE_FREE_PROVIDER];
 /** The execution target of models on this host. */
 const LOCAL_TARGET = "local";
 
-// A trailing "Free", such as in "GLM-5.3-Flash Free" or "Model (free)"; the
+// A trailing "Free", such as in "Gemini 4 Flash Free" or "Model (free)"; the
 // badge says it instead.
 const TRAILING_FREE = /(?:[\s:_-]+\(?|\()free\)?$/iu;
 
@@ -118,7 +117,7 @@ function catalogName(model: PageAgentModel): string {
 }
 
 /**
- * A model name without a trailing "Free", such as "GLM-5.3-Flash Free" or
+ * A model name without a trailing "Free", such as "Gemini 4 Flash Free" or
  * "Model (free)", for a place whose own badge says it.
  * @param name - The catalog name of the model.
  * @returns The name without the word; the name as it is when nothing else remains.
@@ -171,7 +170,7 @@ function openCodeSourceLabel(source: string, translate: TFunction): string {
  * The source of an OpenCode model as the model choice names it, such as
  * "OpenCode Zen" or "OpenRouter".
  * @param provider - The provider or runner of the model, such as `opencode`; `null` when the connection is gone.
- * @param modelId - The full model ID, such as `opencode/glm-5.3-flash`.
+ * @param modelId - The full model ID, such as `opencode/big-pickle`.
  * @param translate - Translates the source names.
  * @returns `null` for a provider other than OpenCode and for an ID that names no source.
  */
@@ -452,7 +451,7 @@ function addEmptyConnections(
  * models look, group and search the same everywhere. Groups come from the
  * tools the catalog lists, never from a fixed list, and take their names and
  * marks from the provider registry: Claude Code, Codex, Antigravity,
- * OpenCode, OpenRouter and Z.AI first, in this order. Each provider keeps its
+ * OpenCode and OpenRouter first, in this order. Each provider keeps its
  * own models, including another access to the same upstream model. The place
  * passes only the models it can use, so the list and its search hold no
  * other. Models of a remote target never share a group with this host's.

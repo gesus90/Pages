@@ -78,7 +78,7 @@ export function requireAcpIsolation(
   if (isIsolated || mode === "yolo") return;
   if (
     input.chat ||
-    ["opencode", "openrouter", "zai", "antigravity"].includes(
+    ["opencode", "openrouter", "antigravity"].includes(
       input.agent.connection.provider,
     )
   )
