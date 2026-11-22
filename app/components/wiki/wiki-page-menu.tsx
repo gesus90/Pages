@@ -1,4 +1,5 @@
 import { MoreHorizontal, Star } from "lucide-react";
+import { useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { useFetcher } from "react-router";
 
@@ -30,21 +31,67 @@ interface WikiPageMenuProps {
   readonly isFavorite: boolean;
   readonly permissions: WikiPagePermissions;
   readonly onOpen: (dialog: WikiPageDialog) => void;
+  /** The button that opens the comments, between favorite and menu. */
+  readonly commentsButton: React.ReactNode;
+  /** Opens the comments with the box for a new comment focused. */
+  readonly onWriteComment: () => void;
 }
 
-/** The buttons above a page: favorite and the menu of everything else. */
+/** The star that marks the page as a favorite, at once while it is saved. */
+function FavoriteButton({
+  pageId,
+  isFavorite,
+}: {
+  readonly pageId: string;
+  readonly isFavorite: boolean;
+}): React.ReactElement {
+  const { t } = useTranslation();
+  const favorite = useFetcher();
+  const isMarked = favorite.formData
+    ? favorite.formData.get("favorite") === "1"
+    : isFavorite;
+
+  return (
+    <Button
+      aria-label={t(isMarked ? "wiki.page.unfavorite" : "wiki.page.favorite")}
+      aria-pressed={isMarked}
+      size="icon-sm"
+      variant="ghost"
+      onClick={() =>
+        void favorite.submit(
+          {
+            favorite: isMarked ? "0" : "1",
+            intent: "set-favorite",
+            pageId,
+          },
+          { action: "/wiki", method: "post" },
+        )
+      }
+    >
+      <Star
+        aria-hidden="true"
+        className={isMarked ? "size-4 fill-current text-warning" : "size-4"}
+      />
+    </Button>
+  );
+}
+
+/**
+ * The buttons above a page: favorite, comments and the menu of everything
+ * else.
+ */
 export function WikiPageMenu({
   pageId,
   isPrivate,
   isFavorite,
   permissions,
   onOpen,
+  commentsButton,
+  onWriteComment,
 }: WikiPageMenuProps): React.ReactElement {
   const { t } = useTranslation();
-  const favorite = useFetcher();
-  const isMarked = favorite.formData
-    ? favorite.formData.get("favorite") === "1"
-    : isFavorite;
+  // The box for a new comment keeps the focus instead of the menu button.
+  const isWritingComment = useRef(false);
   const items: readonly {
     readonly dialog: WikiPageDialog;
     readonly isShown: boolean;
@@ -64,29 +111,15 @@ export function WikiPageMenu({
     },
   ];
 
+  function handleWriteComment(): void {
+    isWritingComment.current = true;
+    onWriteComment();
+  }
+
   return (
-    <div className="flex items-center gap-2">
-      <Button
-        aria-label={t(isMarked ? "wiki.page.unfavorite" : "wiki.page.favorite")}
-        aria-pressed={isMarked}
-        size="icon-sm"
-        variant="ghost"
-        onClick={() =>
-          void favorite.submit(
-            {
-              favorite: isMarked ? "0" : "1",
-              intent: "set-favorite",
-              pageId,
-            },
-            { action: "/wiki", method: "post" },
-          )
-        }
-      >
-        <Star
-          aria-hidden="true"
-          className={isMarked ? "size-4 fill-current text-warning" : "size-4"}
-        />
-      </Button>
+    <div className="flex items-center gap-1.5">
+      <FavoriteButton isFavorite={isFavorite} pageId={pageId} />
+      {commentsButton}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button
@@ -97,7 +130,23 @@ export function WikiPageMenu({
             <MoreHorizontal aria-hidden="true" className="size-4" />
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
+        <DropdownMenuContent
+          align="end"
+          onCloseAutoFocus={(event) => {
+            if (isWritingComment.current) {
+              isWritingComment.current = false;
+              event.preventDefault();
+            }
+          }}
+        >
+          {permissions.canComment ? (
+            <>
+              <DropdownMenuItem onSelect={handleWriteComment}>
+                {t("wiki.page.action.comment")}
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+            </>
+          ) : null}
           {items
             .filter((item) => item.isShown)
             .map((item) => (

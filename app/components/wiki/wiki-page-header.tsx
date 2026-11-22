@@ -1,4 +1,4 @@
-import { Clock, Lock } from "lucide-react";
+import { Lock } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
 
@@ -40,66 +40,122 @@ export function WikiBreadcrumb({
   );
 }
 
-interface WikiPageMetaProps {
+interface WikiPagePropertiesProps {
   readonly page: WikiPage;
   /** Today as `YYYY-MM-DD` on the server. */
   readonly today: string;
 }
 
-/** Owner, last edit and the marks of a page below its title. */
-export function WikiPageMeta({
+/** One line of the property grid: a quiet label and its value. */
+function PropertyRow({
+  label,
+  children,
+}: {
+  readonly label: string;
+  readonly children: React.ReactNode;
+}): React.ReactElement {
+  return (
+    <>
+      <dt className="flex min-h-[30px] items-center text-muted-foreground">
+        {label}
+      </dt>
+      <dd className="flex min-h-[30px] min-w-0 flex-wrap items-center gap-1.5 py-1 text-foreground">
+        {children}
+      </dd>
+    </>
+  );
+}
+
+/** The project and the anchors of a page, each as a small pill. */
+function LinkedPills({
+  page,
+}: {
+  readonly page: WikiPage;
+}): React.ReactElement {
+  const { t } = useTranslation();
+  const pills = [
+    ...(page.projectName
+      ? [
+          {
+            key: "project",
+            text: `${t("wiki.page.anchor.project")} ${page.projectName}`,
+          },
+        ]
+      : []),
+    ...page.anchors.map((anchor) => ({
+      key: `${anchor.kind}:${anchor.targetId}`,
+      text: `${t(`wiki.page.anchor.${anchor.kind}`)} ${anchor.label ?? t("wiki.page.anchorGone")}`,
+    })),
+  ];
+
+  return (
+    <>
+      {pills.map((pill) => (
+        <span
+          key={pill.key}
+          className="inline-flex min-h-[22px] max-w-full items-center rounded-[7px] bg-muted px-2 py-0.5 text-xs break-words"
+        >
+          {pill.text}
+        </span>
+      ))}
+    </>
+  );
+}
+
+/**
+ * The properties of a page below its title, as rows of a grid with a fixed
+ * label column: owner, last edit, linked project and anchors, and the date
+ * until which the page counts as current. Rows without a value are left out.
+ */
+export function WikiPageProperties({
   page,
   today,
-}: WikiPageMetaProps): React.ReactElement {
+}: WikiPagePropertiesProps): React.ReactElement {
   const { t } = useTranslation();
   const { formatDate, formatDateTime } = useRegionFormatter();
   const isExpired = page.currentUntil !== null && page.currentUntil < today;
+  const hasLinks = page.projectName !== null || page.anchors.length > 0;
 
   return (
-    <div className="space-y-2">
-      <p className="text-sm text-muted-foreground">
-        {t("wiki.page.owner", { name: page.ownerName })}
-        {" · "}
-        {t("wiki.page.lastEdited", {
-          date: formatDateTime(page.updatedAt),
-          name: page.updatedByName ?? page.ownerName,
-        })}
-      </p>
-      <ul className="flex flex-wrap items-center gap-2 text-xs">
-        {page.scope === "private" ? (
-          <li className="flex items-center gap-1 rounded-full bg-muted px-2.5 py-1">
-            <Lock aria-hidden="true" className="size-3" />
-            {t("wiki.page.private")}
-          </li>
-        ) : null}
-        {page.projectName ? (
-          <li className="rounded-full bg-muted px-2.5 py-1">
-            {page.projectName}
-          </li>
-        ) : null}
-        {page.currentUntil ? (
-          <li
-            className={cn(
-              "flex items-center gap-1 rounded-full px-2.5 py-1",
-              isExpired ? "bg-warning-subtle text-warning" : "bg-muted",
-            )}
-          >
-            <Clock aria-hidden="true" className="size-3" />
-            {t(isExpired ? "wiki.page.expiredOn" : "wiki.page.currentUntil", {
-              date: formatDate(page.currentUntil),
-            })}
-          </li>
-        ) : null}
-        {page.anchors.map((anchor) => (
-          <li
-            key={`${anchor.kind}:${anchor.targetId}`}
-            className="rounded-full bg-muted px-2.5 py-1"
-          >
-            {t(`wiki.page.anchor.${anchor.kind}`)}:{" "}
-            {anchor.label ?? t("wiki.page.anchorGone")}
-          </li>
-        ))}
-      </ul>
-    </div>
+    <dl
+      aria-label={t("wiki.page.properties")}
+      className="mt-1 grid grid-cols-[110px_minmax(0,1fr)] text-[13px] leading-5"
+    >
+      {page.ownerName !== "" || page.scope === "private" ? (
+        <PropertyRow label={t("wiki.page.property.owner")}>
+          {page.ownerName}
+          {page.scope === "private" ? (
+            <span className="inline-flex items-center gap-1 text-muted-foreground">
+              <Lock aria-hidden="true" className="size-3" />
+              {t("wiki.page.private")}
+            </span>
+          ) : null}
+        </PropertyRow>
+      ) : null}
+      <PropertyRow label={t("wiki.page.property.updated")}>
+        <span title={formatDateTime(page.updatedAt)}>
+          {t("wiki.page.updatedBy", {
+            date: formatDate(page.updatedAt),
+            name: page.updatedByName ?? page.ownerName,
+          })}
+        </span>
+      </PropertyRow>
+      {hasLinks ? (
+        <PropertyRow label={t("wiki.page.property.linked")}>
+          <LinkedPills page={page} />
+        </PropertyRow>
+      ) : null}
+      {page.currentUntil ? (
+        <PropertyRow label={t("wiki.page.property.currentUntil")}>
+          <span className={cn(isExpired && "font-medium text-warning")}>
+            {isExpired
+              ? t("wiki.page.expiredOn", {
+                  date: formatDate(page.currentUntil),
+                })
+              : formatDate(page.currentUntil)}
+          </span>
+        </PropertyRow>
+      ) : null}
+    </dl>
   );
 }

@@ -1,4 +1,5 @@
 import { useTranslation } from "react-i18next";
+import { useNavigate } from "react-router";
 
 import {
   readReferences,
@@ -50,8 +51,9 @@ async function fetchReferences(
 
 /**
  * The features of the block editor on a wiki page: references to pages,
- * tickets and people, uploads to the page, subpages, block links, comments
- * on passages, and images only from attachments of this instance.
+ * tickets and people, ticket links as status pills and ticket blocks,
+ * uploads to the page, subpages, block links, comments on passages, and
+ * images only from attachments of this instance.
  *
  * @returns The features for `BlockEditor`.
  */
@@ -62,6 +64,7 @@ export function useWikiEditorFeatures({
   onComment,
 }: WikiEditorFeatureOptions): BlockEditorFeatures {
   const { t } = useTranslation();
+  const navigate = useNavigate();
 
   return {
     blockLink: (anchor) =>
@@ -71,6 +74,7 @@ export function useWikiEditorFeatures({
     findReferences: (query) =>
       fetchReferences(query, (kind) => t(`wiki.editor.reference.${kind}`)),
     isDisplayableImage: isWikiAttachmentPath,
+    openTicket: (path) => void navigate(path),
     uploadFiles: async (files) =>
       (await uploads.upload(files)).map((attachment) => ({
         href: `/wiki/attachments/${attachment.id}`,

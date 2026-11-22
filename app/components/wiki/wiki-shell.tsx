@@ -13,12 +13,12 @@ interface WikiShellProps {
   readonly people: readonly WikiOwnerCandidate[];
 }
 
-/** The event that the wiki navigation in the sidebar sends to open the search. */
+/** The event that the wiki navigation sends to open the search. */
 export const WIKI_SEARCH_EVENT = "pages:wiki-search";
 
 /**
  * Opens the search with Ctrl or Cmd + K, as in other tools, and when the
- * sidebar asks for it. A shortcut the editor already used (its link
+ * wiki navigation asks for it. A shortcut the editor already used (its link
  * dialog) does not open the search as well.
  */
 function useSearchRequests(open: () => void): void {
@@ -45,8 +45,8 @@ function useSearchRequests(open: () => void): void {
 }
 
 /**
- * The wiki frame around the open page. Its navigation lives in the main
- * sidebar below "Wiki"; the frame keeps the search.
+ * The wiki frame around the open page. Its navigation lives in the page
+ * tree column of the app frame; the frame keeps the search.
  */
 export function WikiShell({
   navigation,

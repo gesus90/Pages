@@ -1,6 +1,8 @@
 import { Link } from "react-router";
 
+import { Tooltip } from "@/app/components/ui/tooltip";
 import { WikiTreeItemView } from "@/app/components/wiki/wiki-tree-item";
+import { cn } from "@/app/lib/cn";
 import { wikiPagePath } from "@/app/lib/wiki-tree";
 
 import type {
@@ -10,9 +12,9 @@ import type {
 import type { WikiTreeItem } from "@/app/lib/wiki-tree";
 
 const HEADING_CLASS =
-  "flex items-center gap-1.5 px-2 pb-1 text-xs font-semibold tracking-wide text-muted-foreground uppercase";
+  "flex h-7 items-center gap-1.5 px-2 text-[0.6875rem] font-bold tracking-wide text-muted-foreground uppercase";
 const LINK_CLASS =
-  "flex min-h-8 min-w-0 items-center gap-1.5 rounded-lg px-2 text-sm text-muted-foreground hover:bg-sidebar-hover hover:text-foreground";
+  "flex h-8 min-w-0 items-center gap-1.5 rounded-md px-2 text-sm text-muted-foreground hover:bg-sidebar-hover hover:text-foreground";
 
 /** The link look of the navigation, shared by its plain links. */
 export const NAVIGATION_LINK_CLASS = LINK_CLASS;
@@ -93,14 +95,25 @@ export function WikiLinkList({
       <ul>
         {links.map((link) => (
           <li key={link.id}>
-            <Link
-              className={LINK_CLASS}
-              to={wikiPagePath(link.id, link.title)}
-              onClick={onNavigate}
+            <Tooltip
+              align="start"
+              className="flex w-full min-w-0"
+              content={link.title}
+              isFloating
             >
-              {link.icon ? <span aria-hidden="true">{link.icon}</span> : null}
-              <span className="min-w-0 truncate">{link.title}</span>
-            </Link>
+              {() => (
+                <Link
+                  className={cn(LINK_CLASS, "w-full")}
+                  to={wikiPagePath(link.id, link.title)}
+                  onClick={onNavigate}
+                >
+                  {link.icon ? (
+                    <span aria-hidden="true">{link.icon}</span>
+                  ) : null}
+                  <span className="min-w-0 truncate">{link.title}</span>
+                </Link>
+              )}
+            </Tooltip>
           </li>
         ))}
       </ul>

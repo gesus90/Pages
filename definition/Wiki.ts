@@ -384,6 +384,22 @@ export type WikiReference =
       readonly displayName: string;
     };
 
+/**
+ * What a ticket link in the wiki text shows: status, title, person and
+ * version of a ticket the reader may see.
+ */
+export interface WikiTicketSummary {
+  readonly key: string;
+  readonly title: string;
+  /** Workflow key of the status, which picks the color of the status dot. */
+  readonly statusKey: string;
+  readonly statusName: string;
+  /** Person or group the ticket is assigned to. */
+  readonly assigneeName: string | null;
+  /** Milestone of the ticket, shown as its version. */
+  readonly milestoneName: string | null;
+}
+
 /** Where a page is mentioned. */
 export interface WikiBacklinks {
   readonly pages: readonly WikiPageLink[];
@@ -451,6 +467,8 @@ export interface WikiFeedItem {
   readonly reason: WikiFeedReason;
   readonly pageId: string;
   readonly pageTitle: string;
+  /** The comment the entry is about; `null` for an expired page. */
+  readonly commentId: string | null;
   /** The comment or mention text; empty for an expired page. */
   readonly excerpt: string;
   readonly actorName: string;

@@ -6,6 +6,7 @@ import { EditorFixedToolbar } from "@/app/components/editor/editor-fixed-toolbar
 import { EditorOverlays } from "@/app/components/editor/editor-overlays";
 import { EditorScrollFades } from "@/app/components/editor/editor-scroll-fades";
 import { useBlockEditor } from "@/app/components/editor/use-block-editor";
+import { TicketPreviewLayer } from "@/app/components/markdown/ticket-pill";
 import { cn } from "@/app/lib/cn";
 import { isApplePlatform } from "@/app/lib/editor/editor-shortcuts";
 import styles from "@/app/components/editor/block-editor.module.css";
@@ -73,6 +74,7 @@ function useOverlayState(): EditorOverlayState {
   } | null>(null);
   const [isLinkOpen, setIsLinkOpen] = useState(false);
   const [emojiAnchor, setEmojiAnchor] = useState<DOMRect | null>(null);
+  const [ticketAnchor, setTicketAnchor] = useState<DOMRect | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
 
   function openMenu(request: ContextMenuRequest): void {
@@ -93,6 +95,8 @@ function useOverlayState(): EditorOverlayState {
     setEmojiAnchor,
     setIsLinkOpen,
     setMenu,
+    setTicketAnchor,
+    ticketAnchor,
   };
 }
 
@@ -126,6 +130,7 @@ export function BlockEditor({
   const [container, setContainer] = useState<HTMLDivElement | null>(null);
   const overlays = useOverlayState();
   const { openAtCaret, setEmojiAnchor, setIsLinkOpen, fileInput } = overlays;
+  const { setTicketAnchor } = overlays;
   const state = useBlockEditor({
     events: {
       onChange: (next) => onChange?.(next),
@@ -133,6 +138,7 @@ export function BlockEditor({
       onLink: () => setIsLinkOpen(true),
       onRequestEmoji: (current) => setEmojiAnchor(caretRect(current)),
       onRequestFiles: () => fileInput.current?.click(),
+      onRequestTicket: (current) => setTicketAnchor(caretRect(current)),
     },
     features,
     isEditable,
@@ -177,6 +183,9 @@ export function BlockEditor({
         />
       ) : null}
       <EditorContent editor={editor} />
+      {features.openTicket ? (
+        <TicketPreviewLayer container={container} editor={editor} />
+      ) : null}
       <EditorScrollFades container={container} />
       <EditorOverlays
         container={container}

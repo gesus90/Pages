@@ -12,6 +12,7 @@ import { createMenuExtensions } from "@/app/components/editor/editor-menu-extens
 import { insertUploads } from "@/app/components/editor/editor-uploads";
 import { EditorKeymap } from "@/app/components/editor/extensions/editor-keymap";
 import { MarkdownLinkRule } from "@/app/components/editor/extensions/markdown-link-rule";
+import { TicketLinks } from "@/app/components/editor/extensions/ticket-links";
 import { SuggestionStore } from "@/app/components/editor/menus/suggestion-store";
 import { createPlainTextSlice } from "@/app/lib/editor/editor-commands";
 import {
@@ -43,6 +44,8 @@ export interface BlockEditorEvents {
   readonly onRequestFiles: () => void;
   /** Asks for the emoji picker at the caret, from the slash menu. */
   readonly onRequestEmoji: (editor: Editor) => void;
+  /** Asks for a visible ticket to add as a block, from the slash menu. */
+  readonly onRequestTicket: (editor: Editor) => void;
 }
 
 interface UseBlockEditorOptions {
@@ -175,12 +178,24 @@ function createExtensions(
       onLink: () => live.events().onLink(),
     }),
     MarkdownLinkRule,
+    TicketLinks.configure({
+      isEnabled: () => live.features().openTicket !== undefined,
+      open: (path, inNewTab) => {
+        if (inNewTab) {
+          window.open(path, "_blank", "noopener");
+        } else {
+          live.features().openTicket?.(path);
+        }
+      },
+      unavailableLabel: () => t("wiki.ticketLink.unavailable"),
+    }),
     ...createMenuExtensions(stores, {
       features: live.features,
       labelOf: (option) => t(`editor.blocks.${option.key}`),
       requests: () => ({
         emoji: (editor) => live.events().onRequestEmoji(editor),
         files: () => live.events().onRequestFiles(),
+        ticket: (editor) => live.events().onRequestTicket(editor),
       }),
     }),
   ];

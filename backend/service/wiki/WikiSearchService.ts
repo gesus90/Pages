@@ -14,6 +14,7 @@ import type {
   WikiBacklinks,
   WikiReference,
   WikiSearchResponse,
+  WikiTicketSummary,
 } from "@/definition/Wiki";
 import type { WikiAccess } from "./WikiAccess";
 
@@ -158,6 +159,23 @@ export class WikiSearchService {
     const titles = await this.repository.pages.findTitles(viewer.scope, ids);
 
     return Object.fromEntries(titles.map(({ id, title }) => [id, title]));
+  }
+
+  /**
+   * Reads status, title, person and version of the tickets that the wiki
+   * text links to.
+   * @param actor - The signed-in user.
+   * @param keys - Ticket keys read from the links.
+   * @returns The tickets the person may see; the others are left out, so a
+   * link never reveals a status or title.
+   */
+  public async ticketSummaries(
+    actor: User,
+    keys: readonly string[],
+  ): Promise<WikiTicketSummary[]> {
+    const viewer = await this.access.resolve(actor);
+
+    return this.repository.links.findTicketSummaries(viewer.scope, keys);
   }
 
   /**

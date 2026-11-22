@@ -12,12 +12,20 @@
     50vw
   );
   --app-content-start: calc(var(--app-sidebar-width) + var(--app-sidebar-gap));
+  --wiki-tree-width: 16.25rem;
 }
 
 @media (min-width: 80rem) {
   .shell {
     --app-sidebar-minimum: 14rem;
     --app-sidebar-gap: 2rem;
+  }
+
+  /* The open page tree of the wiki stands between the sidebar and the page,
+     so the page and the panels placed against it start behind it. */
+  .shell:has([data-wiki-tree-column]) {
+    --wiki-tree-end: calc(var(--app-sidebar-width) + var(--wiki-tree-width));
+    --app-content-start: calc(var(--wiki-tree-end) + var(--app-sidebar-gap));
   }
 }
 

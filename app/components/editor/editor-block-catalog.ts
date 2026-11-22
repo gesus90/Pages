@@ -16,6 +16,7 @@ import {
   Quote,
   Smile,
   Table2,
+  Ticket,
 } from "lucide-react";
 
 import type { LucideIcon } from "lucide-react";
@@ -26,7 +27,7 @@ import type { EditorShortcut } from "@/app/lib/editor/editor-shortcuts";
 export type BlockOptionGroup = "basic" | "media" | "advanced";
 
 /** Entries that need more than a document change. */
-export type SpecialBlockKey = "file" | "page" | "emoji";
+export type SpecialBlockKey = "file" | "page" | "emoji" | "ticket";
 
 /** An entry of the slash and plus menu. */
 export interface BlockOption {
@@ -37,9 +38,9 @@ export interface BlockOption {
   readonly keywords: string;
   readonly shortcut?: EditorShortcut;
   /**
-   * What typed at the start of a line turns into this block. The menu shows
-   * it, so the deviation from Notion is visible: `>` makes a quote, toggles
-   * come from `/toggle`.
+   * What typed at the start of a line turns into this block, or the slash
+   * command of a block without one. The menu shows it, so the deviation from
+   * Notion is visible: `>` makes a quote, toggles come from `/toggle`.
    */
   readonly markdown?: string;
 }
@@ -134,6 +135,13 @@ export const BLOCK_OPTIONS: readonly BlockOption[] = [
     keywords: "image file upload picture bild datei hochladen anhang",
   },
   { group: "media", icon: Smile, key: "emoji", keywords: "emoji icon symbol" },
+  {
+    group: "advanced",
+    icon: Ticket,
+    key: "ticket",
+    markdown: "/ticket",
+    keywords: "ticket aufgabe task",
+  },
   {
     group: "advanced",
     icon: Code2,

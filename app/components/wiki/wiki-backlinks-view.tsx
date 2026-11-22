@@ -6,8 +6,9 @@ import { wikiPagePath } from "@/app/lib/wiki-tree";
 import type { WikiBacklinks } from "@/definition/Wiki";
 
 /**
- * The line "Mentioned in" below the header: pages, tickets and projects that
- * link to this page and that the person may see.
+ * The section "Mentioned in" below the text, above attachments and
+ * subpages: pages, tickets and projects that link to this page and that the
+ * person may see.
  */
 export function WikiBacklinksView({
   backlinks,
@@ -37,8 +38,11 @@ export function WikiBacklinksView({
   ];
 
   return entries.length === 0 ? null : (
-    <section aria-label={t("wiki.page.backlinks")} className="text-sm">
-      <h2 className="mb-1 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+    <section
+      aria-label={t("wiki.page.backlinks")}
+      className="border-t border-border pt-4 text-sm"
+    >
+      <h2 className="mb-2 text-[11px] font-bold tracking-wide text-muted-foreground uppercase">
         {t("wiki.page.backlinks")}
       </h2>
       <ul className="flex flex-wrap gap-2">

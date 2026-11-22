@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { useNavigate, useRevalidator } from "react-router";
 
@@ -26,8 +27,10 @@ interface WikiPageEditorProps {
   /** The newest known state of the page. */
   readonly page: WikiPage;
   readonly attachments: readonly WikiAttachment[];
-  /** Meta line and marks, shown between title and text. */
+  /** The properties of the page, shown between title and text. */
   readonly meta: React.ReactNode;
+  /** The place in the top bar of the page that shows how saving goes. */
+  readonly statusSlot: HTMLElement | null;
   /** Receives the element of the editable text, for inline comments. */
   readonly onTextElement: (element: HTMLElement | null) => void;
   /** Receives every change of the text, to refresh comment marks. */
@@ -37,27 +40,37 @@ interface WikiPageEditorProps {
   readonly onSaved: (page: WikiPage) => void;
 }
 
-/** Shows how saving goes, without a visible form frame. */
+const NON_ERROR_STATUSES = new Set<WikiDraftState["status"]>([
+  "saved",
+  "saving",
+  "unsaved",
+]);
+
+/**
+ * Shows how saving goes, small in the top bar: "Saved" stays quiet, errors
+ * and conflicts stand out in the warning color.
+ */
 function SaveStatus({
   state,
+  slot,
 }: {
   readonly state: WikiDraftState;
+  readonly slot: HTMLElement;
 }): React.ReactElement {
   const { t } = useTranslation();
   const length = new TextEncoder().encode(state.draft.content).byteLength;
 
-  return (
+  return createPortal(
     <p
       aria-live="polite"
-      className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground"
+      className="flex max-w-[28rem] flex-wrap items-center justify-end gap-x-3 gap-y-0.5 text-right text-xs text-muted-foreground"
       role="status"
     >
       <span
         className={cn(
-          state.status !== "saved" &&
-            state.status !== "saving" &&
-            state.status !== "unsaved" &&
-            "text-destructive",
+          (state.status === "saving" || state.status === "unsaved") &&
+            "text-foreground",
+          !NON_ERROR_STATUSES.has(state.status) && "font-medium text-warning",
         )}
       >
         {t(`wiki.editor.status.${state.status}`)}
@@ -77,13 +90,16 @@ function SaveStatus({
       {length >= WIKI_LIMITS.contentLength * 0.8 ? (
         <span
           className={
-            length > WIKI_LIMITS.contentLength ? "text-destructive" : undefined
+            length > WIKI_LIMITS.contentLength
+              ? "font-medium text-warning"
+              : undefined
           }
         >
           {length} / {WIKI_LIMITS.contentLength}
         </span>
       ) : null}
-    </p>
+    </p>,
+    slot,
   );
 }
 
@@ -111,6 +127,14 @@ function useSubpageRequest(): {
   };
 }
 
+function EditorFallback({
+  content,
+}: {
+  readonly content: string;
+}): React.ReactElement {
+  return <WikiMarkdown className="text-base" hasTicketPills source={content} />;
+}
+
 /**
  * The page for people who may edit it: cover, emoji and title in place, the
  * block editor below, autosave with revision and conflict dialog, and saving
@@ -120,6 +144,7 @@ export function WikiPageEditor({
   page,
   attachments,
   meta,
+  statusSlot,
   onTextElement,
   onTextChange,
   onComment,
@@ -160,7 +185,8 @@ export function WikiPageEditor({
   }, [draft.content, navigate, pendingLink]);
 
   return (
-    <div className="space-y-4">
+    <div>
+      {statusSlot ? <SaveStatus slot={statusSlot} state={state} /> : null}
       <WikiPageHero
         editing={{
           icon: draft.icon,
@@ -174,12 +200,9 @@ export function WikiPageEditor({
       />
       <div className="mx-auto w-full max-w-[46rem] space-y-4">
         {meta}
-        <SaveStatus state={state} />
         <UploadStatus uploads={uploads} />
         <BlockEditor
-          fallback={
-            <WikiMarkdown className="text-base" source={page.content} />
-          }
+          fallback={<EditorFallback content={page.content} />}
           features={features}
           isEditable
           label={t("wiki.editor.contentLabel")}

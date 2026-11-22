@@ -13,6 +13,11 @@ export interface RawWikiFeedItem {
   readonly reason: WikiFeedReason;
   readonly pageId: string;
   readonly pageTitle: string;
+  /**
+   * The comment the entry is about; `null` for an expired page or a deleted
+   * comment.
+   */
+  readonly commentId: string | null;
   readonly excerpt: string;
   readonly actorName: string;
   readonly at: string;
@@ -31,7 +36,8 @@ const MENTIONS = `
         COALESCE(actor.display_name, '') AS actor_name,
         mention.created_at AS at,
         0 AS kind_order,
-        COALESCE(comment.creation_order, 0) AS creation_order
+        COALESCE(comment.creation_order, 0) AS creation_order,
+        comment.id AS comment_id
     FROM wiki_mentions AS mention
     INNER JOIN wiki_pages AS page
         ON page.id = mention.page_id
@@ -55,7 +61,8 @@ const REPLIES = `
         COALESCE(actor.display_name, ''),
         reply.created_at,
         1,
-        reply.creation_order
+        reply.creation_order,
+        reply.id
     FROM wiki_comments AS reply
     INNER JOIN wiki_comments AS parent
         ON parent.id = reply.parent_id
@@ -79,7 +86,8 @@ const COMMENTS = `
         COALESCE(actor.display_name, ''),
         comment.created_at,
         2,
-        comment.creation_order
+        comment.creation_order,
+        comment.id
     FROM wiki_comments AS comment
     INNER JOIN wiki_pages AS page
         ON page.id = comment.page_id
@@ -113,7 +121,8 @@ const EXPIRED = `
         '',
         page.current_until || ' 00:00:00',
         3,
-        0
+        0,
+        NULL
     FROM wiki_pages AS page
     INNER JOIN visible_pages
         ON visible_pages.id = page.id
@@ -157,7 +166,8 @@ export class WikiFeedRepository {
             entries.page_title,
             entries.excerpt,
             entries.actor_name,
-            entries.at
+            entries.at,
+            entries.comment_id
         FROM (
             ${MENTIONS}
             UNION ALL
@@ -180,6 +190,7 @@ export class WikiFeedRepository {
     return rows.map((row) => ({
       actorName: readTextColumn(row, 4, "actor_name"),
       at: readTextColumn(row, 5, "at"),
+      commentId: readNullableTextColumn(row, 6, "comment_id"),
       excerpt: readTextColumn(row, 3, "excerpt"),
       pageId: readTextColumn(row, 1, "page_id"),
       pageTitle: readTextColumn(row, 2, "page_title"),

@@ -9,9 +9,10 @@ interface WikiSidebarSectionProps {
 }
 
 /**
- * The wiki navigation as indented section below "Wiki" in the main sidebar,
- * shown while a wiki page is open: search, new page, favorites,
- * recent pages and the page trees with the open path expanded.
+ * The wiki navigation as indented section below "Wiki" in the app menu of
+ * phones, shown while a wiki page is open: search, new page, favorites,
+ * recent pages and the page trees with the open path expanded. Wider
+ * windows show it in the page tree column instead.
  * @remarks
  * It reads the data the wiki route already loaded or refreshed, so the
  * sidebar needs no request of its own. Which branches are open is stored

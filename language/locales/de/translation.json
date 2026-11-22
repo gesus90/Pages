@@ -3270,7 +3270,8 @@
       "codeBlock": "Codeblock",
       "table": "Tabelle",
       "divider": "Trennlinie",
-      "contents": "Inhaltsverzeichnis"
+      "contents": "Inhaltsverzeichnis",
+      "ticket": "Ticket"
     },
     "blockGroups": {
       "basic": "Blöcke",
@@ -3349,6 +3350,12 @@
         "objects": "Gegenstände",
         "symbols": "Symbole"
       }
+    },
+    "ticket": {
+      "label": "Ticket wählen",
+      "search": "Ticket suchen",
+      "results": "Sichtbare Tickets",
+      "empty": "Kein sichtbares Ticket gefunden."
     }
   },
   "wiki": {
@@ -3356,6 +3363,9 @@
     "nav": {
       "label": "Wiki-Navigation",
       "search": "Suchen",
+      "searchShortcut": "Strg K",
+      "pages": "Seiten",
+      "collapseColumn": "Seitenspalte einklappen",
       "newPage": "Neue Seite",
       "home": "Übersicht",
       "favorites": "Favoriten",
@@ -3384,13 +3394,19 @@
     },
     "page": {
       "breadcrumb": "Seitenpfad",
-      "owner": "Besitzer: {{name}}",
-      "lastEdited": "Zuletzt bearbeitet von {{name}} am {{date}}",
+      "properties": "Eigenschaften",
+      "property": {
+        "owner": "Besitzer",
+        "updated": "Stand",
+        "linked": "Verknüpft",
+        "currentUntil": "Aktuell bis"
+      },
+      "updatedBy": "{{date}} · von {{name}}",
       "private": "Privat",
       "expired": "Nicht mehr aktuell",
-      "currentUntil": "Aktuell bis {{date}}",
       "expiredOn": "Abgelaufen am {{date}}",
       "anchor": {
+        "project": "Projekt",
         "department": "Abteilung",
         "milestone": "Meilenstein",
         "epic": "Epic"
@@ -3404,6 +3420,7 @@
       "newSubpage": "Neue Unterseite",
       "notFound": "Nicht gefunden oder kein Zugriff.",
       "action": {
+        "comment": "Kommentar schreiben",
         "history": "Verlauf",
         "move": "Verschieben nach…",
         "duplicate": "Duplizieren",
@@ -3690,6 +3707,11 @@
     "subpage": {
       "title": "Neue Unterseite",
       "description": "Die Unterseite liegt unter dieser Seite und wird hier verlinkt."
+    },
+    "ticketLink": {
+      "unavailable": "Dieser Verweis ist nicht verfügbar",
+      "status": "Status",
+      "unassigned": "Nicht zugewiesen"
     }
   },
   "chat": {

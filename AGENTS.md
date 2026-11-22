@@ -271,6 +271,7 @@ Before considering a task complete:
 - Confirm no unrelated code was changed.
 - Confirm types and interfaces match the implementation.
 - Update documentation only when documented behavior changed.
+- When documented behavior changed, name the affected Pages wiki pages in the report so they can be checked; the wiki maintenance rules are linked from `docs/wiki/WikiPflege.md`.
 - Clearly mention unresolved assumptions or limitations.
 
 A task is not complete if the implementation violates `GUIDELINES.md`.

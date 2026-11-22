@@ -15,12 +15,15 @@ interface SheetContentProps extends ComponentProps<
   typeof DialogPrimitive.Content
 > {
   readonly children: ReactNode;
+  /** Placement and width of the sheet; the mobile navigation's by default. */
+  readonly containerClassName?: string;
 }
 
 /** Renders the left-side mobile navigation sheet and its accessible overlay. */
 export function SheetContent({
   children,
   className,
+  containerClassName,
   ...properties
 }: SheetContentProps): React.ReactElement {
   return (
@@ -28,7 +31,10 @@ export function SheetContent({
       <DialogPrimitive.Overlay className="fixed inset-0 z-40 bg-scrim-drawer data-[state=closed]:animate-out data-[state=open]:animate-in" />
       <DialogPrimitive.Content asChild {...properties}>
         <ScrollViewport
-          containerClassName="fixed inset-y-0 left-0 z-50 w-[min(19rem,86vw)]"
+          containerClassName={cn(
+            "fixed inset-y-0 left-0 z-50 w-[min(19rem,86vw)]",
+            containerClassName,
+          )}
           className={cn(
             "flex flex-col bg-surface p-5 shadow-panel outline-none",
             className,

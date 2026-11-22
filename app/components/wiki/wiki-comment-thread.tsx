@@ -18,6 +18,25 @@ interface WikiCommentThreadViewProps {
   readonly thread: WikiCommentThread;
 }
 
+function CommentHeader({
+  comment,
+}: {
+  readonly comment: WikiComment;
+}): React.ReactElement {
+  const { t } = useTranslation();
+  const { formatDateTime } = useRegionFormatter();
+
+  return (
+    <p className="text-xs text-muted-foreground">
+      <span className="font-medium text-foreground">{comment.authorName}</span>{" "}
+      · {formatDateTime(comment.createdAt)}
+      {comment.updatedAt !== comment.createdAt
+        ? ` · ${t("wiki.comments.edited")}`
+        : ""}
+    </p>
+  );
+}
+
 function CommentBody({
   comment,
   pageId,
@@ -26,23 +45,17 @@ function CommentBody({
   readonly pageId: string;
 }): React.ReactElement {
   const { t } = useTranslation();
-  const { formatDateTime } = useRegionFormatter();
   const fetcher = useFetcher<WikiActionResult>();
   const [isEditing, setIsEditing] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [text, setText] = useState(comment.body);
 
   return (
-    <div className="space-y-1">
-      <p className="text-xs text-muted-foreground">
-        <span className="font-medium text-foreground">
-          {comment.authorName}
-        </span>{" "}
-        · {formatDateTime(comment.createdAt)}
-        {comment.updatedAt !== comment.createdAt
-          ? ` · ${t("wiki.comments.edited")}`
-          : ""}
-      </p>
+    <div
+      className="scroll-mt-20 space-y-1 rounded-md target:bg-primary-subtle target:ring-2 target:ring-primary-subtle"
+      id={`comment-${comment.id}`}
+    >
+      <CommentHeader comment={comment} />
       {isEditing ? (
         <fetcher.Form
           action={wikiPagePath(pageId)}

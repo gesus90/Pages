@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import Markdown from "react-markdown";
 
 import {
@@ -12,14 +12,20 @@ import {
 } from "@/app/components/markdown/markdown-image";
 import { MarkdownLink } from "@/app/components/markdown/markdown-link";
 import {
+  TicketCard,
+  TicketPill,
+  TicketPreviewLayer,
+} from "@/app/components/markdown/ticket-pill";
+import {
   MARKDOWN_COMPONENTS,
   MARKDOWN_REMARK_PLUGINS,
 } from "@/app/components/markdown/markdown-text";
 import { cn } from "@/app/lib/cn";
-import { transformMarkdownUrl } from "@/app/lib/markdown-links";
+import { toOwnPath, transformMarkdownUrl } from "@/app/lib/markdown-links";
 import { extractHeadings } from "@/app/lib/wiki-headings";
 import { isWikiAttachmentPath } from "@/app/lib/wiki-upload";
 import { remarkWikiBlocks } from "@/app/lib/wiki-remark";
+import { readTicketKey } from "@/app/lib/wiki-ticket-summaries";
 
 import type { PluggableList } from "unified";
 import type { Components } from "react-markdown";
@@ -42,9 +48,58 @@ interface WikiMarkdownProps {
    * set of images the viewer pages through.
    */
   readonly onOpenImage?: (image: HTMLImageElement) => void;
+  /**
+   * Shows ticket links as pills with status and a ticket alone on its line
+   * as a card, as on wiki pages. The markdown keeps the plain links.
+   */
+  readonly hasTicketPills?: boolean;
+}
+
+/** The parts of a markdown syntax tree node that the ticket block reads. */
+interface TicketBlockNode {
+  type: string;
+  url?: string;
+  value?: string;
+  children?: TicketBlockNode[];
+  data?: { hProperties?: Record<string, string> };
+}
+
+/**
+ * The address of the ticket a paragraph links to when the link is all it
+ * holds, the markdown of a ticket block (`[KEY](/tasks/KEY)` on its own line).
+ */
+function readSoleTicketLink(paragraph: TicketBlockNode): string | null {
+  const content = (paragraph.children ?? []).filter(
+    (child) => child.type !== "text" || (child.value ?? "").trim() !== "",
+  );
+  const [link] = content;
+
+  return content.length === 1 &&
+    link?.type === "link" &&
+    link.url !== undefined &&
+    readTicketKey(link.url) !== null
+    ? link.url
+    : null;
+}
+
+/** Marks the top-level paragraphs that are ticket blocks. */
+function remarkTicketBlocks(): (tree: TicketBlockNode) => void {
+  return (tree) => {
+    for (const node of tree.children ?? []) {
+      const path = node.type === "paragraph" ? readSoleTicketLink(node) : null;
+
+      if (path !== null) {
+        node.data = {
+          ...node.data,
+          hProperties: { ...node.data?.hProperties, dataTicketBlock: path },
+        };
+      }
+    }
+  };
 }
 
 const REMARK_PLUGINS = [...MARKDOWN_REMARK_PLUGINS, remarkWikiBlocks];
+const TICKET_REMARK_PLUGINS = [...REMARK_PLUGINS, remarkTicketBlocks];
 
 function TableOfContents({
   headings,
@@ -99,17 +154,76 @@ const linkOfImages: Components["a"] = ({ href, children }) => (
   </ImageLinkContext>
 );
 
+/**
+ * Puts the ticket pill in place of a ticket link and renders every other
+ * link as usual.
+ */
+function TicketOrLink({
+  href,
+  hasImageViewer,
+  children,
+}: {
+  readonly href?: string;
+  readonly hasImageViewer: boolean;
+  readonly children?: React.ReactNode;
+}): React.ReactElement {
+  const path = href === undefined ? undefined : toOwnPath(href);
+  const key = path === undefined ? null : readTicketKey(path);
+
+  if (path !== undefined && key !== null) {
+    return (
+      <TicketPill path={path} ticketKey={key}>
+        {children}
+      </TicketPill>
+    );
+  }
+
+  return hasImageViewer ? (
+    <ImageLinkContext value={href === undefined || href === "" ? null : href}>
+      <MarkdownLink href={href}>{children}</MarkdownLink>
+    </ImageLinkContext>
+  ) : (
+    <MarkdownLink href={href}>{children}</MarkdownLink>
+  );
+}
+
+const ticketLink: Components["a"] = ({ href, children }) => (
+  <TicketOrLink hasImageViewer={false} href={href}>
+    {children}
+  </TicketOrLink>
+);
+
+const ticketLinkOfImages: Components["a"] = ({ href, children }) => (
+  <TicketOrLink hasImageViewer href={href}>
+    {children}
+  </TicketOrLink>
+);
+
+/** A paragraph that is a ticket block becomes the ticket card. */
+const ticketParagraph: Components["p"] = ({ children, node }) => {
+  const path = node?.properties.dataTicketBlock;
+  const key = typeof path === "string" ? readTicketKey(path) : null;
+
+  return typeof path === "string" && key !== null ? (
+    <TicketCard path={path} ticketKey={key} />
+  ) : (
+    <p className="mt-2 first:mt-0">{children}</p>
+  );
+};
+
 interface ComponentOptions {
   readonly headings: readonly WikiHeading[];
   readonly isDisplayableImage: (src: string) => boolean;
   /** Whether the images are controls of an image viewer. */
   readonly hasImageViewer: boolean;
+  readonly hasTicketPills: boolean;
 }
 
 function createComponents({
   headings,
   isDisplayableImage,
   hasImageViewer,
+  hasTicketPills,
 }: ComponentOptions): Components {
   const idByLine = new Map(
     headings.map((heading) => [heading.line, heading.id]),
@@ -125,9 +239,15 @@ function createComponents({
       </Tag>
     );
 
+  const ticketComponents: Components = {
+    a: hasImageViewer ? ticketLinkOfImages : ticketLink,
+    p: ticketParagraph,
+  };
+
   return {
     ...MARKDOWN_COMPONENTS,
     ...(hasImageViewer ? { a: linkOfImages } : {}),
+    ...(hasTicketPills ? ticketComponents : {}),
     blockquote: ({ children, ...props }) => {
       const kind = (props as Record<string, unknown>)["data-wiki-callout"];
 
@@ -175,8 +295,10 @@ export function WikiMarkdown({
   isDisplayableImage = isWikiAttachmentPath,
   onOpenImage,
   rehypePlugins,
+  hasTicketPills = false,
 }: WikiMarkdownProps): React.ReactElement {
   const hasImageViewer = onOpenImage !== undefined;
+  const [container, setContainer] = useState<HTMLDivElement | null>(null);
   // The map is built once per text. Components that change identity on every
   // render would make React rebuild the whole rendered text, images included.
   const components = useMemo(
@@ -185,12 +307,14 @@ export function WikiMarkdown({
         headings: extractHeadings(source),
         isDisplayableImage,
         hasImageViewer,
+        hasTicketPills,
       }),
-    [source, isDisplayableImage, hasImageViewer],
+    [source, isDisplayableImage, hasImageViewer, hasTicketPills],
   );
 
   return (
     <div
+      ref={setContainer}
       className={cn(
         "pages-selectable text-sm leading-relaxed break-words",
         className,
@@ -201,12 +325,15 @@ export function WikiMarkdown({
         <Markdown
           components={components}
           rehypePlugins={rehypePlugins}
-          remarkPlugins={REMARK_PLUGINS}
+          remarkPlugins={
+            hasTicketPills ? TICKET_REMARK_PLUGINS : REMARK_PLUGINS
+          }
           urlTransform={transformMarkdownUrl}
         >
           {source}
         </Markdown>
       </ImageOpenContext>
+      {hasTicketPills ? <TicketPreviewLayer container={container} /> : null}
     </div>
   );
 }

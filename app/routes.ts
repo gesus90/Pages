@@ -560,6 +560,7 @@ function wikiRoutes(routes: RouteBuilder): RouteConfigEntry[] {
     resource("ticket-api/drafts/:ticketId", "routes/ticket-draft.ts"),
     resource("wiki-api/references", "routes/wiki-references.ts"),
     resource("wiki-api/link-titles", "routes/wiki-link-titles.ts"),
+    resource("wiki-api/ticket-summaries", "routes/wiki-ticket-summaries.ts"),
     resource("wiki-api/navigation", "routes/wiki-data.ts"),
     resource("wiki-api/home", "routes/wiki-home-data.ts"),
     resource("wiki-api/trash", "routes/wiki-trash-data.ts"),

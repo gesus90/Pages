@@ -45,6 +45,10 @@ import { useUnconfirmedDraftCheck } from "@/app/components/common/draft-provider
 import { UserAvatar } from "@/app/components/common/user-avatar";
 import { TicketSidebarSection } from "@/app/components/tasks/tree/ticket-sidebar-section";
 import { WikiSidebarSection } from "@/app/components/wiki/wiki-sidebar-section";
+import {
+  WikiPagesButton,
+  WikiTreeColumn,
+} from "@/app/components/wiki/wiki-tree-column";
 import { AgentNavigation } from "@/app/components/settings/agents/agent-navigation";
 import { CalendarNavigationLink } from "@/app/components/calendar/calendar-navigation-link";
 import { cn } from "@/app/lib/cn";
@@ -92,6 +96,11 @@ interface NavigationLinksProps {
   readonly canViewUsers: boolean;
   readonly canManageAgents: boolean;
   readonly calendarInvitations: number;
+  /**
+   * Shows the wiki tree below "Wiki". Only the phone menu does; wider
+   * windows show it in the column of the wiki pages.
+   */
+  readonly hasWikiTree?: boolean;
   readonly onNavigate?: () => void;
 }
 
@@ -202,6 +211,7 @@ function NavigationLinks({
   canViewUsers,
   canManageAgents,
   calendarInvitations,
+  hasWikiTree = false,
   onNavigate,
 }: NavigationLinksProps): React.ReactElement {
   const { t } = useTranslation();
@@ -261,7 +271,7 @@ function NavigationLinks({
       <AgentNavigation canManage={canManageAgents} onNavigate={onNavigate} />
       <AutomationsNavigationLink onNavigate={onNavigate} />
       <WikiNavigationLink onNavigate={onNavigate} />
-      <WikiSidebarSection onNavigate={onNavigate} />
+      {hasWikiTree ? <WikiSidebarSection onNavigate={onNavigate} /> : null}
       <StorageNavigationLink onNavigate={onNavigate} />
 
       <div aria-hidden="true" className="pages-sidebar-scene" />
@@ -452,6 +462,7 @@ function MobileNavigation({
           canViewUsers={canViewUsers}
           canManageAgents={canManageAgents}
           calendarInvitations={calendarInvitations}
+          hasWikiTree
           onNavigate={handleClose}
         />
       </SheetContent>
@@ -572,6 +583,7 @@ export function AppShell({
         layout={layout}
         shellRef={shellRef}
       />
+      <WikiTreeColumn />
 
       <header className="relative z-20 flex min-h-19 shrink-0 items-center justify-between bg-background/85 px-5 md:ml-(--app-sidebar-width) md:bg-transparent md:pl-0">
         <div className="justify-self-start md:hidden">
@@ -583,6 +595,7 @@ export function AppShell({
             calendarInvitations={calendarInvitations}
           />
         </div>
+        <WikiPagesButton />
         <img
           className="pages-logo pointer-events-none w-26 md:hidden"
           src={iconUrl}

@@ -33,7 +33,8 @@ export function readReferences(body: unknown): WikiReference[] {
  * @returns The menu entry.
  * @remarks
  * Pages are linked by identifier, so the link survives a rename; tickets by
- * key; people are mentioned with `@user`.
+ * key at `/tasks/<key>`, which the wiki shows as a status pill; people are
+ * mentioned with `@user`.
  */
 export function toEditorReference(
   reference: WikiReference,
@@ -50,6 +51,7 @@ export function toEditorReference(
         text: reference.title,
       },
       key: `page:${reference.id}`,
+      kind: "page",
       label: `${reference.icon ?? ""} ${reference.title}`.trim(),
     };
   }
@@ -58,11 +60,12 @@ export function toEditorReference(
     return {
       hint,
       insertion: {
-        href: `/aufgaben/${reference.key}`,
+        href: `/tasks/${reference.key}`,
         kind: "link",
         text: reference.key,
       },
       key: `ticket:${reference.key}`,
+      kind: "ticket",
       label: `${reference.key} ${reference.title}`,
     };
   }
@@ -71,6 +74,7 @@ export function toEditorReference(
     hint,
     insertion: { kind: "text", text: `@${reference.username} ` },
     key: `person:${reference.id}`,
+    kind: "person",
     label: reference.displayName,
   };
 }

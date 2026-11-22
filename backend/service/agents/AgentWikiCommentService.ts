@@ -101,6 +101,11 @@ function pageLink(pageId: string): string {
   return `/wiki/${pageId}`;
 }
 
+/** The page scrolled to one comment, with the comment column open. */
+function commentLink(pageId: string, commentId: string): string {
+  return `${pageLink(pageId)}#comment-${commentId}`;
+}
+
 async function openContext(
   scope: CommentScope,
   userId: string,
@@ -352,7 +357,7 @@ export class AgentWikiCommentService {
       result: {
         commentId: comment.id,
         pageId: comment.pageId,
-        link: pageLink(comment.pageId),
+        link: commentLink(comment.pageId, comment.id),
         parentId: request.parentId,
         isStale: comment.isStale,
       },

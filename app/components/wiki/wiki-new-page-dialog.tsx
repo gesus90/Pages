@@ -61,6 +61,7 @@ interface WikiNewPageButtonProps {
   readonly parentId?: string;
   readonly label: string;
   readonly variant?: "default" | "outline" | "ghost";
+  readonly className?: string;
 }
 
 /** A button that opens the dialog for a new page. */
@@ -70,12 +71,18 @@ export function WikiNewPageButton({
   parentId,
   label,
   variant = "default",
+  className,
 }: WikiNewPageButtonProps): React.ReactElement {
   const [isOpen, setIsOpen] = useState(false);
 
   return (
     <>
-      <Button size="sm" variant={variant} onClick={() => setIsOpen(true)}>
+      <Button
+        className={className}
+        size="sm"
+        variant={variant}
+        onClick={() => setIsOpen(true)}
+      >
         <Plus aria-hidden="true" className="size-4" />
         {label}
       </Button>

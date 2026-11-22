@@ -43,6 +43,7 @@ import type {
   WikiReference,
   WikiSearchResponse,
   WikiSettings,
+  WikiTicketSummary,
   WikiVisibilityChange,
 } from "@/definition/Wiki";
 import type { MoveWikiPageInput } from "./wiki/WikiMoveService";
@@ -228,6 +229,14 @@ export class WikiService {
     ids: readonly string[],
   ): Promise<Record<string, string>> {
     return this.searches.linkTitles(actor, ids);
+  }
+
+  /** Reads what ticket links in the wiki text show, for visible tickets. */
+  public async ticketSummaries(
+    actor: User,
+    keys: readonly string[],
+  ): Promise<WikiTicketSummary[]> {
+    return this.searches.ticketSummaries(actor, keys);
   }
 
   /** Finds where a page is mentioned. */

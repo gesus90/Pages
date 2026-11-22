@@ -6,6 +6,8 @@ export type EditorInsertion =
 /** An entry of the reference menu (`[[` and `@`). */
 export interface EditorReference {
   readonly key: string;
+  /** What the entry stands for; `/ticket` offers only tickets. */
+  readonly kind: "page" | "ticket" | "person";
   readonly label: string;
   /** Short kind of the entry, such as "Seite" or "Person". */
   readonly hint: string;
@@ -45,6 +47,11 @@ export interface BlockEditorFeatures {
   readonly blockLink?: (anchor: string) => string;
   /** Starts a comment on the selected text. */
   readonly comment?: () => void;
+  /**
+   * Opens a ticket from its link. With it, ticket links show as pills with
+   * status and `/ticket` adds a ticket block.
+   */
+  readonly openTicket?: (path: string) => void;
 }
 
 /** Controls of a mounted editor for its surrounding component. */

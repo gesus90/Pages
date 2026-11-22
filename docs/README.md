@@ -48,6 +48,9 @@ a Pages instance or its private wiki. Some specialized guides are in German.
   operating functions, validation evidence and external dependencies.
 - [Documentation audit](TestCiDocumentationAudit.md): search scope, retained
   historical evidence, current state and transition dependencies.
+- [Pages wiki maintenance](wiki/WikiPflege.md) (German): who maintains the
+  wiki, what a change to documented behavior triggers, the regular review and
+  where the rules and open findings live in the wiki.
 - [Backend unit-test foundation](BackendTesting.md): Vitest setup, complete
   measurement scope, section thresholds, CI run and validation limits.
 - [GitHub, security and setup inventory](BackendGitHubSecuritySetup.md): second

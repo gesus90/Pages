@@ -8,6 +8,13 @@ import { wikiPagePath } from "@/app/lib/wiki-tree";
 
 import type { WikiFeedItem } from "@/definition/Wiki";
 
+/** The page of an entry, scrolled to its comment when it is about one. */
+function feedItemPath(item: WikiFeedItem): string {
+  const path = wikiPagePath(item.pageId, item.pageTitle);
+
+  return item.commentId === null ? path : `${path}#comment-${item.commentId}`;
+}
+
 /**
  * The area "For me": mentions, replies to the person's comments, comments on
  * their pages and their pages that are no longer current, unread ones marked.
@@ -52,7 +59,7 @@ export function WikiFeedView({
             >
               <Link
                 className="font-medium text-primary hover:underline"
-                to={wikiPagePath(item.pageId, item.pageTitle)}
+                to={feedItemPath(item)}
               >
                 {item.pageTitle}
               </Link>

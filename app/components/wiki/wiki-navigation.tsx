@@ -39,6 +39,8 @@ interface WikiNavigationProps {
   readonly onNavigate?: () => void;
   /** Called to open the search. */
   readonly onSearch?: () => void;
+  /** A control beside the search, such as the button that collapses the column. */
+  readonly searchAddon?: React.ReactNode;
 }
 
 type SectionProps = Omit<
@@ -77,32 +79,56 @@ function ProjectSections({
   );
 }
 
+/** The favorite pages that are still visible, in the stored order. */
+function favoriteLinks(
+  navigation: WikiNavigationData,
+): React.ComponentProps<typeof WikiLinkList>["links"] {
+  const byId = new Map(navigation.nodes.map((node) => [node.id, node]));
+
+  return navigation.favoriteIds.flatMap((id) => {
+    const node = byId.get(id);
+
+    return node ? [{ icon: node.icon, id, title: node.title }] : [];
+  });
+}
+
 /** Search, new page and the start page at the top of the navigation. */
 function NavigationActions({
   navigation,
   templates,
   onNavigate,
   onSearch,
+  searchAddon,
 }: Pick<
   WikiNavigationProps,
-  "navigation" | "templates" | "onNavigate" | "onSearch"
+  "navigation" | "templates" | "onNavigate" | "onSearch" | "searchAddon"
 >): React.ReactElement {
   const { t } = useTranslation();
   const { pathname } = useLocation();
 
   return (
     <div className="flex flex-col gap-2">
-      <button
-        className="flex h-9 items-center gap-2 rounded-lg border border-border bg-surface px-3 text-sm text-muted-foreground hover:bg-surface-hover"
-        type="button"
-        onClick={onSearch}
-      >
-        <Search aria-hidden="true" className="size-4" />
-        {t("wiki.nav.search")}
-      </button>
+      <div className="flex items-center gap-1">
+        <button
+          aria-keyshortcuts="Control+K Meta+K"
+          className="flex h-9 min-w-0 flex-1 items-center gap-2 rounded-[0.625rem] border border-border bg-surface px-3 text-sm text-muted-foreground hover:bg-surface-hover"
+          type="button"
+          onClick={onSearch}
+        >
+          <Search aria-hidden="true" className="size-4 shrink-0" />
+          <span className="min-w-0 flex-1 truncate text-left">
+            {t("wiki.nav.search")}
+          </span>
+          <kbd className="shrink-0 font-sans text-xs text-muted-foreground">
+            {t("wiki.nav.searchShortcut")}
+          </kbd>
+        </button>
+        {searchAddon}
+      </div>
       {navigation.canCreate ? (
         <WikiNewPageButton
           key={pathname}
+          className="w-full rounded-[0.625rem] text-sm xl:text-sm"
           label={t("wiki.nav.newPage")}
           projects={navigation.projects}
           templates={templates}
@@ -123,11 +149,12 @@ export function WikiNavigation({
   today,
   onNavigate,
   onSearch,
+  searchAddon,
 }: WikiNavigationProps): React.ReactElement {
   const { t } = useTranslation();
   const location = useLocation();
   const state = useWikiNavigation(navigation);
-  // The sidebar stays while pages change, so the dialog remembers the
+  // The tree column stays while pages change, so the dialog remembers the
   // navigation it was opened in and closes with the next one, also when the
   // person comes back to the same page.
   const [childRequest, setChildRequest] = useState<{
@@ -137,12 +164,7 @@ export function WikiNavigation({
   const childParent =
     childRequest?.locationKey === location.key ? childRequest.parent : null;
   const tree = buildWikiTree(navigation.nodes);
-  const byId = new Map(navigation.nodes.map((node) => [node.id, node]));
-  const favorites = navigation.favoriteIds.flatMap((id) => {
-    const node = byId.get(id);
-
-    return node ? [{ icon: node.icon, id, title: node.title }] : [];
-  });
+  const favorites = favoriteLinks(navigation);
   const section = {
     currentId: state.currentId,
     drag: state.drag,
@@ -157,10 +179,11 @@ export function WikiNavigation({
   };
 
   return (
-    <nav aria-label={t("wiki.nav.label")} className="flex flex-col gap-4">
+    <nav aria-label={t("wiki.nav.label")} className="flex flex-col gap-2">
       <NavigationActions
         navigation={navigation}
         templates={templates}
+        searchAddon={searchAddon}
         onNavigate={onNavigate}
         onSearch={onSearch}
       />

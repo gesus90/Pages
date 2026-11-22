@@ -1,5 +1,8 @@
 import { createWorkItemVisibility } from "@/backend/database/repositories/task/WorkItemVisibility";
-import { readTextColumn } from "@/backend/database/RowValue";
+import {
+  readNullableTextColumn,
+  readTextColumn,
+} from "@/backend/database/RowValue";
 
 import {
   readSummary,
@@ -9,7 +12,11 @@ import {
 import { createInCondition, createVisiblePagesQuery } from "./WikiVisibility";
 
 import type { DatabaseTransaction } from "@/backend/database/Database";
-import type { WikiPageSummary, WikiVisibilityScope } from "@/definition/Wiki";
+import type {
+  WikiPageSummary,
+  WikiTicketSummary,
+  WikiVisibilityScope,
+} from "@/definition/Wiki";
 
 /** A ticket whose description may link to a page. */
 export interface WikiTicketSource {
@@ -219,6 +226,54 @@ export class WikiLinkRepository {
 
     return rows.map((row) => ({
       key: readTextColumn(row, 0, "key"),
+      title: readTextColumn(row, 1, "title"),
+    }));
+  }
+
+  /**
+   * Reads what ticket links in the wiki text show.
+   * @param scope - What the viewer may see.
+   * @param keys - Ticket keys read from the links.
+   * @returns Status, title, person and version of the tickets the viewer may
+   * see; hidden and missing tickets are left out alike.
+   */
+  public async findTicketSummaries(
+    scope: WikiVisibilityScope,
+    keys: readonly string[],
+  ): Promise<WikiTicketSummary[]> {
+    const visibility = createTicketVisibility(scope);
+    const wanted = createInCondition("work_items.key", "ticket_key", keys);
+    const rows = await this.database.query(
+      `
+        SELECT
+            work_items.key,
+            work_items.title,
+            workflow_statuses.key AS status_key,
+            workflow_statuses.name AS status_name,
+            COALESCE(assignee.display_name, assignee_group.name) AS assignee_name,
+            milestones.name AS milestone_name
+        FROM work_items
+        INNER JOIN workflow_statuses
+            ON workflow_statuses.id = work_items.status_id
+        LEFT JOIN users AS assignee
+            ON assignee.id = work_items.assignee_id
+        LEFT JOIN user_groups AS assignee_group
+            ON assignee_group.id = work_items.assignee_group_id
+        LEFT JOIN milestones
+            ON milestones.id = work_items.milestone_id
+        WHERE ${wanted.sql}
+            AND ${visibility.condition}
+        ORDER BY work_items.key;
+      `,
+      { ...visibility.parameters, ...wanted.parameters },
+    );
+
+    return rows.map((row) => ({
+      assigneeName: readNullableTextColumn(row, 4, "assignee_name"),
+      key: readTextColumn(row, 0, "key"),
+      milestoneName: readNullableTextColumn(row, 5, "milestone_name"),
+      statusKey: readTextColumn(row, 2, "status_key"),
+      statusName: readTextColumn(row, 3, "status_name"),
       title: readTextColumn(row, 1, "title"),
     }));
   }

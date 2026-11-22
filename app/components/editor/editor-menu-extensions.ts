@@ -29,6 +29,8 @@ export interface EditorMenuRequests {
   readonly files: () => void;
   /** Opens the emoji picker at the caret. */
   readonly emoji: (editor: Editor) => void;
+  /** Asks for a visible ticket at the caret, for a ticket block. */
+  readonly ticket: (editor: Editor) => void;
 }
 
 /** Live access to what may change after the editor was created. */
@@ -42,8 +44,8 @@ export interface EditorMenuContext {
  * Tells whether the slash menu offers an entry in this editor.
  * @param option - An entry of the slash menu.
  * @param features - What the application lets the editor do.
- * @returns Whether the entry is offered; uploads and subpages need their
- * feature.
+ * @returns Whether the entry is offered; uploads, subpages and ticket
+ * blocks need their feature.
  */
 export function isBlockOptionAvailable(
   option: BlockOption,
@@ -51,6 +53,12 @@ export function isBlockOptionAvailable(
 ): boolean {
   if (option.key === "file") {
     return features.uploadFiles !== undefined;
+  }
+
+  if (option.key === "ticket") {
+    return (
+      features.openTicket !== undefined && features.findReferences !== undefined
+    );
   }
 
   return option.key !== "page" || features.createPage !== undefined;
@@ -117,9 +125,50 @@ export function applyBlockOption(
     context.requests().emoji(editor);
   } else if (option.key === "page") {
     void insertCreatedPage(editor, context.features());
+  } else if (option.key === "ticket") {
+    context.requests().ticket(editor);
   } else {
     insertBlock(editor, option.key);
   }
+}
+
+/**
+ * Adds a ticket block at the caret: a line that holds nothing but the link
+ * to the ticket, which the editor shows as a card, and an empty line after it
+ * to write on.
+ * @param editor - The editor.
+ * @param reference - The chosen ticket.
+ * @returns Whether the block was added.
+ */
+export function insertTicketBlock(
+  editor: Editor,
+  reference: EditorReference,
+): boolean {
+  const { insertion } = reference;
+
+  if (insertion.kind !== "link") {
+    return false;
+  }
+
+  return editor
+    .chain()
+    .focus()
+    .insertContent([
+      {
+        content: [
+          {
+            marks: [
+              { attrs: { href: insertion.href }, type: EDITOR_MARK.link },
+            ],
+            text: insertion.text,
+            type: "text",
+          },
+        ],
+        type: "paragraph",
+      },
+      { type: "paragraph" },
+    ])
+    .run();
 }
 
 /**

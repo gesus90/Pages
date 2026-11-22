@@ -21,7 +21,7 @@ export const WIKI_SHELL_SOURCE: LocalStateLayoutSource<WikiShellData> = {
  * The wiki frame's data as the wiki route shows it, also outside the route.
  * @remarks
  * The wiki route refreshes a kept answer from its endpoint; every reader
- * gets that answer, so the sidebar and the page show the same tree.
+ * gets that answer, so the tree column and the page show the same tree.
  * @returns The data, or `undefined` outside the wiki.
  */
 export function useWikiShell(): WithLocalState<WikiShellData> | undefined {

@@ -18,7 +18,7 @@ import type { WithLocalState } from "@/app/lib/local-state/local-state-loader";
 import type { WikiNavigation, WikiOwnerCandidate } from "@/definition/Wiki";
 import type { Route } from "./+types/wiki";
 
-/** What the wiki frame and the wiki navigation of the sidebar show. */
+/** What the wiki frame and the wiki navigation of the page tree column show. */
 export interface WikiShellData {
   readonly navigation: WikiNavigation;
   /** Accounts a page can be handed to and that can be filtered by; empty for readers. */
@@ -65,7 +65,7 @@ export async function clientAction({
 
 /** Renders the wiki frame around the open page. */
 export default function WikiRoute(): React.ReactElement {
-  // Templates and today serve the wiki navigation in the main sidebar,
+  // Templates and today serve the wiki navigation in the page tree column,
   // which reads them through the same source.
   const loaded = useLoaderData<typeof clientLoader>();
   const { pathname } = useLocation();

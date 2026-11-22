@@ -2,6 +2,7 @@ import { ChevronRight, Clock, Plus } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
 
+import { Tooltip } from "@/app/components/ui/tooltip";
 import { cn } from "@/app/lib/cn";
 import { wikiPagePath } from "@/app/lib/wiki-tree";
 
@@ -21,6 +22,9 @@ interface WikiTreeItemViewProps {
   /** Offers a plus that creates a subpage of the page, as in Notion. */
   readonly onCreateChild?: (node: WikiTreeItem["node"]) => void;
 }
+
+/** Indentation of each tree level in rem. */
+const LEVEL_INDENT = 1.25;
 
 const DROP_MARKERS = {
   after: "border-b-2 border-primary",
@@ -57,6 +61,45 @@ function ExpandButton({
   );
 }
 
+/**
+ * The link of a tree row. A long title ends with an ellipsis; resting the
+ * pointer on it shows the full title after 1.5 s.
+ */
+function TreeItemLink({
+  node,
+  isCurrent,
+  isDragging,
+  onNavigate,
+}: {
+  readonly node: WikiTreeItem["node"];
+  readonly isCurrent: boolean;
+  /** Keeps the hint closed while a page is dragged over the tree. */
+  readonly isDragging: boolean;
+  readonly onNavigate?: () => void;
+}): React.ReactElement {
+  return (
+    <Tooltip
+      align="start"
+      className="min-w-0 flex-1 shrink"
+      content={node.title}
+      isDisabled={isDragging}
+      isFloating
+    >
+      {() => (
+        <Link
+          aria-current={isCurrent ? "page" : undefined}
+          className="flex min-w-0 flex-1 items-center gap-1.5 py-1"
+          to={wikiPagePath(node.id, node.title)}
+          onClick={onNavigate}
+        >
+          {node.icon ? <span aria-hidden="true">{node.icon}</span> : null}
+          <span className="truncate">{node.title}</span>
+        </Link>
+      )}
+    </Tooltip>
+  );
+}
+
 /** One page of the navigation tree with its open branch. */
 export function WikiTreeItemView({
   item,
@@ -83,15 +126,16 @@ export function WikiTreeItemView({
     <li>
       <div
         className={cn(
-          "group flex min-h-8 items-center gap-1 rounded-lg pr-2 text-sm",
+          "group flex h-8 items-center gap-1 rounded-md pr-2 text-sm",
           isCurrent
-            ? "bg-sidebar-active text-foreground inset-shadow-navigation-selection"
+            ? "border border-primary bg-primary-subtle font-semibold text-foreground"
             : "text-muted-foreground hover:bg-sidebar-hover hover:text-foreground",
+          children.length > 0 && "font-semibold text-foreground",
           marker,
         )}
         data-wiki-node={node.id}
         draggable
-        style={{ paddingLeft: `${depth * 0.75 + 0.25}rem` }}
+        style={{ paddingLeft: `${depth * LEVEL_INDENT + 0.25}rem` }}
         onDragEnd={drag.onDragEnd}
         onDragOver={(event) => drag.onDragOver(event, node)}
         onDragStart={(event) => drag.onDragStart(event, node)}
@@ -106,15 +150,12 @@ export function WikiTreeItemView({
         ) : (
           <span aria-hidden="true" className="size-6 shrink-0" />
         )}
-        <Link
-          aria-current={isCurrent ? "page" : undefined}
-          className="flex min-w-0 flex-1 items-center gap-1.5 py-1"
-          to={wikiPagePath(node.id, node.title)}
-          onClick={onNavigate}
-        >
-          {node.icon ? <span aria-hidden="true">{node.icon}</span> : null}
-          <span className="truncate">{node.title}</span>
-        </Link>
+        <TreeItemLink
+          isCurrent={isCurrent}
+          isDragging={drag.dropTargetId !== null}
+          node={node}
+          onNavigate={onNavigate}
+        />
         {isExpired ? (
           <Clock
             aria-label={t("wiki.page.expired")}

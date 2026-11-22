@@ -3270,7 +3270,8 @@
       "codeBlock": "Code block",
       "table": "Table",
       "divider": "Divider",
-      "contents": "Table of contents"
+      "contents": "Table of contents",
+      "ticket": "Ticket"
     },
     "blockGroups": {
       "basic": "Blocks",
@@ -3349,6 +3350,12 @@
         "objects": "Objects",
         "symbols": "Symbols"
       }
+    },
+    "ticket": {
+      "label": "Choose a ticket",
+      "search": "Search tickets",
+      "results": "Visible tickets",
+      "empty": "No visible ticket found."
     }
   },
   "wiki": {
@@ -3356,6 +3363,9 @@
     "nav": {
       "label": "Wiki navigation",
       "search": "Search",
+      "searchShortcut": "Ctrl K",
+      "pages": "Pages",
+      "collapseColumn": "Collapse page column",
       "newPage": "New page",
       "home": "Overview",
       "favorites": "Favorites",
@@ -3384,13 +3394,19 @@
     },
     "page": {
       "breadcrumb": "Page path",
-      "owner": "Owner: {{name}}",
-      "lastEdited": "Last edited by {{name}} on {{date}}",
+      "properties": "Properties",
+      "property": {
+        "owner": "Owner",
+        "updated": "Updated",
+        "linked": "Linked",
+        "currentUntil": "Current until"
+      },
+      "updatedBy": "{{date}} · by {{name}}",
       "private": "Private",
       "expired": "No longer current",
-      "currentUntil": "Current until {{date}}",
       "expiredOn": "Expired on {{date}}",
       "anchor": {
+        "project": "Project",
         "department": "Department",
         "milestone": "Milestone",
         "epic": "Epic"
@@ -3404,6 +3420,7 @@
       "newSubpage": "New subpage",
       "notFound": "Not found or no access.",
       "action": {
+        "comment": "Write comment",
         "history": "History",
         "move": "Move to…",
         "duplicate": "Duplicate",
@@ -3690,6 +3707,11 @@
     "subpage": {
       "title": "New subpage",
       "description": "The subpage lives below this page and is linked here."
+    },
+    "ticketLink": {
+      "unavailable": "This reference is not available",
+      "status": "Status",
+      "unassigned": "Unassigned"
     }
   },
   "chat": {
