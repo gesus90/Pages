@@ -1,11 +1,9 @@
 import { useTranslation } from "react-i18next";
 
-import { cn } from "@/app/lib/cn";
-
 import { planVerdictDetail } from "../plan-decision-verdict";
 import { usePlanFlowContext } from "../plan-flow-context";
 import { planNodeLabel } from "../plan-layout";
-import { PLAN_NODE_TEXT } from "../plan-node-text";
+import { PLAN_CARD_HINT } from "./plan-card";
 import { findPlanNodeAnywhere } from "./use-plan-decision-source";
 
 import type { AgentPlanStepResult } from "@/definition/AgentPlan";
@@ -84,7 +82,7 @@ function VerdictLines(props: {
 }
 
 /**
- * The footer of a decision: that only one output is activated, and what the shown run decided.
+ * The hint line of a decision: that only one output is activated, and what the shown run decided.
  * @remarks
  * A failed decision names its cause through the run notes above; the footer
  * never shows a value it did not decide.
@@ -95,12 +93,7 @@ export function PlanDecisionFooter(props: {
   const { t } = useTranslation();
   const { result } = props;
   return (
-    <footer
-      className={cn(
-        "border-t border-plan-logic-edge/30 px-3 py-2 text-muted-foreground",
-        PLAN_NODE_TEXT.meta,
-      )}
-    >
+    <footer className={PLAN_CARD_HINT}>
       <p>{t("plans.decision.footer")}</p>
       {result ? <ConditionLine result={result} /> : null}
       {result ? <VerdictLines result={result} /> : null}

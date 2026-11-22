@@ -235,7 +235,7 @@ function groupRemoval(
         ? ungroupPlanLoopGroup(draft, id, (step, group) => ({
             x: boundedPlanCoordinate(group.x + PLAN_FRAME_PADDING + step.x),
             y: boundedPlanCoordinate(
-              group.y + planGroupHeaderHeight(group) + step.y,
+              group.y + planGroupHeaderHeight() + step.y,
             ),
           }))
         : removePlanNode(draft, id),

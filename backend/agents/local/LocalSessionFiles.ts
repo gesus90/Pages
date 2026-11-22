@@ -1,5 +1,5 @@
 import { constants } from "node:fs";
-import { lstat, mkdir, open, rename } from "node:fs/promises";
+import { lstat, mkdir, open, rename, rm } from "node:fs/promises";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 
@@ -41,12 +41,24 @@ export async function writeLocalRecord(
   const pending = `${file}.${randomUUID()}.pending`;
   const handle = await open(pending, "wx", 0o600);
   try {
-    await handle.writeFile(JSON.stringify(input));
-    await handle.sync();
-  } finally {
-    await handle.close();
+    try {
+      await handle.writeFile(JSON.stringify(input));
+      await handle.sync();
+    } finally {
+      await handle.close();
+    }
+    await rename(pending, file);
+  } catch (error: unknown) {
+    try {
+      await rm(pending, { force: true });
+    } catch (cleanupError: unknown) {
+      throw new AggregateError(
+        [error, cleanupError],
+        "Could not publish or remove the pending local session record",
+      );
+    }
+    throw error;
   }
-  await rename(pending, file);
   await syncLocalDirectory(directory);
 }
 

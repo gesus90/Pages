@@ -3,8 +3,6 @@ import { useTranslation } from "react-i18next";
 
 import { cn } from "@/app/lib/cn";
 
-import { planSwarmBadgeRows } from "./plan-swarm-model";
-
 import type { PlanSwarmBadge, PlanSwarmBadgeSymbol } from "./plan-swarm-model";
 
 /** The symbol of a badge; colors alone never carry the status. */
@@ -33,11 +31,12 @@ export function PlanSwarmSymbol(props: {
 }
 
 /**
- * The helpers of a swarm as name badges H1 … H10, at most five per row.
+ * The helpers of a swarm as fields H1 … H10 beside the main model in the footer.
  * @remarks
- * Every badge is 24 px high in five equal columns with 4 px gaps. Its
- * status shows as the plan status color and a symbol, its tooltip names the
- * model and the current subtask.
+ * Every field is 58 px wide and 40 px high with a 12 px corner and a 1.5 px
+ * edge; the fields wrap into further rows. Its status shows as the plan
+ * status color and a symbol, its tooltip names the model and the current
+ * subtask.
  */
 export function PlanSwarmBadges(props: {
   readonly badges: readonly PlanSwarmBadge[];
@@ -46,31 +45,27 @@ export function PlanSwarmBadges(props: {
   return (
     <ul
       aria-label={t("plans.swarm.workers")}
-      className="flex flex-col gap-1"
+      className="contents"
       data-plan-swarm-badges
     >
-      {planSwarmBadgeRows(props.badges).map((row) => (
-        <li key={row[0]?.id ?? "row"} className="grid grid-cols-5 gap-1">
-          {row.map((badge) => (
-            <span
-              key={badge.id}
-              data-plan-swarm-badge={badge.id}
-              data-symbol={badge.symbol ?? "none"}
-              title={[badge.model, badge.task].filter(Boolean).join(" · ")}
-              className={cn(
-                "flex h-6 min-w-0 items-center justify-center gap-0.5 rounded-md border text-[11px] leading-4 font-semibold tabular-nums",
-                badge.className,
-              )}
-            >
-              {badge.id}
-              <PlanSwarmSymbol symbol={badge.symbol} />
-              {badge.symbol ? (
-                <span className="sr-only">
-                  {t(`plans.swarm.symbol.${badge.symbol}`)}
-                </span>
-              ) : null}
+      {props.badges.map((badge) => (
+        <li
+          key={badge.id}
+          data-plan-swarm-badge={badge.id}
+          data-symbol={badge.symbol ?? "none"}
+          title={[badge.model, badge.task].filter(Boolean).join(" · ")}
+          className={cn(
+            "flex h-10 w-[58px] shrink-0 items-center justify-center gap-1 rounded-xl border-[1.5px] text-xs leading-4 font-semibold tabular-nums",
+            badge.className,
+          )}
+        >
+          {badge.id}
+          <PlanSwarmSymbol symbol={badge.symbol} />
+          {badge.symbol ? (
+            <span className="sr-only">
+              {t(`plans.swarm.symbol.${badge.symbol}`)}
             </span>
-          ))}
+          ) : null}
         </li>
       ))}
     </ul>

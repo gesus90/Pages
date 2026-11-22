@@ -1,3 +1,4 @@
+import { SquareTerminal } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Select } from "@/app/components/ui/select";
 import { cn } from "@/app/lib/cn";
@@ -8,15 +9,19 @@ import {
   planScriptProfileState,
   planScriptProfileText,
 } from "../plan-script/plan-script-profile";
-import { PLAN_FIELD_CLASS } from "./plan-value-input";
+import { PLAN_CARD_FOOTER } from "./plan-card";
 import type { AgentPlanScript } from "@/definition/AgentPlanScript";
 import type {
   PlanScriptProfileState,
   PlanScriptProfileText,
 } from "../plan-script/plan-script-profile";
 
-const FOOTER_CLASS =
-  "grid h-12 shrink-0 grid-cols-2 items-center gap-2 border-t border-border px-3";
+// The one field over the full width of the footer: the profile's tile, its
+// name or choice and its status, inside the field's 1.5 px edge.
+const PROFILE_FIELD_CLASS =
+  "flex h-10 min-w-0 items-center gap-1.5 rounded-xl border-[1.5px] border-plan-script/40 bg-surface pr-2 pl-[5px]";
+const PROFILE_SELECT_CLASS =
+  "nodrag nopan nokey h-8 min-h-8 min-w-0 flex-1 border-0 bg-transparent px-1 text-xs leading-4 font-semibold shadow-none xl:h-8 xl:px-1 xl:text-xs [&>span]:min-w-0 [&>span]:truncate";
 
 const TONES = {
   success: { text: "text-muted-foreground", dot: "bg-success-dot" },
@@ -29,7 +34,7 @@ const TONES = {
 
 /**
  * The interpreter profile of a script at the bottom of its card, where an
- * agent shows its model.
+ * agent shows its model: one field over the full width of the footer.
  * @remarks
  * The profile is chosen among the profiles the server configures, by their
  * identifier. Beside it stand the version and a status dot that is never the
@@ -55,23 +60,36 @@ export function PlanScriptProfile(props: {
       ? t("plans.scripts.missingProfile", { id: script.interpreterProfileId })
       : state.profile.name;
   return (
-    <footer className={FOOTER_CLASS}>
-      {canEdit && interpreters && interpreters.length > 0 ? (
-        <ProfileChoice script={script} state={state} />
-      ) : (
-        <p
-          className={cn(
-            "truncate",
-            PLAN_NODE_TEXT.field,
-            state.kind === "missing" && "text-destructive",
-          )}
-          title={name}
+    <footer className={PLAN_CARD_FOOTER}>
+      <div
+        data-plan-script-profile=""
+        className={cn(
+          PROFILE_FIELD_CLASS,
+          state.kind === "missing" && "border-destructive",
+        )}
+      >
+        <span
+          aria-hidden="true"
+          className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-plan-script-subtle text-plan-script"
         >
-          <span className="sr-only">{t("plans.scripts.profile")}: </span>
-          {name}
-        </p>
-      )}
-      <ProfileStatus name={name} text={text} />
+          <SquareTerminal className="size-4" />
+        </span>
+        {canEdit && interpreters && interpreters.length > 0 ? (
+          <ProfileChoice script={script} state={state} />
+        ) : (
+          <p
+            className={cn(
+              "min-w-0 flex-1 truncate px-1 text-xs leading-4 font-semibold",
+              state.kind === "missing" && "text-destructive",
+            )}
+            title={name}
+          >
+            <span className="sr-only">{t("plans.scripts.profile")}: </span>
+            {name}
+          </p>
+        )}
+        <ProfileStatus name={name} text={text} />
+      </div>
     </footer>
   );
 }
@@ -91,8 +109,8 @@ function ProfileStatus(props: {
   return (
     <p
       className={cn(
-        "flex min-w-0 items-center justify-end gap-1.5",
-        PLAN_NODE_TEXT.field,
+        "flex max-w-[45%] min-w-0 shrink-0 items-center justify-end gap-1.5",
+        PLAN_NODE_TEXT.meta,
         tone.text,
       )}
       title={`${props.name} · ${spoken}`}
@@ -147,9 +165,8 @@ function ProfileChoice(props: {
       ariaLabel={t("plans.scripts.profile")}
       value={script.interpreterProfileId}
       className={cn(
-        PLAN_FIELD_CLASS,
-        "[&>span]:min-w-0 [&>span]:truncate",
-        state.kind === "missing" && "border-destructive text-destructive",
+        PROFILE_SELECT_CLASS,
+        state.kind === "missing" && "text-destructive",
       )}
       options={[
         ...(state.kind === "missing"

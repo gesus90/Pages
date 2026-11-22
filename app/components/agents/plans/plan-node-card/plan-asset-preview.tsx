@@ -66,8 +66,8 @@ function PreviewFrame(props: {
     <div
       data-plan-asset-preview={props.tone}
       className={cn(
-        "relative flex h-[7.5rem] w-full items-center justify-center overflow-hidden rounded-lg border",
-        props.tone === "plain" && "border-border bg-surface",
+        "relative flex h-24 w-full items-center justify-center overflow-hidden rounded-lg border",
+        props.tone === "plain" && "border-transparent bg-muted",
         props.tone === "drop" &&
           "border-2 border-dashed border-primary bg-primary/5 text-primary",
         props.tone === "error" &&

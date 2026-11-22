@@ -8,12 +8,12 @@ import { isPlanLoopLeftRegularly } from "@/definition/AgentPlanLoopRun";
 
 import { keepPlanControlKeys } from "./plan-flow-keys";
 import {
-  PLAN_FRAME_FOOTER,
-  PLAN_LOOP_TITLE_HEIGHT,
-  planGroupHeaderHeight,
-  planNodeLabel,
-} from "./plan-layout";
-import { PlanLoopPortRows } from "./plan-loop-input";
+  PLAN_FRAME_MARK,
+  PlanFrameHeader,
+  PlanFrameMemberArea,
+} from "./plan-frame-header";
+import { planNodeClass, planNodeLabel, PLAN_TYPE_COLORS } from "./plan-layout";
+import { PlanLoopInputMark } from "./plan-loop-input";
 import { PlanLoopPorts } from "./plan-loop-ports";
 import { loopConditionText } from "./plan-loop-panel/loop-run-section";
 import {
@@ -22,15 +22,14 @@ import {
   planLoopSummary,
 } from "./plan-loop-summary";
 import { PlanNodeActions, PlanNodeEditButton } from "./plan-node-actions";
-import { PlanNodeIcon } from "./plan-node-icon";
 import { PlanNodeWarning } from "./plan-node-warning";
-import { PLAN_NODE_TEXT } from "./plan-node-text";
-import { planSuccessClass } from "./plan-status";
+import { PLAN_STATUS_MARKER, planStatusClass } from "./plan-status";
 
 import type {
   AgentPlanInput,
   AgentPlanRun,
   AgentPlanSources,
+  AgentPlanStepStatus,
 } from "@/definition/AgentPlan";
 import type { AgentPlanLoop } from "@/definition/AgentPlanLoop";
 import type { AgentPlanLoopRun } from "@/definition/AgentPlanLoopRun";
@@ -58,15 +57,36 @@ function memberChain(loop: AgentPlanLoop, sources: AgentPlanSources): string {
     .join(" → ");
 }
 
+/** The session rule of a loop: that of its group, or its own setting. */
+function loopSessionText(
+  props: LoopFrameProps,
+  translate: (key: string) => string,
+): string {
+  if (planLoopOwner(props.draft, props.loop.id))
+    return translate("plans.loops.session.inheritGroup");
+  return translate(`plans.loops.session.${props.loop.sessionPolicy}Short`);
+}
+
+/** The latest verdict of the end condition during a run, if an iteration ran. */
+function loopRunNote(
+  props: LoopFrameProps,
+  translate: (key: string, options?: Record<string, unknown>) => string,
+): string | null {
+  const latest = planLoopRunOf(props.run, props.loop.id)?.iterations.at(-1);
+  if (!latest) return null;
+  return `${translate("plans.loops.run.iteration", { number: latest.number })} · ${loopConditionText(latest.condition, translate)}`;
+}
+
 /**
- * The container of a loop: its name, count summary, run state and entry and exit ports.
+ * The container of a loop: a two-line header with its name, run state,
+ * count input and marks, the dashed member area and the member count.
  * @remarks
  * The full settings are not drawn here; the pencil opens them in a floating
  * panel. The container is one flow node outwardly, with its dots on the
- * container edge; its members are separate nodes of the canvas placed in it.
- * While a run is shown, the container turns to success only once the whole
- * loop was left regularly with a confirmed cleanup, never after a single
- * iteration; a failed loop takes the destructive edge.
+ * container edge at half the header height; its members are separate nodes
+ * of the canvas placed in it. Surface and edge keep the loop color in every
+ * state; the status marker names whether the loop was left regularly with a
+ * confirmed cleanup, never after a single iteration, or failed.
  */
 export function PlanLoopFrame(props: LoopFrameProps): React.ReactElement {
   const { t } = useTranslation();
@@ -81,11 +101,10 @@ export function PlanLoopFrame(props: LoopFrameProps): React.ReactElement {
       aria-label={t("plans.loops.frame", { name: label })}
       onKeyDown={keepPlanControlKeys}
       className={cn(
-        "relative size-full rounded-[1.25rem] border border-plan-loop-edge bg-plan-loop-subtle shadow-xs",
-        isLeft && planSuccessClass(),
-        props.run !== null &&
-          record?.status === "failed" &&
-          "border-destructive",
+        "relative size-full rounded-2xl border shadow-xs",
+        planNodeClass("loop"),
+        PLAN_TYPE_COLORS.frameEdge,
+        PLAN_TYPE_COLORS.frameSurface,
         props.isDropTarget && "ring-2 ring-plan-loop/40",
         graph.selectedId === loop.id &&
           "ring-2 ring-info ring-offset-2 ring-offset-background",
@@ -97,78 +116,43 @@ export function PlanLoopFrame(props: LoopFrameProps): React.ReactElement {
         graph={graph}
         canEdit={props.canEdit}
       />
-      <div
-        className="pointer-events-auto flex items-center gap-5 border-b border-plan-loop-edge/25 px-5"
-        style={{ height: PLAN_LOOP_TITLE_HEIGHT }}
-      >
-        <LoopTitle {...props} label={label} />
-        <PlanNodeWarning nodeId={loop.id} issues={graph.issues} />
-        <LoopHeaderActions {...props} label={label} />
-      </div>
-      <PlanLoopPortRows {...props} />
-      {loop.steps.length === 0 ? (
-        <p
-          className={cn(
-            "absolute inset-x-5 text-muted-foreground",
-            PLAN_NODE_TEXT.field,
-          )}
-          style={{ top: planGroupHeaderHeight(loop) }}
-        >
-          {t(props.canEdit ? "plans.loops.empty" : "plans.loops.emptyReadOnly")}
-        </p>
-      ) : null}
-      <LoopFooter {...props} />
+      <PlanFrameHeader
+        type="loop"
+        id={loop.id}
+        label={label}
+        typeLine={t("plans.nodeType.loop")}
+        canEdit={props.canEdit}
+        onSelect={() => graph.select(loop.id)}
+        handleLabel={t("plans.selectNode", { name: label })}
+        actions={<LoopHeaderActions {...props} label={label} />}
+        marks={<LoopMarks {...props} />}
+        hasFlowLabels
+      />
+      <PlanFrameMemberArea
+        emptyText={
+          loop.steps.length === 0
+            ? t(
+                props.canEdit
+                  ? "plans.loops.empty"
+                  : "plans.loops.emptyReadOnly",
+              )
+            : undefined
+        }
+        footer={<LoopFooter {...props} />}
+      />
     </section>
   );
 }
 
-function LoopTitle(
-  props: LoopFrameProps & {
-    readonly label: string;
-  },
-): React.ReactElement {
+/** The marks of the second header line: the count or while input, the count summary and the session rule. */
+function LoopMarks(props: LoopFrameProps): React.ReactElement {
   const { t } = useTranslation();
-  const { loop, graph, label } = props;
-  return (
-    <button
-      type="button"
-      data-plan-handle={loop.id}
-      onClick={() => graph.select(loop.id)}
-      className={cn(
-        "min-w-0 flex-1 rounded text-left focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
-        PLAN_NODE_TEXT.title,
-        props.canEdit && "cursor-grab active:cursor-grabbing",
-      )}
-      aria-label={t("plans.selectNode", { name: label })}
-      title={label}
-    >
-      <span
-        className={cn(
-          "mb-1 flex items-center gap-1 font-medium text-plan-loop",
-          PLAN_NODE_TEXT.meta,
-        )}
-      >
-        <PlanNodeIcon type="loop" className="size-3.5" />
-        {t("plans.nodeType.loop")}
-      </span>
-      <span className="block truncate">{label}</span>
-    </button>
-  );
-}
-
-function LoopHeaderActions(
-  props: LoopFrameProps & { readonly label: string },
-): React.ReactElement {
-  const { t } = useTranslation();
-  const { loop, graph, label } = props;
-  const record = planLoopRunOf(props.run, loop.id);
+  const { loop } = props;
   return (
     <>
+      <PlanLoopInputMark {...props} />
       <span
-        className={cn(
-          "shrink-0 rounded-md border border-plan-loop/30 px-2 py-1.5 font-medium text-foreground",
-          PLAN_NODE_TEXT.meta,
-        )}
+        className={cn(PLAN_FRAME_MARK, "text-plan-loop")}
         title={
           planLoopMode(loop) === "while"
             ? t("plans.loops.whileTooltip")
@@ -177,79 +161,68 @@ function LoopHeaderActions(
       >
         {planLoopSummary(props.draft, loop, t)}
       </span>
-      <PlanLoopStatus loop={loop} record={record} run={props.run} />
-      <div className="nodrag nopan flex shrink-0 items-center gap-2">
-        <PlanNodeEditButton
-          label={label}
-          onEdit={() => {
-            graph.select(loop.id);
-            props.onEdit?.(loop.id);
-          }}
-        />
-        <PlanNodeActions
-          label={label}
-          disabled={!props.canEdit}
-          onRemove={() => graph.remove(loop.id)}
-        />
-      </div>
+      <span className={cn(PLAN_FRAME_MARK, "text-plan-loop")}>
+        {loopSessionText(props, t)}
+      </span>
     </>
   );
 }
 
-/** The right side of the footer: the latest verdict of the end condition during a run, else the session setting. */
-function footerNote(
-  props: LoopFrameProps,
-  translate: (key: string, options?: Record<string, unknown>) => string,
-): string {
-  const latest = planLoopRunOf(props.run, props.loop.id)?.iterations.at(-1);
-  if (!latest && planLoopOwner(props.draft, props.loop.id))
-    return translate("plans.loops.session.inheritGroup");
-  if (!latest)
-    return translate(`plans.loops.session.${props.loop.sessionPolicy}Short`);
-  return `${translate("plans.loops.run.iteration", { number: latest.number })} · ${loopConditionText(latest.condition, translate)}`;
+function LoopHeaderActions(
+  props: LoopFrameProps & { readonly label: string },
+): React.ReactElement {
+  const { loop, graph, label } = props;
+  const record = planLoopRunOf(props.run, loop.id);
+  return (
+    <>
+      <PlanLoopStatus loop={loop} record={record} run={props.run} />
+      <PlanNodeWarning nodeId={loop.id} issues={graph.issues} />
+      <PlanNodeEditButton
+        label={label}
+        onEdit={() => {
+          graph.select(loop.id);
+          props.onEdit?.(loop.id);
+        }}
+      />
+      <PlanNodeActions
+        label={label}
+        disabled={!props.canEdit}
+        onRemove={() => graph.remove(loop.id)}
+        size="card"
+      />
+    </>
+  );
 }
 
+/** The line below the member area: the member count, and the latest verdict during a run. */
 function LoopFooter(props: LoopFrameProps): React.ReactElement {
   const { t } = useTranslation();
   const { loop } = props;
   const chain = memberChain(loop, props.sources);
-  return (
-    <div
-      className={cn(
-        "pointer-events-auto absolute inset-x-5 bottom-0 flex items-center justify-between gap-4 text-muted-foreground",
-        PLAN_NODE_TEXT.meta,
-      )}
-      style={{ height: PLAN_FRAME_FOOTER }}
-    >
-      <p className="min-w-0 flex-1 truncate" title={chain}>
-        {t("plans.loops.members", { count: planLoopMembers(loop).length })}
-        {chain ? ` · ${chain}` : ""}
+  const note = loopRunNote(props, t);
+  if (props.isDropTarget)
+    return (
+      <p role="status" className="shrink-0 font-medium text-plan-loop">
+        {t("plans.loops.dropHere")}
       </p>
-      {props.isDropTarget ? (
-        <p role="status" className="shrink-0 font-medium text-plan-loop">
-          {t("plans.loops.dropHere")}
-        </p>
-      ) : (
-        <p
-          className="min-w-0 max-w-[65%] truncate text-right"
-          title={footerNote(props, t)}
-        >
-          {footerNote(props, t)}
-        </p>
-      )}
-    </div>
+    );
+  return (
+    <p className="min-w-0 truncate text-center" title={chain || undefined}>
+      {t("plans.loops.members", { count: planLoopMembers(loop).length })}
+      {note ? ` · ${note}` : ""}
+    </p>
   );
 }
 
-const LOOP_STATUS_TONES = {
-  waiting: "text-muted-foreground",
-  running: "text-status-active",
-  paused: "text-muted-foreground",
-  succeeded: "text-success",
-  failed: "text-destructive",
-  cancelled: "text-muted-foreground",
-  skipped: "text-muted-foreground",
-} as const;
+/** The marker colors of a loop's state: success only once it was left regularly. */
+function loopStatusColors(
+  status: AgentPlanStepStatus,
+  isLeft: boolean,
+): string {
+  if (isLeft) return planStatusClass("succeeded");
+  if (status === "succeeded") return planStatusClass("waiting");
+  return planStatusClass(status);
+}
 
 function loopStatusKey(
   record: AgentPlanLoopRun | undefined,
@@ -264,6 +237,7 @@ function loopStatusKey(
   return `plans.loops.status.${status}`;
 }
 
+/** The status marker of a loop, inline in the first header line. */
 function PlanLoopStatus(props: {
   readonly loop: AgentPlanLoop;
   readonly record: AgentPlanLoopRun | undefined;
@@ -279,21 +253,18 @@ function PlanLoopStatus(props: {
     <span
       data-plan-loop-status={isLeft ? "left" : status}
       className={cn(
-        "inline-flex shrink-0 items-center gap-1.5",
-        PLAN_NODE_TEXT.meta,
-        isLeft || status !== "succeeded"
-          ? LOOP_STATUS_TONES[status]
-          : LOOP_STATUS_TONES.waiting,
-        isLeft && "font-semibold",
+        "inline-flex shrink-0 items-center gap-1 border",
+        PLAN_STATUS_MARKER,
+        loopStatusColors(status, isLeft),
       )}
       title={record?.error ? t(`settings.agents.error.${record.error}`) : label}
     >
       {isLeft ? (
-        <CheckCircle2 aria-hidden="true" className="size-3.5 shrink-0" />
-      ) : (
-        <span aria-hidden="true" className="size-1.5 rounded-full bg-current" />
-      )}
-      {progress && status !== "waiting" ? `${progress} · ${label}` : label}
+        <CheckCircle2 aria-hidden="true" className="size-3 shrink-0" />
+      ) : null}
+      <span className="truncate">
+        {progress && status !== "waiting" ? `${progress} · ${label}` : label}
+      </span>
     </span>
   );
 }

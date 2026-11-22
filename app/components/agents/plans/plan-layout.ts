@@ -24,8 +24,7 @@ export {
   PLAN_FRAME_PADDING,
   PLAN_GROUP_COMPACT_HEIGHT,
   PLAN_GROUP_COMPACT_WIDTH,
-  PLAN_LOOP_PORT_ROW,
-  PLAN_LOOP_TITLE_HEIGHT,
+  PLAN_FRAME_HEADER,
   PLAN_NODE_WIDTH,
   PLAN_STACK_WIDTH,
   planGroupHeaderHeight,
@@ -151,23 +150,37 @@ function jumpLabel(node: Extract<AgentPlanNode, { type: "jump" }>): string {
   );
 }
 
-const NODE_TINTS = {
-  start: "border-plan-checkpoint/60 bg-plan-checkpoint-subtle",
-  end: "border-plan-checkpoint/60 bg-plan-checkpoint-subtle",
-  jump: "border-plan-checkpoint/60 bg-plan-checkpoint-subtle",
-  signal: "border-plan-checkpoint/60 bg-plan-checkpoint-subtle",
-  agent: "border-plan-agent/60 bg-plan-agent-subtle",
-  script: "border-plan-script/60 bg-plan-script-subtle",
-  git_closeout: "border-plan-script/60 bg-plan-script-subtle",
-  group: "border-plan-group/60 bg-plan-group-subtle",
-  loop: "border-plan-loop-edge/60 bg-plan-loop-subtle",
-  decision: "border-plan-logic-edge/60 bg-plan-logic-subtle",
-  stack: "border-plan-stack-edge/60 bg-plan-stack-subtle",
-  swarm: "border-plan-swarm-edge/60 bg-plan-swarm-subtle",
-  task: "border-plan-ticket-edge bg-plan-ticket-subtle",
-  variable: "border-plan-parameter/60 bg-plan-parameter-subtle",
-  parameter: "border-plan-parameter/60 bg-plan-parameter-subtle",
-  asset: "border-plan-asset-edge/60 bg-plan-asset-subtle",
+// Each node type names its color token and the subtle surface of that token;
+// the card mixes its edge, header and icon tile from both.
+const NODE_TYPE_COLORS = {
+  start:
+    "[--plan-type:var(--color-plan-checkpoint)] [--plan-type-subtle:var(--color-plan-checkpoint-subtle)]",
+  end: "[--plan-type:var(--color-plan-checkpoint)] [--plan-type-subtle:var(--color-plan-checkpoint-subtle)]",
+  jump: "[--plan-type:var(--color-plan-checkpoint)] [--plan-type-subtle:var(--color-plan-checkpoint-subtle)]",
+  signal:
+    "[--plan-type:var(--color-plan-checkpoint)] [--plan-type-subtle:var(--color-plan-checkpoint-subtle)]",
+  agent:
+    "[--plan-type:var(--color-plan-agent)] [--plan-type-subtle:var(--color-plan-agent-subtle)]",
+  script:
+    "[--plan-type:var(--color-plan-script)] [--plan-type-subtle:var(--color-plan-script-subtle)]",
+  git_closeout:
+    "[--plan-type:var(--color-plan-script)] [--plan-type-subtle:var(--color-plan-script-subtle)]",
+  group:
+    "[--plan-type:var(--color-plan-group)] [--plan-type-subtle:var(--color-plan-group-subtle)]",
+  loop: "[--plan-type:var(--color-plan-loop)] [--plan-type-subtle:var(--color-plan-loop-subtle)]",
+  decision:
+    "[--plan-type:var(--color-plan-logic)] [--plan-type-subtle:var(--color-plan-logic-subtle)]",
+  stack:
+    "[--plan-type:var(--color-plan-stack)] [--plan-type-subtle:var(--color-plan-stack-subtle)]",
+  swarm:
+    "[--plan-type:var(--color-plan-swarm)] [--plan-type-subtle:var(--color-plan-swarm-subtle)]",
+  task: "[--plan-type:var(--color-plan-ticket)] [--plan-type-subtle:var(--color-plan-ticket-subtle)]",
+  variable:
+    "[--plan-type:var(--color-plan-parameter)] [--plan-type-subtle:var(--color-plan-parameter-subtle)]",
+  parameter:
+    "[--plan-type:var(--color-plan-parameter)] [--plan-type-subtle:var(--color-plan-parameter-subtle)]",
+  asset:
+    "[--plan-type:var(--color-plan-asset)] [--plan-type-subtle:var(--color-plan-asset-subtle)]",
 };
 
 const NODE_ACCENTS = {
@@ -190,16 +203,37 @@ const NODE_ACCENTS = {
 };
 
 /**
- * A calm tint and border in the color of the node type.
- *
+ * The type color of a node as the CSS variables `--plan-type` and `--plan-type-subtle`.
  * @remarks
- * The type colors stay apart from the run status colors in both theme
- * palettes; a card shows its status colors instead only while a run of the
- * same revision is shown.
+ * Both variables name theme tokens, so a card follows the light and the dark
+ * palette. The run status never replaces them: the card stays in its type
+ * color and only its status marker shows the status.
  */
 export function planNodeClass(type: AgentPlanNode["type"]): string {
-  return NODE_TINTS[type];
+  return NODE_TYPE_COLORS[type];
 }
+
+/**
+ * The parts of a card and a container drawn in the type color that {@link planNodeClass} sets.
+ * @remarks
+ * A card edge mixes 45 % of the type color into the border token, a container
+ * edge 55 %; header lines take 30 % and the dashed member area of a container
+ * 40 %. A container surface lays 60 % of the subtle type surface over the
+ * surface token.
+ */
+export const PLAN_TYPE_COLORS = {
+  cardEdge:
+    "border-[color:color-mix(in_srgb,var(--plan-type)_45%,var(--color-border))]",
+  frameEdge:
+    "border-[color:color-mix(in_srgb,var(--plan-type)_55%,var(--color-border))]",
+  frameSurface:
+    "bg-[color:color-mix(in_srgb,var(--plan-type-subtle)_60%,var(--color-surface))]",
+  header:
+    "border-b border-b-[color:color-mix(in_srgb,var(--plan-type)_30%,transparent)] bg-[color:var(--plan-type-subtle)]",
+  memberArea:
+    "border-[1.5px] border-dashed border-[color:color-mix(in_srgb,var(--plan-type)_40%,transparent)]",
+  tile: "bg-[color:var(--plan-type)] text-surface",
+} as const;
 
 /** The type color of a card's icon. */
 export function planNodeAccent(type: AgentPlanNode["type"]): string {

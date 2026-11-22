@@ -8,6 +8,7 @@ import { planValueIssue } from "@/definition/AgentPlanValue";
 
 import { usePlanFlowContext } from "../plan-flow-context";
 import { PLAN_NODE_TEXT } from "../plan-node-text";
+import { PlanCardColumns, PLAN_CARD_BODY } from "./plan-card";
 import { PLAN_FIELD_CLASS, PlanValueInput } from "./plan-value-input";
 import { PlanValueOut } from "./plan-value-out";
 
@@ -75,7 +76,7 @@ function FieldRow(props: {
   readonly children: React.ReactNode;
 }): React.ReactElement {
   return (
-    <div className="grid h-8 grid-cols-[3rem_minmax(0,1fr)] items-center gap-2">
+    <div className="grid h-8 grid-cols-[2.75rem_minmax(0,1fr)] items-center gap-1">
       <span
         className={cn("truncate text-muted-foreground", PLAN_NODE_TEXT.field)}
       >
@@ -96,7 +97,7 @@ function BooleanValueInput(props: {
   const { node } = props;
   const isChecked = node.value.type === "text" && node.value.text === "true";
   return (
-    <div className="flex h-8 items-center gap-2 pr-6">
+    <div className="flex h-6 min-w-0 items-center gap-1.5">
       <button
         type="button"
         role="switch"
@@ -110,13 +111,13 @@ function BooleanValueInput(props: {
           })
         }
         className={cn(
-          "inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60",
+          "inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60",
           isChecked ? "justify-end bg-primary" : "justify-start bg-muted",
         )}
       >
         <span
           aria-hidden="true"
-          className="mx-0.5 size-5 rounded-full bg-white shadow"
+          className="mx-0.5 size-4 rounded-full bg-surface shadow"
         />
       </button>
       <span className={cn("font-mono", PLAN_NODE_TEXT.field)}>
@@ -126,11 +127,42 @@ function BooleanValueInput(props: {
   );
 }
 
+/** The value field of a parameter: the switch of a boolean, else the field of its type. */
+function ParameterValue(props: {
+  readonly node: AgentPlanParameter;
+  readonly kind: ValueKind;
+}): React.ReactElement {
+  const { t } = useTranslation();
+  const { graph, canEdit } = usePlanFlowContext();
+  const { node, kind } = props;
+  if (kind === "boolean")
+    return (
+      <BooleanValueInput
+        node={node}
+        isDisabled={!canEdit}
+        onChange={(next) => graph.replaceNode(next)}
+      />
+    );
+  return (
+    <PlanValueInput
+      type={node.value.type}
+      value={node.value}
+      isJson={kind === "json"}
+      label={t("plans.parameterValue", { name: node.name })}
+      placeholder={t("plans.field.value")}
+      hasIssue={planValueIssue(node) !== null}
+      disabled={!canEdit}
+      onChange={(next) => graph.replaceNode({ ...node, value: next })}
+    />
+  );
+}
+
 /**
  * Name, type and value of a parameter node, edited in place.
  * @remarks
- * The name stays the stable key of the value; the data OUT sits at the row
- * of the value it sends.
+ * Name, type and value stand in the input column; the data OUT stands in
+ * the output column with its dot on the right card edge. The name stays the
+ * stable key of the value.
  */
 export function PlanParameterFields(props: {
   readonly node: AgentPlanParameter;
@@ -146,60 +178,60 @@ export function PlanParameterFields(props: {
   const issue = planValueIssue(node);
   const isNameValid = isAgentParameterName(node.name);
   return (
-    <div className="flex flex-col gap-1.5 px-3 pb-3">
-      <FieldRow label={t("plans.field.name")}>
-        <Input
-          size="sm"
-          aria-label={t("plans.parameterName")}
-          aria-invalid={!isNameValid}
-          title={node.name}
-          value={node.name}
-          maxLength={64}
-          disabled={!canEdit}
-          className={cn(
-            PLAN_FIELD_CLASS,
-            "font-mono",
-            !isNameValid && "border-destructive",
-          )}
-          onChange={(event) =>
-            graph.replaceNode({ ...node, name: event.target.value })
-          }
-        />
-      </FieldRow>
-      <FieldRow label={t("plans.field.type")}>
-        <Select<ValueKind>
-          ariaLabel={t("plans.parameterType", { name: node.name })}
-          value={kind}
-          disabled={!canEdit}
-          className={PLAN_FIELD_CLASS}
-          options={VALUE_KINDS.map((value) => ({
-            value,
-            label: t(`plans.valueTypes.${value}`),
-          }))}
-          onValueChange={(next) => graph.replaceNode(withKind(node, next))}
-        />
-      </FieldRow>
-      <div className="relative h-8">
-        {kind === "boolean" ? (
-          <BooleanValueInput
-            node={node}
-            isDisabled={!canEdit}
-            onChange={(next) => graph.replaceNode(next)}
+    <div className={PLAN_CARD_BODY}>
+      <PlanCardColumns
+        inputs={
+          <>
+            <FieldRow label={t("plans.field.name")}>
+              <Input
+                size="sm"
+                aria-label={t("plans.parameterName")}
+                aria-invalid={!isNameValid}
+                title={node.name}
+                value={node.name}
+                maxLength={64}
+                disabled={!canEdit}
+                className={cn(
+                  PLAN_FIELD_CLASS,
+                  "font-mono",
+                  !isNameValid && "border-destructive",
+                )}
+                onChange={(event) =>
+                  graph.replaceNode({ ...node, name: event.target.value })
+                }
+              />
+            </FieldRow>
+            <FieldRow label={t("plans.field.type")}>
+              <Select<ValueKind>
+                ariaLabel={t("plans.parameterType", { name: node.name })}
+                value={kind}
+                disabled={!canEdit}
+                className={cn(
+                  PLAN_FIELD_CLASS,
+                  "[&>span]:min-w-0 [&>span]:truncate",
+                )}
+                options={VALUE_KINDS.map((option) => ({
+                  value: option,
+                  label: t(`plans.valueTypes.${option}`),
+                }))}
+                onValueChange={(next) =>
+                  graph.replaceNode(withKind(node, next))
+                }
+              />
+            </FieldRow>
+            <FieldRow label={t("plans.loops.source.value")}>
+              <ParameterValue node={node} kind={kind} />
+            </FieldRow>
+          </>
+        }
+        outputs={
+          <PlanValueOut
+            nodeId={node.id}
+            labelKey="plans.valueOut"
+            textKey="plans.valueOut"
           />
-        ) : (
-          <PlanValueInput
-            type={node.value.type}
-            value={node.value}
-            isJson={kind === "json"}
-            label={t("plans.parameterValue", { name: node.name })}
-            placeholder={t("plans.field.value")}
-            hasIssue={issue !== null}
-            disabled={!canEdit}
-            onChange={(value) => graph.replaceNode({ ...node, value })}
-          />
-        )}
-        <PlanValueOut nodeId={node.id} labelKey="plans.valueOut" />
-      </div>
+        }
+      />
       {!isNameValid ? (
         <p role="alert" className={cn("text-destructive", PLAN_NODE_TEXT.meta)}>
           {t("plans.validation.name")}

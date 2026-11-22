@@ -7,7 +7,7 @@ import { PLAN_HANDOVER_LIMIT_LABEL } from "@/definition/AgentPlanHandover";
 
 import { usePlanFlowContext } from "../plan-flow-context";
 import { PLAN_NODE_TEXT } from "../plan-node-text";
-import { PlanCard } from "./plan-card";
+import { PlanCard, PlanCardColumns, PLAN_CARD_BODY } from "./plan-card";
 import { PlanValueOut } from "./plan-value-out";
 import { planAssetMeta } from "./plan-asset-format";
 import { PlanAssetPreview, usePlanAssetAccess } from "./plan-asset-preview";
@@ -72,7 +72,7 @@ function AssetDetails(props: {
         </span>
         <span
           className={cn(
-            "shrink-0 rounded bg-surface/80 px-1 font-semibold text-muted-foreground",
+            "shrink-0 rounded bg-muted px-1 font-semibold text-muted-foreground",
             PLAN_NODE_TEXT.meta,
           )}
         >
@@ -95,6 +95,45 @@ function AssetDetails(props: {
             })}
       </p>
     </>
+  );
+}
+
+/** The file row of the input column: its name, or the choice of a file while there is none. */
+function AssetFileRow(props: {
+  readonly node: AgentPlanAsset;
+  readonly inputId: string;
+  readonly canChoose: boolean;
+}): React.ReactElement {
+  const { t } = useTranslation();
+  const { file } = props.node;
+  const field = cn(
+    "flex h-6 max-w-[6.5rem] min-w-0 items-center rounded-md bg-muted px-2",
+    PLAN_NODE_TEXT.field,
+  );
+  return (
+    <div className="grid h-8 grid-cols-[2.75rem_minmax(0,1fr)] items-center gap-1">
+      <span
+        className={cn("truncate text-muted-foreground", PLAN_NODE_TEXT.field)}
+      >
+        {t("plans.entry.type.asset")}
+      </span>
+      {file ? (
+        <span className={field} title={file.fileName}>
+          <span className="truncate">{file.fileName}</span>
+        </span>
+      ) : (
+        <label
+          htmlFor={props.inputId}
+          className={cn(
+            field,
+            "nodrag",
+            props.canChoose ? "cursor-pointer" : "opacity-60",
+          )}
+        >
+          <span className="truncate">{t("plans.asset.choose")}</span>
+        </label>
+      )}
+    </div>
   );
 }
 
@@ -148,11 +187,25 @@ export function PlanAssetCard(props: {
         label={label}
         title={label}
         subtitle={t("plans.asset.caption")}
-        runClass={
-          isBroken ? "border-destructive bg-plan-asset-subtle" : undefined
-        }
+        stateClass={isBroken ? "border-destructive" : undefined}
       >
-        <div className="flex flex-col gap-1.5 px-3 pb-3">
+        <div className={PLAN_CARD_BODY}>
+          <PlanCardColumns
+            inputs={
+              <AssetFileRow
+                node={node}
+                inputId={inputId}
+                canChoose={upload.isEnabled}
+              />
+            }
+            outputs={
+              <PlanValueOut
+                nodeId={node.id}
+                labelKey="plans.asset.dataOut"
+                textKey="plans.asset.dataOut"
+              />
+            }
+          />
           <PlanAssetPreview
             file={node.file}
             upload={upload.state}
@@ -180,12 +233,6 @@ export function PlanAssetCard(props: {
             inputId={inputId}
             canChoose={upload.isEnabled}
           />
-          <div className="relative flex h-7 items-center justify-end">
-            <span className={cn("font-medium", PLAN_NODE_TEXT.field)}>
-              {t("plans.asset.dataOut")}
-            </span>
-            <PlanValueOut nodeId={node.id} labelKey="plans.asset.dataOut" />
-          </div>
         </div>
       </PlanCard>
     </div>

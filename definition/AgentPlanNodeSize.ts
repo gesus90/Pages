@@ -1,5 +1,4 @@
 import { planGroupContent } from "./AgentPlanGroupLoop";
-import { PLAN_SWARM_BADGES_PER_ROW } from "./AgentPlanSwarm";
 import { planStepTemplate } from "./AgentPlanConfiguration";
 import { planDecisionMode, planDecisionOutputPorts } from "./AgentPlanDecision";
 
@@ -20,79 +19,98 @@ export type PlanFrame = AgentPlanGroup | AgentPlanLoop;
 
 /** The width of the port rows in a frame's header. */
 export const PLAN_NODE_WIDTH = 280;
-// Card sizes keep their order: compact start and end, medium value sources,
-// agents and scripts widest and as tall as their inputs. The heights count
-// the rows of plan-node-card and its 1 px border.
-const PLAN_AGENT_WIDTH = 320;
-const PLAN_SOURCE_WIDTH = 260;
-/** The compact logic node: narrower than an agent, as wide as a value source. */
-export const PLAN_DECISION_WIDTH = 260;
-const PLAN_ENDPOINT_WIDTH = 160;
+/**
+ * The width of every node card: agents, scripts, swarms, value sources,
+ * assets, stacks, decisions, Jumps and signals share one card family.
+ */
+export const PLAN_CARD_WIDTH = 340;
+// The heights count the rows of plan-node-card and its 1 px border: the 66
+// px header, the body with 26 px above and 14 px below its rows, rows of 32
+// px 6 px apart, the 34 px execution line, the 64 px footer and the 36 px
+// hint line, each line with its 1 px rule.
+const CARD_HEADER = 68;
+const CARD_BODY_PADDING = 40;
+const CARD_ROW = 32;
+const CARD_ROW_GAP = 6;
+const CARD_EXECUTION = 35;
+const CARD_FOOTER = 65;
+const CARD_HINT = 37;
+/** The compact logic node, now as wide as every card. */
+export const PLAN_DECISION_WIDTH = PLAN_CARD_WIDTH;
+/** The pill of a start or an end. */
+const PLAN_ENDPOINT_WIDTH = 170;
 const PLAN_ENDPOINT_HEIGHT = 56;
-const PLAN_PARAMETER_HEIGHT = 166;
-const PLAN_TICKET_HEIGHT = 101;
-const PLAN_VARIABLE_HEIGHT = 90;
-// Header, preview, file name, meta line and the data OUT of an asset card.
-const PLAN_ASSET_HEIGHT = 268;
-const AGENT_BASE_HEIGHT = 172;
-// The rows an agent card adds to the base: its execution context and its
-// result, the 12 px below them and the model footer, 64 px with its 1 px line.
-const AGENT_BODY_HEIGHT = 116;
-const AGENT_INPUT_HEIGHT = 38;
-// The two optional rows of an agent, Ereignis IN and the boolean Ergebnis, with their gaps.
-const AGENT_BRANCHING_HEIGHT = 68;
-// Header, sequence row, data row with its binding chip, two outputs and the footer line.
-const PLAN_DECISION_HEIGHT = 269;
-// One more output of a classification, and the question and model rows of a model decision.
-const DECISION_OUTPUT_HEIGHT = 36;
-const DECISION_MODEL_HEIGHT = 64;
-const PLAN_GIT_CLOSEOUT_HEIGHT = 200;
-/** The Stack card: wide enough for an entry's key and title beside its number. */
-export const PLAN_STACK_WIDTH = 300;
-// Header, the In and Out row, the summary, the file drop row, both data
-// outputs and the footer.
-const STACK_BASE_HEIGHT = 278;
+// The preview, the file name and the meta line of an asset below its row.
+const ASSET_PREVIEW_HEIGHT = 96 + 18 + 16 + 3 * CARD_ROW_GAP;
+// The row of a decision output, and the question and model lines of a model decision.
+const DECISION_OUTPUT_ROW = 40;
+const DECISION_MODEL_HEIGHT = 56;
+/** The Stack card, as wide as every card. */
+export const PLAN_STACK_WIDTH = PLAN_CARD_WIDTH;
+// The file drop row and the row that adds a ticket below the entries.
+const STACK_ADD_ROWS = CARD_ROW_GAP + 36 + CARD_ROW_GAP + CARD_ROW;
 // One entry of the list with its gap, and the row of an empty list.
-const STACK_ENTRY_HEIGHT = 50;
-const STACK_EMPTY_HEIGHT = 40;
-/** The title row of a loop container. */
-export const PLAN_LOOP_TITLE_HEIGHT = 84;
-/** One labelled port row of a loop container: In and Out, then the count or while input. */
-export const PLAN_LOOP_PORT_ROW = 32;
-// A loop container's header: title, its two port rows and the gap before its members.
-const LOOP_HEADER_HEIGHT = PLAN_LOOP_TITLE_HEIGHT + 2 * PLAN_LOOP_PORT_ROW + 24;
-/** Space between a frame's edge and its members. */
-export const PLAN_FRAME_PADDING = 20;
+const STACK_ENTRY_HEIGHT = 32;
+const STACK_EMPTY_HEIGHT = CARD_ROW_GAP + 28;
+// The swarm footer: one row of 40 px fields and 12 px inset, each further
+// row of helper fields 48 px. The first row holds the main model and two
+// helpers, every further row four.
+const SWARM_FOOTER = CARD_FOOTER;
+const SWARM_FOOTER_ROW = 48;
+const SWARM_FIRST_ROW_HELPERS = 2;
+const SWARM_ROW_HELPERS = 4;
+/** The two-line header of a loop or group container with its 1 px rule. */
+export const PLAN_FRAME_HEADER = 77;
+// The dashed member area begins 14 px below the header and 14 px inside the
+// container edge; its 1.5 px edge and 16 px inset lead to the members,
+// rounded to whole pixels.
+const FRAME_AREA_GAP = 14;
+const FRAME_AREA_INSET = 17;
+/** Space between a frame's edge and its members: the area's margin, edge and inset. */
+export const PLAN_FRAME_PADDING = 32;
 const FRAME_MIN_WIDTH = 680;
 export const PLAN_GROUP_COMPACT_WIDTH = 310;
 export const PLAN_GROUP_COMPACT_HEIGHT = 115;
-const FRAME_MIN_MEMBER_AREA = 160;
-const FRAME_MEMBER_BOTTOM_GAP = 32;
-/** The line below the members that shows the group's `session_id`. */
-export const PLAN_FRAME_FOOTER = 32;
+// The member area is at least 120 px high with its edge and inset.
+const FRAME_MIN_MEMBER_AREA = 104;
+const FRAME_MEMBER_BOTTOM_GAP = 18;
+/** The line 8 px below the member area that counts the members, with the 14 px below it. */
+export const PLAN_FRAME_FOOTER = 38;
 
-function agentHeight(step: AgentPlanStep, sources: AgentPlanSources): number {
-  const inputs = planStepTemplate(step, sources.agents)?.parameters.length ?? 0;
-  return (
-    AGENT_BASE_HEIGHT +
-    AGENT_BODY_HEIGHT +
-    AGENT_BRANCHING_HEIGHT +
-    inputs * AGENT_INPUT_HEIGHT
-  );
+/** The height of a column of rows; a column always holds at least one row. */
+export function planCardRowsHeight(rows: number): number {
+  const count = Math.max(1, rows);
+  return count * CARD_ROW + (count - 1) * CARD_ROW_GAP;
 }
 
-/** A script card has the rows of an agent card: its inputs, its output and its profile. */
-function scriptHeight(script: AgentPlanScript): number {
-  return AGENT_BASE_HEIGHT + 66 + script.inputs.length * AGENT_INPUT_HEIGHT;
+/** Header, body padding and rows: the height of a card before its lines below the body. */
+function cardHeight(rows: number): number {
+  return CARD_HEADER + CARD_BODY_PADDING + planCardRowsHeight(rows);
 }
 
 /**
- * Space for a frame's header and the gap before its first member row.
- * @param frame - The frame; a loop has two labelled port rows below its title,
- * a group none. Without it the group header is meant.
+ * An agent card: its inputs and the event input on the left, its text and
+ * boolean result on the right, the execution line and the model footer.
  */
-export function planGroupHeaderHeight(frame?: Pick<PlanFrame, "type">): number {
-  return frame?.type === "loop" ? LOOP_HEADER_HEIGHT : 108;
+function agentHeight(step: AgentPlanStep, sources: AgentPlanSources): number {
+  const inputs = planStepTemplate(step, sources.agents)?.parameters.length ?? 0;
+  return cardHeight(Math.max(inputs + 1, 2)) + CARD_EXECUTION + CARD_FOOTER;
+}
+
+/** A script card has the lines of an agent card: its inputs, its output and its profile. */
+function scriptHeight(script: AgentPlanScript): number {
+  return cardHeight(script.inputs.length) + CARD_EXECUTION + CARD_FOOTER;
+}
+
+/**
+ * Space above the members of a frame: its two-line header, the gap above
+ * the dashed member area, and the area's edge and inset.
+ * @remarks
+ * A loop and a group share the header since both show their flow and
+ * session marks in its second line.
+ */
+export function planGroupHeaderHeight(): number {
+  return PLAN_FRAME_HEADER + FRAME_AREA_GAP + FRAME_AREA_INSET;
 }
 
 /**
@@ -100,21 +118,26 @@ export function planGroupHeaderHeight(frame?: Pick<PlanFrame, "type">): number {
  * @param stack - The stack whose entries are listed on its card.
  */
 export function planStackHeight(stack: AgentPlanStack): number {
-  return (
-    STACK_BASE_HEIGHT +
-    (stack.entries.length === 0
+  // The trigger IN on the left, Content and Count on the right, then the
+  // entries, the rows that add one and the summary line.
+  const entries =
+    stack.entries.length === 0
       ? STACK_EMPTY_HEIGHT
-      : stack.entries.length * STACK_ENTRY_HEIGHT)
-  );
+      : CARD_ROW_GAP + stack.entries.length * STACK_ENTRY_HEIGHT - 4;
+  return cardHeight(2) + entries + STACK_ADD_ROWS + CARD_HINT;
 }
 
 /** A decision grows with its outputs and, as a model decision, with its question and model. */
 function decisionHeight(decision: AgentPlanDecision): number {
   const outputs = Math.max(1, planDecisionOutputPorts(decision).length);
+  const outputColumn =
+    outputs * DECISION_OUTPUT_ROW + (outputs - 1) * CARD_ROW_GAP;
   return (
-    PLAN_DECISION_HEIGHT +
-    Math.max(0, outputs - 2) * DECISION_OUTPUT_HEIGHT +
-    (planDecisionMode(decision) === "model" ? DECISION_MODEL_HEIGHT : 0)
+    CARD_HEADER +
+    CARD_BODY_PADDING +
+    Math.max(planCardRowsHeight(2), outputColumn) +
+    (planDecisionMode(decision) === "model" ? DECISION_MODEL_HEIGHT : 0) +
+    CARD_HINT
   );
 }
 
@@ -146,7 +169,7 @@ function memberWidth(member: FrameContent): number {
   if (member.type === "decision") return PLAN_DECISION_WIDTH;
   return member.type === "group" || member.type === "loop"
     ? planGroupWidth(member)
-    : PLAN_AGENT_WIDTH;
+    : PLAN_CARD_WIDTH;
 }
 
 /** A frame grows with its members; an empty frame keeps room to drop the first one. */
@@ -164,7 +187,7 @@ function groupHeight(group: PlanFrame, sources: AgentPlanSources): number {
     ...frameContent(group).map((step) => step.y + memberHeight(step, sources)),
   );
   return (
-    planGroupHeaderHeight(group) +
+    planGroupHeaderHeight() +
     Math.max(FRAME_MIN_MEMBER_AREA, bottom + FRAME_MEMBER_BOTTOM_GAP) +
     PLAN_FRAME_FOOTER
   );
@@ -174,7 +197,7 @@ function groupHeight(group: PlanFrame, sources: AgentPlanSources): number {
 export function planMemberOrigin(group: PlanFrame): AgentPlanPosition {
   return {
     x: group.x + PLAN_FRAME_PADDING,
-    y: group.y + planGroupHeaderHeight(group),
+    y: group.y + planGroupHeaderHeight(),
   };
 }
 
@@ -187,39 +210,27 @@ export function planMemberPosition(
   return { x: origin.x + step.x, y: origin.y + step.y };
 }
 
-/** The least width and height of a Jump card and of a signal card, before their ports are counted. */
-const PLAN_JUMP_CARD_WIDTH = 340;
-const PLAN_JUMP_CARD_HEIGHT = 220;
-const PLAN_SIGNAL_CARD_WIDTH = 260;
-const PLAN_SIGNAL_CARD_HEIGHT = 140;
+/** The least height of a Jump card and of a signal card, before their ports are counted. */
+const PLAN_JUMP_CARD_HEIGHT = cardHeight(2) + CARD_HINT;
+const PLAN_SIGNAL_CARD_HEIGHT = cardHeight(2);
 
 /**
- * The height of a swarm card: head, task, main line and one row of helper
- * badges per five helpers.
+ * The height of a swarm card: header, the task row, and the footer with the
+ * main model and one 58 px field per helper, wrapping into further rows.
  */
 export function planSwarmHeight(workerCount: number): number {
-  const rows = Math.max(1, Math.ceil(workerCount / PLAN_SWARM_BADGES_PER_ROW));
-  return 48 + 26 + 30 + rows * 28 + 12;
+  const wrapped = Math.max(0, workerCount - SWARM_FIRST_ROW_HELPERS);
+  const rows = Math.ceil(wrapped / SWARM_ROW_HELPERS);
+  return cardHeight(1) + SWARM_FOOTER + rows * SWARM_FOOTER_ROW;
 }
 
 /** Cards keep their stored top left corner; only their size follows the card type. */
 export function planNodeWidth(node: AgentPlanNode): number {
   if (node.type === "group" || node.type === "loop")
     return planGroupWidth(node);
-  if (
-    node.type === "agent" ||
-    node.type === "script" ||
-    node.type === "git_closeout" ||
-    node.type === "swarm"
-  )
-    return PLAN_AGENT_WIDTH;
-  if (node.type === "decision") return PLAN_DECISION_WIDTH;
-  if (node.type === "stack") return PLAN_STACK_WIDTH;
-  if (node.type === "jump") return PLAN_JUMP_CARD_WIDTH;
-  if (node.type === "signal") return PLAN_SIGNAL_CARD_WIDTH;
   return node.type === "start" || node.type === "end"
     ? PLAN_ENDPOINT_WIDTH
-    : PLAN_SOURCE_WIDTH;
+    : PLAN_CARD_WIDTH;
 }
 
 /**
@@ -235,16 +246,16 @@ export function planNodeHeight(
   const heights = {
     start: PLAN_ENDPOINT_HEIGHT,
     end: PLAN_ENDPOINT_HEIGHT,
-    parameter: PLAN_PARAMETER_HEIGHT,
-    task: PLAN_TICKET_HEIGHT,
-    variable: PLAN_VARIABLE_HEIGHT,
-    asset: PLAN_ASSET_HEIGHT,
+    parameter: cardHeight(3),
+    task: cardHeight(1),
+    variable: cardHeight(1),
+    asset: cardHeight(1) + ASSET_PREVIEW_HEIGHT,
   };
   if (node.type === "group" || node.type === "loop")
     return groupHeight(node, sources);
   if (node.type === "agent") return agentHeight(node, sources);
   if (node.type === "script") return scriptHeight(node);
-  if (node.type === "git_closeout") return PLAN_GIT_CLOSEOUT_HEIGHT;
+  if (node.type === "git_closeout") return cardHeight(1) + 49;
   if (node.type === "stack") return planStackHeight(node);
   if (node.type === "decision") return decisionHeight(node);
   if (node.type === "swarm") return planSwarmHeight(node.workers.count);

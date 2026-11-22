@@ -35,7 +35,8 @@ function useOutputTexts(
 }
 
 /**
- * One output of a decision: the situation that activates it, and its port.
+ * One output of a decision, a 40 px row of the output column: the short
+ * situation that activates it beside its name, and its port on the edge.
  *
  * @remarks
  * `taken` is what the shown run recorded: the activated output is marked
@@ -70,12 +71,12 @@ export function PlanDecisionOutput(props: {
       data-plan-branch={branch}
       data-plan-taken={isTaken ? "true" : undefined}
       data-plan-muted={isMuted ? "true" : undefined}
-      className="relative flex h-8 items-center justify-between gap-2"
+      className="relative flex h-10 min-w-0 items-center justify-between gap-1.5"
     >
       <span
         className={cn(
           "min-w-0 truncate text-muted-foreground",
-          PLAN_NODE_TEXT.field,
+          PLAN_NODE_TEXT.meta,
           isTaken && "font-medium text-foreground",
           hasIssue && "text-destructive",
         )}
@@ -93,7 +94,7 @@ export function PlanDecisionOutput(props: {
           name: props.label,
         })}
         className={cn(
-          "nodrag nopan -mr-1.25 h-7 min-h-7 max-w-[55%] shrink-0 cursor-crosshair gap-1 border border-transparent px-1 font-semibold hover:bg-surface/70 xl:min-h-7 xl:px-1 xl:text-xs",
+          "nodrag nopan -mr-1 h-7 min-h-7 max-w-[55%] shrink-0 cursor-crosshair gap-1 border border-transparent px-1 font-semibold hover:bg-surface/70 xl:min-h-7 xl:px-1 xl:text-xs",
           PLAN_NODE_TEXT.field,
           isMuted ? "text-muted-foreground" : outputTone(branch),
           isActive && "border-primary",

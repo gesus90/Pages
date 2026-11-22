@@ -63,7 +63,7 @@ function storedPosition(plan: AgentPlanInput, node: PlanFlowNode): XYPosition {
   if (!group) return node.position;
   return {
     x: node.position.x - PLAN_FRAME_PADDING,
-    y: node.position.y - planGroupHeaderHeight(group),
+    y: node.position.y - planGroupHeaderHeight(),
   };
 }
 

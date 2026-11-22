@@ -30,12 +30,11 @@ const STATUS_CLASSES: Record<AgentPlanStepStatus, string> = {
 };
 
 /**
- * The full-strength edge of a card or container whose run confirmed its success.
- * @remarks
- * The status badge's soft edge is too faint for a whole card; the edge takes
- * the success token itself, so it follows the light and the dark palette.
+ * The shape of a status marker on a node card: 22 px high, a 6 px corner, a
+ * 1 px edge, 8 px inset and 11 px semibold text.
  */
-export const PLAN_SUCCESS_EDGE = "border-success";
+export const PLAN_STATUS_MARKER =
+  "h-[22px] max-w-40 rounded-md px-2 text-[11px] leading-4 font-semibold whitespace-nowrap";
 
 /** A blocked indicator overrides waiting without changing the recorded base status. */
 export function planStatusClass(
@@ -51,32 +50,16 @@ export function planStatusClass(
 }
 
 /**
- * The colours of a card while a run is shown: those of its status.
+ * The state class of a card while a run is shown.
  * @remarks
- * A node on a branch a decision did not activate has a dashed border as well:
- * it never ran, and nothing waits for it. Its text keeps full strength, since
- * a dimmed card would fall below the contrast the plan editor guarantees. A
- * confirmed success without an open report takes the full success edge.
+ * Surface, edge and header keep the type color in every status; the status
+ * marker alone carries the status color. A node on a branch a decision did
+ * not activate keeps its dashed edge: it never ran, and nothing waits for it.
  */
 export function planRunCardClass(
   result: AgentPlanStepResult | undefined,
 ): string {
-  const status = result?.status ?? "waiting";
-  const hasOpenReport = hasOpenPlanReport(result);
-  const colors = planStatusClass(
-    isQueuedPlanStep(result) ? "waiting" : status,
-    result?.isBlocked,
-    hasOpenReport,
-  );
-  if (status === "skipped") return cn(colors, "border-dashed");
-  return status === "succeeded" && !hasOpenReport && !result?.isBlocked
-    ? cn(colors, PLAN_SUCCESS_EDGE)
-    : colors;
-}
-
-/** The colors of a card or container whose run confirmed its success: success surface, edge and text. */
-export function planSuccessClass(): string {
-  return cn(planStatusClass("succeeded"), PLAN_SUCCESS_EDGE);
+  return result?.status === "skipped" ? "border-dashed" : "";
 }
 
 /** A process can complete while its recorded business report stays open. */
@@ -131,6 +114,34 @@ function PlanStatusIcon({
   );
 }
 
+/** The shown status, its full label and its label for a concise badge. */
+function usePlanStatusText(props: {
+  readonly status: AgentPlanStepStatus;
+  readonly isBlocked: boolean;
+  readonly hasOpenReport: boolean;
+  readonly isConcise: boolean;
+  readonly isQueued: boolean;
+}): {
+  readonly label: string;
+  readonly visibleLabel: string;
+  readonly visibleStatus: AgentPlanStepStatus;
+} {
+  const { t } = useTranslation();
+  const { status, isBlocked, hasOpenReport } = props;
+  const isQueuedRun = props.isQueued && status === "running";
+  const label = t(
+    isQueuedRun
+      ? "plans.status.queued"
+      : planStatusKey(status, isBlocked, hasOpenReport),
+  );
+  return {
+    label,
+    visibleLabel:
+      isBlocked && props.isConcise ? t("plans.blockedShort") : label,
+    visibleStatus: isQueuedRun ? "waiting" : status,
+  };
+}
+
 /** Names waiting, paused, cancelled and blocked states rather than relying on color alone. */
 export function PlanStatusBadge({
   status,
@@ -138,10 +149,13 @@ export function PlanStatusBadge({
   hasOpenReport = false,
   compact = false,
   isConcise = false,
+  isMarker = false,
   className,
   isQueued = false,
 }: {
   readonly isQueued?: boolean;
+  /** The status marker of a node card: its label alone, 22 px high in 11 px semibold. */
+  readonly isMarker?: boolean;
   readonly status: AgentPlanStepStatus;
   readonly isBlocked?: boolean;
   readonly hasOpenReport?: boolean;
@@ -149,29 +163,36 @@ export function PlanStatusBadge({
   readonly isConcise?: boolean;
   readonly className?: string;
 }): React.ReactElement {
-  const { t } = useTranslation();
-  const visibleStatus = isQueued && status === "running" ? "waiting" : status;
-  const label = t(
-    isQueued && status === "running"
-      ? "plans.status.queued"
-      : planStatusKey(status, isBlocked, hasOpenReport),
-  );
-  const visibleLabel = isBlocked && isConcise ? t("plans.blockedShort") : label;
+  const { label, visibleLabel, visibleStatus } = usePlanStatusText({
+    status,
+    isBlocked,
+    hasOpenReport,
+    isConcise,
+    isQueued,
+  });
   return (
     <span
       title={label}
+      data-plan-status-marker={isMarker ? visibleStatus : undefined}
       className={cn(
-        "relative inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs",
+        "relative inline-flex shrink-0 items-center border",
+        isMarker
+          ? PLAN_STATUS_MARKER
+          : "gap-1.5 rounded-full px-2 py-0.5 text-xs",
         planStatusClass(visibleStatus, isBlocked, hasOpenReport),
         className,
       )}
     >
-      <PlanStatusIcon
-        status={visibleStatus}
-        isBlocked={isBlocked}
-        hasOpenReport={hasOpenReport}
-      />
-      <span className={compact ? "sr-only" : undefined}>{visibleLabel}</span>
+      {isMarker ? null : (
+        <PlanStatusIcon
+          status={visibleStatus}
+          isBlocked={isBlocked}
+          hasOpenReport={hasOpenReport}
+        />
+      )}
+      <span className={compact && !isMarker ? "sr-only" : "truncate"}>
+        {visibleLabel}
+      </span>
     </span>
   );
 }
@@ -184,5 +205,27 @@ export function isQueuedPlanStep(
     step?.status === "running" &&
     Boolean(step.execution?.target.kind === "remote") &&
     (!step.remote || ["queued", "accepted"].includes(step.remote.status))
+  );
+}
+
+/**
+ * The status marker of a node that runs, with its queued, blocked and open
+ * report states; nothing while no run is shown.
+ */
+export function PlanRunMarker(props: {
+  readonly hasRun: boolean;
+  readonly result: AgentPlanStepResult | undefined;
+}): React.ReactElement | null {
+  const { result } = props;
+  if (!props.hasRun) return null;
+  return (
+    <PlanStatusBadge
+      isMarker
+      isConcise
+      isQueued={isQueuedPlanStep(result)}
+      status={result?.status ?? "waiting"}
+      isBlocked={result?.isBlocked}
+      hasOpenReport={hasOpenPlanReport(result)}
+    />
   );
 }

@@ -1,5 +1,4 @@
 import {
-  PLAN_SWARM_BADGES_PER_ROW,
   planSwarmWorkerLabel,
   planSwarmWorkerList,
 } from "@/definition/AgentPlanSwarm";
@@ -101,16 +100,6 @@ export function planSwarmBadges(
       task,
     };
   });
-}
-
-/** Splits the badges into rows of at most five; from six helpers on there is a second row. */
-export function planSwarmBadgeRows<Entry>(
-  badges: readonly Entry[],
-): readonly (readonly Entry[])[] {
-  const rows: Entry[][] = [];
-  for (let index = 0; index < badges.length; index += PLAN_SWARM_BADGES_PER_ROW)
-    rows.push(badges.slice(index, index + PLAN_SWARM_BADGES_PER_ROW));
-  return rows;
 }
 
 /** How many TODOs of a list are done and how many there are. */

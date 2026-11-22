@@ -8,7 +8,7 @@ import { PLAN_STACK_PORT } from "@/definition/AgentPlanStack";
 import { usePlanFlowContext } from "../plan-flow-context";
 import { PlanFlowHandle } from "../plan-flow-handle";
 import { planInTargetClass } from "../plan-flow-ports";
-import { PLAN_NODE_TEXT } from "../plan-node-text";
+import { PLAN_CARD_ROW } from "./plan-card";
 
 import type {
   AgentPlanStack,
@@ -16,13 +16,14 @@ import type {
 } from "@/definition/AgentPlanStack";
 
 const PORT_BUTTON =
-  "nodrag nopan h-7 min-h-7 border-transparent bg-transparent px-1 text-xs leading-4.5 font-medium shadow-none hover:bg-surface/70 focus-visible:ring-2 focus-visible:ring-ring xl:min-h-7 xl:px-1 xl:text-xs";
+  "nodrag nopan h-7 min-h-7 min-w-0 border-transparent bg-transparent px-1 text-xs leading-4.5 font-normal text-muted-foreground shadow-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring xl:min-h-7 xl:px-1 xl:text-xs";
 
 /**
- * The flow row of a stack: the trigger IN on the left, the flow OUT on the right.
+ * The trigger IN of a stack, a row of the input column: every trigger hands
+ * the next entry to the flow OUT on the header.
  * @remarks
- * Every trigger at IN hands the next entry to OUT; several connections may
- * end at IN. The ports keep the flow colour of every other card.
+ * Several connections may end at IN. It is the stack's one flow input, so the
+ * header has no flow IN dot of its own.
  */
 export function PlanStackFlowRow(props: {
   readonly stack: AgentPlanStack;
@@ -30,69 +31,44 @@ export function PlanStackFlowRow(props: {
   const { t } = useTranslation();
   const { graph, canEdit } = usePlanFlowContext();
   const { stack } = props;
-  function hasIssue(port: string): boolean {
-    return graph.issues.some(
-      (issue) => issue.nodeId === stack.id && issue.port === port,
-    );
-  }
+  const hasIssue = graph.issues.some(
+    (issue) => issue.nodeId === stack.id && issue.port === PLAN_PORT.flowIn,
+  );
   return (
-    <div className="relative flex h-8 items-center justify-between gap-2">
+    <div className={PLAN_CARD_ROW}>
+      <PlanFlowHandle
+        id={PLAN_PORT.flowIn}
+        type="target"
+        kind="flow"
+        hasIssue={hasIssue}
+        title={t("plans.stack.inLabel")}
+      />
       <Button
         size="sm"
         variant="outline"
         data-plan-in={stack.id}
         aria-label={t("plans.stack.inLabel")}
+        title={t("plans.stack.inLabel")}
         className={cn(
           PORT_BUTTON,
-          "-ml-1.25",
-          hasIssue(PLAN_PORT.flowIn) && "text-destructive",
+          "-ml-1 max-w-full justify-start",
+          hasIssue && "text-destructive",
           planInTargetClass(graph, stack.id),
         )}
         disabled={!canEdit}
         onClick={() => graph.connect(stack.id)}
       >
-        {t("plans.stack.in")}
+        <span className="truncate">{t("plans.stack.in")}</span>
       </Button>
-      <Button
-        size="sm"
-        variant="outline"
-        data-plan-out={stack.id}
-        data-plan-out-kind="flow"
-        aria-label={t("plans.flowOut")}
-        className={cn(
-          PORT_BUTTON,
-          "-mr-1.25 cursor-crosshair",
-          hasIssue(PLAN_PORT.flowOut) && "text-destructive",
-          graph.connection?.nodeId === stack.id &&
-            graph.connection.kind === "flow" &&
-            "border-primary text-primary",
-        )}
-        disabled={!canEdit}
-        onClick={() => graph.begin({ kind: "flow", nodeId: stack.id })}
-      >
-        {t("plans.flowOutShort")}
-      </Button>
-      <PlanFlowHandle
-        id={PLAN_PORT.flowIn}
-        type="target"
-        kind="flow"
-        hasIssue={hasIssue(PLAN_PORT.flowIn)}
-      />
-      <PlanFlowHandle
-        id={PLAN_PORT.flowOut}
-        type="source"
-        kind="flow"
-        hasIssue={hasIssue(PLAN_PORT.flowOut)}
-      />
     </div>
   );
 }
 
 /**
- * One data output of a stack: its name, what it holds now, and its port on the right edge.
+ * One data output of a stack, right-aligned in the output column with its
+ * port on the right edge; what it holds now stands in its tooltip.
  * @remarks
- * Reading an output never triggers the stack. The data ports keep the
- * colour and the dashed line of every other binding.
+ * Reading an output never triggers the stack.
  */
 export function PlanStackOutput(props: {
   readonly stack: AgentPlanStack;
@@ -114,11 +90,8 @@ export function PlanStackOutput(props: {
   return (
     <div
       data-plan-stack-output={output}
-      className="relative flex h-8 items-center justify-between gap-2"
+      className={cn(PLAN_CARD_ROW, "justify-end")}
     >
-      <span className={cn("shrink-0 text-foreground", PLAN_NODE_TEXT.field)}>
-        {t(`plans.stack.output.${output}`)}
-      </span>
       <Button
         size="xs"
         variant="ghost"
@@ -130,14 +103,14 @@ export function PlanStackOutput(props: {
         })}
         title={props.value}
         className={cn(
-          "nodrag nopan -mr-1.25 h-6 min-h-6 max-w-44 min-w-0 cursor-crosshair justify-end truncate rounded-md border border-dashed border-plan-parameter/60 bg-plan-parameter-subtle px-2 font-medium text-plan-parameter xl:min-h-6",
-          PLAN_NODE_TEXT.meta,
-          isActive && "border-solid border-primary text-primary",
+          PORT_BUTTON,
+          "-mr-1 max-w-full cursor-crosshair justify-end",
+          isActive && "text-primary",
         )}
         disabled={!canEdit}
         onClick={() => graph.begin({ kind: "stack", nodeId: stack.id, output })}
       >
-        <span className="truncate">{props.value}</span>
+        <span className="truncate">{t(`plans.stack.output.${output}`)}</span>
       </Button>
       <PlanFlowHandle id={port} type="source" kind="data" />
     </div>

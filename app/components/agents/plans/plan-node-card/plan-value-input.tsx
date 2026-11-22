@@ -12,12 +12,13 @@ import type {
 } from "@/definition/AgentParameters";
 
 /**
- * A field of a card: no node drag, no pan and no React Flow key from it.
+ * The value field of a card row: no node drag, no pan and no React Flow key from it.
  * @remarks
- * Sized for the 32 px rows that plan-layout.ts counts.
+ * A muted field 24 px high with a 6 px corner, 8 px inset and 12 px text,
+ * at most 104 px wide; a longer value is cut with an ellipsis.
  */
 export const PLAN_FIELD_CLASS =
-  "nodrag nopan nokey h-8 min-h-8 w-full min-w-0 rounded-lg border border-border bg-surface px-2.5 text-xs leading-4.5 shadow-none xl:h-8 xl:px-2.5 xl:text-xs";
+  "nodrag nopan nokey h-6 min-h-6 w-full max-w-[6.5rem] min-w-0 truncate rounded-md border border-transparent bg-muted px-2 text-xs leading-4.5 text-ellipsis shadow-none xl:h-6 xl:min-h-6 xl:px-2 xl:text-xs";
 
 interface PlanValueInputProps {
   readonly type: AgentParameterType;

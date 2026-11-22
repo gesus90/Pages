@@ -3,6 +3,7 @@ import { fileURLToPath } from "node:url";
 import { defineConfig } from "vitest/config";
 
 export const BACKEND_TEST_GLOB = "backend/**/*.{test,spec}.ts";
+const LOCAL_SESSION_TEST_GLOB = "backend/agents/local/**/*.{test,spec}.ts";
 export const BACKEND_COVERAGE_EXCLUDES = [
   "backend/**/*.d.{ts,mts,cts}",
   BACKEND_TEST_GLOB,
@@ -71,12 +72,15 @@ export default defineConfig({
   test: {
     name: "backend",
     environment: "node",
-    include: BACKEND_COVERAGE_SECTIONS.map((section) =>
-      section.include.replace(
-        "*.{ts,tsx,mts,cts,js,mjs,cjs}",
-        "*.{test,spec}.ts",
+    include: [
+      ...BACKEND_COVERAGE_SECTIONS.map((section) =>
+        section.include.replace(
+          "*.{ts,tsx,mts,cts,js,mjs,cjs}",
+          "*.{test,spec}.ts",
+        ),
       ),
-    ),
+      LOCAL_SESSION_TEST_GLOB,
+    ],
     pool: "forks",
     maxWorkers: 2,
     isolate: true,

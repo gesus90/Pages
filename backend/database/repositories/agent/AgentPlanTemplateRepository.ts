@@ -29,7 +29,8 @@ const TEMPLATE_COLUMNS = `
     node_type,
     node_json,
     created_at,
-    department_id
+    department_id,
+    owner_id
 `;
 
 /** A template as it is written; the database adds the time it was saved. */
@@ -104,13 +105,16 @@ function scopeCondition(scope: AgentPlanTemplateScope): {
 }
 
 /**
- * Reads one stored template.
+ * Reads one stored template for the person of a scope.
  *
+ * @param row - The stored template row.
+ * @param viewerId - The person who reads it, compared with its owner.
  * @returns `null` for a node type this version does not know, so a template
  * of a later version never breaks the list.
  */
 function readTemplate(
   row: readonly DatabaseValue[],
+  viewerId: string,
 ): AgentPlanNodeTemplate | null {
   const type = readTextColumn(row, 2, "node_type");
   if (!isPlanTemplateType(type)) return null;
@@ -122,6 +126,7 @@ function readTemplate(
     name: readTextColumn(row, 1, "name"),
     type,
     isShared: readNullableTextColumn(row, 5, "department_id") !== null,
+    isOwn: readTextColumn(row, 6, "owner_id") === viewerId,
     createdAt: readTextColumn(row, 4, "created_at"),
     node,
   };
@@ -142,7 +147,7 @@ async function findTemplate(
   `,
     { ...parameters, id },
   );
-  return row ? readTemplate(row) : null;
+  return row ? readTemplate(row, scope.ownerId) : null;
 }
 
 /** The team of a template its owner keeps, read before the owner changes it. */
@@ -221,7 +226,7 @@ export class AgentPlanTemplateRepository {
     `,
       parameters,
     );
-    return rows.flatMap((row) => readTemplate(row) ?? []);
+    return rows.flatMap((row) => readTemplate(row, scope.ownerId) ?? []);
   }
 
   /** Reads one template of the scope; any other template reads as missing. */

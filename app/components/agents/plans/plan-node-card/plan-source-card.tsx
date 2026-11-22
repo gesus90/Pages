@@ -5,7 +5,7 @@ import { cn } from "@/app/lib/cn";
 
 import { planNodeLabel } from "../plan-layout";
 import { PLAN_NODE_TEXT } from "../plan-node-text";
-import { PlanCard } from "./plan-card";
+import { PlanCard, PlanCardColumns, PLAN_CARD_BODY } from "./plan-card";
 import { PlanParameterFields } from "./plan-parameter-fields";
 import { PlanTicketPicker } from "./plan-ticket-picker";
 import { PlanValueOut } from "./plan-value-out";
@@ -31,10 +31,8 @@ function ticketLabel(
 
 /**
  * Cards of value sources: violet parameters, yellow tickets and variables.
- *
  * @remarks
- * Sources never run, so they keep their type colors and show no run status
- * while a run is shown.
+ * Sources never run, so they show no status marker while a run is shown.
  */
 export function PlanSourceCard(props: {
   readonly node: PlanSourceNode;
@@ -45,7 +43,12 @@ export function PlanSourceCard(props: {
   const label = planNodeLabel(node, sources);
   if (node.type === "parameter")
     return (
-      <PlanCard node={node} label={label} title={t("plans.nodeType.parameter")}>
+      <PlanCard
+        node={node}
+        label={label}
+        title={t("plans.nodeType.parameter")}
+        subtitle={t("plans.nodeType.parameter")}
+      >
         <PlanParameterFields node={node} />
       </PlanCard>
     );
@@ -55,7 +58,7 @@ export function PlanSourceCard(props: {
         node={node}
         label={ticketLabel(node, sources, t("plans.ticketUnavailable"))}
         title={t("plans.ticketsCard")}
-        size="large"
+        subtitle={t("plans.nodeType.task")}
       >
         <TicketFields node={node} />
       </PlanCard>
@@ -83,20 +86,34 @@ function TicketFields(props: {
   const { graph, canEdit } = usePlanFlowContext();
   const { node } = props;
   return (
-    <div className="px-3 pb-[0.9375rem]">
-      {/* The row keeps the card's 12 px inset, so its data OUT sits on the edge. */}
-      <div className="relative grid h-8 grid-cols-[3.125rem_minmax(0,1fr)] items-center gap-2 px-1">
-        <span className={cn("truncate text-foreground", PLAN_NODE_TEXT.field)}>
-          {t("plans.field.ticket")}
-        </span>
-        <PlanTicketPicker
-          taskId={node.taskId}
-          label={t("plans.ticketChoice")}
-          disabled={!canEdit}
-          onSelect={(taskId) => graph.replaceNode({ ...node, taskId })}
-        />
-        <PlanValueOut nodeId={node.id} labelKey="plans.ticketOut" />
-      </div>
+    <div className={PLAN_CARD_BODY}>
+      <PlanCardColumns
+        inputs={
+          <div className="grid h-8 grid-cols-[2.75rem_minmax(0,6.5rem)] items-center gap-1">
+            <span
+              className={cn(
+                "truncate text-muted-foreground",
+                PLAN_NODE_TEXT.field,
+              )}
+            >
+              {t("plans.field.ticket")}
+            </span>
+            <PlanTicketPicker
+              taskId={node.taskId}
+              label={t("plans.ticketChoice")}
+              disabled={!canEdit}
+              onSelect={(taskId) => graph.replaceNode({ ...node, taskId })}
+            />
+          </div>
+        }
+        outputs={
+          <PlanValueOut
+            nodeId={node.id}
+            labelKey="plans.ticketOut"
+            textKey="plans.field.ticket"
+          />
+        }
+      />
     </div>
   );
 }
@@ -108,19 +125,27 @@ function VariableFields(props: {
   const { draft } = usePlanFlowContext();
   const value = draft.globals[props.node.name] ?? "";
   return (
-    <div className="px-3 pb-3">
-      <div className="relative flex h-8 items-center">
-        <span
-          className={cn(
-            "min-w-0 truncate text-muted-foreground",
-            PLAN_NODE_TEXT.field,
-          )}
-          title={value}
-        >
-          {value}
-        </span>
-        <PlanValueOut nodeId={props.node.id} labelKey="plans.valueOut" />
-      </div>
+    <div className={PLAN_CARD_BODY}>
+      <PlanCardColumns
+        inputs={
+          <span
+            className={cn(
+              "flex h-8 min-w-0 items-center truncate text-muted-foreground",
+              PLAN_NODE_TEXT.field,
+            )}
+            title={value}
+          >
+            {value}
+          </span>
+        }
+        outputs={
+          <PlanValueOut
+            nodeId={props.node.id}
+            labelKey="plans.valueOut"
+            textKey="plans.valueOut"
+          />
+        }
+      />
     </div>
   );
 }

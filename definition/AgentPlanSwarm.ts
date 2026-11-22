@@ -12,9 +12,6 @@ import type {
 /** The most helpers one swarm node has. */
 export const PLAN_SWARM_WORKER_LIMIT = 10;
 
-/** How many helper badges the card shows in one row. */
-export const PLAN_SWARM_BADGES_PER_ROW = 5;
-
 /** How often the main model may hand one subtask out again after it failed. */
 export const PLAN_SWARM_REASSIGN_LIMIT = 3;
 

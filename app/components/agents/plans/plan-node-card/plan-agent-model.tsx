@@ -6,6 +6,7 @@ import {
   modelChoiceSource,
   modelGroups,
 } from "@/app/components/agents/model-picker/model-catalog";
+import { cn } from "@/app/lib/cn";
 import { reasoningOptions } from "@/app/lib/reasoning-options";
 import { modelsOfSameTarget } from "@/definition/AgentReasoningChoice";
 import {
@@ -28,6 +29,7 @@ import {
   PlanReasoningField,
   PlanReasoningValue,
 } from "./plan-agent-fields";
+import { PLAN_CARD_FOOTER } from "./plan-card";
 
 import type { AgentPlanStep } from "@/definition/AgentPlan";
 import type { AgentPlanConfiguration } from "@/definition/AgentPlanConfiguration";
@@ -35,13 +37,10 @@ import type { AgentPlanGroup } from "@/definition/AgentPlanGroup";
 import type { PageAgentModel } from "@/definition/PageAgent";
 
 /**
- * The footer: a 1 px line above 64 px, 12 px padding on every side around
- * the 40 px fields, two equally wide columns 8 px apart, so a field is
- * 143 px wide on a 320 px card and 138 px on the narrowest 310 px card,
- * whatever it shows.
+ * The footer: two equally wide columns, so a field is 154 px wide on a 340
+ * px card, whatever it shows.
  */
-const FOOTER_CLASS =
-  "grid h-[65px] shrink-0 grid-cols-2 items-center gap-2 border-t border-border p-3";
+const FOOTER_CLASS = cn(PLAN_CARD_FOOTER, "grid-cols-2");
 
 /**
  * Model and reasoning of an agent node at the bottom of its card, each as a

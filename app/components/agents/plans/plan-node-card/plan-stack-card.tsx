@@ -16,8 +16,13 @@ import { usePlanFlowContext } from "../plan-flow-context";
 import { planNodeLabel } from "../plan-layout";
 import { PLAN_NODE_TEXT } from "../plan-node-text";
 import { planStackView } from "../plan-stack-summary";
-import { planStatusClass, planSuccessClass } from "../plan-status";
-import { PlanCard } from "./plan-card";
+import { PLAN_STATUS_MARKER, planStatusClass } from "../plan-status";
+import {
+  PlanCard,
+  PlanCardColumns,
+  PLAN_CARD_BODY,
+  PLAN_CARD_HINT,
+} from "./plan-card";
 import { PlanStackEntries } from "./plan-stack-entries";
 import { PlanStackFlowRow, PlanStackOutput } from "./plan-stack-ports";
 import { PlanTicketPicker } from "./plan-ticket-picker";
@@ -27,7 +32,7 @@ import type { AgentPlanStack } from "@/definition/AgentPlanStack";
 import type { AgentPlanStackOutcome } from "@/definition/AgentPlanStackOutcome";
 import type { PlanStackView } from "../plan-stack-summary";
 
-/** The state badge beside the menu: progress during a run, or that the stack is empty or used up. */
+/** The marker on the header edge: progress during a run, or that the stack is empty or used up. */
 function StackBadge(props: {
   readonly view: PlanStackView;
   readonly hasRun: boolean;
@@ -47,10 +52,10 @@ function StackBadge(props: {
       data-plan-stack-badge={view.state}
       role="status"
       className={cn(
-        "shrink-0 rounded-md border px-1.5 py-0.5 font-semibold",
-        PLAN_NODE_TEXT.meta,
+        "inline-flex shrink-0 items-center border",
+        PLAN_STATUS_MARKER,
         view.state === "ready"
-          ? "border-plan-stack-edge/60 text-plan-stack"
+          ? "border-plan-stack/40 bg-plan-stack-subtle text-plan-stack"
           : "border-border bg-muted text-muted-foreground",
       )}
     >
@@ -67,12 +72,12 @@ const OUTCOME_ICONS = {
   failed: CircleX,
 } as const;
 
-/** The card colors of a processing outcome; `undefined` keeps the stack's type colors. */
-function outcomeCardClass(outcome: AgentPlanStackOutcome): string | undefined {
-  if (outcome === "succeeded") return planSuccessClass();
+/** The colors of the note on a processing outcome; the card itself keeps its type colors. */
+function outcomeNoteClass(outcome: AgentPlanStackOutcome): string {
+  if (outcome === "succeeded") return planStatusClass("succeeded");
   if (outcome === "open") return planStatusClass("succeeded", false, true);
   if (outcome === "failed") return planStatusClass("failed");
-  return undefined;
+  return planStatusClass("running");
 }
 
 /**
@@ -96,7 +101,7 @@ function StackOutcomeNote(props: {
       className={cn(
         "flex items-center gap-1.5 rounded-md border px-2 py-0.5 font-semibold",
         PLAN_NODE_TEXT.meta,
-        outcomeCardClass(outcome) ?? planStatusClass("running"),
+        outcomeNoteClass(outcome),
       )}
     >
       <Icon
@@ -111,17 +116,14 @@ function StackOutcomeNote(props: {
   );
 }
 
-/** How many entries there are, how many were handed over and how many are left. */
+/** The hint line of a stack: how many entries there are, how many were handed over and how many are left. */
 function StackSummary(props: {
   readonly view: PlanStackView;
 }): React.ReactElement {
   const { t } = useTranslation();
   const { view } = props;
   return (
-    <p
-      data-plan-stack-summary=""
-      className={cn("truncate text-muted-foreground", PLAN_NODE_TEXT.meta)}
-    >
+    <p data-plan-stack-summary="" className={PLAN_CARD_HINT}>
       {t("plans.stack.summary", {
         count: view.total,
         delivered: view.delivered,
@@ -184,12 +186,12 @@ function StackScopeNote(props: {
  * trigger hands over the next one.
  *
  * @remarks
- * IN sits on the left, the flow OUT and the two data outputs Content and
- * Count on the right, like on every card. While a run is shown, entries
- * that were handed over are greyed out and crossed, and the badge says
+ * IN sits on the left, the two data outputs Content and Count on the right
+ * and the flow OUT on the header edge, like on every card. While a run is
+ * shown, entries that were handed over are checked, and the marker says
  * whether the stack is empty or used up. Handing over is no proof of
- * success: the card turns to success only once the participants processed
- * every handed-over entry successfully, and a separate note names that state.
+ * success: a separate note names how the processing of the handed-over
+ * entries stands; the card keeps its type colors.
  */
 export function PlanStackCard(props: {
   readonly stack: AgentPlanStack;
@@ -228,45 +230,40 @@ export function PlanStackCard(props: {
         label={label}
         title={label}
         subtitle={t("plans.stack.caption")}
-        runClass={props.hasRun ? outcomeCardClass(outcome) : undefined}
         status={<StackBadge view={view} hasRun={props.hasRun} />}
+        flowDots={{ hasIn: false, hasOut: true }}
         onEdit={edit}
       >
-        <div className="flex flex-col gap-2 px-3 pt-1 pb-2">
-          <PlanStackFlowRow stack={stack} />
+        <div className={PLAN_CARD_BODY}>
+          <PlanCardColumns
+            inputs={<PlanStackFlowRow stack={stack} />}
+            outputs={
+              <>
+                <PlanStackOutput
+                  stack={stack}
+                  output="content"
+                  value={view.current?.label ?? t("plans.stack.noContent")}
+                />
+                <PlanStackOutput
+                  stack={stack}
+                  output="count"
+                  value={t("plans.stack.countValue", { count: view.total })}
+                />
+              </>
+            }
+          />
           <StackScopeNote view={view} />
-          <StackSummary view={view} />
           <StackOutcomeNote outcome={outcome} />
           <PlanStackEntries view={view} />
           {files.row}
           <StackTicketAdd stack={stack} />
-          <div className="flex flex-col">
-            <PlanStackOutput
-              stack={stack}
-              output="content"
-              value={view.current?.label ?? t("plans.stack.noContent")}
-            />
-            <PlanStackOutput
-              stack={stack}
-              output="count"
-              value={t("plans.stack.countValue", { count: view.total })}
-            />
-          </div>
         </div>
-        <footer
-          className={cn(
-            "flex items-center justify-between gap-2 border-t border-plan-stack-edge/30 px-3 py-2 text-muted-foreground",
-            PLAN_NODE_TEXT.meta,
-          )}
-        >
-          <span className="truncate">{t("plans.stack.order")}</span>
-          <span className="shrink-0">{t("plans.stack.reset")}</span>
-        </footer>
+        <StackSummary view={view} />
         {props.isDropTarget ? (
           <p
             role="status"
             className={cn(
-              "px-3 pb-2 font-medium text-plan-stack",
+              "px-3.5 pb-2 font-medium text-plan-stack",
               PLAN_NODE_TEXT.meta,
             )}
           >

@@ -1,5 +1,6 @@
 import {
   Archive,
+  Check,
   File,
   FileAudio,
   FileImage,
@@ -29,45 +30,38 @@ const KIND_ICONS = {
 
 /** The tone of an entry by how far the run got: handed over, next, or still waiting. */
 const ENTRY_TONES = {
-  delivered: "border-border bg-muted text-muted-foreground",
-  next: "border-plan-stack-edge bg-surface text-foreground shadow-xs",
-  waiting: "border-plan-stack-edge/40 bg-surface/70 text-foreground",
+  delivered: "text-muted-foreground",
+  next: "text-foreground ring-1 ring-plan-stack/50",
+  waiting: "text-foreground",
 } as const;
 
-/**
- * The two diagonal strokes over an entry that was handed over.
- * @remarks
- * The strokes span the whole entry from corner to corner and keep their width
- * at every size, so the mark stays clear after zooming and resizing.
- */
-function DeliveredCross(): React.ReactElement {
+/** One entry: a 28 px muted row with a 6 px corner. */
+const ENTRY_CLASS =
+  "relative flex h-7 min-w-0 items-center gap-2 rounded-md bg-muted pr-2 pl-1";
+
+/** The place of an entry in an 18 px tile. */
+function EntryNumber(props: { readonly position: number }): React.ReactElement {
   return (
-    <svg
+    <span
       aria-hidden="true"
-      data-plan-stack-cross=""
-      className="pointer-events-none absolute inset-0 size-full text-muted-foreground"
-      viewBox="0 0 100 100"
-      preserveAspectRatio="none"
+      className={cn(
+        "flex size-[18px] shrink-0 items-center justify-center rounded bg-surface font-semibold text-muted-foreground tabular-nums",
+        PLAN_NODE_TEXT.meta,
+      )}
     >
-      <line
-        x1="0"
-        y1="0"
-        x2="100"
-        y2="100"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        vectorEffect="non-scaling-stroke"
-      />
-      <line
-        x1="0"
-        y1="100"
-        x2="100"
-        y2="0"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        vectorEffect="non-scaling-stroke"
-      />
-    </svg>
+      {props.position}
+    </span>
+  );
+}
+
+/** The check of an entry that was handed over, in the success color. */
+function DeliveredCheck(): React.ReactElement {
+  return (
+    <Check
+      aria-hidden="true"
+      data-plan-stack-delivered=""
+      className="ml-auto size-3.5 shrink-0 text-success"
+    />
   );
 }
 
@@ -90,7 +84,7 @@ function EntryThumbnail(props: {
   const [isBroken, setBroken] = useState(false);
   const Icon = KIND_ICONS[file.kind];
   return (
-    <span className="flex size-8 shrink-0 items-center justify-center overflow-hidden rounded border border-border bg-plan-asset-subtle text-plan-asset">
+    <span className="flex size-[18px] shrink-0 items-center justify-center overflow-hidden rounded bg-plan-asset-subtle text-plan-asset">
       {file.kind === "image" && !isBroken ? (
         <img
           src={planAssetUrl(file.assetId)}
@@ -101,13 +95,13 @@ function EntryThumbnail(props: {
           onError={() => setBroken(true)}
         />
       ) : (
-        <Icon aria-hidden="true" className="size-4" />
+        <Icon aria-hidden="true" className="size-3" />
       )}
     </span>
   );
 }
 
-/** A file entry: picture, place, name and type mark, in the states of every entry. */
+/** A file entry: place, picture, name and type mark, in the states of every entry. */
 function AssetEntry(props: {
   readonly view: PlanStackEntryView;
   readonly file: AgentPlanAssetFile;
@@ -121,43 +115,23 @@ function AssetEntry(props: {
       data-plan-stack-state={view.state}
       data-plan-stack-asset={file.kind}
       aria-label={`${text}, ${planAssetTypeMark(file)}, ${note}`}
-      className={cn(
-        "relative flex h-11 items-center gap-2 overflow-hidden rounded-md border px-1.5",
-        ENTRY_TONES[view.state],
-      )}
+      title={`${text} · ${note}`}
+      className={cn(ENTRY_CLASS, ENTRY_TONES[view.state])}
     >
+      <EntryNumber position={view.position} />
       <EntryThumbnail file={file} />
-      <span className="flex min-w-0 flex-1 flex-col">
-        <span
-          className={cn(
-            "truncate font-semibold",
-            PLAN_NODE_TEXT.field,
-            view.state === "delivered" && "font-medium",
-          )}
-          title={text}
-        >
-          {text}
-        </span>
-        <span
-          className={cn(
-            "truncate",
-            PLAN_NODE_TEXT.meta,
-            view.state === "next" && "text-plan-stack",
-            view.state === "waiting" && "text-muted-foreground",
-          )}
-        >
-          {note}
-        </span>
+      <span className={cn("min-w-0 flex-1 truncate", PLAN_NODE_TEXT.field)}>
+        {file.fileName}
       </span>
       <span
         className={cn(
-          "shrink-0 pr-1 font-semibold text-muted-foreground",
+          "shrink-0 font-semibold text-muted-foreground",
           PLAN_NODE_TEXT.meta,
         )}
       >
         {planAssetTypeMark(file)}
       </span>
-      {view.state === "delivered" ? <DeliveredCross /> : null}
+      {view.state === "delivered" ? <DeliveredCheck /> : null}
     </li>
   );
 }
@@ -175,31 +149,14 @@ function StackEntry(props: {
       data-plan-stack-entry={view.entry.id}
       data-plan-stack-state={view.state}
       aria-label={`${text}, ${note}`}
-      className={cn(
-        "relative flex h-11 flex-col justify-center overflow-hidden rounded-md border px-2.5",
-        ENTRY_TONES[view.state],
-      )}
+      title={`${text} · ${note}`}
+      className={cn(ENTRY_CLASS, ENTRY_TONES[view.state])}
     >
-      <span
-        className={cn(
-          "truncate font-semibold",
-          PLAN_NODE_TEXT.field,
-          view.state === "delivered" && "font-medium",
-        )}
-        title={text}
-      >
-        {text}
+      <EntryNumber position={view.position} />
+      <span className={cn("min-w-0 flex-1 truncate", PLAN_NODE_TEXT.field)}>
+        {view.label}
       </span>
-      <span
-        className={cn(
-          "truncate",
-          PLAN_NODE_TEXT.meta,
-          view.state !== "delivered" && "text-muted-foreground",
-        )}
-      >
-        {note}
-      </span>
-      {view.state === "delivered" ? <DeliveredCross /> : null}
+      {view.state === "delivered" ? <DeliveredCheck /> : null}
     </li>
   );
 }
@@ -208,9 +165,10 @@ function StackEntry(props: {
  * The ordered entries of a stack, each with its place and how far the run got.
  *
  * @remarks
- * An entry that was handed over is greyed out completely and crossed by two
- * diagonal strokes; the next entry stands out. Handed over means the data
- * left the stack, not that the work on it succeeded.
+ * Every entry is a 28 px row with its place in an 18 px tile. An entry that
+ * was handed over is greyed out and checked in the success color; the next
+ * entry stands out. Handed over means the data left the stack, not that the
+ * work on it succeeded.
  */
 export function PlanStackEntries(props: {
   readonly view: PlanStackView;
@@ -221,7 +179,7 @@ export function PlanStackEntries(props: {
       <p
         data-plan-stack-empty=""
         className={cn(
-          "flex h-9 items-center rounded-md border border-dashed border-plan-stack-edge/50 px-2.5 text-muted-foreground",
+          "flex h-7 items-center rounded-md bg-muted px-2 text-muted-foreground",
           PLAN_NODE_TEXT.field,
         )}
       >
@@ -229,7 +187,7 @@ export function PlanStackEntries(props: {
       </p>
     );
   return (
-    <ol className="flex flex-col gap-1.5" aria-label={t("plans.stack.entries")}>
+    <ol className="flex flex-col gap-1" aria-label={t("plans.stack.entries")}>
       {props.view.entries.map((view) => (
         <StackEntry key={view.entry.id} view={view} />
       ))}

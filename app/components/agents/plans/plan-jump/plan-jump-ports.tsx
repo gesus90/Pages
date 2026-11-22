@@ -4,16 +4,19 @@ import { useTranslation } from "react-i18next";
 
 import { Button } from "@/app/components/ui/button";
 import { cn } from "@/app/lib/cn";
+import { PLAN_PORT } from "@/definition/AgentPlanBranching";
 import { unbindPlanParameter } from "@/definition/AgentPlanGroupEdit";
 
 import { usePlanFlowContext } from "../plan-flow-context";
 import { PlanFlowHandle } from "../plan-flow-handle";
 import { planInTargetClass } from "../plan-flow-ports";
 import { PLAN_NODE_TEXT } from "../plan-node-text";
+import { PlanCardColumns } from "../plan-node-card/plan-card";
 import { isSamePlanConnection } from "./plan-jump-model";
 
 import type { TFunction } from "i18next";
 import type { AgentPlanBinding } from "@/definition/AgentPlan";
+import type { PlanFlowDots } from "../plan-flow-ports";
 import type { PlanPortSpec } from "./plan-jump-model";
 
 /** The mark in front of a failure output: its shape names it as well as its colour. */
@@ -29,7 +32,39 @@ const OUTPUT_TONES: Readonly<Partial<Record<PlanPortSpec["kind"], string>>> = {
 };
 
 const ROW_BUTTON =
-  "nodrag nopan h-7 min-h-7 gap-1.5 rounded-md border border-transparent px-1 text-left font-medium hover:bg-surface/70 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:cursor-default xl:min-h-7 xl:px-1 xl:text-xs";
+  "nodrag nopan h-7 min-h-7 gap-1.5 rounded-md border border-transparent px-1 text-left font-normal hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:cursor-default xl:min-h-7 xl:px-1 xl:text-xs";
+
+/** Whether a port is a valid flow port, which the card draws as a dot on its header edge. */
+function isHeaderFlowPort(port: PlanPortSpec): boolean {
+  return (
+    port.kind === "flow" &&
+    !port.isInvalid &&
+    (port.id === PLAN_PORT.flowIn || port.id === PLAN_PORT.flowOut)
+  );
+}
+
+/**
+ * The flow dots on the header of a card with a port grid, from its stored ports.
+ * @remarks
+ * A receiving Jump has no flow input. The flow OUT of a calling Jump is
+ * named by what it waits for; that name becomes the tooltip of the dot.
+ */
+export function planPortGridDots(
+  ports: readonly PlanPortSpec[],
+  translate: TFunction,
+): PlanFlowDots {
+  const flowOut = ports.find(
+    (port) => port.side === "out" && isHeaderFlowPort(port),
+  );
+  return {
+    hasIn: ports.some((port) => port.side === "in" && isHeaderFlowPort(port)),
+    hasOut: flowOut !== undefined,
+    outLabel:
+      flowOut && flowOut.labelKey !== "plans.flowOutShort"
+        ? planPortLabel(flowOut, translate)
+        : undefined,
+  };
+}
 
 /** The shown name of a port: its fixed word or its declared name. */
 export function planPortLabel(
@@ -143,7 +178,7 @@ function InputPort(props: {
         aria-describedby={port.isRequired ? requiredId : undefined}
         className={cn(
           ROW_BUTTON,
-          "-ml-1.25 flex min-w-0 items-center",
+          "-ml-1 flex min-w-0 items-center text-muted-foreground",
           PLAN_NODE_TEXT.field,
           hasIssue && "text-destructive",
           planInTargetClass(graph, nodeId, port.parameter),
@@ -209,9 +244,9 @@ function OutputPort(props: {
         aria-label={t("plans.jump.startLine", { port: name, name: label })}
         className={cn(
           ROW_BUTTON,
-          "-mr-1.25 max-w-full cursor-crosshair justify-end",
+          "-mr-1 max-w-full cursor-crosshair justify-end",
           PLAN_NODE_TEXT.field,
-          OUTPUT_TONES[port.kind] ?? "text-foreground",
+          OUTPUT_TONES[port.kind] ?? "text-muted-foreground",
           hasIssue && "text-destructive",
           isSamePlanConnection(graph.connection, connection) &&
             "border-primary",
@@ -250,14 +285,18 @@ function PortRow(props: {
  * The ports of a card in two columns: the inputs on the left, the outputs on the right.
  * @remarks
  * Every port keeps its name visible and a labelled button for keyboards; the
- * handle is the dot a line is dragged from or to. A port that only lines still
- * use is struck through and marked invalid, so no line disappears silently.
+ * handle is the dot a line is dragged from or to. The valid flow ports are
+ * the dots on the card header, so the grid leaves them out. A port that only
+ * lines still use is struck through and marked invalid, so no line
+ * disappears silently.
  */
 export function PlanPortGrid(props: {
   readonly nodeId: string;
   readonly label: string;
   readonly ports: readonly PlanPortSpec[];
   readonly bindings?: Readonly<Record<string, AgentPlanBinding>>;
+  /** Rows above the inputs in the left column, such as the name of a signal. */
+  readonly leadingInputs?: React.ReactNode;
 }): React.ReactElement {
   const { t } = useTranslation();
   const context: PlanPortContext = {
@@ -265,26 +304,26 @@ export function PlanPortGrid(props: {
     label: props.label,
     bindings: props.bindings ?? {},
   };
+  const ports = props.ports.filter((port) => !isHeaderFlowPort(port));
+  function rows(side: PlanPortSpec["side"]): React.ReactNode {
+    return ports
+      .filter((port) => port.side === side)
+      .map((port) => (
+        <PortRow key={`${side}:${port.id}`} context={context} port={port} />
+      ));
+  }
   return (
-    <div
-      role="group"
-      aria-label={t("plans.jump.ports", { name: props.label })}
-      data-plan-ports=""
-      className="grid grid-cols-2 gap-x-3"
-    >
-      {(["in", "out"] as const).map((side) => (
-        <div key={side} className="flex min-w-0 flex-col">
-          {props.ports
-            .filter((port) => port.side === side)
-            .map((port) => (
-              <PortRow
-                key={`${side}:${port.id}`}
-                context={context}
-                port={port}
-              />
-            ))}
-        </div>
-      ))}
+    <div data-plan-ports="" className="contents">
+      <PlanCardColumns
+        label={t("plans.jump.ports", { name: props.label })}
+        inputs={
+          <>
+            {props.leadingInputs}
+            {rows("in")}
+          </>
+        }
+        outputs={rows("out")}
+      />
     </div>
   );
 }

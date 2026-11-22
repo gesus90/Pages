@@ -1,18 +1,17 @@
+import { Check, Clock, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
-import { Button } from "@/app/components/ui/button";
 import { cn } from "@/app/lib/cn";
 
 import { usePlanFlowContext } from "./plan-flow-context";
-import { PlanFlowHandle } from "./plan-flow-handle";
 import { keepPlanControlKeys } from "./plan-flow-keys";
-import { planInTargetClass } from "./plan-flow-ports";
-import { planNodeAccent, planNodeClass } from "./plan-layout";
+import { PlanFlowDot } from "./plan-flow-ports";
+import { planNodeClass, PLAN_TYPE_COLORS } from "./plan-layout";
 import { PlanNodeActions, PlanNodeEditButton } from "./plan-node-actions";
 import { PlanNodeIcon } from "./plan-node-icon";
 import { PlanNodeWarning } from "./plan-node-warning";
-import { PLAN_NODE_ICON, PLAN_NODE_TEXT } from "./plan-node-text";
-import { PlanStatusBadge, planStatusClass, planStatusKey } from "./plan-status";
+import { PLAN_NODE_TEXT } from "./plan-node-text";
+import { planStatusClass, planStatusKey } from "./plan-status";
 import { planEndpointPorts } from "./plan-jump/plan-jump-model";
 import { PlanPortGrid } from "./plan-jump/plan-jump-ports";
 import { firstFilledText } from "./plan-jump/plan-jump-text";
@@ -21,6 +20,7 @@ import type {
   AgentPlanEnd,
   AgentPlanStart,
   AgentPlanStepResult,
+  AgentPlanStepStatus,
 } from "@/definition/AgentPlan";
 import type { PlanGraphActions } from "./use-plan-graph";
 
@@ -39,23 +39,77 @@ function useEndpointLabel(node: AgentPlanStart | AgentPlanEnd): string {
   return own || t(`plans.nodeType.${node.type}`);
 }
 
+// The status ring of the orb: 3 px of surface, then 2 px in the status color.
+const ORB_RINGS: Readonly<Record<AgentPlanStepStatus, string | null>> = {
+  waiting: null,
+  running: "ring-status-active",
+  succeeded: "ring-success",
+  failed: "ring-destructive",
+  cancelled: "ring-muted-foreground",
+  paused: "ring-muted-foreground",
+  skipped: "ring-muted-foreground",
+};
+
+/** The symbol of the status circle: a check when it succeeded, a cross when it failed, else a clock. */
+function statusSymbol(
+  status: AgentPlanStepStatus,
+  isBlocked: boolean,
+): typeof Check {
+  if (isBlocked || status === "failed" || status === "cancelled") return X;
+  return status === "succeeded" ? Check : Clock;
+}
+
+/** The ring of the orb in the status color; a waiting endpoint has none. */
+function orbRing(result: AgentPlanStepResult | undefined): string | false {
+  const ring = result?.isBlocked
+    ? ORB_RINGS.failed
+    : ORB_RINGS[result?.status ?? "waiting"];
+  return (
+    ring !== null && cn("ring-2 ring-offset-[3px] ring-offset-surface", ring)
+  );
+}
+
+/** The run status as a 20 px circle with a 12 px symbol and its name for screen readers. */
+function EndpointStatus(props: {
+  readonly result: AgentPlanStepResult | undefined;
+}): React.ReactElement {
+  const { t } = useTranslation();
+  const status = props.result?.status ?? "waiting";
+  const isBlocked = props.result?.isBlocked === true;
+  const label = t(planStatusKey(status, isBlocked));
+  const StatusIcon = statusSymbol(status, isBlocked);
+  return (
+    <span
+      data-plan-endpoint-status={status}
+      title={label}
+      className={cn(
+        "flex size-5 shrink-0 items-center justify-center rounded-full border",
+        planStatusClass(status, isBlocked),
+      )}
+    >
+      <StatusIcon aria-hidden="true" className="size-3" />
+      <span className="sr-only">{label}</span>
+    </span>
+  );
+}
+
 /**
- * Compact horizontal checkpoints: the icon left of the name, the run status
- * and the menu at the right, and only their legal flow port.
+ * Start and end as pills: 170 by 56 px, the orb in the checkpoint color
+ * left of the name, the run status and the menu at the right, and only
+ * their legal flow dot, on the right of a start and the left of an end.
  * @remarks
- * The cards keep their stored coordinates. The icon only marks the node; it
- * starts nothing. A start that other plans may call shows its accepted inputs
- * as value outputs below, an end that returns values shows one value input per
- * return; a plan without them keeps the compact pill.
+ * The cards keep their stored coordinates. The orb only marks the node; it
+ * starts nothing. While a run is shown, a ring in the status color surrounds
+ * the orb, except while it waits. A start that other plans may call shows
+ * its accepted inputs as value outputs below the pill, an end that returns
+ * values shows one value input per return, in the rows of every card; a plan
+ * without them keeps the compact pill.
  */
 export function PlanEndpoint(props: PlanEndpointProps): React.ReactElement {
-  const { t } = useTranslation();
   const { draft, onEdit } = usePlanFlowContext();
   const { node, graph } = props;
   const label = useEndpointLabel(node);
   const ports = planEndpointPorts(draft, node);
-  const status = props.result?.status ?? "waiting";
-  const statusLabel = t(planStatusKey(status, props.result?.isBlocked));
   function edit(): void {
     graph.select(node.id);
     onEdit?.(node.id);
@@ -63,63 +117,46 @@ export function PlanEndpoint(props: PlanEndpointProps): React.ReactElement {
   return (
     <article
       aria-label={label}
+      data-plan-endpoint={node.type}
       className={cn(
-        "relative flex w-full flex-col rounded-2xl border shadow-xs",
-        props.hasRun
-          ? planStatusClass(status, props.result?.isBlocked)
-          : planNodeClass(node.type),
-        graph.selectedId === node.id &&
-          "ring-2 ring-info ring-offset-2 ring-offset-surface",
+        "relative flex w-full flex-col gap-3",
+        planNodeClass(node.type),
       )}
       onKeyDown={keepPlanControlKeys}
     >
-      <div className="relative flex flex-1 items-center gap-1 pr-1.5">
-        <button
-          type="button"
-          data-plan-handle={node.id}
-          onClick={() => graph.select(node.id)}
-          aria-label={t("plans.selectNode", { name: label })}
-          title={props.hasRun ? statusLabel : label}
+      <div
+        className={cn(
+          "relative flex h-14 min-w-[170px] items-center gap-2 self-start rounded-[30px] border border-border bg-surface p-1.5 shadow-xs",
+          graph.selectedId === node.id &&
+            "ring-2 ring-info ring-offset-2 ring-offset-surface",
+        )}
+      >
+        <span
           className={cn(
-            "flex h-full flex-1 items-center gap-2 rounded-2xl pl-3.5 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
-            PLAN_NODE_TEXT.title,
-            props.canEdit && "cursor-grab active:cursor-grabbing",
+            "flex size-11 shrink-0 items-center justify-center rounded-full",
+            PLAN_TYPE_COLORS.tile,
+            props.hasRun && orbRing(props.result),
           )}
         >
-          <PlanNodeIcon
-            type={node.type}
-            className={cn(
-              PLAN_NODE_ICON,
-              "shrink-0",
-              !props.hasRun && planNodeAccent(node.type),
-            )}
-          />
-          <span className="flex flex-col text-left">
-            <span className="whitespace-nowrap">{label}</span>
-            <EndpointCaption node={node} />
-          </span>
-        </button>
+          <PlanNodeIcon type={node.type} className="size-5" />
+        </span>
+        <EndpointName {...props} label={label} />
         <PlanNodeWarning nodeId={node.id} issues={graph.issues} />
-        {props.hasRun ? (
-          <PlanStatusBadge
-            compact
-            status={status}
-            isBlocked={props.result?.isBlocked}
-          />
-        ) : null}
+        {props.hasRun ? <EndpointStatus result={props.result} /> : null}
         <PlanNodeEditButton label={label} onEdit={edit} />
-        <div className="nodrag nopan">
+        <span className="nodrag nopan">
           <PlanNodeActions
             label={label}
             disabled={!props.canEdit}
             onRemove={() => graph.remove(node.id)}
             shouldFocusCanvasOnRemove
+            size="card"
           />
-        </div>
+        </span>
         <EndpointFlowPort {...props} />
       </div>
       {ports.length > 0 ? (
-        <div className="px-3 pb-2">
+        <div className="rounded-xl border border-border bg-surface px-3.5 py-2 shadow-xs">
           <PlanPortGrid
             nodeId={node.id}
             label={label}
@@ -129,6 +166,31 @@ export function PlanEndpoint(props: PlanEndpointProps): React.ReactElement {
         </div>
       ) : null}
     </article>
+  );
+}
+
+/** The name of the endpoint: the handle that selects and moves it. */
+function EndpointName(
+  props: PlanEndpointProps & { readonly label: string },
+): React.ReactElement {
+  const { t } = useTranslation();
+  const { node, graph, label } = props;
+  return (
+    <button
+      type="button"
+      data-plan-handle={node.id}
+      onClick={() => graph.select(node.id)}
+      aria-label={t("plans.selectNode", { name: label })}
+      title={label}
+      className={cn(
+        "flex min-w-0 flex-1 flex-col self-stretch justify-center rounded-full text-left focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+        PLAN_NODE_TEXT.title,
+        props.canEdit && "cursor-grab active:cursor-grabbing",
+      )}
+    >
+      <span className="whitespace-nowrap">{label}</span>
+      <EndpointCaption node={node} />
+    </button>
   );
 }
 
@@ -150,36 +212,24 @@ function EndpointCaption(props: {
   );
 }
 
+/** The one flow dot of a pill, centred on its right edge for a start and its left edge for an end. */
 function EndpointFlowPort(props: PlanEndpointProps): React.ReactElement {
   const { t } = useTranslation();
   const { node, graph } = props;
   const isStart = node.type === "start";
+  const port = isStart ? "flow-out" : "flow-in";
   return (
-    <>
-      <div className="absolute inset-x-0 top-1/2">
-        <PlanFlowHandle
-          id={isStart ? "flow-out" : "flow-in"}
-          type={isStart ? "source" : "target"}
-          kind="flow"
-          style={isStart ? { right: 0 } : { left: 0 }}
-        />
-      </div>
-      <Button
-        size="xs"
-        variant="ghost"
-        className={cn(
-          "nodrag nopan sr-only focus:not-sr-only focus:absolute focus:top-full focus:left-1/2 focus:mt-1 focus:-translate-x-1/2 focus:bg-surface",
-          !isStart && planInTargetClass(graph, node.id),
-        )}
-        disabled={!props.canEdit}
-        onClick={() =>
-          isStart
-            ? graph.begin({ kind: "flow", nodeId: node.id })
-            : graph.connect(node.id)
-        }
-      >
-        {t(isStart ? "plans.flowOut" : "plans.flowIn")}
-      </Button>
-    </>
+    <PlanFlowDot
+      nodeId={node.id}
+      side={isStart ? "out" : "in"}
+      label={t(isStart ? "plans.flowOut" : "plans.flowIn")}
+      top="50%"
+      edge={0}
+      graph={graph}
+      canEdit={props.canEdit}
+      hasIssue={graph.issues.some(
+        (issue) => issue.nodeId === node.id && issue.port === port,
+      )}
+    />
   );
 }

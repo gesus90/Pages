@@ -6,15 +6,19 @@ import { PLAN_JUMP_PORT } from "@/definition/AgentPlanJump";
 
 import { usePlanFlowContext } from "../plan-flow-context";
 import { PLAN_NODE_TEXT } from "../plan-node-text";
-import { PlanCard } from "../plan-node-card/plan-card";
-import { PlanStatusBadge, planRunCardClass } from "../plan-status";
+import {
+  PlanCard,
+  PLAN_CARD_BODY,
+  PLAN_CARD_HINT,
+} from "../plan-node-card/plan-card";
+import { PlanRunMarker, planRunCardClass } from "../plan-status";
 import { PlanJumpRunLines } from "./plan-jump-run";
 import {
   planJumpPorts,
   planJumpTargetProblem,
   unconnectedFailurePorts,
 } from "./plan-jump-model";
-import { PlanPortGrid } from "./plan-jump-ports";
+import { PlanPortGrid, planPortGridDots } from "./plan-jump-ports";
 import { firstFilledText, planJumpTimeoutText } from "./plan-jump-text";
 
 import type { AgentPlanStepResult } from "@/definition/AgentPlan";
@@ -105,35 +109,38 @@ function UnconnectedNote(props: {
   );
 }
 
-/** The target and the wait of a calling Jump, in the words of the person who set them. */
-function OutSummary(props: {
+/** The target of a calling Jump, in the words of the person who set it. */
+function OutTarget(props: {
   readonly jump: AgentPlanJumpOut;
 }): React.ReactElement {
   const { t } = useTranslation();
   const { jump } = props;
-  const waitLine = useWaitLine(jump);
   const target = jump.target
     ? `${jump.target.planName} · ${jump.target.entryName}`
     : null;
   return (
-    <div className="flex flex-col gap-0.5">
-      <p
-        title={target ?? undefined}
-        className={cn(
-          "truncate font-medium",
-          PLAN_NODE_TEXT.field,
-          target ? "text-foreground" : "text-destructive",
-        )}
-      >
-        {target ?? t("plans.jump.noTarget")}
-      </p>
-      <p
-        title={waitLine}
-        className={cn("truncate text-muted-foreground", PLAN_NODE_TEXT.meta)}
-      >
-        {waitLine}
-      </p>
-    </div>
+    <p
+      title={target ?? undefined}
+      className={cn(
+        "truncate font-medium",
+        PLAN_NODE_TEXT.field,
+        target ? "text-foreground" : "text-destructive",
+      )}
+    >
+      {target ?? t("plans.jump.noTarget")}
+    </p>
+  );
+}
+
+/** The hint line of a calling Jump: what it waits for, how long and in which workspace. */
+function OutWaitHint(props: {
+  readonly jump: AgentPlanJumpOut;
+}): React.ReactElement {
+  const waitLine = useWaitLine(props.jump);
+  return (
+    <p data-plan-jump-wait="" title={waitLine} className={PLAN_CARD_HINT}>
+      <span className="max-w-full truncate">{waitLine}</span>
+    </p>
   );
 }
 
@@ -156,21 +163,6 @@ function InSummary(props: {
   );
 }
 
-/** The run status beside the menu of a card; nothing while no run is shown. */
-export function PlanRunBadge(props: {
-  readonly hasRun: boolean;
-  readonly result: AgentPlanStepResult | undefined;
-}): React.ReactElement | null {
-  if (!props.hasRun) return null;
-  return (
-    <PlanStatusBadge
-      compact
-      status={props.result?.status ?? "waiting"}
-      isBlocked={props.result?.isBlocked}
-    />
-  );
-}
-
 /** What a calling Jump shows above its ports: its target, a finding about it, and where its call stands in a run. */
 function OutBody(props: {
   readonly jump: AgentPlanJumpOut;
@@ -181,7 +173,7 @@ function OutBody(props: {
   const { jump, result } = props;
   return (
     <>
-      <OutSummary jump={jump} />
+      <OutTarget jump={jump} />
       <TargetProblem jump={jump} />
       {props.hasRun && result?.jump ? (
         <PlanJumpRunLines
@@ -221,6 +213,7 @@ export function PlanJumpCard(props: {
   const { jump, result } = props;
   const label = useJumpLabel(jump);
   const caption = useJumpCaption(jump);
+  const ports = planJumpPorts(draft, jump);
   function edit(): void {
     graph.select(jump.id);
     onEdit?.(jump.id);
@@ -231,14 +224,12 @@ export function PlanJumpCard(props: {
       label={label}
       title={t(`plans.jump.title.${jump.direction}`)}
       subtitle={caption}
-      runClass={props.hasRun ? planRunCardClass(result) : undefined}
-      status={<PlanRunBadge hasRun={props.hasRun} result={result} />}
+      stateClass={props.hasRun ? planRunCardClass(result) : undefined}
+      status={<PlanRunMarker hasRun={props.hasRun} result={result} />}
+      flowDots={planPortGridDots(ports, t)}
       onEdit={edit}
     >
-      <div
-        data-plan-jump={jump.direction}
-        className="flex flex-col gap-1.5 px-3 pt-1 pb-2"
-      >
+      <div data-plan-jump={jump.direction} className={PLAN_CARD_BODY}>
         {jump.direction === "out" ? (
           <OutBody jump={jump} result={result} hasRun={props.hasRun} />
         ) : (
@@ -247,11 +238,12 @@ export function PlanJumpCard(props: {
         <PlanPortGrid
           nodeId={jump.id}
           label={label}
-          ports={planJumpPorts(draft, jump)}
+          ports={ports}
           bindings={jump.direction === "out" ? jump.bindings : undefined}
         />
         {jump.direction === "out" ? <UnconnectedNote jump={jump} /> : null}
       </div>
+      {jump.direction === "out" ? <OutWaitHint jump={jump} /> : null}
     </PlanCard>
   );
 }

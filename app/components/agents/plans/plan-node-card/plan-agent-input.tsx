@@ -53,7 +53,8 @@ function usePlanValueContext(): PlanValueContext {
 }
 
 /**
- * One input of an agent or a script: its violet data IN, its name and its value.
+ * One input of an agent or a script: its data IN on the left card edge, its
+ * 44 px name and its value field.
  * @remarks
  * An input holds one binding. A connection shows its source read only and
  * is released with the X; without one, the field takes a manual value,
@@ -71,7 +72,7 @@ export function PlanAgentInput(props: PlanAgentInputProps): React.ReactElement {
     (issue) => issue.nodeId === step.id && issue.port === parameter.name,
   );
   return (
-    <div className="relative grid h-8 grid-cols-[minmax(0,6.5rem)_minmax(0,1fr)] items-center gap-2">
+    <div className="relative grid h-8 grid-cols-[2.75rem_minmax(0,1fr)] items-center gap-1">
       <PlanFlowHandle
         id={`input:${parameter.name}`}
         type="target"
@@ -83,7 +84,7 @@ export function PlanAgentInput(props: PlanAgentInputProps): React.ReactElement {
         data-plan-in={step.id}
         data-plan-parameter={parameter.name}
         className={cn(
-          "nodrag nopan -ml-1.25 flex h-7 min-w-0 items-center rounded-md border border-transparent px-1 text-left font-medium hover:bg-surface/70 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:cursor-default",
+          "nodrag nopan -ml-1 flex h-7 min-w-0 items-center rounded-md border border-transparent px-1 text-left text-muted-foreground hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:cursor-default",
           PLAN_NODE_TEXT.field,
           hasIssue && "text-destructive",
           planInTargetClass(graph, step.id, parameter.name),
@@ -164,7 +165,7 @@ function BoundValue(
   return (
     <div
       className={cn(
-        "flex h-8 min-w-0 items-center gap-1 rounded-lg border border-dashed border-plan-parameter/70 bg-plan-parameter-subtle pl-2 text-foreground",
+        "flex h-6 max-w-[6.5rem] min-w-0 items-center gap-1 rounded-md bg-muted pl-2 text-foreground",
         PLAN_NODE_TEXT.field,
         isUnused && "text-muted-foreground",
       )}
@@ -182,7 +183,7 @@ function BoundValue(
       {isUnused ? (
         <span
           className={cn(
-            "shrink-0 rounded-sm bg-surface/70 px-1 font-medium",
+            "shrink-0 rounded-sm bg-surface px-1 font-medium",
             PLAN_NODE_TEXT.meta,
           )}
         >
@@ -191,7 +192,7 @@ function BoundValue(
       ) : null}
       <button
         type="button"
-        className="nodrag nopan flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-surface hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:opacity-50"
+        className="nodrag nopan flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-surface hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:opacity-50"
         disabled={!canEdit}
         aria-label={t("plans.disconnect", { name })}
         title={t("plans.disconnect", { name })}
@@ -249,8 +250,8 @@ function ManualValue(
   );
   if (parameter.type !== "text" || step.type === "git_closeout") return input;
   return (
-    <div className="flex min-w-0 items-center gap-1">
-      <div className="min-w-0 flex-1">{input}</div>
+    <div className="flex min-w-0 items-center gap-0.5">
+      <div className="max-w-[6.5rem] min-w-0 flex-1">{input}</div>
       <ScriptLiteralDisconnect {...props} />
       <PlanPreviousMenu
         step={step}
@@ -277,7 +278,7 @@ function ScriptLiteralDisconnect(
   return (
     <button
       type="button"
-      className="nodrag nopan flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-surface hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:opacity-50"
+      className="nodrag nopan flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-surface hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:opacity-50"
       disabled={!canEdit}
       aria-label={label}
       title={label}
@@ -304,7 +305,7 @@ function PlanPreviousMenu(props: {
         <Button
           size="icon-sm"
           variant="ghost"
-          className="nodrag nopan size-7 min-h-7 shrink-0 text-muted-foreground"
+          className="nodrag nopan size-6 min-h-6 shrink-0 text-muted-foreground xl:min-h-6"
           disabled={!canEdit}
           aria-label={`${title}: ${props.parameter} · ${props.label}`}
           title={title}

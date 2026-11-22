@@ -1,23 +1,23 @@
-import { LoaderCircle } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import { cn } from "@/app/lib/cn";
 import { planSwarmTaskCounts } from "@/definition/AgentPlanSwarmRun";
 
 import { usePlanFlowContext } from "../plan-flow-context";
-import { PlanFlowPorts } from "../plan-flow-ports";
-import { PlanCard } from "../plan-node-card/plan-card";
-import { PLAN_NODE_TEXT } from "../plan-node-text";
 import {
-  PlanStatusBadge,
-  isQueuedPlanStep,
-  planRunCardClass,
-} from "../plan-status";
+  PlanCard,
+  PlanCardColumns,
+  PLAN_CARD_BODY,
+} from "../plan-node-card/plan-card";
+import { PlanNodeIcon } from "../plan-node-icon";
+import { PLAN_NODE_TEXT } from "../plan-node-text";
+import { PlanRunMarker, planRunCardClass } from "../plan-status";
 import { PlanSwarmBadges } from "./plan-swarm-badges";
 import { planSwarmBadges } from "./plan-swarm-model";
 
 import type { AgentPlanStepResult } from "@/definition/AgentPlan";
 import type { AgentPlanSwarm } from "@/definition/AgentPlanSwarm";
+import type { PlanSwarmBadge } from "./plan-swarm-model";
 
 /** The task of a swarm in one line: its text, or the bound ticket. */
 function useTaskLine(swarm: AgentPlanSwarm): string {
@@ -42,37 +42,91 @@ function useMainLine(
     : model.model;
 }
 
-/** The pill of a running swarm: finished of handed-out subtasks. */
-function TaskPill(props: {
+/** The line below the footer fields of a shown run: finished of handed-out subtasks. */
+function TaskCountLine(props: {
   readonly result: AgentPlanStepResult | undefined;
 }): React.ReactElement | null {
   const { t } = useTranslation();
   const { result } = props;
-  if (result?.status !== "running" || !result.swarm) return null;
-  const counts = planSwarmTaskCounts(result.swarm);
+  if (!result?.swarm) return null;
   return (
-    <span
-      className="inline-flex shrink-0 items-center gap-1 rounded-full border border-status-active/40 bg-status-active-subtle px-1.5 text-[11px] leading-4 font-semibold text-status-active tabular-nums"
-      aria-label={t("plans.swarm.taskCount", counts)}
-      data-plan-swarm-pill
+    <p
+      data-plan-swarm-count=""
+      className={cn(
+        "truncate text-center text-muted-foreground tabular-nums",
+        PLAN_NODE_TEXT.meta,
+      )}
     >
-      <LoaderCircle
-        aria-hidden="true"
-        className="size-3 motion-safe:animate-spin"
-      />
-      {`${String(counts.finished)}/${String(counts.assigned)}`}
-    </span>
+      {t("plans.swarm.taskCount", planSwarmTaskCounts(result.swarm))}
+    </p>
+  );
+}
+
+/** The task of the swarm as the one input row of its body. */
+function TaskRow(props: { readonly taskLine: string }): React.ReactElement {
+  const { t } = useTranslation();
+  return (
+    <div className="grid h-8 grid-cols-[2.75rem_minmax(0,1fr)] items-center gap-1">
+      <span
+        className={cn("truncate text-muted-foreground", PLAN_NODE_TEXT.field)}
+      >
+        {t("plans.swarm.sections.task")}
+      </span>
+      <span
+        title={props.taskLine}
+        className={cn(
+          "flex h-6 max-w-[6.5rem] min-w-0 items-center truncate rounded-md bg-muted px-2",
+          PLAN_NODE_TEXT.field,
+        )}
+      >
+        <span className="truncate">{props.taskLine}</span>
+      </span>
+    </div>
+  );
+}
+
+/**
+ * The footer of a swarm: the main model in a wide field, one 58 px field
+ * per helper beside it, and the count of finished subtasks below them.
+ */
+function SwarmFooter(props: {
+  readonly mainLine: string;
+  readonly badges: readonly PlanSwarmBadge[];
+  readonly result: AgentPlanStepResult | undefined;
+}): React.ReactElement {
+  const { t } = useTranslation();
+  return (
+    <footer className="flex shrink-0 flex-col gap-1.5 border-t border-border p-3">
+      <div className="flex flex-wrap gap-2">
+        <p
+          className="flex h-10 min-w-[7.5rem] flex-1 basis-[7.5rem] items-center gap-1.5 rounded-xl border-[1.5px] border-plan-swarm/40 bg-surface pr-2 pl-[5px] text-xs leading-4 font-semibold"
+          title={props.mainLine}
+        >
+          <span
+            aria-hidden="true"
+            className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-plan-swarm-subtle text-plan-swarm"
+          >
+            <PlanNodeIcon type="swarm" className="size-4" />
+          </span>
+          <span className="min-w-0 truncate">
+            {`${t("plans.swarm.mainShort")} · ${props.mainLine}`}
+          </span>
+        </p>
+        <PlanSwarmBadges badges={props.badges} />
+      </div>
+      <TaskCountLine result={props.result} />
+    </footer>
   );
 }
 
 /**
  * A swarm on the canvas: the card of an agent node with the swarm symbol,
- * the task in one line, the main model and the helpers as badges.
+ * its task as input row and the main model and the helpers in the footer.
  *
  * @remarks
- * While a run is shown the card takes the run status color like every node,
- * the main line shows what the main model does now, the badges show each
- * helper's status and a pill counts the finished subtasks.
+ * While a run is shown the status marker names the run status, the main
+ * field shows what the main model does now, the helper fields show each
+ * helper's status and the line below counts the finished subtasks.
  */
 export function PlanSwarmCard(props: {
   readonly swarm: AgentPlanSwarm;
@@ -80,7 +134,7 @@ export function PlanSwarmCard(props: {
   readonly hasRun: boolean;
 }): React.ReactElement {
   const { t } = useTranslation();
-  const { graph, canEdit, onEdit } = usePlanFlowContext();
+  const { graph, onEdit } = usePlanFlowContext();
   const { swarm, result } = props;
   const taskLine = useTaskLine(swarm);
   const mainLine = useMainLine(swarm, result);
@@ -99,37 +153,21 @@ export function PlanSwarmCard(props: {
       label={title}
       title={title}
       subtitle={t("plans.nodeType.swarm")}
-      runClass={props.hasRun ? planRunCardClass(result) : undefined}
-      status={
-        props.hasRun ? (
-          <>
-            <TaskPill result={result} />
-            <PlanStatusBadge
-              isQueued={isQueuedPlanStep(result)}
-              compact
-              status={result?.status ?? "waiting"}
-              isBlocked={result?.isBlocked}
-            />
-          </>
-        ) : null
-      }
+      stateClass={props.hasRun ? planRunCardClass(result) : undefined}
+      status={<PlanRunMarker hasRun={props.hasRun} result={result} />}
       onEdit={edit}
     >
-      <div className="flex flex-col gap-1.5 px-3 pt-1 pb-3">
-        <PlanFlowPorts node={swarm} graph={graph} canEdit={canEdit} isCompact />
-        <p className={cn("truncate", PLAN_NODE_TEXT.field)} title={taskLine}>
-          {taskLine}
-        </p>
-        <p className={cn("flex min-w-0 gap-2", PLAN_NODE_TEXT.field)}>
-          <span className="shrink-0 font-semibold text-muted-foreground">
-            {t("plans.swarm.mainShort")}
-          </span>
-          <span className="min-w-0 truncate" title={mainLine}>
-            {mainLine}
-          </span>
-        </p>
-        <PlanSwarmBadges badges={badges} />
+      <div className={PLAN_CARD_BODY}>
+        <PlanCardColumns
+          inputs={<TaskRow taskLine={taskLine} />}
+          outputs={null}
+        />
       </div>
+      <SwarmFooter
+        mainLine={mainLine}
+        badges={badges}
+        result={props.hasRun ? result : undefined}
+      />
     </PlanCard>
   );
 }

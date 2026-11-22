@@ -1,18 +1,19 @@
 import { useTranslation } from "react-i18next";
 
 import { PlanFlowHandle } from "./plan-flow-handle";
-import { PLAN_LOOP_PORT_ROW, PLAN_LOOP_TITLE_HEIGHT } from "./plan-layout";
-import { planInTargetClass } from "./plan-flow-ports";
+import { PLAN_FRAME_HEADER } from "./plan-layout";
+import { PlanFlowDot } from "./plan-flow-ports";
 
 import type { PlanGraphActions } from "./use-plan-graph";
 
-/** Where the loop's four flow dots sit: centered on the container edge, level with the In and Out labels. */
-export const PLAN_LOOP_PORT_TOP =
-  PLAN_LOOP_TITLE_HEIGHT + PLAN_LOOP_PORT_ROW / 2;
+/** Where the loop's four flow dots sit: centered on the container edge, at half the header height. */
+export const PLAN_LOOP_PORT_TOP = Math.round(PLAN_FRAME_HEADER / 2);
 
-/** Where the data input of the count or the while boolean sits: one row below. */
-export const PLAN_LOOP_INPUT_TOP =
-  PLAN_LOOP_TITLE_HEIGHT + PLAN_LOOP_PORT_ROW + PLAN_LOOP_PORT_ROW / 2;
+/**
+ * Where the data input of the count or the while boolean sits: level with
+ * the second header line, whose centre is 10 px above the header's lower edge.
+ */
+export const PLAN_LOOP_INPUT_TOP = PLAN_FRAME_HEADER - 1 - 10 - 10;
 
 // A dot on the container edge is centered on that edge, so the inline offsets
 // name the edge itself and the transform pulls half the dot back.
@@ -30,13 +31,14 @@ const RIGHT_EDGE = {
 } as const;
 
 /**
- * The entry and the exit of a loop on its container edge.
+ * The entry and the exit of a loop on its container edge, at half the header height.
  * @remarks
  * The outer flow connects to `flow-in` and leaves from `flow-out`. The
  * `inner-in` and `inner-out` handles lie at the same two points; they only
  * anchor the lines to the first and last members and cannot start a
  * connection. All four are measured by React Flow, so lines end at the real
- * centers of the dots. Two buttons give the keyboard the same two ports.
+ * centers of the dots. A labelled button over each outer dot gives the
+ * keyboard the same two ports.
  */
 export function PlanLoopPorts(props: {
   readonly loopId: string;
@@ -50,14 +52,21 @@ export function PlanLoopPorts(props: {
     graph.issues.some(
       (issue) => issue.nodeId === loopId && issue.port === port,
     );
+  const shared = {
+    nodeId: loopId,
+    graph,
+    canEdit: props.canEdit,
+    top: PLAN_LOOP_PORT_TOP,
+    edge: 0,
+  };
   return (
     <>
-      <PlanFlowHandle
-        id="flow-in"
-        type="target"
-        kind="flow"
+      <PlanFlowDot
+        {...shared}
+        side="in"
+        label={t("plans.flowIn")}
+        buttonLabel={t("plans.loops.flowIn", { name: props.label })}
         hasIssue={hasIssue("flow-in")}
-        style={LEFT_EDGE}
       />
       <PlanFlowHandle
         id="inner-in"
@@ -73,34 +82,13 @@ export function PlanLoopPorts(props: {
         isDecorative
         style={RIGHT_EDGE}
       />
-      <PlanFlowHandle
-        id="flow-out"
-        type="source"
-        kind="flow"
+      <PlanFlowDot
+        {...shared}
+        side="out"
+        label={t("plans.flowOut")}
+        buttonLabel={t("plans.loops.flowOut", { name: props.label })}
         hasIssue={hasIssue("flow-out")}
-        style={RIGHT_EDGE}
       />
-      <button
-        type="button"
-        data-plan-in={loopId}
-        aria-label={t("plans.loops.flowIn", { name: props.label })}
-        className={`sr-only focus-visible:not-sr-only focus-visible:absolute focus-visible:top-2 focus-visible:left-2 focus-visible:z-10 focus-visible:rounded-md focus-visible:border focus-visible:bg-surface focus-visible:px-2 focus-visible:py-1 focus-visible:text-xs focus-visible:ring-2 focus-visible:ring-ring ${planInTargetClass(graph, loopId) || ""}`}
-        disabled={!props.canEdit}
-        onClick={() => graph.connect(loopId)}
-      >
-        {t("plans.flowInShort")}
-      </button>
-      <button
-        type="button"
-        data-plan-out={loopId}
-        data-plan-out-kind="flow"
-        aria-label={t("plans.loops.flowOut", { name: props.label })}
-        className="sr-only focus-visible:not-sr-only focus-visible:absolute focus-visible:top-2 focus-visible:right-2 focus-visible:z-10 focus-visible:rounded-md focus-visible:border focus-visible:bg-surface focus-visible:px-2 focus-visible:py-1 focus-visible:text-xs focus-visible:ring-2 focus-visible:ring-ring"
-        disabled={!props.canEdit}
-        onClick={() => graph.begin({ kind: "flow", nodeId: loopId })}
-      >
-        {t("plans.flowOutShort")}
-      </button>
     </>
   );
 }

@@ -56,3 +56,90 @@ Migration `012_local_session_owners.sql` ist additiv: Owner-/Ergebnismetadaten, 
 Vorausgesetzt sind Linux mit cgroup v2, ein erreichbarer systemd-Usermanager des Dienstkontos, dessen privates Laufzeitverzeichnis, PostgreSQL und gemeinsamer privater Dateispeicher. Produktionsbetrieb nutzt `build/local-owner/index.js`, die gemeinsamen `build/runtime-chunks/` und `local-agent.mjs`; der Quellmodus lädt den Owner über eine eigene Vite-Konfiguration ohne React-Router-Plugins. Die Rollen und Zeitschleifen sind in [PlanRuntimeFootprint.md](PlanRuntimeFootprint.md) beschrieben. Ein Host-Reboot, gestorbener Besitzer, beschädigtes Journal oder ausgetauschte Konfiguration wird nicht durch erneutes Senden eines Prompts kaschiert. MCP-Anfragen an den Webdienst können während dessen Ausfalls scheitern; der Besitzer ersetzt keine fachliche Werkzeugantwort.
 
 Die Implementierung allein belegt keine Laufzeitabnahme. Erforderlich bleiben eine tatsächliche temporäre Produktinstanz und ein echter autorisierter lokaler Agent: gezielter harter HTTP-Prozessverlust bei weiterlebendem Agenten, Wiederanbindung und Erfolg desselben Versuchs, genau einmal übernommene echte Ereignisse sowie Stop über die authentifizierte Oberfläche. Ein credentialloser Startfehler oder eine nachgebildete ACP-Sitzung erfüllt das nicht. Zentrale QA muss außerdem die bestehenden Recovery-, Session-, Bericht- und Ressourcen-Doubles auf die additiven Verträge prüfen.
+
+## Aktueller Testbestand
+
+Die Backend-Suite findet `*.test.ts` und `*.spec.ts` unter
+`backend/agents/local/`. Im aktuellen Quellbestand liegen dort keine
+Testdateien. Die Tests für `PagesRuntime` und `RunsMode` ersetzen
+`LocalSessionMode` durch ein Double. Die Tests für die Journalbereinigung
+prüfen Speicherverhalten außerhalb des lokalen Session-Verzeichnisses. Die
+früheren Unit-Tests für Beobachter, Owner-Start, Folgezug, Turn, Kontrolldateien,
+Owner-Modus, Discovery, Öffnen und Wiederanbindung sind nur in der
+Git-Historie unter `tests/backend/backend/agents/local/` vorhanden, etwa in
+Revision `bcf4e75ccdc9c30c513becce5a2b0ec375362b57`.
+
+### Ausführbare Module
+
+Die Tabelle erfasst alle 27 ausführbaren Module relativ zu
+`backend/agents/local/`. Für jede Zeile fehlen aktuelle Messwerte für
+Statements, Branches, Functions und Lines. Ohne Instrumentierung bleibt auch
+die Liste der ungetroffenen Zweige unbekannt. Der Quellbestand enthält keine
+`.mjs`-Module und keine rein deklarativen Dateien. Insbesondere enthält
+`LocalSessionContracts.ts` ausführbare Schemas und Validierungsfunktionen.
+Gemessene Metriken mit 0/0 werden gemäß der Backend-Suite als `n/a` ausgewiesen.
+
+| Modul                           | Verhalten und zu kontrollierende Grenze                                                                              |
+| ------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `LocalAcpJournalListener.ts`    | Native ACP-Stücke, Nutzung und Recorder-Aufrufe in Journal-Reihenfolge                                               |
+| `LocalAttachedSession.ts`       | Wiederanbindung, Polling, Folgezug, Abbruch und bestätigtes Closeout über IPC, Importer und Timer                    |
+| `LocalControlFailure.ts`        | Zulässige Fehlercodes und bereinigte Diagnosen                                                                       |
+| `LocalDeferred.ts`              | Auflösung und Ablehnung eines aufgeschobenen Promise                                                                 |
+| `LocalFinishedSessions.ts`      | Deduplizierte Parallelbereinigung mit begrenzter Wartezeit und injiziertem Cleanup                                   |
+| `LocalJournalRecords.ts`        | Digest der beiden Datensatzformen und Lesen des dauerhaften Journalankers                                            |
+| `LocalOwnerControl.ts`          | Registrierte Freigabe und Besitzabfrage über Callbacks                                                               |
+| `LocalOwnerHttp.ts`             | Private Socket-Bindung, Capability, Anbindungstoken, Befehlsvalidierung und Antwortgrenzen über HTTP und Dateisystem |
+| `LocalOwnerReady.ts`            | Bereitschaftsnachweis mit privater Datei, Dateiwächter und Timeout                                                   |
+| `LocalOwnerRetirement.ts`       | Beendigung und Wiederholung bei temporären Fehlern über Uhr, Run-Abfrage und Cleanup                                 |
+| `LocalOwnerRunAuthorization.ts` | Bindung an laufenden Run, Schritt, Versuch, Instanz und Closeout-Zustand                                             |
+| `LocalOwnerSession.ts`          | Lebenszyklus, Folgezug, Pausieren, Abbruch und Closeout mit ACP-, Journal- und Persistenzgrenzen                     |
+| `LocalSessionCompletion.ts`     | Gespeicherte Ergebnisse und Meilensteine aus Repository und Payload-Speicher                                         |
+| `LocalSessionContracts.ts`      | Laufzeitvalidierung für Start, Besitzernachweis, Journal und IPC-Befehle                                             |
+| `LocalSessionEndedOwner.ts`     | Freigabe erst nach bestätigtem Ende und erfolgreichem Cleanup                                                        |
+| `LocalSessionFiles.ts`          | Private Dateirechte, begrenztes Lesen sowie atomare Veröffentlichung und Aufräumen bei Schreibfehlern                |
+| `LocalSessionForcedRelease.ts`  | Trennung explizit ersetzter Runs über Freigabefunktion und Beobachter                                                |
+| `LocalSessionIdentity.ts`       | Instanzschlüssel aus Schlüsselmaterial und Konfigurationspfad                                                        |
+| `LocalSessionImport.ts`         | Journalreplay, transaktionale Übernahme, Cursor und Wiederaufnahme über Repository und Payload-Speicher              |
+| `LocalSessionJournal.ts`        | Dauerhafte Digest-Kette, begrenzte Seiten, ACK und Wiederanlauf über Dateien und Payload-Speicher                    |
+| `LocalSessionLaunch.ts`         | Start- und Turn-Verträge sowie Fallback auf Manifest und Checkpoints                                                 |
+| `LocalSessionMode.ts`           | Einmalige Registrierung und Abfrage des prozesslokalen Owner-Modus                                                   |
+| `LocalSessionOutbox.ts`         | Versuch, öffentliche Ereignisse und Nutzung als Journal-Mutationen                                                   |
+| `LocalSessionOwnership.ts`      | Bindung an Startauftrag und Prozessidentität mit privaten Dateien, `/proc` und systemd                               |
+| `LocalSessionTools.ts`          | Reservierung erforderlicher Tools und Abhängigkeiten über den Tool-Supervisor                                        |
+| `LocalSessionTransport.ts`      | Authentifizierte, begrenzte Unix-IPC-Anfragen, Timeout und Fehlerabbildung                                           |
+| `LocalSessions.ts`              | Auffinden, Wiederanbinden, Steuern und Freigeben früherer Besitzer über IPC, Repositories und Ressourcenverwaltung   |
+
+### Vorhandene Messungen
+
+Der vorhandene V8-Bericht vom 21. November 2026 um 00:34:57 (UTC+1) aus
+einem lokalen Arbeitsbaum auf Basis von
+`dd5650305f412e209f5d5558835629bf7fb4fbf4` enthält
+`coverage-summary.json`, `coverage-final.json` und `scope-inventory.json`.
+Er weist vollständige messbare Zähler für 138 Module der fünf bereits
+konfigurierten Bereiche aus. Für `backend/error` enthält derselbe
+Arbeitsbaum eine experimentelle Konfiguration und einen neuen Test. Deren
+Artefakte weisen 2 vollständige und 42 unvollständige Module, 45
+ungetroffene Zweigausgänge und einen fehlenden Modulmesswert
+(`AgentAuthorizationError.ts`) aus. Der Bericht belegt diese Messung auf
+dem älteren Arbeitsbaum. Auf dem aktuellen Stand fehlen Nachweise für
+`backend/error`, Agent-Katalog, Agent-Runtime, Simulation, Agent-Provider
+und lokale Sessions. Für die bereits konfigurierten Bereiche liegen keine
+Messwerte zur aktuellen Revision vor.
+
+### Patches und Betriebsprüfung
+
+Unter `backend/agents/local/` liegen keine Patches. Die Daten für die
+nativen Builds liegen separat in
+`backend/agents/codex-patch/pages-tool-policy.patch`,
+`backend/agents/opencode-patch/pages-pica.patch` und
+`scripts/pica-native-build/opencode-offline.patch`. Diese Patchdateien
+gehören nicht zur V8-Modulmessung. Zur Betriebsprüfung gehören die
+Anwendbarkeit auf die festgelegten Upstream-Stände, die Verifikation des
+fertigen Artefakts und die Prüfung des jeweiligen ACP-Verhaltens mit den
+gepatchten Clients in einer isolierten Instanz. Die Build-Eingaben und die
+Artefaktgrenzen stehen in der [Anleitung für native Builds](../scripts/pica-native-build/README.md).
+
+Für lokale Sessions bleiben die Wiederanbindung nach Prozessverlust,
+einmaliger Journal-Import sowie Abbruch und Ressourcenfreigabe mit einer
+isolierten Instanz zu prüfen. Die Prüfung des Schreibpfads mit synthetischen
+Dateien belegt ausschließlich dessen lokales Dateiverhalten.

@@ -129,7 +129,7 @@ export function planFlowNodes(
           hidden: parent.isHidden,
           position: {
             x: node.x + PLAN_FRAME_PADDING,
-            y: node.y + planGroupHeaderHeight(parent.frame),
+            y: node.y + planGroupHeaderHeight(),
           },
         }
       : project(node);

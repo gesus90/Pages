@@ -1,6 +1,5 @@
 import { useTranslation } from "react-i18next";
 
-import { Button } from "@/app/components/ui/button";
 import { cn } from "@/app/lib/cn";
 import { isPlanFlowNode } from "@/definition/AgentPlanGraph";
 
@@ -9,23 +8,15 @@ import { PlanFlowHandle } from "./plan-flow-handle";
 import type { AgentPlanNode } from "@/definition/AgentPlan";
 import type { PlanGraphActions } from "./use-plan-graph";
 
-// A card shows the short labels In and Out beside its ports; a frame keeps
-// its outlined buttons. The accessible names stay complete in both.
-const PORT_STYLES = {
-  compact: {
-    row: "h-7",
-    // The labels share the left text edge of the input names below them.
-    port: "nodrag nopan h-7 min-h-7 border-transparent bg-transparent px-1 text-xs leading-4.5 font-medium shadow-none hover:bg-surface/70 focus-visible:ring-2 focus-visible:ring-ring xl:min-h-7 xl:px-1 xl:text-xs",
-    inLabel: "plans.flowInShort",
-    outLabel: "plans.flowOutShort",
-  },
-  regular: {
-    row: "h-8",
-    port: "nodrag nopan h-7 min-h-7 px-2 text-xs leading-4.5 focus-visible:ring-2 focus-visible:ring-ring xl:min-h-7 xl:text-xs",
-    inLabel: "plans.flowIn",
-    outLabel: "plans.flowOut",
-  },
-};
+// The flow dots of a card sit 30 px below its top edge and reach 6 px past
+// its 1 px edge; the 10 px dot is centred 2 px outside the padding box.
+const HEADER_DOT = { top: 30, edge: -2 } as const;
+// The keyboard button lies over the dot without taking its pointer: dragging
+// and clicking stay with the dot, focus and Enter with the button. Its 24 px
+// circle is centred on the dot.
+const DOT_BUTTON =
+  "nodrag nopan pointer-events-none absolute size-6 -translate-y-1/2 rounded-full focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none";
+const DOT_BUTTON_RADIUS = 12;
 
 /**
  * Marks an IN as an allowed or a refused end of the connection being made.
@@ -42,93 +33,140 @@ export function planInTargetClass(
     : "cursor-not-allowed border-dashed opacity-50";
 }
 
+/** Which flow dots a card shows and how its flow OUT is named. */
+export interface PlanFlowDots {
+  readonly hasIn: boolean;
+  readonly hasOut: boolean;
+  /** The name of the flow OUT, such as the exit of a calling Jump; else „Ablauf OUT“. */
+  readonly outLabel?: string;
+}
+
 /**
- * Start exposes only OUT; end exposes only IN; agents expose both; value sources such as tickets have none.
+ * The flow dots a node shows on its card header by default.
  * @remarks
- * Dragging from an OUT to an IN connects them; clicking the OUT and then the
- * IN does the same without a drag.
+ * Start exposes only OUT, end only IN; every other flow node both; value
+ * sources such as tickets have none.
+ */
+export function planFlowDots(node: AgentPlanNode): PlanFlowDots {
+  if (!isPlanFlowNode(node)) return { hasIn: false, hasOut: false };
+  return { hasIn: node.type !== "start", hasOut: node.type !== "end" };
+}
+
+/** The class of a flow IN button while a connection is open: allowed or refused. */
+function inTargetRing(graph: PlanGraphActions, id: string): string | false {
+  if (!graph.connection) return false;
+  return graph.canConnect(id)
+    ? "ring-2 ring-success"
+    : "cursor-not-allowed opacity-50";
+}
+
+/**
+ * One flow dot on the edge of a node: the IN on the left, the OUT on the right.
+ * @remarks
+ * The dot is the React Flow handle with its name as tooltip; a labelled
+ * button over it gives keyboards the same port with a focus ring. `top` is
+ * the dot's centre below the node's top edge, `edge` its centre's offset
+ * from the left or right edge.
+ */
+export function PlanFlowDot(props: {
+  readonly nodeId: string;
+  readonly side: "in" | "out";
+  readonly label: string;
+  readonly top: number | string;
+  readonly edge: number;
+  readonly graph: PlanGraphActions;
+  readonly canEdit: boolean;
+  readonly hasIssue: boolean;
+  /** The accessible name of the button, when it says more than the tooltip. */
+  readonly buttonLabel?: string;
+}): React.ReactElement {
+  const { graph, nodeId, top, edge } = props;
+  const isIn = props.side === "in";
+  const handleStyle: React.CSSProperties = isIn
+    ? { top, left: edge, right: "auto", transform: "translate(-50%, -50%)" }
+    : { top, left: "auto", right: edge, transform: "translate(50%, -50%)" };
+  const buttonStyle: React.CSSProperties = isIn
+    ? { top, left: edge - DOT_BUTTON_RADIUS }
+    : { top, right: edge - DOT_BUTTON_RADIUS };
+  const isActive =
+    graph.connection?.nodeId === nodeId && graph.connection.kind === "flow";
+  return (
+    <>
+      <PlanFlowHandle
+        id={isIn ? "flow-in" : "flow-out"}
+        type={isIn ? "target" : "source"}
+        kind="flow"
+        hasIssue={props.hasIssue}
+        title={props.label}
+        style={handleStyle}
+      />
+      <button
+        type="button"
+        data-plan-in={isIn ? nodeId : undefined}
+        data-plan-out={isIn ? undefined : nodeId}
+        data-plan-out-kind={isIn ? undefined : "flow"}
+        aria-label={props.buttonLabel ?? props.label}
+        className={cn(
+          DOT_BUTTON,
+          isIn
+            ? inTargetRing(graph, nodeId)
+            : isActive && "ring-2 ring-primary",
+        )}
+        style={buttonStyle}
+        disabled={!props.canEdit}
+        onClick={() =>
+          isIn ? graph.connect(nodeId) : graph.begin({ kind: "flow", nodeId })
+        }
+      />
+    </>
+  );
+}
+
+/**
+ * The flow IN and OUT of a card as dots on its edge, level with the header.
+ * @remarks
+ * The dots carry no text row; their names stand in the tooltip and on the
+ * labelled buttons that keyboards reach. Dragging from an OUT to an IN
+ * connects them; clicking the OUT and then the IN does the same without a
+ * drag.
  */
 export function PlanFlowPorts(props: {
   readonly node: AgentPlanNode;
   readonly graph: PlanGraphActions;
   readonly canEdit: boolean;
-  /** A card shows the short labels In and Out; their names stay complete. */
-  readonly isCompact?: boolean;
+  readonly dots: PlanFlowDots;
 }): React.ReactElement | null {
   const { t } = useTranslation();
-  const { node, graph, isCompact = false } = props;
-  if (!isPlanFlowNode(node)) return null;
+  const { node, graph, dots } = props;
   function issue(port: string): boolean {
     return graph.issues.some(
       (entry) => entry.nodeId === node.id && entry.port === port,
     );
   }
-  const style = PORT_STYLES[isCompact ? "compact" : "regular"];
+  const shared = {
+    nodeId: node.id,
+    graph,
+    canEdit: props.canEdit,
+    ...HEADER_DOT,
+  };
   return (
-    <div
-      className={cn(
-        "relative flex items-center justify-between gap-2",
-        style.row,
-      )}
-    >
-      {node.type !== "start" ? (
-        <Button
-          size="sm"
-          variant="outline"
-          data-plan-in={node.id}
-          aria-label={t("plans.flowIn")}
-          className={cn(
-            style.port,
-            isCompact && "-ml-1.25",
-            issue("flow-in") && "border-destructive text-destructive",
-            planInTargetClass(graph, node.id),
-          )}
-          disabled={!props.canEdit}
-          onClick={() => graph.connect(node.id)}
-        >
-          {t(style.inLabel)}
-        </Button>
-      ) : (
-        <span />
-      )}
-      {node.type !== "end" ? (
-        <Button
-          size="sm"
-          variant="outline"
-          data-plan-out={node.id}
-          data-plan-out-kind="flow"
-          aria-label={t("plans.flowOut")}
-          className={cn(
-            style.port,
-            isCompact && "-mr-1.25",
-            "cursor-crosshair",
-            issue("flow-out") && "border-destructive text-destructive",
-            graph.connection?.nodeId === node.id &&
-              graph.connection.kind === "flow" &&
-              "border-primary text-primary",
-          )}
-          disabled={!props.canEdit}
-          onClick={() => graph.begin({ kind: "flow", nodeId: node.id })}
-        >
-          {t(style.outLabel)}
-        </Button>
-      ) : null}
-      {node.type !== "start" ? (
-        <PlanFlowHandle
-          id="flow-in"
-          type="target"
-          kind="flow"
+    <>
+      {dots.hasIn ? (
+        <PlanFlowDot
+          {...shared}
+          side="in"
+          label={t("plans.flowIn")}
           hasIssue={issue("flow-in")}
         />
       ) : null}
-      {node.type !== "end" ? (
-        <PlanFlowHandle
-          id="flow-out"
-          type="source"
-          kind="flow"
+      {dots.hasOut ? (
+        <PlanFlowDot
+          {...shared}
+          side="out"
+          label={dots.outLabel ?? t("plans.flowOut")}
           hasIssue={issue("flow-out")}
         />
       ) : null}
-    </div>
+    </>
   );
 }

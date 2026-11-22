@@ -49,6 +49,13 @@ export interface AgentPlanNodeTemplate {
   readonly type: AgentPlanTemplateType;
   /** Whether the template is shared with a team instead of personal. */
   readonly isShared: boolean;
+  /**
+   * Whether the reading person owns the template.
+   * @remarks
+   * Only the owner renames, replaces or deletes a template, shared ones
+   * included; the server checks this again on every change.
+   */
+  readonly isOwn: boolean;
   /** When it was saved, as stored: `YYYY-MM-DD HH:MM:SS` in UTC. */
   readonly createdAt: string;
   readonly node: AgentPlanTemplateNode;

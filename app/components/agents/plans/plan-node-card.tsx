@@ -17,7 +17,7 @@ import { planLoopMemberResult } from "./plan-loop-summary";
 import { planRunGroupSession } from "./plan-group-session";
 import { PLAN_NODE_TEXT } from "./plan-node-text";
 import { PlanAgentCard } from "./plan-node-card/plan-agent-card";
-import { PlanCard } from "./plan-node-card/plan-card";
+import { PlanCard, PLAN_CARD_BODY } from "./plan-node-card/plan-card";
 import { PlanDecisionCard } from "./plan-node-card/plan-decision-card";
 import { PlanGitCloseoutCard } from "./plan-node-card/plan-git-closeout-card";
 import { PlanScriptCard } from "./plan-node-card/plan-script-card";
@@ -25,15 +25,15 @@ import { PlanStackCard } from "./plan-node-card/plan-stack-card";
 import { PlanSwarmCard } from "./plan-swarm/plan-swarm-card";
 import { PlanSourceCard } from "./plan-node-card/plan-source-card";
 import { PlanAssetCard } from "./plan-node-card/plan-asset-card";
-import { PlanJumpCard, PlanRunBadge } from "./plan-jump/plan-jump-card";
+import { PlanJumpCard } from "./plan-jump/plan-jump-card";
 import {
   planJumpPorts,
   planNodePortSignature,
 } from "./plan-jump/plan-jump-model";
-import { PlanPortGrid } from "./plan-jump/plan-jump-ports";
+import { PlanPortGrid, planPortGridDots } from "./plan-jump/plan-jump-ports";
 import { firstFilledText } from "./plan-jump/plan-jump-text";
 import { PlanSignalRunLine } from "./plan-jump/plan-signal-run";
-import { planRunCardClass } from "./plan-status";
+import { PlanRunMarker, planRunCardClass } from "./plan-status";
 
 import type { NodeProps } from "@xyflow/react";
 import type {
@@ -59,10 +59,9 @@ function nodeResult(
 /**
  * Custom React Flow cards retain the Pages instance, ports and recorded run states.
  * @remarks
- * One card family: compact start and end, parameter, ticket and decision
- * cards of medium size and agent and script cards as tall as their inputs.
- * Jump and signal cards are as tall as their ports. Frames keep their own
- * design.
+ * One card family: start and end as compact pills, every other card 340 px
+ * wide with the shared header and two port columns, as tall as its rows.
+ * Loop and group are containers with a two-line header.
  */
 export function PlanNodeCard({
   data: { node },
@@ -176,6 +175,31 @@ function usePlanFlowPorts(
   }, [id, ports, update]);
 }
 
+/** The signal name as the first row of the input column: its label and its value field. */
+function SignalNameRow(props: {
+  readonly signalName: string;
+}): React.ReactElement {
+  const { t } = useTranslation();
+  return (
+    <div className="grid h-8 grid-cols-[2.75rem_minmax(0,1fr)] items-center gap-1">
+      <span
+        className={cn("truncate text-muted-foreground", PLAN_NODE_TEXT.field)}
+      >
+        {t("plans.field.name")}
+      </span>
+      <span
+        title={props.signalName}
+        className={cn(
+          "flex h-6 max-w-[6.5rem] min-w-0 items-center rounded-md bg-muted px-2 font-mono",
+          PLAN_NODE_TEXT.field,
+        )}
+      >
+        <span className="truncate">{props.signalName}</span>
+      </span>
+    </div>
+  );
+}
+
 function PlanSignalCard(props: {
   readonly signal: AgentPlanSignal;
   readonly result: AgentPlanStepResult | undefined;
@@ -185,6 +209,7 @@ function PlanSignalCard(props: {
   const { draft, graph, onEdit } = usePlanFlowContext();
   const { signal, result } = props;
   const label = firstFilledText(signal.name) || t("plans.signal.title");
+  const ports = planJumpPorts(draft, signal);
   function edit(): void {
     graph.select(signal.id);
     onEdit?.(signal.id);
@@ -195,31 +220,21 @@ function PlanSignalCard(props: {
       label={label}
       title={t("plans.signal.title")}
       subtitle={t("plans.signal.caption")}
-      runClass={props.hasRun ? planRunCardClass(result) : undefined}
-      status={<PlanRunBadge hasRun={props.hasRun} result={result} />}
+      stateClass={props.hasRun ? planRunCardClass(result) : undefined}
+      status={<PlanRunMarker hasRun={props.hasRun} result={result} />}
+      flowDots={planPortGridDots(ports, t)}
       onEdit={edit}
     >
-      <div
-        data-plan-signal={signal.id}
-        className="flex flex-col gap-1.5 px-3 pt-1 pb-2"
-      >
-        <p
-          title={signal.signalName}
-          className={cn(
-            "truncate font-mono font-medium text-foreground",
-            PLAN_NODE_TEXT.field,
-          )}
-        >
-          {signal.signalName}
-        </p>
+      <div data-plan-signal={signal.id} className={PLAN_CARD_BODY}>
         {props.hasRun && result?.signal ? (
           <PlanSignalRunLine signal={result.signal} />
         ) : null}
         <PlanPortGrid
           nodeId={signal.id}
           label={label}
-          ports={planJumpPorts(draft, signal)}
+          ports={ports}
           bindings={signal.bindings}
+          leadingInputs={<SignalNameRow signalName={signal.signalName} />}
         />
       </div>
     </PlanCard>

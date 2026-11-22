@@ -9,7 +9,7 @@ import {
 
 import { PlanFlowHandle } from "./plan-flow-handle";
 import { planInTargetClass } from "./plan-flow-ports";
-import { PLAN_LOOP_PORT_ROW, planNodeLabel } from "./plan-layout";
+import { planNodeLabel } from "./plan-layout";
 import { PLAN_LOOP_INPUT_TOP } from "./plan-loop-ports";
 import { PLAN_NODE_TEXT } from "./plan-node-text";
 
@@ -51,14 +51,14 @@ function sourceName(
 }
 
 /**
- * The labelled port rows of a loop container: In and Out, then the Count or While input.
+ * The count or while input of a loop container: a mark in the second header
+ * line and its data dot on the left container edge, level with that line.
  *
  * @remarks
- * Inputs sit on the left edge and the exit on the right, like on every card.
  * The data input takes a parameter or the count output of a stack for the
  * count, or a boolean parameter for a while loop; a line drawn to it binds it.
  */
-export function PlanLoopPortRows(props: {
+export function PlanLoopInputMark(props: {
   readonly loop: AgentPlanLoop;
   readonly draft: AgentPlanInput;
   readonly sources: AgentPlanSources;
@@ -79,37 +79,28 @@ export function PlanLoopPortRows(props: {
   );
   const inputText = inputLabel({ loop, isWhile, bound, t });
   return (
-    <div
-      className={cn("pointer-events-auto px-5", PLAN_NODE_TEXT.meta)}
-      data-plan-loop-ports={loop.id}
-    >
-      <div
-        className="flex items-center justify-between gap-4 font-medium text-foreground"
-        style={{ height: PLAN_LOOP_PORT_ROW }}
+    <>
+      <button
+        type="button"
+        data-plan-in={loop.id}
+        data-plan-port={input}
+        data-plan-loop-ports={loop.id}
+        aria-label={t("plans.loops.inputLabel", {
+          input: inputText,
+          name: loop.name,
+        })}
+        title={inputText}
+        className={cn(
+          "nodrag nopan h-[22px] max-w-48 min-w-0 truncate rounded-md border border-dashed border-plan-parameter/50 bg-surface px-2 text-left font-medium text-plan-parameter disabled:cursor-default",
+          PLAN_NODE_TEXT.meta,
+          hasIssue && "border-destructive text-destructive",
+          planInTargetClass(graph, loop.id, input),
+        )}
+        disabled={!props.canEdit}
+        onClick={() => graph.connect(loop.id, input)}
       >
-        <span>{t("plans.flowInShort")}</span>
-        <span>{t("plans.loops.outAfter")}</span>
-      </div>
-      <div className="flex items-center" style={{ height: PLAN_LOOP_PORT_ROW }}>
-        <button
-          type="button"
-          data-plan-in={loop.id}
-          data-plan-port={input}
-          aria-label={t("plans.loops.inputLabel", {
-            input: inputText,
-            name: loop.name,
-          })}
-          className={cn(
-            "nodrag nopan -ml-1 max-w-full truncate rounded-md border border-dashed border-plan-parameter/50 px-1.5 py-0.5 text-left text-plan-parameter disabled:cursor-default",
-            hasIssue && "border-destructive text-destructive",
-            planInTargetClass(graph, loop.id, input),
-          )}
-          disabled={!props.canEdit}
-          onClick={() => graph.connect(loop.id, input)}
-        >
-          {inputText}
-        </button>
-      </div>
+        {inputText}
+      </button>
       <PlanFlowHandle
         id={`input:${input}`}
         type="target"
@@ -117,7 +108,7 @@ export function PlanLoopPortRows(props: {
         hasIssue={hasIssue}
         style={LEFT_EDGE}
       />
-    </div>
+    </>
   );
 }
 

@@ -121,3 +121,26 @@ export async function insertPlanTemplate(
     return { ok: false, error: "general" };
   }
 }
+
+/**
+ * Deletes a template of the signed-in person.
+ * @remarks
+ * Only the owner deletes a template; the server refuses everyone else with
+ * `template_owner_only`. Copies inserted into plans before stay unchanged.
+ */
+export async function deletePlanTemplate(
+  target: PlanTemplateTarget,
+  templateId: string,
+): Promise<PlanTemplateResult<string>> {
+  try {
+    const response = await post(target, {
+      intent: "delete-template",
+      templateId,
+    });
+    if (!response.ok) return await failure(response);
+    return { ok: true, value: templateId };
+  } catch (error: unknown) {
+    console.error("Pages could not delete the node template.", error);
+    return { ok: false, error: "general" };
+  }
+}

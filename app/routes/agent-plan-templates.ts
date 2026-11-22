@@ -58,10 +58,12 @@ export async function loader({
 }
 
 /**
- * Saves a node configuration as a template, or returns a checked copy of one for the draft.
+ * Saves a node configuration as a template, returns a checked copy of one for the draft, or deletes one.
  * @remarks
- * Neither intent changes a plan: an inserted copy joins the editor's draft
- * and is stored only with the plan's next save.
+ * No intent changes a plan: an inserted copy joins the editor's draft and is
+ * stored only with the plan's next save, and a deleted template leaves the
+ * copies inserted before unchanged. Only the owner deletes a template, shared
+ * ones included; the service checks this on every request.
  */
 export async function action(args: Route.ActionArgs): Promise<Response> {
   let intent = "";
@@ -91,6 +93,17 @@ export async function action(args: Route.ActionArgs): Promise<Response> {
       );
       return Response.json(
         { ok: true, intent, node },
+        { headers: AGENT_NO_STORE },
+      );
+    }
+    if (intent === "delete-template") {
+      const templateId = readPlanText(formData.get("templateId"));
+      await templates.remove(user.id, {
+        workspaceId: readPlanText(formData.get("workspaceId")),
+        templateId,
+      });
+      return Response.json(
+        { ok: true, intent, templateId },
         { headers: AGENT_NO_STORE },
       );
     }

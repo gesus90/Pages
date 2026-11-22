@@ -6,9 +6,11 @@ import { cn } from "@/app/lib/cn";
 import { usePlanFlowContext } from "../plan-flow-context";
 import { PlanFlowHandle } from "../plan-flow-handle";
 import { PLAN_NODE_TEXT } from "../plan-node-text";
+import { PLAN_CARD_ROW } from "./plan-card";
 
 /**
- * The violet data OUT that hands an agent's or a script's result to a later node.
+ * The data OUT that hands an agent's or a script's result to a later node,
+ * right-aligned in the output column with its dot on the card edge.
  * @remarks
  * An agent's row reads "Ergebnis OUT", apart from its boolean result; a
  * script's row names its declared output. A text result can also end at the
@@ -25,7 +27,7 @@ export function PlanResultOut(props: {
     graph.connection?.nodeId === props.nodeId &&
     graph.connection.kind === "result";
   return (
-    <div className="relative flex h-7 items-center justify-end">
+    <div className={cn(PLAN_CARD_ROW, "justify-end")}>
       <Button
         size="xs"
         variant="ghost"
@@ -35,7 +37,7 @@ export function PlanResultOut(props: {
             : t("plans.scripts.outputOut", { name: props.output })
         }
         className={cn(
-          "nodrag nopan -mr-1.25 h-7 min-h-7 max-w-full cursor-crosshair border border-transparent px-1 font-medium hover:bg-surface/70 xl:min-h-7 xl:px-1 xl:text-xs",
+          "nodrag nopan -mr-1 h-7 min-h-7 max-w-full cursor-crosshair border border-transparent px-1 font-normal text-muted-foreground hover:bg-muted xl:min-h-7 xl:px-1 xl:text-xs",
           PLAN_NODE_TEXT.field,
           isActive && "text-primary",
         )}

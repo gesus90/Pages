@@ -36,19 +36,28 @@
   pointer-events: none;
 }
 
+/* A port is a hollow dot: 10 px with a 2 px ring in the colour of what it
+   carries, on the surface colour. A value input is 8 px with a 1.5 px ring. */
 .canvas .portHandle {
-  width: 0.75rem;
-  height: 0.75rem;
+  width: 0.625rem;
+  height: 0.625rem;
+  min-width: 0;
+  min-height: 0;
   border: 0;
   border-radius: 50%;
   background: transparent;
+}
+
+.canvas .inputHandle {
+  width: 0.5rem;
+  height: 0.5rem;
 }
 
 /* React Flow anchors edges at the measured circle. A transparent pseudo-element
    expands pointer and touch hits to 32 px without moving that anchor. */
 .canvas .portHandle::before {
   position: absolute;
-  inset: -0.625rem;
+  inset: calc(50% - 1rem);
   content: "";
   border-radius: inherit;
 }
@@ -57,17 +66,23 @@
   position: absolute;
   inset: 0;
   content: "";
+  border: 2px solid var(--plan-port-color);
   border-radius: inherit;
-  background: var(--plan-port-color);
-  box-shadow: 0 0 0 2px var(--color-surface);
+  background: var(--color-surface);
 }
 
+.canvas .inputHandle::after {
+  border-width: 1.5px;
+}
+
+/* A port row keeps the 14 px inset of the card body, so the dot is centred on
+   the 1 px card edge; a header or frame dot sets its own place inline. */
 .canvas .portHandle:global(.react-flow__handle-left) {
-  left: -13px;
+  left: var(--plan-port-edge, -15px);
 }
 
 .canvas .portHandle:global(.react-flow__handle-right) {
-  right: -13px;
+  right: var(--plan-port-edge, -15px);
 }
 
 /* Anchors share the place of a visible dot and only hold the end of a line. */
@@ -80,12 +95,11 @@
   display: none;
 }
 
-.canvas .flowHandle {
-  --plan-port-color: var(--color-status-active);
-}
-
+/* Flow and value ports are calm grey dots; the ports of a branch, an event,
+   a signal or a failure keep the colour that names them. */
+.canvas .flowHandle,
 .canvas .dataHandle {
-  --plan-port-color: var(--color-plan-parameter);
+  --plan-port-color: var(--color-muted-foreground);
 }
 
 /* The boolean result and the condition of a decision, both branches and the
@@ -128,10 +142,9 @@
   transform: rotate(45deg);
 }
 
-.canvas .timeoutHandle::after {
-  background: var(--color-surface);
-  border: 2px solid var(--plan-port-color);
-  box-shadow: none;
+.canvas .errorHandle::after {
+  border: 0;
+  background: var(--plan-port-color);
 }
 
 .canvas .invalidHandle::after {

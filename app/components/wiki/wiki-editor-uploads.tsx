@@ -15,8 +15,10 @@ export function AttachmentButton({
   const { t } = useTranslation();
   const input = useRef<HTMLInputElement | null>(null);
 
+  // The positioned wrapper keeps the visually hidden input inside it, so the
+  // input cannot extend the scroll height of the document.
   return (
-    <>
+    <span className="relative inline-flex">
       <Button
         aria-label={t("wiki.editor.attach")}
         size="icon-sm"
@@ -38,7 +40,7 @@ export function AttachmentButton({
           event.target.value = "";
         }}
       />
-    </>
+    </span>
   );
 }
 

@@ -1,12 +1,12 @@
 # Backend unit tests
 
-Run the configured backend suite with `pnpm run test:backend`. Test discovery
-and V8 coverage both derive their scope from `BACKEND_COVERAGE_SECTIONS` in
-`vitest.backend.config.ts`. The current sections cover Discord, cache and
-concurrency; GitHub, security and setup; storage, Google, config and remote; and
-auth and logging. Tests outside those directories are not part of this command. Tests and
-declaration files are excluded from coverage; source modules in the configured
-directories are included even when unimported.
+Run the configured backend suite with `pnpm run test:backend`.
+`BACKEND_COVERAGE_SECTIONS` in `vitest.backend.config.ts` defines the required
+scope for Discord, cache, concurrency, GitHub, security, setup, storage,
+Google, config, remote, auth, logging and the top-level backend runtime.
+Test discovery includes those sections and the local agent-session directory.
+Tests and declaration files are excluded from coverage. Source modules in the
+coverage sections are included even when unimported.
 
 Each source module must reach 100% statements, branches, functions and lines.
 A metric with no instrumentable items is shown as `n/a`. The report reconciles
@@ -24,5 +24,8 @@ does the same for the fourth section. The
 [agent catalog, runtime and simulation inventory](BackendAgentCatalogRuntimeSimulation.md)
 lists the modules that have no tests and no coverage section yet. The
 [agent providers inventory](BackendAgentProviders.md) does the same for
-`backend/agents/providers`. Tests use isolated inputs and mock
-external services; they must not access live services or instance data.
+`backend/agents/providers`. The [local agent-session inventory](LocalAgentSessions.md#aktueller-testbestand)
+records the local modules and the remaining measurement and operating checks.
+The [backend error inventory](BackendError.md) describes the error modules whose
+coverage section is pending. Tests use isolated inputs and mock external
+services. Live services and instance data are outside their scope.

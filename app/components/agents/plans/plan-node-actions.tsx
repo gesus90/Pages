@@ -10,6 +10,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/app/components/ui/dropdown-menu";
+import { cn } from "@/app/lib/cn";
 
 interface PlanNodeActionsProps {
   /** The node's name for the menu button; never a technical identifier. */
@@ -19,8 +20,8 @@ interface PlanNodeActionsProps {
   /** Saves the node's configuration as a template; only parameter, agent and group nodes offer it. */
   readonly onSaveTemplate?: () => void;
   readonly shouldFocusCanvasOnRemove?: boolean;
-  /** The large ticket card shows larger dots. */
-  readonly size?: "default" | "large";
+  /** On a node card or a container the button is 28 px with an 8 px corner. */
+  readonly size?: "default" | "card";
 }
 
 // Pointer and key events of the menu stay out of the canvas: no drag, pan or second delete.
@@ -82,22 +83,17 @@ export function PlanNodeActions({
           id={triggerId}
           size="icon-sm"
           variant="ghost"
-          className="nodrag nopan shrink-0 text-muted-foreground"
+          className={cn(
+            "nodrag nopan shrink-0 text-muted-foreground",
+            size === "card" && "size-7 min-h-7 rounded-lg xl:min-h-7",
+          )}
           disabled={disabled}
           aria-label={t("settings.agents.actionsFor", { name: label })}
           onPointerDown={keepInMenu}
           onClick={keepInMenu}
           onDoubleClick={keepInMenu}
         >
-          {size === "large" ? (
-            <MoreHorizontal
-              className="size-[1.625rem]"
-              strokeWidth={2.35}
-              aria-hidden="true"
-            />
-          ) : (
-            <MoreHorizontal className="size-4" aria-hidden="true" />
-          )}
+          <MoreHorizontal className="size-4" aria-hidden="true" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent
@@ -150,7 +146,7 @@ export function PlanNodeEditButton(props: {
     <Button
       size="icon-sm"
       variant="ghost"
-      className="nodrag nopan shrink-0 text-muted-foreground"
+      className="nodrag nopan size-7 min-h-7 shrink-0 rounded-lg text-muted-foreground xl:min-h-7"
       aria-label={label}
       title={label}
       onPointerDown={keepInMenu}

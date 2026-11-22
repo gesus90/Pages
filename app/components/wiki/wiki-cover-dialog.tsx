@@ -178,7 +178,7 @@ export function WikiCoverDialog({
             {t(`wiki.errors.${errorCode}`)}
           </p>
         ) : null}
-        <div className="mt-6 flex justify-between gap-2">
+        <div className="relative mt-6 flex justify-between gap-2">
           <Button
             isPending={upload.isUploading}
             variant="outline"
@@ -190,24 +190,24 @@ export function WikiCoverDialog({
           <Button variant="ghost" onClick={onClose}>
             {t("wiki.dialog.cancel")}
           </Button>
+          <input
+            ref={input}
+            accept="image/jpeg,image/png,image/gif,image/webp"
+            aria-label={t("wiki.cover.upload")}
+            className="sr-only"
+            tabIndex={-1}
+            type="file"
+            onChange={(event) => {
+              const [file] = event.target.files ?? [];
+
+              event.target.value = "";
+
+              if (file) {
+                void upload.start(file);
+              }
+            }}
+          />
         </div>
-        <input
-          ref={input}
-          accept="image/jpeg,image/png,image/gif,image/webp"
-          aria-label={t("wiki.cover.upload")}
-          className="sr-only"
-          tabIndex={-1}
-          type="file"
-          onChange={(event) => {
-            const [file] = event.target.files ?? [];
-
-            event.target.value = "";
-
-            if (file) {
-              void upload.start(file);
-            }
-          }}
-        />
       </DialogContent>
     </Dialog>
   );
