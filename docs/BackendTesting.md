@@ -20,5 +20,9 @@ coverage directory even if the test command fails.
 The [Discord, cache and concurrency inventory](BackendDiscordCacheConcurrency.md)
 and [GitHub, security and setup inventory](BackendGitHubSecuritySetup.md) describe
 the modules and their external boundaries. The [auth and logging inventory](BackendAuthLogging.md)
-does the same for the fourth section. Tests use isolated inputs and mock
+does the same for the fourth section. The
+[agent catalog, runtime and simulation inventory](BackendAgentCatalogRuntimeSimulation.md)
+lists the modules that have no tests and no coverage section yet. The
+[agent providers inventory](BackendAgentProviders.md) does the same for
+`backend/agents/providers`. Tests use isolated inputs and mock
 external services; they must not access live services or instance data.
