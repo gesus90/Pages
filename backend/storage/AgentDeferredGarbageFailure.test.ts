@@ -1,5 +1,7 @@
 import { expect, it, vi } from "vitest";
 
+import * as logger from "@/backend/logging/Logger";
+
 import type * as FileSystem from "node:fs/promises";
 import type { DatabaseTransaction } from "@/backend/database/Database";
 
@@ -12,6 +14,7 @@ vi.mock("node:fs/promises", async (importOriginal) => ({
 import { AgentDeferredGarbage } from "./AgentDeferredGarbage";
 
 it("retains a deletion after a filesystem permission failure and retries it later", async () => {
+  const logEvent = vi.spyOn(logger, "logEvent").mockImplementation(() => {});
   vi.useFakeTimers();
   vi.setSystemTime(10000);
   const failure = Object.assign(new Error("permission denied"), {
@@ -41,6 +44,13 @@ it("retains a deletion after a filesystem permission failure and retries it late
   try {
     collector.schedule({ query, execute, transaction });
     await collector.idle();
+    expect(logEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event: "agent.payload_garbage.retained",
+        level: "warn",
+        error: failure,
+      }),
+    );
     expect(execute).not.toHaveBeenCalled();
     collector.schedule({ query, execute, transaction });
     await collector.idle();
@@ -53,5 +63,6 @@ it("retains a deletion after a filesystem permission failure and retries it late
   } finally {
     await collector.close();
     vi.useRealTimers();
+    logEvent.mockRestore();
   }
 });

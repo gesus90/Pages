@@ -13,6 +13,7 @@ import path from "node:path";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
 import { pagesTempDirectory } from "@/backend/config/PagesTempDirectory";
+import * as logger from "@/backend/logging/Logger";
 
 import type { StorageMaintenanceOptions } from "./StorageMaintenance";
 
@@ -175,6 +176,7 @@ it("removes old temporary trees while retaining active jobs, recent descendants 
 });
 
 it("publishes a bounded usage warning in descending folder size", async () => {
+  const logEvent = vi.spyOn(logger, "logEvent").mockImplementation(() => {});
   const dataDirectory = path.join(directory, "data");
   for (let index = 1; index <= 6; index += 1) {
     const folder = path.join(dataDirectory, `folder${index}`);
@@ -191,6 +193,10 @@ it("publishes a bounded usage warning in descending folder size", async () => {
     storage: usage,
   }));
   await maintenance.run(5000);
+  expect(logEvent).toHaveBeenCalledWith(
+    expect.objectContaining({ event: "storage.limit_exceeded", level: "warn" }),
+  );
+  logEvent.mockRestore();
   expect(warning).toHaveBeenCalledWith(5000, {
     totalBytes: 21,
     limitBytes: 1,
@@ -266,6 +272,7 @@ it("falls back from invalid or failed retention settings and ignores overlapping
 });
 
 it("uses the default warning limit and respects a suppressed warning", async () => {
+  const logEvent = vi.spyOn(logger, "logEvent").mockImplementation(() => {});
   const dataDirectory = path.join(directory, "data");
   const folder = path.join(dataDirectory, "folder");
   await mkdir(folder, { recursive: true });
@@ -280,6 +287,10 @@ it("uses the default warning limit and respects a suppressed warning", async () 
   const second = fixture({ readWarningBytes: async () => 1 });
   second.claim.mockResolvedValue(true);
   await second.maintenance.run(6000);
+  expect(logEvent).toHaveBeenCalledWith(
+    expect.objectContaining({ event: "storage.limit_exceeded", level: "warn" }),
+  );
+  logEvent.mockRestore();
   expect(second.warning).toHaveBeenCalledWith(6000, {
     totalBytes: 9,
     limitBytes: 1,

@@ -123,6 +123,13 @@ vi.mock("@/backend/service/mobile/speech/PagesPicaMobileSpeech", () => ({
     }
   },
 }));
+vi.mock("@/backend/service/mobile/plans/PagesPicaMobilePlanControl", () => ({
+  PagesPicaMobilePlanControl: class {
+    public constructor(resolver: unknown) {
+      mocks.record("control", resolver);
+    }
+  },
+}));
 vi.mock("@/backend/service/mobile/plans/PicaMobilePlanRunObserver", () => ({
   PicaMobilePlanRunObserver: class {
     public constructor() {
@@ -169,6 +176,8 @@ const SERVICES = {
   sessionService: "sessions",
   picaMobileNotifications: "notifications",
   agentPlanOverviewService: "overview",
+  agentPlanService: "plan-service",
+  agentPlanCommands: "plan-commands",
   chatSessionService: "chat-sessions",
   chatService: "chat",
   picaAcpService: "acp",
@@ -341,6 +350,19 @@ describe("obtainPicaMobileGateway endpoints", () => {
     expect(mocks.addObserver).toHaveBeenCalledWith(
       isRecord(plans) ? plans.observer : null,
     );
+  });
+
+  it("gives the plan control its services on demand", async () => {
+    obtainPicaMobileGateway(new StubRuntime(createConfig()));
+
+    await expect(
+      resolveWith(firstConstructed("control"), null),
+    ).resolves.toEqual({
+      authService: "auth",
+      agentPlanOverviewService: "overview",
+      agentPlanService: "plan-service",
+      agentPlanCommands: "plan-commands",
+    });
   });
 
   it("uses the conversations endpoint of the shared conversation events", () => {

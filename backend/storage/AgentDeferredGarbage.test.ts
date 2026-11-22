@@ -12,6 +12,7 @@ import path from "node:path";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
 import { pagesTempDirectory } from "@/backend/config/PagesTempDirectory";
+import * as logger from "@/backend/logging/Logger";
 
 import { AgentDeferredGarbage } from "./AgentDeferredGarbage";
 
@@ -185,6 +186,7 @@ it("retains unknown intents and observes the retry delay without blocking known 
 });
 
 it("keeps a failed deletion queued while continuing other entries", async () => {
+  const logEvent = vi.spyOn(logger, "logEvent").mockImplementation(() => {});
   const journal = path.join(directory, "local-sessions", id, "journal");
   await mkdir(journal, { recursive: true });
   await writeFile(
@@ -196,6 +198,13 @@ it("keeps a failed deletion queued while continuing other entries", async () => 
   const collector = new AgentDeferredGarbage({ directory, removePayload });
   collector.schedule(database);
   await collector.idle();
+  expect(logEvent).toHaveBeenCalledWith(
+    expect.objectContaining({
+      event: "agent.payload_garbage.retained",
+      level: "warn",
+    }),
+  );
+  logEvent.mockRestore();
   expect(database.execute).toHaveBeenCalledTimes(1);
   expect(database.execute).toHaveBeenCalledWith(expect.any(String), {
     storage_name: `plan-homes/${id}/`,
