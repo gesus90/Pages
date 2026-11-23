@@ -2,7 +2,10 @@ import path from "node:path";
 
 import { expect, it } from "vitest";
 
-import { buildBackendCoverageInventory } from "../../scripts/backend-coverage-report";
+import {
+  buildBackendCoverageInventory,
+  type BackendCoverageEntry,
+} from "../../scripts/backend-coverage-report";
 
 it("inventories only configured sections and distinguishes complete, partial and missing measurements", () => {
   const root = process.cwd();
@@ -68,4 +71,23 @@ it("inventories only configured sections and distinguishes complete, partial and
   expect(
     entries.find((entry) => entry.file.endsWith("SetupService.ts"))?.status,
   ).toBe("missing");
+});
+
+it("treats an empty-class module with zero measurement points as not applicable", () => {
+  const root = process.cwd();
+  const empty = { total: 0, covered: 0, pct: 100 };
+  const metrics = {
+    statements: empty,
+    branches: empty,
+    functions: empty,
+    lines: empty,
+  };
+  const entries = buildBackendCoverageInventory(root, {
+    [path.resolve(root, "backend/error/AgentAuthorizationError.ts")]: metrics,
+  });
+  const find = (suffix: string): BackendCoverageEntry | undefined =>
+    entries.find((entry) => entry.file.endsWith(suffix));
+
+  expect(find("AgentAuthorizationError.ts")?.status).toBe("not-applicable");
+  expect(find("PicaAuthorizationError.ts")?.status).toBe("missing");
 });

@@ -270,7 +270,7 @@ function googleAudioOf(part: {
       mimeType: "audio/wav",
       bytes: pcmToWav(bytes, pcmRateOf(part.mimeType)),
     };
-  const type = part.mimeType.split(";")[0]?.trim().toLowerCase() ?? "";
+  const type = part.mimeType.replace(/;.*$/su, "").trim().toLowerCase();
   const mimeType = type === "audio/x-wav" ? "audio/wav" : type;
   return Object.hasOwn(AGENT_AUDIO_MIME_TYPES, mimeType)
     ? { mimeType, bytes }

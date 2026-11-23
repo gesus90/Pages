@@ -76,3 +76,32 @@ it("retries retirement itself if the shutdown boundary temporarily refuses it", 
   expect(retire).toHaveBeenCalledTimes(2);
   stop();
 });
+
+it("does not start a second check while the previous one is still reading", async () => {
+  let release: (run: { status: "failed" }) => void = () => undefined;
+  const readRun = vi.fn(
+    () =>
+      new Promise<{ status: "failed" }>((resolve) => {
+        release = resolve;
+      }),
+  );
+  const retire = vi.fn(async () => undefined);
+  const stop = watchLocalOwnerRetirement({ readRun, retire });
+  await vi.advanceTimersByTimeAsync(3000);
+  expect(readRun).toHaveBeenCalledOnce();
+  release({ status: "failed" });
+  await vi.advanceTimersByTimeAsync(0);
+  expect(retire).toHaveBeenCalledOnce();
+  stop();
+});
+
+it("retires a owner whose run no longer exists", async () => {
+  const retire = vi.fn(async () => undefined);
+  const stop = watchLocalOwnerRetirement({
+    readRun: async () => null,
+    retire,
+  });
+  await vi.advanceTimersByTimeAsync(1000);
+  expect(retire).toHaveBeenCalledOnce();
+  stop();
+});

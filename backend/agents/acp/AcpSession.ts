@@ -210,7 +210,7 @@ export class AcpSession implements PlanSession {
     this.mcpReadiness = new AcpMcpReadiness(this.connection, this.state);
     this.registerOpenCodeHandling();
     const { listener } = context;
-    if (listener)
+    if (listener?.closed)
       this.connection.signal.addEventListener("abort", listener.closed, {
         once: true,
       });

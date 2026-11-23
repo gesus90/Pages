@@ -300,12 +300,13 @@ export class AntigravityCli implements CliLoginAdapter {
     return this.withProtocol(home, signal, async (protocol) => {
       await protocol.initialize();
       const session = await protocol.newSession(home);
-      const entries = pickerEntries(session.configOptions ?? []);
+      const options = session.configOptions ?? [];
+      const entries = pickerEntries(options);
       const models: AgentCatalogModel[] = [];
       for (const entry of entries) {
         const model = await readCatalogModel(protocol, {
           sessionId: session.sessionId,
-          options: session.configOptions ?? [],
+          options,
           entry,
           signal,
         });

@@ -202,7 +202,7 @@ export class CodexThreadUsage {
         constants.O_RDONLY | constants.O_NOFOLLOW,
       );
       try {
-        await this.readRecords(handle, baseline);
+        await this.readRecords(handle, this.threadId, baseline);
       } finally {
         await handle.close();
       }
@@ -215,6 +215,7 @@ export class CodexThreadUsage {
 
   private async readRecords(
     handle: FileHandle,
+    threadId: string,
     baseline: boolean,
   ): Promise<void> {
     const bytes = Buffer.alloc(CHUNK_BYTES);
@@ -223,6 +224,7 @@ export class CodexThreadUsage {
       if (chunk.bytesRead === 0) return;
       this.offset += chunk.bytesRead;
       await this.applyCounts(
+        threadId,
         this.consume(bytes.subarray(0, chunk.bytesRead).toString("utf8")),
         baseline,
       );
@@ -230,15 +232,15 @@ export class CodexThreadUsage {
   }
 
   private async applyCounts(
+    threadId: string,
     counts: readonly CodexTokenCounts[],
     baseline: boolean,
   ): Promise<void> {
-    if (!this.threadId) return;
     for (const totals of counts) {
       if (baseline) this.latest = codexHighWater(this.latest, totals);
       else
         await this.publish({
-          threadId: this.threadId,
+          threadId,
           totals,
           baseline: false,
           model: this.model,
@@ -252,8 +254,10 @@ export class CodexThreadUsage {
   }
 
   private consume(chunk: string): CodexTokenCounts[] {
-    const lines = (this.pending + chunk).split("\n");
-    this.pending = lines.pop() ?? "";
+    const text = this.pending + chunk;
+    const end = text.lastIndexOf("\n");
+    this.pending = text.slice(end + 1);
+    const lines = end < 0 ? [] : text.slice(0, end).split("\n");
     const counts: CodexTokenCounts[] = [];
     for (const line of lines) {
       if (!this.isSkipping) {

@@ -110,6 +110,31 @@ function declarationReason(file: string): string | undefined {
   return undefined;
 }
 
+function isEmptyClassStatement(statement: ts.Statement): boolean {
+  return ts.isClassDeclaration(statement) && statement.members.length === 0;
+}
+
+/** An entry without any measurement point is unmeasurable only for a source of empty classes. */
+function emptyClassReason(
+  file: string,
+  metrics: ModuleCoverage | undefined,
+): string | undefined {
+  if (!metrics || METRIC_NAMES.some((name) => metrics[name].total !== 0)) {
+    return undefined;
+  }
+  const source = ts.createSourceFile(
+    file,
+    readFileSync(file, "utf8"),
+    ts.ScriptTarget.Latest,
+  );
+  return source.statements.every(
+    (statement) =>
+      isTypeOnlyStatement(statement) || isEmptyClassStatement(statement),
+  )
+    ? "Empty class declarations only; no measurable code"
+    : undefined;
+}
+
 function sectionForFile(
   file: string,
   sections: readonly { name: BackendCoverageSection; include: string }[],
@@ -210,7 +235,9 @@ export function buildBackendCoverageInventory(
     const absolutePath = path.resolve(root, file);
     const metrics = parsedSummary[absolutePath];
     const section = sectionForFile(file, BACKEND_COVERAGE_SECTIONS);
-    const reason = declarationReason(absolutePath);
+    const reason =
+      declarationReason(absolutePath) ??
+      emptyClassReason(absolutePath, metrics);
     return {
       file,
       section,

@@ -26,7 +26,9 @@ function readPath(error: Error): string | null {
  */
 export function describeError(error: unknown): string {
   if (!(error instanceof Error)) return typeof error;
-  const message = (error.message.split("\n")[0] ?? "")
+  const message = error.message
+    .split("\n", 1)
+    .join("")
     .replace(/"[^"]*"|'[^']*'|`[^`]*`/gu, "…")
     .slice(0, MESSAGE_CHARACTERS);
   const code = readCode(error);

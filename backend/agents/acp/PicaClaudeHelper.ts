@@ -85,10 +85,12 @@ function isHelperCall(
   )
     return false;
   const words = parseExactCommand(rawInput.command);
+  const [program, text] = words ?? [];
   return (
+    typeof text === "string" &&
     words?.length === 2 &&
-    words[0] === helperPath &&
-    isToolRequest(words[1] ?? "")
+    program === helperPath &&
+    isToolRequest(text)
   );
 }
 

@@ -64,7 +64,6 @@ function parseObject(text: string): Record<string, unknown> | null {
 function readCommandData(
   envelope: Record<string, unknown>,
 ): Record<string, unknown> | null {
-  if (envelope.command === undefined) return null;
   const command = readAgentObject(envelope.command);
   if (command.name !== USAGE_COMMAND) return null;
   return readAgentObject(command.data);

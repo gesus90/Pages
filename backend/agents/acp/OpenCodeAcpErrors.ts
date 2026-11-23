@@ -61,12 +61,12 @@ export function openCodeAcpFailure(
   );
 }
 
-function failedToolText(update: SessionUpdate): string {
-  if (
-    update.sessionUpdate !== "tool_call" &&
-    update.sessionUpdate !== "tool_call_update"
-  )
-    return "";
+function failedToolText(
+  update: Extract<
+    SessionUpdate,
+    { sessionUpdate: "tool_call" | "tool_call_update" }
+  >,
+): string {
   return JSON.stringify({ output: update.rawOutput, content: update.content });
 }
 

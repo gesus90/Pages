@@ -51,6 +51,11 @@ export interface CliGitHubAccess {
   readonly cleanup: () => Promise<void>;
 }
 
+/** An access whose masked values are always known while it is built. */
+interface PreparedAccess extends CliGitHubAccess {
+  readonly secrets: readonly string[];
+}
+
 interface GitHubPreparation {
   readonly runner?: boolean;
   readonly instanceId: string;
@@ -478,7 +483,7 @@ export class CliGitHubCredentials {
       },
     };
     const publishTarget = await this.writePublish(directory, routes);
-    const prepared: CliGitHubAccess = {
+    const prepared: PreparedAccess = {
       directory,
       environment: {
         ...isolatedEnvironment(directory),
@@ -543,7 +548,7 @@ export class CliGitHubCredentials {
 
   /** The bridge starts last, so no later step of the preparation can leave it running. */
   private async withBridge(
-    prepared: CliGitHubAccess,
+    prepared: PreparedAccess,
     instanceId: string,
     route: NonNullable<GitRoutes["bridge"]>,
   ): Promise<CliGitHubAccess> {
@@ -568,7 +573,7 @@ export class CliGitHubCredentials {
       environment: { ...prepared.environment, PAGES_GITHUB_ACCESS: status },
       redact: (text) =>
         prepared.redact(text).replaceAll(capability, "[redacted]"),
-      secrets: [...(prepared.secrets ?? []), capability],
+      secrets: [...prepared.secrets, capability],
       cleanup: async () => {
         await endpoint.close();
         await prepared.cleanup();

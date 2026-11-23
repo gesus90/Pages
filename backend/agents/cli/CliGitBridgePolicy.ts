@@ -92,7 +92,11 @@ function readCommand(
   payload: string,
   pushRefs: readonly string[],
 ): { readonly ref: string | null; readonly reason: string | null } {
-  const command = payload.split("\0", 1)[0]?.replace(/\n$/u, "") ?? "";
+  const end = payload.indexOf("\0");
+  const command = (end < 0 ? payload : payload.slice(0, end)).replace(
+    /\n$/u,
+    "",
+  );
   if (command.startsWith("shallow ")) return { ref: null, reason: null };
   const match = UPDATE_PATTERN.exec(command);
   if (!match?.[1] || !match[2])

@@ -178,8 +178,8 @@ export function createCliRequestEnvironment(
   return environment;
 }
 
-/** The arguments of the official sign-in command of each CLI. */
-function loginArguments(provider: CliProviderId): readonly string[] {
+/** The arguments of the official sign-in command of each CLI, or `null` for a CLI without a terminal sign-in. */
+function loginArguments(provider: CliProviderId): readonly string[] | null {
   switch (provider) {
     case "codex_cli":
       return [
@@ -195,7 +195,7 @@ function loginArguments(provider: CliProviderId): readonly string[] {
     case "opencode":
       return ["providers", "login"];
     case "antigravity":
-      return ["acp", "--login"];
+      return null;
   }
 }
 
@@ -210,11 +210,11 @@ export function createCliTerminalCommand(
   provider: CliProviderId,
   file: string,
 ): string {
-  if (provider === "antigravity") return "";
+  const args = loginArguments(provider);
+  if (args === null) return "";
   const environment = createCliEnvironment(home, provider, file, {});
   const assignments = Object.entries(environment).map(
     ([key, value]) => `${key}=${quoteCliArgument(value)}`,
   );
-  const args = loginArguments(provider);
   return `umask 077; mkdir -p ${[home.home, home.config, home.work].map(quoteCliArgument).join(" ")}; cd ${quoteCliArgument(home.work)} && env -i ${assignments.join(" ")} ${[file, ...args].map(quoteCliArgument).join(" ")}`;
 }
