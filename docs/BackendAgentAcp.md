@@ -7,13 +7,8 @@ results.
 
 ## Current state
 
-- No test file exists for any module of this directory, and no test file
-  anywhere imports them.
-- The directory is not part of `BACKEND_COVERAGE_SECTIONS` in
-  `vitest.backend.config.ts`. Adding it without tests would make the per-file
-  coverage thresholds of 100% fail, so the configuration stays unchanged until
-  the tests exist.
-- No coverage was measured for these modules. No coverage figure is claimed.
+- The [backend suite](BackendTesting.md) selects tests and requires per-file
+  coverage for this area. The inventory below records the source scope.
 - The directory holds 50 `.ts` modules, 2 `.mjs` modules and 4 `.md` files.
   47 `.ts` modules and both `.mjs` modules are executable; 3 `.ts` modules and
   the 4 `.md` files are declarative.
@@ -133,8 +128,7 @@ have no executable statements:
 - Behavior tests for each executable module above: protocol and line channel,
   handshake and capability negotiation, session lifecycle and close, turn
   control and interruption, permission decisions, driver and profile selection
-  per provider, usage and quota readings, and error paths, with the coverage
-  section added to `vitest.backend.config.ts` in the same change.
+  per provider, usage and quota readings, and error paths.
 - The earlier coverage sections keep their own evidence; this inventory does not
   re-verify them.
 - Unit tests will not prove integration, process or operating behavior of the

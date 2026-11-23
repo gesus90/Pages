@@ -42,6 +42,14 @@ jobs:
             echo ""
             echo "Checked-out revision: \`$revision\`"
             echo ""
+            if [ -f coverage/backend/section-tests.tsv ]; then
+              echo "### Test counts by section"
+              echo ""
+              echo '```'
+              cat coverage/backend/section-tests.tsv
+              echo '```'
+              echo ""
+            fi
             if [ -f coverage/backend/adopted-backend.tsv ]; then
               echo "### Adopted modules (per-file thresholds from the configuration)"
               echo ""

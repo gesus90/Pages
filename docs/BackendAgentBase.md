@@ -8,18 +8,8 @@ test or coverage results.
 
 ## Current state
 
-- No test file exists in this directory. Two test files elsewhere touch modules
-  of it incidentally:
-  `backend/service/agents/AgentPlanRunControl.test.ts` imports
-  `AgentPlanRecoveryInput.ts` and `AgentPlanSessionInput.ts`, and
-  `backend/service/runner/RunnerManagedRecovery.test.ts` imports
-  `AgentPlanScriptRunInput.ts`. Neither tests the behavior of those modules as
-  its own subject.
-- The directory is not part of `BACKEND_COVERAGE_SECTIONS` in
-  `vitest.backend.config.ts`. Adding it without tests would make the per-file
-  coverage thresholds of 100% fail, so the configuration stays unchanged until
-  the tests exist.
-- No coverage was measured for these modules. No coverage figure is claimed.
+- The [backend suite](BackendTesting.md) selects tests and requires per-file
+  coverage for this area. The inventory below records the source scope.
 - The directory holds 45 `.ts` files and nothing else: no `.mjs` module, no
   Markdown file and no patch. 42 modules are executable; 3 are declarative.
 - A read-through of the input readers, the dispatch fence, the provider failure
@@ -141,8 +131,7 @@ upstream projects.
   of every input reader (limits, unknown keys, wrong types), the dispatch fence
   for stale, paused, stopped and retained-instruction runs, provider failure
   and reset classification, temporary directory identifiers, ownership and file
-  system refusals, and the ticket asset reader without a live reader. The
-  coverage section is added to `vitest.backend.config.ts` in the same change.
+  system refusals, and the ticket asset reader without a live reader.
 - The earlier coverage sections keep their own evidence; this inventory does not
   re-verify them.
 - Unit tests will not prove integration, process or operating behavior, the

@@ -7,21 +7,8 @@ results.
 
 ## Current state
 
-- No test file exists for any module of this directory. Four test files
-  elsewhere touch modules of it incidentally:
-  `backend/storage/SharedEnvironmentMaintenance.test.ts` imports
-  `sharedPnpmBin` from `AgentSharedEnvironment.ts`,
-  `backend/service/runner/RunnerNativeCli.test.ts` calls
-  `CliGitHubCredentials.prepare`, and
-  `backend/storage/StorageMaintenance.test.ts` and
-  `backend/service/agents/recovery/AgentPlanResumeCloseout.test.ts` replace
-  `CliPlanTemporaryDirectory` and `CliProcessScan` with mocks. None of them
-  tests the behavior of a module of this directory.
-- The directory is not part of `BACKEND_COVERAGE_SECTIONS` in
-  `vitest.backend.config.ts`. Adding it without tests would make the per-file
-  coverage thresholds of 100% fail, so the configuration stays unchanged until
-  the tests exist.
-- No coverage was measured for these modules. No coverage figure is claimed.
+- The [backend suite](BackendTesting.md) selects tests and requires per-file
+  coverage for this area. The inventory below records the source scope.
 - The directory holds 62 `.ts` modules and nothing else: no `.mjs` module and
   no Markdown file. 60 modules are executable; 2 are declarative.
 - A read-through of the isolation gate, the redaction, the pausable deadline
@@ -152,8 +139,7 @@ them as `n/a` (0/0), not as covered.
 - Behavior tests for each executable module above: start and completion of a
   session, isolation and its refusal, process failures and signals,
   environments, handling and masking of secrets (credential stores, GitHub
-  credentials, redaction) and session events, with the coverage section added
-  to `vitest.backend.config.ts` in the same change.
+  credentials, redaction) and session events.
 - The earlier coverage sections keep their own evidence; this inventory does not
   re-verify them.
 - Unit tests will not prove integration, process or operating behavior of the

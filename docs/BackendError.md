@@ -22,9 +22,7 @@ mocks and must not use live data.
 
 ## Measurement scope
 
-The directory is not yet part of `BACKEND_COVERAGE_SECTIONS` in
-`vitest.backend.config.ts`; the unit tests and the coverage section for it
-follow with the test work of this area. The areas `agents`, `database` and
-`service` of `backend/` are also still open. Unit tests of these modules do not
-prove behavior at the external boundaries where the errors are translated, such
-as HTTP responses or WebSocket messages.
+The [backend suite](BackendTesting.md) selects tests for this directory and
+requires per-file coverage. The errors are translated at application boundaries
+such as HTTP responses and WebSocket messages. Those translations have their own
+behavior to verify.

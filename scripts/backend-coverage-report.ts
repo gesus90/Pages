@@ -8,10 +8,10 @@ import { z } from "zod";
 import {
   BACKEND_COVERAGE_EXCLUDES,
   BACKEND_COVERAGE_SECTIONS,
+  BACKEND_REPORTS_DIRECTORY,
+  BACKEND_TEST_RESULTS_FILE,
+  BACKEND_TEST_SECTIONS,
 } from "../vitest.backend.config";
-
-type BackendCoverageSection =
-  (typeof BACKEND_COVERAGE_SECTIONS)[number]["name"];
 
 const METRIC_NAMES = ["statements", "branches", "functions", "lines"] as const;
 const metricSchema = z.object({
@@ -28,8 +28,31 @@ const summarySchema = z.record(
     lines: metricSchema,
   }),
 );
+const testResultsSchema = z.object({
+  testResults: z.array(
+    z.object({
+      name: z.string(),
+      assertionResults: z.array(
+        z.object({
+          status: z.enum(["passed", "failed", "skipped", "todo", "pending"]),
+        }),
+      ),
+    }),
+  ),
+});
 
+type BackendCoverageSection =
+  (typeof BACKEND_COVERAGE_SECTIONS)[number]["name"];
 type ModuleCoverage = z.infer<typeof summarySchema>[string];
+
+interface BackendSectionTestCounts {
+  readonly section: BackendCoverageSection;
+  files: number;
+  total: number;
+  passed: number;
+  failed: number;
+  notRun: number;
+}
 
 /** One source module, including modules absent from the provider's report. */
 export interface BackendCoverageEntry {
@@ -37,6 +60,7 @@ export interface BackendCoverageEntry {
   readonly section: BackendCoverageSection;
   readonly status: "covered" | "open" | "not-applicable" | "missing";
   readonly metrics: ModuleCoverage | null;
+  readonly reason?: string;
 }
 
 function isTypeOnlyStatement(statement: ts.Statement): boolean {
@@ -62,28 +86,44 @@ function isTypeOnlyStatement(statement: ts.Statement): boolean {
   return false;
 }
 
-function isTypeOnlyModule(file: string): boolean {
+function declarationReason(file: string): string | undefined {
   const source = ts.createSourceFile(
     file,
     readFileSync(file, "utf8"),
     ts.ScriptTarget.Latest,
   );
-  return source.statements.every(isTypeOnlyStatement);
+  if (source.statements.every(isTypeOnlyStatement)) {
+    return "Type declarations only";
+  }
+  if (
+    source.statements.every(
+      (statement) =>
+        isTypeOnlyStatement(statement) ||
+        (ts.isExportDeclaration(statement) &&
+          statement.moduleSpecifier !== undefined &&
+          statement.exportClause !== undefined &&
+          ts.isNamedExports(statement.exportClause)),
+    )
+  ) {
+    return "Named re-exports with no implementation in this file";
+  }
+  return undefined;
 }
 
-function sectionForFile(file: string): BackendCoverageEntry["section"] {
-  const section = BACKEND_COVERAGE_SECTIONS.find((entry) =>
+function sectionForFile(
+  file: string,
+  sections: readonly { name: BackendCoverageSection; include: string }[],
+): BackendCoverageSection {
+  const section = sections.find((entry) =>
     path.matchesGlob(file, entry.include),
   );
-  if (!section) throw new Error(`Source outside coverage scope: ${file}`);
+  if (!section) throw new Error(`File outside the backend test scope: ${file}`);
   return section.name;
 }
 
 function moduleStatus(
-  file: string,
   metrics: ModuleCoverage | undefined,
 ): BackendCoverageEntry["status"] {
-  if (isTypeOnlyModule(file)) return "not-applicable";
   if (metrics) {
     if (METRIC_NAMES.every((name) => metrics[name].total === 0))
       return "missing";
@@ -94,6 +134,57 @@ function moduleStatus(
       : "open";
   }
   return "missing";
+}
+
+function writeBackendTestCounts(root: string, directory: string): void {
+  const report: unknown = JSON.parse(
+    readFileSync(path.join(directory, BACKEND_TEST_RESULTS_FILE), "utf8"),
+  );
+  const sections = countBackendTests(root, report);
+  const table = [
+    "Section\tFiles\tTests\tPassed\tFailed\tNot run",
+    ...sections.map(({ section, files, total, passed, failed, notRun }) =>
+      [section, files, total, passed, failed, notRun].join("\t"),
+    ),
+    "",
+  ].join("\n");
+  writeFileSync(path.join(directory, "section-tests.tsv"), table);
+  writeFileSync(
+    path.join(directory, "section-tests.json"),
+    `${JSON.stringify(sections, null, 2)}\n`,
+  );
+  console.info("[backend tests] Test counts by section");
+  console.info(table);
+}
+
+/** Counts collected Vitest cases by the section that selected their test file. */
+export function countBackendTests(
+  root: string,
+  report: unknown,
+): BackendSectionTestCounts[] {
+  const { testResults } = testResultsSchema.parse(report);
+  const counts = new Map<BackendCoverageSection, BackendSectionTestCounts>(
+    BACKEND_TEST_SECTIONS.map(({ name }) => [
+      name,
+      { section: name, files: 0, total: 0, passed: 0, failed: 0, notRun: 0 },
+    ]),
+  );
+  for (const { name, assertionResults } of testResults) {
+    const file = path.relative(root, path.resolve(root, name));
+    const section = sectionForFile(file, BACKEND_TEST_SECTIONS);
+    const sectionCounts = counts.get(section);
+    if (!sectionCounts) {
+      throw new Error(`Unknown backend test section: ${section}`);
+    }
+    sectionCounts.files++;
+    sectionCounts.total += assertionResults.length;
+    for (const { status } of assertionResults) {
+      if (status === "passed") sectionCounts.passed++;
+      else if (status === "failed") sectionCounts.failed++;
+      else sectionCounts.notRun++;
+    }
+  }
+  return [...counts.values()];
 }
 
 /** Lists the full measurement scope without loading any application module. */
@@ -118,12 +209,14 @@ export function buildBackendCoverageInventory(
   return collectBackendCoverageSources(root).map((file) => {
     const absolutePath = path.resolve(root, file);
     const metrics = parsedSummary[absolutePath];
-    const section = sectionForFile(file);
+    const section = sectionForFile(file, BACKEND_COVERAGE_SECTIONS);
+    const reason = declarationReason(absolutePath);
     return {
       file,
       section,
-      status: moduleStatus(absolutePath, metrics),
+      status: reason ? "not-applicable" : moduleStatus(metrics),
       metrics: metrics ?? null,
+      ...(reason ? { reason } : {}),
     };
   });
 }
@@ -135,13 +228,15 @@ export function formatBackendCoverageTable(
   const rows = entries.map((entry) => {
     const percentages = METRIC_NAMES.map((name) => {
       const metric = entry.metrics?.[name];
-      if (!metric || metric.total === 0) return "n/a";
+      if (entry.reason || !metric || metric.total === 0) return "n/a";
       return `${metric.pct}% (${metric.covered}/${metric.total})`;
     });
-    return [entry.file, entry.status, ...percentages].join("\t");
+    return [entry.file, entry.status, ...percentages, entry.reason ?? ""].join(
+      "\t",
+    );
   });
   return [
-    "File\tStatus\tStatements\tBranches\tFunctions\tLines",
+    "File\tStatus\tStatements\tBranches\tFunctions\tLines\tReason",
     ...rows,
     "",
   ].join("\n");
@@ -149,7 +244,8 @@ export function formatBackendCoverageTable(
 
 /** Reads the generated coverage artifacts and writes separate complete scope inventories. */
 export function writeBackendCoverageInventory(root: string): void {
-  const directory = path.join(root, "coverage/backend");
+  const directory = path.join(root, BACKEND_REPORTS_DIRECTORY);
+  writeBackendTestCounts(root, directory);
   const summary: unknown = JSON.parse(
     readFileSync(path.join(directory, "coverage-summary.json"), "utf8"),
   );
@@ -171,7 +267,7 @@ export function writeBackendCoverageInventory(root: string): void {
       formatBackendCoverageTable(selected),
     );
     console.info(
-      `[backend coverage] ${section}: ${selected.length} modules, ${selected.filter((entry) => entry.status === "open").length} open; coverage/backend/${section}.tsv`,
+      `[backend coverage] ${section}: ${selected.length} modules, ${selected.filter((entry) => entry.status === "open").length} open; ${BACKEND_REPORTS_DIRECTORY}/${section}.tsv`,
     );
   }
   const table = formatBackendCoverageTable(entries);

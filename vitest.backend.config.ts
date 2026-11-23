@@ -2,22 +2,20 @@ import { fileURLToPath } from "node:url";
 
 import { defineConfig } from "vitest/config";
 
-export const BACKEND_TEST_GLOB = "backend/**/*.{test,spec}.ts";
-const LOCAL_SESSION_TEST_GLOB = "backend/agents/local/**/*.{test,spec}.ts";
+const SOURCE_FILE_PATTERN = "*.{ts,tsx,mts,cts,js,mjs,cjs}";
+const TEST_FILE_PATTERN = "*.{test,spec}.ts";
+export const BACKEND_TEST_GLOB = `backend/**/${TEST_FILE_PATTERN}`;
+export const BACKEND_REPORTS_DIRECTORY = "coverage/backend";
+export const BACKEND_TEST_RESULTS_FILE = "test-results.json";
 export const BACKEND_COVERAGE_EXCLUDES = [
   "backend/**/*.d.{ts,mts,cts}",
   BACKEND_TEST_GLOB,
 ];
-export const FIRST_SECTION_COVERAGE_GLOB =
-  "backend/{discord,cache,concurrency}/**/*.{ts,tsx,mts,cts,js,mjs,cjs}";
-export const SECOND_SECTION_COVERAGE_GLOB =
-  "backend/{github,security,setup}/**/*.{ts,tsx,mts,cts,js,mjs,cjs}";
-export const THIRD_SECTION_COVERAGE_GLOB =
-  "backend/{storage,google,config,remote}/**/*.{ts,tsx,mts,cts,js,mjs,cjs}";
-export const FOURTH_SECTION_COVERAGE_GLOB =
-  "backend/{auth,logging}/**/*.{ts,tsx,mts,cts,js,mjs,cjs}";
-export const FIFTH_SECTION_COVERAGE_GLOB =
-  "backend/runtime/**/*.{ts,tsx,mts,cts,js,mjs,cjs}";
+export const FIRST_SECTION_COVERAGE_GLOB = `backend/{discord,cache,concurrency}/**/${SOURCE_FILE_PATTERN}`;
+export const SECOND_SECTION_COVERAGE_GLOB = `backend/{github,security,setup}/**/${SOURCE_FILE_PATTERN}`;
+export const THIRD_SECTION_COVERAGE_GLOB = `backend/{storage,google,config,remote}/**/${SOURCE_FILE_PATTERN}`;
+export const FOURTH_SECTION_COVERAGE_GLOB = `backend/{auth,logging}/**/${SOURCE_FILE_PATTERN}`;
+export const FIFTH_SECTION_COVERAGE_GLOB = `backend/runtime/**/${SOURCE_FILE_PATTERN}`;
 
 // These are required minimums, not claims about measured coverage.
 export const BACKEND_COVERAGE_SECTIONS = [
@@ -46,7 +44,49 @@ export const BACKEND_COVERAGE_SECTIONS = [
     include: FIFTH_SECTION_COVERAGE_GLOB,
     minimum: 100,
   },
+  {
+    name: "errors",
+    include: `backend/error/**/${SOURCE_FILE_PATTERN}`,
+    minimum: 100,
+  },
+  {
+    name: "agent-catalog-runtime-simulation",
+    include: `backend/agents/{catalog,runtime,simulation}/**/${SOURCE_FILE_PATTERN}`,
+    minimum: 100,
+  },
+  {
+    name: "agent-providers",
+    include: `backend/agents/providers/**/${SOURCE_FILE_PATTERN}`,
+    minimum: 100,
+  },
+  {
+    name: "local-agent-sessions",
+    include: `backend/agents/local/**/${SOURCE_FILE_PATTERN}`,
+    minimum: 100,
+  },
+  {
+    name: "agent-acp",
+    include: `backend/agents/acp/**/${SOURCE_FILE_PATTERN}`,
+    minimum: 100,
+  },
+  {
+    name: "agent-cli",
+    include: `backend/agents/cli/**/${SOURCE_FILE_PATTERN}`,
+    minimum: 100,
+  },
+  {
+    name: "agent-base",
+    include: `backend/agents/${SOURCE_FILE_PATTERN}`,
+    minimum: 100,
+  },
 ] as const;
+
+export const BACKEND_TEST_SECTIONS = BACKEND_COVERAGE_SECTIONS.map(
+  ({ name, include }) => ({
+    name,
+    include: include.replace(SOURCE_FILE_PATTERN, TEST_FILE_PATTERN),
+  }),
+);
 
 const thresholds = Object.fromEntries(
   BACKEND_COVERAGE_SECTIONS.map(
@@ -72,15 +112,11 @@ export default defineConfig({
   test: {
     name: "backend",
     environment: "node",
-    include: [
-      ...BACKEND_COVERAGE_SECTIONS.map((section) =>
-        section.include.replace(
-          "*.{ts,tsx,mts,cts,js,mjs,cjs}",
-          "*.{test,spec}.ts",
-        ),
-      ),
-      LOCAL_SESSION_TEST_GLOB,
-    ],
+    include: BACKEND_TEST_SECTIONS.map((section) => section.include),
+    reporters: ["default", "json"],
+    outputFile: {
+      json: `${BACKEND_REPORTS_DIRECTORY}/${BACKEND_TEST_RESULTS_FILE}`,
+    },
     pool: "forks",
     maxWorkers: 2,
     isolate: true,
@@ -94,7 +130,7 @@ export default defineConfig({
       provider: "v8",
       include: BACKEND_COVERAGE_SECTIONS.map((section) => section.include),
       exclude: BACKEND_COVERAGE_EXCLUDES,
-      reportsDirectory: "coverage/backend",
+      reportsDirectory: BACKEND_REPORTS_DIRECTORY,
       reporter: ["json", "json-summary"],
       skipFull: false,
       clean: true,

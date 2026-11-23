@@ -59,15 +59,11 @@ Die Implementierung allein belegt keine Laufzeitabnahme. Erforderlich bleiben ei
 
 ## Aktueller Testbestand
 
-Die Backend-Suite findet `*.test.ts` und `*.spec.ts` unter
-`backend/agents/local/`. Im aktuellen Quellbestand liegen dort keine
-Testdateien. Die Tests für `PagesRuntime` und `RunsMode` ersetzen
-`LocalSessionMode` durch ein Double. Die Tests für die Journalbereinigung
-prüfen Speicherverhalten außerhalb des lokalen Session-Verzeichnisses. Die
-früheren Unit-Tests für Beobachter, Owner-Start, Folgezug, Turn, Kontrolldateien,
-Owner-Modus, Discovery, Öffnen und Wiederanbindung sind nur in der
-Git-Historie unter `tests/backend/backend/agents/local/` vorhanden, etwa in
-Revision `bcf4e75ccdc9c30c513becce5a2b0ec375362b57`.
+Die [Backend-Suite](BackendTesting.md) findet `*.test.ts` und `*.spec.ts` unter
+`backend/agents/local/` und verlangt je ausführbarer Datei vollständige
+Abdeckung. Historische Unit-Tests für den Owner-Modus und die Beendigung des
+Owners sind wieder eingebunden. Weitere historische Tests liegen unter
+`tests/backend/backend/agents/local/` in der Git-Historie.
 
 ### Ausführbare Module
 
