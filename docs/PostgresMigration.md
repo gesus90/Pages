@@ -286,7 +286,10 @@ afterwards. The new timeline goes into the archive, so take a new base backup ri
 ## Validation state and historical parity
 
 The previous database regression tools and automated suites have been removed.
-No migration, schema-parity or repository-flow suite is currently installed.
+No schema-parity or repository-flow suite is currently installed. The
+[PostgreSQL integration suite](PostgresIntegration.md) (`pnpm run test:integration`)
+runs the migration chain, an upgrade with fixtures, commit, rollback, parameter
+binding and notifications against a throwaway PostgreSQL 18 server.
 Past measurements remain historical evidence and do not validate this checkout.
 See the [restart inventory](TestCiRemoval.md).
 

@@ -1,0 +1,70 @@
+name: postgres-integration
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  pages-postgres-integration:
+    name: Pages PostgreSQL integration
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install PostgreSQL 18
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-common
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+          sudo apt-get install -y postgresql-18
+          # The suite starts its own server; the packaged service stays off.
+          sudo systemctl stop postgresql
+          /usr/lib/postgresql/18/bin/postgres --version
+
+      - name: Install
+        id: install
+        run: pnpm install --frozen-lockfile
+
+      - name: PostgreSQL integration suite
+        if: ${{ steps.install.outcome == 'success' }}
+        run: pnpm run test:integration
+
+      - name: Record revision and report summary
+        if: ${{ always() }}
+        run: |
+          revision="$(git rev-parse HEAD)"
+          mkdir -p coverage/postgres-integration
+          printf '%s\n' "$revision" > coverage/postgres-integration/checked-out-commit.txt
+          {
+            echo "## PostgreSQL integration suite"
+            echo ""
+            echo "Checked-out revision: \`$revision\`"
+            echo ""
+            if [ -f coverage/postgres-integration/integration-report.tsv ]; then
+              echo '```'
+              cat coverage/postgres-integration/integration-report.tsv
+              echo '```'
+            else
+              echo "No report was written; check the suite step outcome."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload integration report
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: postgres-integration-${{ github.sha }}
+          path: coverage/postgres-integration
+          if-no-files-found: warn

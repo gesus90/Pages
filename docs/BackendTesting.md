@@ -47,5 +47,13 @@ boundaries. The
 [local agent-session inventory](LocalAgentSessions.md#aktueller-testbestand)
 records the local modules and the remaining measurement and operating checks.
 The [backend error inventory](BackendError.md) describes the error modules.
+The [agent plan repository inventory](BackendAgentPlanRepositories.md) records the
+plan definition and access repositories that no section selects yet.
+The [agent plan run and runner repository inventory](BackendAgentPlanRunRepositories.md)
+records the run, checkpoint, recovery, lock and runner repositories that no
+section selects yet.
+The [automation repository inventory](BackendAutomationRepositories.md)
+records the automation, run, event, agent delivery and notification repositories
+that no section selects yet.
 Tests use isolated inputs and mock external services. Live services and
 instance data are outside their scope.

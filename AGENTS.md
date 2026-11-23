@@ -187,8 +187,11 @@ additional suites require their own assignment. The repository CI workflow
 from the frozen lockfile and runs `pnpm run test:backend`. Test, coverage and
 setup errors fail the job; the coverage tables and machine-readable reports
 stay available as artifacts. The workflow has no pull-request, tag, schedule
-or manual trigger. Do not invoke removed test commands or reintroduce old
-suites as a fallback.
+or manual trigger. The PostgreSQL integration suite (`pnpm run test:integration`,
+`docs/PostgresIntegration.md`) is a separate command with its own workflow
+`.github/workflows/postgres-integration.yml` and its own report; it does not
+replace the unit coverage. Do not invoke removed test commands or reintroduce
+old suites as a fallback.
 
 On every push to `main`, the `Pages check` job in `.github/workflows/ci.yml`
 runs `pnpm run check` and `pnpm run lint`. That workflow runs no tests; the

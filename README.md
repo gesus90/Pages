@@ -118,7 +118,9 @@ also follow [AGENTS.md](AGENTS.md). Keep changes focused. The
 The previous tests and CI were removed for a separate rebuild; see the
 [restart inventory](docs/TestCiRemoval.md). The new
 [backend unit-test foundation](docs/BackendTesting.md) provides `test:backend`
-and the measurement scope; behavior tests are added separately. Every push to
+and the measurement scope; behavior tests are added separately. The
+[PostgreSQL integration suite](docs/PostgresIntegration.md) provides
+`test:integration` with its own report. Every push to
 `main` runs the backend tests and coverage in CI; the coverage tables and
 reports are kept with the checked-out revision. Follow the validation scope of
 your assignment and report only checks actually executed.

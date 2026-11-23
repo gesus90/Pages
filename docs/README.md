@@ -53,6 +53,9 @@ a Pages instance or its private wiki. Some specialized guides are in German.
   where the rules and open findings live in the wiki.
 - [Backend unit-test foundation](BackendTesting.md): Vitest setup, complete
   measurement scope, section thresholds, CI run and validation limits.
+- [PostgreSQL integration suite](PostgresIntegration.md): throwaway PostgreSQL 18
+  server, migration chain and upgrade checks, transaction, binding and
+  notification checks, exit codes, report and CI run.
 - [GitHub, security and setup inventory](BackendGitHubSecuritySetup.md): second
   mandatory section, module boundaries, open areas and validation limits.
 - [Script runtime](../backend/service/agents/ScriptRuntime.md),
