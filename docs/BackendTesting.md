@@ -24,7 +24,14 @@ does the same for the fourth section. The
 [agent catalog, runtime and simulation inventory](BackendAgentCatalogRuntimeSimulation.md)
 lists the modules that have no tests and no coverage section yet. The
 [agent providers inventory](BackendAgentProviders.md) does the same for
-`backend/agents/providers`. The [local agent-session inventory](LocalAgentSessions.md#aktueller-testbestand)
+`backend/agents/providers`. The
+[agent ACP inventory](BackendAgentAcp.md) does the same for
+`backend/agents/acp`, including its `.mjs` modules and unmeasurable code. The
+[agent CLI inventory](BackendAgentCli.md) does the same for
+`backend/agents/cli`, including the not executable patches. The
+[agent base inventory](BackendAgentBase.md) does the same for the files
+directly in `backend/agents` and records the patch directories. The
+[local agent-session inventory](LocalAgentSessions.md#aktueller-testbestand)
 records the local modules and the remaining measurement and operating checks.
 The [backend error inventory](BackendError.md) describes the error modules whose
 coverage section is pending. Tests use isolated inputs and mock external
