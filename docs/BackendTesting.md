@@ -55,5 +55,9 @@ section selects yet.
 The [automation repository inventory](BackendAutomationRepositories.md)
 records the automation, run, event, agent delivery and notification repositories
 that no section selects yet.
+The [remaining repository inventory](BackendRepositoryGroups.md) assigns the
+77 employee, calendar, event, mobile, remote, integration, Discord, MCP, search,
+diagnosis, storage, Google, speech and root repository modules to five groups
+that no section selects yet.
 Tests use isolated inputs and mock external services. Live services and
 instance data are outside their scope.
