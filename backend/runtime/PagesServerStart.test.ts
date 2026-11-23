@@ -11,6 +11,7 @@ import { PagesRuntime } from "./PagesRuntime";
 import { startPagesServer } from "./PagesServer";
 
 import type * as HttpModule from "node:http";
+import type * as OsModule from "node:os";
 import type * as ReactRouterModule from "react-router";
 import type * as PagesRuntimeModule from "./PagesRuntime";
 import type * as PagesConfigModule from "@/backend/config/PagesConfig";
@@ -37,17 +38,21 @@ const mocks = vi.hoisted(() => ({
   installRunnerChannel: vi.fn(),
   installRemoteConsoleChannel: vi.fn(),
   installConversationWebChannel: vi.fn(),
+  installAgentCallChannel: vi.fn(),
   startAgentTools: vi.fn(),
   startPicaMobile: vi.fn(),
   startServiceWatchdog: vi.fn<(probe: () => Promise<boolean>) => void>(),
-  networkInterfaces: vi.fn(),
+  networkInterfaces: vi.fn(() => ({})),
 }));
 
 vi.mock("node:http", async (importOriginal) => ({
   ...(await importOriginal<typeof HttpModule>()),
   createServer: mocks.createServer,
 }));
-vi.mock("node:os", () => ({ networkInterfaces: mocks.networkInterfaces }));
+vi.mock("node:os", async (importOriginal) => ({
+  ...(await importOriginal<typeof OsModule>()),
+  networkInterfaces: mocks.networkInterfaces,
+}));
 vi.mock("@remix-run/node-fetch-server", () => ({
   createRequestListener: vi.fn(),
 }));
@@ -84,6 +89,12 @@ vi.mock("./RemoteConsoleChannel", () => ({
 }));
 vi.mock("./ConversationWebChannel", () => ({
   installConversationWebChannel: mocks.installConversationWebChannel,
+}));
+vi.mock("./AgentCallChannel", () => ({
+  installAgentCallChannel: mocks.installAgentCallChannel,
+}));
+vi.mock("./AgentCallChannel", () => ({
+  installAgentCallChannel: mocks.installAgentCallChannel,
 }));
 vi.mock("./PicaMobileRuntime", () => ({
   startPicaMobile: mocks.startPicaMobile,
@@ -191,6 +202,9 @@ describe("startPagesServer on success", () => {
     expect(mocks.installConversationWebChannel).toHaveBeenCalledWith(server, {
       trustedProxies: ["10.0.0.1"],
     });
+    expect(mocks.installAgentCallChannel).toHaveBeenCalledWith(server, [
+      "10.0.0.1",
+    ]);
     expect(server.listen).toHaveBeenCalledWith(
       3000,
       undefined,

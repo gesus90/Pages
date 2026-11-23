@@ -90,6 +90,7 @@ vi.mock("./AppRoutes", () => ({
 const BACKEND = new URL("http://127.0.0.1:3100");
 const CORE = new URL("http://127.0.0.1:3200");
 const STATUS = new URL("http://127.0.0.1:3300");
+const MOBILE = new URL("http://127.0.0.1:3400");
 
 function createRequest(url: string | undefined, method?: string): FakeRequest {
   return Object.assign(new EventEmitter(), {
@@ -223,6 +224,32 @@ it("decodes the path before it checks for the core's API prefix", async () => {
   expect(response.end).toHaveBeenCalledWith("Not Found");
   expect(http.requestOptions).toEqual([]);
 });
+
+it.each([
+  ["PUT", "/pica-mobile/chat/attachments", true],
+  ["GET", "/pica-mobile/chat/attachments", false],
+  ["POST", "/pica-mobile/chat-page-api/files", true],
+  ["PUT", "/pica-mobile/chat-page-api/files", true],
+  ["DELETE", "/pica-mobile/chat-page-api/files", true],
+  ["GET", "/pica-mobile/chat-page-api/files", false],
+  ["GET", "/pica-mobile/chat/attachments/abc", true],
+  ["DELETE", "/pica-mobile/chat/attachments/abc", true],
+  ["POST", "/pica-mobile/chat/attachments/abc", false],
+  ["GET", "/pica-mobile/chat/files/abc-1", true],
+  ["GET", "/pica-mobile/chat/files/abc-1/thumbnail", true],
+  ["POST", "/pica-mobile/chat/files/abc-1", false],
+])(
+  "routes %s %s to the mobile gateway: %s",
+  async (method, url, isForwarded) => {
+    await serve(
+      url,
+      { clientDirectory: "/client", backend: BACKEND, mobileFiles: MOBILE },
+      method,
+    );
+
+    expect(targets().includes("127.0.0.1:3400")).toBe(isForwarded);
+  },
+);
 
 it("sends the live stream to the core when one is set", async () => {
   await serve("/live-changes", {

@@ -19,12 +19,13 @@ import { PagesRuntime } from "./PagesRuntime";
 
 import type { NetworkInterfaceInfoIPv4 } from "node:os";
 import type { FetchHandler } from "@remix-run/node-fetch-server";
+import type * as OsModule from "node:os";
 import type * as ReactRouterModule from "react-router";
 import type { ServerBuild } from "react-router";
 import type { RequestEntry } from "@/definition/RequestEntry";
 
 const mocks = vi.hoisted(() => ({
-  networkInterfaces: vi.fn(),
+  networkInterfaces: vi.fn(() => ({})),
   createRequestListener:
     vi.fn<(handler: FetchHandler, options?: { protocol: string }) => unknown>(),
   createRequestHandler: vi.fn(),
@@ -54,7 +55,10 @@ const mocks = vi.hoisted(() => ({
   withLoggedRoutes: vi.fn(),
 }));
 
-vi.mock("node:os", () => ({ networkInterfaces: mocks.networkInterfaces }));
+vi.mock("node:os", async (importOriginal) => ({
+  ...(await importOriginal<typeof OsModule>()),
+  networkInterfaces: mocks.networkInterfaces,
+}));
 vi.mock("@remix-run/node-fetch-server", () => ({
   createRequestListener: mocks.createRequestListener,
 }));
@@ -76,6 +80,7 @@ vi.mock("./RemoteConsoleChannel", () => ({
 vi.mock("./ConversationWebChannel", () => ({
   installConversationWebChannel: vi.fn(),
 }));
+vi.mock("./AgentCallChannel", () => ({ installAgentCallChannel: vi.fn() }));
 vi.mock("./PicaMobileRuntime", () => ({ startPicaMobile: vi.fn() }));
 vi.mock("./AppRoutes", () => ({ AppRoutes: mocks.appRoutes }));
 vi.mock("./AppDocument", () => ({

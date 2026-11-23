@@ -211,7 +211,8 @@ class AgentCallConnection {
   ): Promise<void> {
     if (this.handle !== null || this.backlog !== null) return;
     clearTimeout(this.helloDeadline);
-    this.backlog = [];
+    const backlog: (AgentCallLiveCommand | Buffer)[] = [];
+    this.backlog = backlog;
     try {
       const { agentCallService } = await getApplicationServices();
       this.handle = await agentCallService.openLive(
@@ -228,7 +229,6 @@ class AgentCallConnection {
     }
     // A connection that closed while the call opened lets the call go at once.
     if (this.isStopped) return this.stop();
-    const backlog = this.backlog ?? [];
     this.backlog = null;
     for (const item of backlog) this.process(item);
   }

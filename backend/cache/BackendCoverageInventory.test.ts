@@ -54,7 +54,7 @@ it("inventories only configured sections and distinguishes complete, partial and
   ).toHaveLength(32);
   expect(
     entries.filter((entry) => entry.section === "fifth-section"),
-  ).toHaveLength(30);
+  ).toHaveLength(31);
   expect(
     entries.some((entry) => entry.file === "backend/storage/StreamDigest.ts"),
   ).toBe(true);
