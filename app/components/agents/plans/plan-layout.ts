@@ -206,8 +206,8 @@ const NODE_ACCENTS = {
  * The type color of a node as the CSS variables `--plan-type` and `--plan-type-subtle`.
  * @remarks
  * Both variables name theme tokens, so a card follows the light and the dark
- * palette. The run status never replaces them: the card stays in its type
- * color and only its status marker shows the status.
+ * palette. A status tone of `planToneClass` replaces them on a card that
+ * runs, is done or failed; a waiting card keeps them.
  */
 export function planNodeClass(type: AgentPlanNode["type"]): string {
   return NODE_TYPE_COLORS[type];
@@ -216,23 +216,34 @@ export function planNodeClass(type: AgentPlanNode["type"]): string {
 /**
  * The parts of a card and a container drawn in the type color that {@link planNodeClass} sets.
  * @remarks
- * A card edge mixes 45 % of the type color into the border token, a container
- * edge 55 %; header lines take 30 % and the dashed member area of a container
- * 40 %. A container surface lays 60 % of the subtle type surface over the
- * surface token.
+ * Each part first reads the status tone a run sets with `planToneClass` and
+ * falls back to the type color. In the type color a card edge mixes 45 % of
+ * the type color into the border token, a container edge 55 %; header lines
+ * take 30 % and the dashed member area of a container 40 %. A container
+ * surface lays 60 % of the subtle type surface over the surface token. In a
+ * status tone S with its surface SS, card and container edges take 55 % S,
+ * the card surface SS, a container surface 70 % SS, the header 16 % S over
+ * SS with a line of 35 % S, the tile S with its symbol in SS, the name S
+ * with a fifth of the text color for 4.5:1 on the header, value fields and
+ * marks 12 % S over the surface and dividers 28 % S.
  */
 export const PLAN_TYPE_COLORS = {
   cardEdge:
-    "border-[color:color-mix(in_srgb,var(--plan-type)_45%,var(--color-border))]",
+    "border-[color:var(--plan-edge,color-mix(in_srgb,var(--plan-type)_45%,var(--color-border)))]",
+  cardSurface: "bg-[color:var(--plan-tone-subtle,var(--color-surface))]",
   frameEdge:
-    "border-[color:color-mix(in_srgb,var(--plan-type)_55%,var(--color-border))]",
+    "border-[color:var(--plan-edge,color-mix(in_srgb,var(--plan-type)_55%,var(--color-border)))]",
   frameSurface:
-    "bg-[color:color-mix(in_srgb,var(--plan-type-subtle)_60%,var(--color-surface))]",
+    "bg-[color:var(--plan-frame-surface,color-mix(in_srgb,var(--plan-type-subtle)_60%,var(--color-surface)))]",
   header:
-    "border-b border-b-[color:color-mix(in_srgb,var(--plan-type)_30%,transparent)] bg-[color:var(--plan-type-subtle)]",
+    "border-b border-b-[color:var(--plan-head-line,color-mix(in_srgb,var(--plan-type)_30%,transparent))] bg-[color:var(--plan-head,var(--plan-type-subtle))]",
   memberArea:
-    "border-[1.5px] border-dashed border-[color:color-mix(in_srgb,var(--plan-type)_40%,transparent)]",
-  tile: "bg-[color:var(--plan-type)] text-surface",
+    "border-[1.5px] border-dashed border-[color:color-mix(in_srgb,var(--plan-tone,var(--plan-type))_40%,transparent)]",
+  tile: "bg-[color:var(--plan-tone,var(--plan-type))] text-[color:var(--plan-tone-subtle,var(--color-surface))]",
+  title: "text-[color:var(--plan-tone-text,var(--plan-type))]",
+  field: "bg-[color:var(--plan-field,var(--color-muted))]",
+  mark: "bg-[color:var(--plan-field,var(--color-surface))]",
+  line: "border-[color:var(--plan-line,var(--color-border))]",
 } as const;
 
 /** The type color of a card's icon. */

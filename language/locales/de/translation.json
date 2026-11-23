@@ -6130,8 +6130,6 @@
           },
           "activityWaiting": "Wartet auf Neustart",
           "context": "Kontext",
-          "contextTokens": "{{used}} Tokens",
-          "contextUnknownOf": "unbekannt / {{limit}}",
           "unknown": "unbekannt",
           "session": "Session",
           "role": "Rolle",
@@ -10574,11 +10572,13 @@
       "day": "Tag",
       "week": "Woche",
       "month": "Monat",
-      "list": "Liste"
+      "list": "Liste",
+      "content": "Kalenderinhalt"
     },
     "sidebar": {
       "calendars": "Kalender",
-      "toggle": "Kalenderleiste ein- oder ausblenden"
+      "toggle": "Kalenderleiste ein- oder ausblenden",
+      "label": "Kalenderleiste"
     },
     "miniMonth": {
       "previous": "Vorheriger Monat",

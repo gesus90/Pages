@@ -41,6 +41,7 @@ import type {
   AgentPlanSources,
 } from "@/definition/AgentPlan";
 import type { AgentPlanLoop } from "@/definition/AgentPlanLoop";
+import type { PlanMeasuredHeight } from "@/definition/AgentPlanNodeSize";
 import type { PlanFrame } from "./plan-layout";
 import type { PlanLink } from "./plan-links";
 import type { PlanConnection } from "./use-plan-connections";
@@ -89,6 +90,8 @@ export function planFlowNodes(
     readonly selectedId: string | null;
     readonly canEdit: boolean;
     readonly collapsedGroups?: ReadonlySet<string>;
+    /** The drawn heights of the cards, so a frame encloses a card drawn taller than planned. */
+    readonly measuredHeight?: PlanMeasuredHeight;
   },
 ): PlanFlowNode[] {
   function project(node: AgentPlanNode, parentId?: string): PlanFlowNode {
@@ -97,7 +100,7 @@ export function planFlowNodes(
     const width = isCollapsed ? PLAN_GROUP_COMPACT_WIDTH : planNodeWidth(node);
     const height = isCollapsed
       ? PLAN_GROUP_COMPACT_HEIGHT
-      : planNodeHeight(node, options.sources);
+      : planNodeHeight(node, options.sources, options.measuredHeight);
     const isFrame = node.type === "group" || node.type === "loop";
     const isEndpoint = node.type === "start" || node.type === "end";
     return {

@@ -30,11 +30,80 @@ const STATUS_CLASSES: Record<AgentPlanStepStatus, string> = {
 };
 
 /**
+ * The status colors a whole card or container takes while a run shows it:
+ * the status color S and its subtle surface SS.
+ */
+export type PlanStatusTone = "active" | "success" | "destructive" | "warning";
+
+const STATUS_TONES: Record<AgentPlanStepStatus, PlanStatusTone | null> = {
+  waiting: null,
+  running: "active",
+  succeeded: "success",
+  failed: "destructive",
+  cancelled: null,
+  paused: null,
+  skipped: null,
+};
+
+const TONE_COLORS: Record<PlanStatusTone, string> = {
+  active:
+    "[--plan-tone:var(--color-status-active)] [--plan-tone-subtle:var(--color-status-active-subtle)]",
+  success:
+    "[--plan-tone:var(--color-success)] [--plan-tone-subtle:var(--color-success-subtle)]",
+  destructive:
+    "[--plan-tone:var(--color-destructive)] [--plan-tone-subtle:var(--color-destructive-subtle)]",
+  warning:
+    "[--plan-tone:var(--color-warning)] [--plan-tone-subtle:var(--color-warning-subtle)]",
+};
+
+// The parts mixed from S and SS: edge 55 % S over the border, header 16 % S
+// over SS with a line of 35 % S, a container surface of 70 % SS over the
+// surface, value fields and marks 12 % S over the surface and dividers 28 % S.
+// The name takes S with a fifth of the text color, which lifts it to 4.5:1 on
+// the header in both palettes, where S alone reaches only 3.7:1 in light.
+const TONE_PARTS =
+  "[--plan-tone-text:color-mix(in_srgb,var(--plan-tone)_80%,var(--color-foreground))] [--plan-edge:color-mix(in_srgb,var(--plan-tone)_55%,var(--color-border))] [--plan-head:color-mix(in_srgb,var(--plan-tone)_16%,var(--plan-tone-subtle))] [--plan-head-line:color-mix(in_srgb,var(--plan-tone)_35%,transparent)] [--plan-frame-surface:color-mix(in_srgb,var(--plan-tone-subtle)_70%,var(--color-surface))] [--plan-field:color-mix(in_srgb,var(--plan-tone)_12%,var(--color-surface))] [--plan-line:color-mix(in_srgb,var(--plan-tone)_28%,transparent)]";
+
+/**
+ * The tone of a status for the whole card: running, done and failed take
+ * their status color, blocked and an open report warn, while the marker of a
+ * blocked card stays red; waiting, paused, cancelled and skipped keep the
+ * type color.
+ * @param status - The recorded status.
+ * @param isBlocked - Whether a predecessor blocks the node.
+ * @param hasOpenReport - Whether the business report of a done node stays open.
+ * @returns The tone, or `null` while the card keeps its type color.
+ */
+export function planStatusTone(
+  status: AgentPlanStepStatus,
+  isBlocked = false,
+  hasOpenReport = false,
+): PlanStatusTone | null {
+  if (status === "failed") return "destructive";
+  if (isBlocked) return "warning";
+  if (status === "succeeded" && hasOpenReport) return "warning";
+  return STATUS_TONES[status];
+}
+
+/**
+ * The CSS variables that draw a card or a container in a status tone.
+ * @remarks
+ * They set `--plan-tone`, `--plan-tone-subtle` and the parts mixed from them,
+ * which the type colors of `PLAN_TYPE_COLORS` read before their type
+ * fallback; without a tone the element keeps its type color. Only theme
+ * tokens are named, so both palettes follow.
+ * @param tone - The tone, or `null` for none.
+ */
+export function planToneClass(tone: PlanStatusTone | null): string {
+  return tone ? cn(TONE_COLORS[tone], TONE_PARTS) : "";
+}
+
+/**
  * The shape of a status marker on a node card: 22 px high, a 6 px corner, a
  * 1 px edge, 8 px inset and 11 px semibold text.
  */
 export const PLAN_STATUS_MARKER =
-  "h-[22px] max-w-40 rounded-md px-2 text-[11px] leading-4 font-semibold whitespace-nowrap";
+  "h-[22px] max-w-40 rounded-sm px-2 text-[11px] leading-4 font-semibold whitespace-nowrap";
 
 /** A blocked indicator overrides waiting without changing the recorded base status. */
 export function planStatusClass(
@@ -52,14 +121,23 @@ export function planStatusClass(
 /**
  * The state class of a card while a run is shown.
  * @remarks
- * Surface, edge and header keep the type color in every status; the status
- * marker alone carries the status color. A node on a branch a decision did
- * not activate keeps its dashed edge: it never ran, and nothing waits for it.
+ * A card that runs, is done or failed, is blocked or has an open report takes
+ * the status tone of {@link planStatusTone} on its surface, edge, header,
+ * tile, title, value fields and dividers; its status marker keeps its own
+ * colors and names the status in text. A queued remote run still waits.
+ * Waiting, paused and cancelled cards keep the type color. A node on a
+ * branch a decision did not activate keeps its dashed edge: it never ran,
+ * and nothing waits for it.
  */
 export function planRunCardClass(
   result: AgentPlanStepResult | undefined,
 ): string {
-  return result?.status === "skipped" ? "border-dashed" : "";
+  if (!result) return "";
+  if (result.status === "skipped") return "border-dashed";
+  const status = isQueuedPlanStep(result) ? "waiting" : result.status;
+  return planToneClass(
+    planStatusTone(status, result.isBlocked, hasOpenPlanReport(result)),
+  );
 }
 
 /** A process can complete while its recorded business report stays open. */

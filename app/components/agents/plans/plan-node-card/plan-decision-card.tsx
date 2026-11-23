@@ -12,6 +12,7 @@ import {
 import { usePlanFlowContext } from "../plan-flow-context";
 import { PlanFlowHandle } from "../plan-flow-handle";
 import { planInTargetClass } from "../plan-flow-ports";
+import { PLAN_TYPE_COLORS } from "../plan-layout";
 import { PLAN_NODE_TEXT } from "../plan-node-text";
 import { PlanRunMarker, planRunCardClass } from "../plan-status";
 import {
@@ -154,7 +155,8 @@ function DecisionBinding(props: {
       data-plan-condition={source?.kind ?? "none"}
       title={`${props.kind} · ${text}`}
       className={cn(
-        "flex h-6 max-w-[6.5rem] min-w-0 items-center rounded-md bg-muted px-2",
+        "flex h-6 max-w-[6.5rem] min-w-0 items-center rounded-sm px-2",
+        PLAN_TYPE_COLORS.field,
         PLAN_NODE_TEXT.field,
         source === null ? "text-muted-foreground" : "text-foreground",
       )}

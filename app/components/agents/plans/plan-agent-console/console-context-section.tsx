@@ -10,18 +10,16 @@ import type {
 } from "@/definition/AgentSessionJournal";
 
 /**
- * The share of the window in use, from 0 to 100; `null` while the occupancy
- * or the window is unknown.
+ * The share of the window in use, from 0 to 100; `null` while the window is unknown.
  * @remarks
- * An occupancy nobody reported yet is unknown, not empty, so a fresh attempt
- * shows no bar until its first reading. A window from the catalog does not
- * make it empty either: OpenCode reports the occupancy only when a turn ends,
- * so a bar at 0 % during the first turn would state a value nobody measured.
+ * A known window without a reading yet stands as 0 %: the attempt has not
+ * reported an occupancy, and the bar stays empty until it does. Without a
+ * window there is no share, so no bar and no percentage is shown.
  */
 function contextShare(context: AgentSessionContextUsage): number | null {
   const { contextUsed: used, contextLimit: limit } = context;
-  if (used === null || limit === null || limit <= 0) return null;
-  return Math.min(100, (used / limit) * 100);
+  if (limit === null || limit <= 0) return null;
+  return Math.min(100, ((used ?? 0) / limit) * 100);
 }
 
 /** From this share on the bar warns; from the second one it signals an almost full window. */
@@ -61,39 +59,34 @@ function ContextBar({
 }
 
 /**
- * Formats whichever parts of the context are known.
+ * Formats the occupancy as "used / window".
  * @remarks
- * Without a report the known window stands as `unknown / window`; without a
- * window the shared placeholder of the sidebar stands, or the tokens in use.
+ * Before the first reading a known window stands as `0 / window`. An unknown
+ * window keeps the occupancy and shows the shared placeholder of the sidebar
+ * as its denominator; without both values only the placeholder stands.
  */
 function contextValue(
   context: AgentSessionContextUsage,
   options: {
     readonly numbers: Intl.NumberFormat;
-    readonly t: ReturnType<typeof useTranslation>["t"];
+    readonly unknown: string;
   },
 ): string {
-  const key = "plans.console.terminal.sidebar";
   const { contextUsed: used, contextLimit: limit } = context;
-  if (limit === null) {
-    if (used === null) return options.t(`${key}.unknown`);
-    return options.t(`${key}.contextTokens`, {
-      used: options.numbers.format(used),
-    });
-  }
-  if (used === null)
-    return options.t(`${key}.contextUnknownOf`, {
-      limit: options.numbers.format(limit),
-    });
-  return `${options.numbers.format(used)} / ${options.numbers.format(limit)}`;
+  if (limit === null && used === null) return options.unknown;
+  const usedText = options.numbers.format(used ?? 0);
+  const limitText =
+    limit === null ? options.unknown : options.numbers.format(limit);
+  return `${usedText} / ${limitText}`;
 }
 
 /**
  * The block "Kontext", fixed 76 px high: how much of the model's window the session occupies.
  * @remarks
- * The session view holds the last reported values of the attempt's model and
- * takes a window the adapter did not report from the model's catalog entry.
- * The bar is shown once both the occupancy and the window are known.
+ * The same block serves every provider. The session view holds the last
+ * reported values of the selected attempt's model and takes a window the
+ * adapter did not report from the model's catalog entry. The bar is shown
+ * whenever the window is known, empty until the first reading.
  */
 export function ConsoleContextSection({
   view,
@@ -117,7 +110,10 @@ export function ConsoleContextSection({
           data-context-value=""
           className="min-w-0 truncate text-[13px] text-agent-console-muted tabular-nums"
         >
-          {contextValue(context, { numbers, t })}
+          {contextValue(context, {
+            numbers,
+            unknown: t("plans.console.terminal.sidebar.unknown"),
+          })}
         </span>
       </div>
       {share === null ? null : <ContextBar share={share} label={title} />}

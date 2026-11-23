@@ -1,6 +1,7 @@
 import { receiveUsage } from "./usage.mjs";
 import {
   createClaudeSessionReader,
+  prepareClaudeSession,
   receiveClaudeSession,
 } from "./claude-session.mjs";
 import {
@@ -10,7 +11,7 @@ import {
   prepareCodexSession,
   receiveCodexSession,
 } from "./codex-session.mjs";
-import { codexHome } from "./cli.mjs";
+import { askClaudeContextWindow, codexHome } from "./cli.mjs";
 import { createHash } from "node:crypto";
 
 const MAXIMUM_TEXT_BYTES = 4000;
@@ -454,6 +455,10 @@ export function createLiveHistory(command, redact, emit) {
   return {
     async initialize() {
       await prepareCodexSession(state.codexSession);
+      if (state.progressVersion === 1 && state.tool === "claude")
+        await prepareClaudeSession(state.claudeSession, () =>
+          askClaudeContextWindow(command),
+        );
     },
     async receive(event) {
       const { tool } = state;

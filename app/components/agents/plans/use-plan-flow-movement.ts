@@ -91,6 +91,7 @@ function movementNodes(
   return planFlowNodes(options.draft, {
     ...options,
     selectedId: options.graph.selectedId,
+    measuredHeight: (id) => measurements[id]?.height,
   }).map((node) => ({
     ...node,
     // Omitting measured resets every handle bound when React Flow adopts these nodes.

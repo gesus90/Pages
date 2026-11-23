@@ -7,6 +7,7 @@ import { pagesRequest } from "./pages.mjs";
 import { localCliEnvironment } from "./local-accounts.mjs";
 import { browserServer } from "./browser.mjs";
 import { antigravityInventory, antigravityCommand } from "./antigravity.mjs";
+import { CLAUDE_WINDOW_REQUEST } from "./claude-session.mjs";
 import {
   openCodeCommand,
   openCodeInventory,
@@ -596,6 +597,38 @@ async function spawnAntigravity(command, jobId, signal, folder) {
   });
 }
 
+/** The environment of a Claude job without its job binding, the one {@link spawnCli} passes. */
+function claudeJobEnvironment(command) {
+  return {
+    ...cliEnvironment(),
+    ...command.runtimeContext?.environment,
+    ...CLAUDE_EXACT_MODEL,
+    ...CLAUDE_SINGLE_TURN,
+    ...(command.pagesAccess === 1
+      ? { CLAUDE_CODE_DISABLE_AUTO_MEMORY: "1" }
+      : {}),
+  };
+}
+
+/**
+ * Asks the Claude CLI for the context window of a job's model before the job starts.
+ *
+ * The job passes its prompt as plain text and so cannot send control
+ * requests; a short CLI start with the job's model and environment answers
+ * `get_context_usage` from its own model data instead, without a user
+ * message, tools, MCP servers, hooks or a session file.
+ * @returns The CLI's output; `null` when it could not answer.
+ */
+export async function askClaudeContextWindow(command) {
+  const result = await inspect(
+    "claude",
+    [...catalogArguments("claude"), "--model", command.program.model],
+    CLAUDE_WINDOW_REQUEST,
+    { environment: claudeJobEnvironment(command) },
+  );
+  return result.ok ? result.stdout : null;
+}
+
 /** Rechecks the exact remote catalog and login before starting the original requested tool. */
 export async function spawnCli(command, jobId, signal, folder) {
   const program = command.program;
@@ -644,14 +677,9 @@ export async function spawnCli(command, jobId, signal, folder) {
       detached: true,
       stdio: ["pipe", "pipe", "pipe"],
       env: {
-        ...cliEnvironment(),
-        ...command.runtimeContext?.environment,
         ...(tool === "claude"
-          ? { ...CLAUDE_EXACT_MODEL, ...CLAUDE_SINGLE_TURN }
-          : {}),
-        ...(tool === "claude" && command.pagesAccess === 1
-          ? { CLAUDE_CODE_DISABLE_AUTO_MEMORY: "1" }
-          : {}),
+          ? claudeJobEnvironment(command)
+          : { ...cliEnvironment(), ...command.runtimeContext?.environment }),
         PAGES_REMOTE_JOB: jobId,
       },
     },

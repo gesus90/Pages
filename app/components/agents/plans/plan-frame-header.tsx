@@ -5,7 +5,6 @@ import { cn } from "@/app/lib/cn";
 import {
   PLAN_FRAME_FOOTER,
   PLAN_FRAME_HEADER,
-  planNodeAccent,
   PLAN_TYPE_COLORS,
 } from "./plan-layout";
 import { PlanNodeIcon } from "./plan-node-icon";
@@ -15,16 +14,20 @@ import { PLAN_NODE_TEXT } from "./plan-node-text";
 // container edge and ends where the member count line begins.
 const MEMBER_AREA_GAP = 14;
 
-/** A mark in the second header line of a container, such as its session rule. */
+/**
+ * A mark in the second header line of a container, such as its session rule:
+ * on the surface, or 12 % of the status color over it in a status tone.
+ */
 export const PLAN_FRAME_MARK = cn(
-  "inline-flex h-[22px] max-w-56 min-w-0 shrink items-center truncate rounded-md bg-surface px-2 font-medium",
+  "inline-flex h-[22px] max-w-56 min-w-0 shrink items-center truncate rounded-md px-2 font-medium",
+  PLAN_TYPE_COLORS.mark,
   PLAN_NODE_TEXT.meta,
 );
 
 interface PlanFrameHeaderProps {
   readonly type: "loop" | "group";
   readonly id: string;
-  /** The container's name, in the type color below the type line. */
+  /** The container's name, in the type color or status tone below the type line. */
   readonly label: string;
   /** The type line above the name, with any extra sign such as a repair warning. */
   readonly typeLine: React.ReactNode;
@@ -92,7 +95,7 @@ export function PlanFrameHeader(
             className={cn(
               "block truncate",
               PLAN_NODE_TEXT.title,
-              planNodeAccent(props.type),
+              PLAN_TYPE_COLORS.title,
             )}
           >
             {props.label}
@@ -125,9 +128,10 @@ export function PlanFrameHeader(
 /**
  * The dashed member area of a container and the line below it.
  * @remarks
- * The area has a 1.5 px dashed edge in 40 % of the type color and a 12 px
- * corner; the members keep a 16 px inset inside it. The line 8 px below it
- * carries the member count or another short note in 11 px.
+ * The area has a 1.5 px dashed edge in 40 % of the type color or the
+ * status tone and a 12 px corner; the members keep a 16 px inset inside it.
+ * The line 8 px below it carries the member count or another short note in
+ * 11 px.
  */
 export function PlanFrameMemberArea(props: {
   /** The line below the area, such as „2 interne Nodes“. */
@@ -141,7 +145,7 @@ export function PlanFrameMemberArea(props: {
         aria-hidden="true"
         data-plan-member-area=""
         className={cn(
-          "pointer-events-none absolute inset-x-3.5 rounded-xl",
+          "pointer-events-none absolute inset-x-3.5 rounded-lg",
           PLAN_TYPE_COLORS.memberArea,
         )}
         style={{

@@ -85,7 +85,7 @@ export function PlanNodeActions({
           variant="ghost"
           className={cn(
             "nodrag nopan shrink-0 text-muted-foreground",
-            size === "card" && "size-7 min-h-7 rounded-lg xl:min-h-7",
+            size === "card" && "size-7 min-h-7 rounded-md xl:min-h-7",
           )}
           disabled={disabled}
           aria-label={t("settings.agents.actionsFor", { name: label })}
@@ -146,7 +146,7 @@ export function PlanNodeEditButton(props: {
     <Button
       size="icon-sm"
       variant="ghost"
-      className="nodrag nopan size-7 min-h-7 shrink-0 rounded-lg text-muted-foreground xl:min-h-7"
+      className="nodrag nopan size-7 min-h-7 shrink-0 rounded-md text-muted-foreground xl:min-h-7"
       aria-label={label}
       title={label}
       onPointerDown={keepInMenu}

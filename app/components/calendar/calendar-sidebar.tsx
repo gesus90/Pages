@@ -2,6 +2,7 @@ import { Plus } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import { Button } from "@/app/components/ui/button";
+import { ScrollViewport } from "@/app/components/ui/scroll-viewport";
 import { cn } from "@/app/lib/cn";
 
 import { CalendarMiniMonth } from "./calendar-mini-month";
@@ -37,7 +38,7 @@ function FilterList({
   const { t } = useTranslation();
 
   return (
-    <section>
+    <section className="border-t border-border pt-4">
       <h2 className="mb-2 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
         {t("calendar.sidebar.calendars")}
       </h2>
@@ -74,8 +75,8 @@ function FilterList({
 }
 
 /**
- * The left column of the calendar: „+ Termin“, the small month and the
- * calendars; collapsible on narrow screens.
+ * The left panel of the calendar: „+ Termin“ above the scrolling small month
+ * and calendars; collapsible on narrow screens.
  */
 export function CalendarSidebar({
   date,
@@ -91,24 +92,34 @@ export function CalendarSidebar({
   return (
     <aside
       className={cn(
-        "w-full shrink-0 flex-col gap-5 md:flex md:w-60",
+        "w-full shrink-0 flex-col overflow-hidden rounded-xl border border-border bg-surface shadow-card md:flex md:w-66",
         isOpen ? "flex" : "hidden",
       )}
     >
-      <Button className="w-full" onClick={onCreate}>
-        <Plus className="size-4" aria-hidden="true" />
-        {t("calendar.newEvent")}
-      </Button>
-      <CalendarMiniMonth
-        key={date.slice(0, 7)}
-        date={date}
-        onSelect={onSelectDate}
-      />
-      <FilterList
-        filters={filters}
-        hidden={hidden}
-        onToggleFilter={onToggleFilter}
-      />
+      <div className="shrink-0 p-4">
+        <Button className="w-full" onClick={onCreate}>
+          <Plus className="size-4" aria-hidden="true" />
+          {t("calendar.newEvent")}
+        </Button>
+      </div>
+      <ScrollViewport
+        aria-label={t("calendar.sidebar.label")}
+        className="flex flex-col gap-4 px-4 pb-4 focus-visible:-outline-offset-2"
+        containerClassName="min-h-0 flex-1 border-t border-border"
+        role="region"
+        tabIndex={0}
+      >
+        <CalendarMiniMonth
+          key={date.slice(0, 7)}
+          date={date}
+          onSelect={onSelectDate}
+        />
+        <FilterList
+          filters={filters}
+          hidden={hidden}
+          onToggleFilter={onToggleFilter}
+        />
+      </ScrollViewport>
     </aside>
   );
 }

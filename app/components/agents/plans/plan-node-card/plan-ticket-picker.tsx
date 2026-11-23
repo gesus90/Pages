@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { cn } from "@/app/lib/cn";
 
 import { usePlanFlowContext } from "../plan-flow-context";
+import { PLAN_TYPE_COLORS } from "../plan-layout";
 import { TicketPickerPanel } from "./plan-ticket-picker/ticket-picker-panel";
 import { useTicketPicker } from "./plan-ticket-picker/use-ticket-picker";
 
@@ -100,7 +101,8 @@ export function PlanTicketPicker(
         title={props.taskId ? title : undefined}
         disabled={props.disabled}
         className={cn(
-          "nodrag nopan nokey flex h-6 w-full min-w-0 items-center gap-1 rounded-md border border-transparent bg-muted px-2 text-left text-xs leading-4.5 text-foreground outline-none transition-colors hover:border-field-border-hover focus-visible:ring-2 focus-visible:ring-primary disabled:cursor-default disabled:opacity-70",
+          "nodrag nopan nokey flex h-6 w-full min-w-0 items-center gap-1 rounded-sm border border-transparent px-2 text-left text-xs leading-4.5 text-foreground outline-none transition-colors hover:border-field-border-hover focus-visible:ring-2 focus-visible:ring-primary disabled:cursor-default disabled:opacity-70",
+          PLAN_TYPE_COLORS.field,
           Boolean(props.taskId) && !task && "border-destructive",
         )}
         onPointerDown={keepOnField}

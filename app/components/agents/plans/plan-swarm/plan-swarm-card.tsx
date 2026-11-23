@@ -9,6 +9,7 @@ import {
   PlanCardColumns,
   PLAN_CARD_BODY,
 } from "../plan-node-card/plan-card";
+import { PLAN_TYPE_COLORS } from "../plan-layout";
 import { PlanNodeIcon } from "../plan-node-icon";
 import { PLAN_NODE_TEXT } from "../plan-node-text";
 import { PlanRunMarker, planRunCardClass } from "../plan-status";
@@ -75,7 +76,8 @@ function TaskRow(props: { readonly taskLine: string }): React.ReactElement {
       <span
         title={props.taskLine}
         className={cn(
-          "flex h-6 max-w-[6.5rem] min-w-0 items-center truncate rounded-md bg-muted px-2",
+          "flex h-6 max-w-[6.5rem] min-w-0 items-center truncate rounded-sm px-2",
+          PLAN_TYPE_COLORS.field,
           PLAN_NODE_TEXT.field,
         )}
       >
@@ -96,15 +98,20 @@ function SwarmFooter(props: {
 }): React.ReactElement {
   const { t } = useTranslation();
   return (
-    <footer className="flex shrink-0 flex-col gap-1.5 border-t border-border p-3">
+    <footer
+      className={cn(
+        "flex shrink-0 flex-col gap-1.5 border-t p-3",
+        PLAN_TYPE_COLORS.line,
+      )}
+    >
       <div className="flex flex-wrap gap-2">
         <p
-          className="flex h-10 min-w-[7.5rem] flex-1 basis-[7.5rem] items-center gap-1.5 rounded-xl border-[1.5px] border-plan-swarm/40 bg-surface pr-2 pl-[5px] text-xs leading-4 font-semibold"
+          className="flex h-10 min-w-[7.5rem] flex-1 basis-[7.5rem] items-center gap-1.5 rounded-lg border border-plan-swarm/40 bg-surface pr-2 pl-[5px] text-xs leading-4 font-semibold"
           title={props.mainLine}
         >
           <span
             aria-hidden="true"
-            className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-plan-swarm-subtle text-plan-swarm"
+            className="flex size-7 shrink-0 items-center justify-center rounded-[6px] bg-plan-swarm-subtle text-plan-swarm"
           >
             <PlanNodeIcon type="swarm" className="size-4" />
           </span>

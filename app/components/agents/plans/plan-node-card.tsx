@@ -15,6 +15,7 @@ import { PlanGroupFrame } from "./plan-group-frame";
 import { PlanLoopFrame } from "./plan-loop-frame";
 import { planLoopMemberResult } from "./plan-loop-summary";
 import { planRunGroupSession } from "./plan-group-session";
+import { PLAN_TYPE_COLORS } from "./plan-layout";
 import { PLAN_NODE_TEXT } from "./plan-node-text";
 import { PlanAgentCard } from "./plan-node-card/plan-agent-card";
 import { PlanCard, PLAN_CARD_BODY } from "./plan-node-card/plan-card";
@@ -190,7 +191,8 @@ function SignalNameRow(props: {
       <span
         title={props.signalName}
         className={cn(
-          "flex h-6 max-w-[6.5rem] min-w-0 items-center rounded-md bg-muted px-2 font-mono",
+          "flex h-6 max-w-[6.5rem] min-w-0 items-center rounded-sm px-2 font-mono",
+          PLAN_TYPE_COLORS.field,
           PLAN_NODE_TEXT.field,
         )}
       >

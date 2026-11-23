@@ -15,7 +15,8 @@ interface CalendarMiniMonthProps {
 
 /**
  * The small month on the left to jump to a date; the week of the shown
- * date is highlighted and today takes the accent color.
+ * date is highlighted and today takes the accent color. It lies flat on the
+ * surface of the left panel.
  */
 export function CalendarMiniMonth({
   date,
@@ -28,7 +29,7 @@ export function CalendarMiniMonth({
   const selectedWeek = startOfWeek(date);
 
   return (
-    <section className="rounded-xl bg-surface p-3 shadow-card">
+    <section>
       <div className="mb-2 flex items-center justify-between">
         <h2 className="text-sm font-semibold text-foreground">
           {format.monthTitle(month)}

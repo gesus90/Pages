@@ -19,8 +19,9 @@ interface CalendarHeaderProps {
 }
 
 /**
- * The head of the calendar: month and year, „Heute“, back and forward, the
- * ISO week in the week view and the switch of the views.
+ * The head of the main panel: month and year, „Heute“, back and forward, the
+ * ISO week in the week view and the switch of the views. It stays in place
+ * while the shown view scrolls beneath it.
  */
 export function CalendarHeader({
   view,
@@ -36,7 +37,7 @@ export function CalendarHeader({
   }));
 
   return (
-    <header className="flex flex-wrap items-center gap-2 pb-3">
+    <header className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border px-4 py-3 md:px-5">
       <Button
         size="icon-sm"
         variant="ghost"

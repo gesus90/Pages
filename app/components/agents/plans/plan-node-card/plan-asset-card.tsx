@@ -107,7 +107,7 @@ function AssetFileRow(props: {
   const { t } = useTranslation();
   const { file } = props.node;
   const field = cn(
-    "flex h-6 max-w-[6.5rem] min-w-0 items-center rounded-md bg-muted px-2",
+    "flex h-6 max-w-[6.5rem] min-w-0 items-center rounded-sm bg-muted px-2",
     PLAN_NODE_TEXT.field,
   );
   return (
@@ -177,7 +177,7 @@ export function PlanAssetCard(props: {
       data-plan-asset={node.id}
       data-plan-asset-kind={node.file?.kind ?? "empty"}
       data-plan-asset-access={node.file ? access : "empty"}
-      className="w-full min-w-0 rounded-xl"
+      className="flex w-full min-w-0 rounded-lg"
       onDragOver={upload.dragOver}
       onDragLeave={upload.dragLeave}
       onDrop={upload.drop}

@@ -5,6 +5,7 @@ import { Select } from "@/app/components/ui/select";
 import { cn } from "@/app/lib/cn";
 
 import { usePlanFlowContext } from "../plan-flow-context";
+import { PLAN_TYPE_COLORS } from "../plan-layout";
 
 import type {
   AgentParameterType,
@@ -15,10 +16,13 @@ import type {
  * The value field of a card row: no node drag, no pan and no React Flow key from it.
  * @remarks
  * A muted field 24 px high with a 6 px corner, 8 px inset and 12 px text,
- * at most 104 px wide; a longer value is cut with an ellipsis.
+ * at most 104 px wide; a longer value is cut with an ellipsis. On a card in a
+ * status tone the field takes 12 % of the status color over the surface.
  */
-export const PLAN_FIELD_CLASS =
-  "nodrag nopan nokey h-6 min-h-6 w-full max-w-[6.5rem] min-w-0 truncate rounded-md border border-transparent bg-muted px-2 text-xs leading-4.5 text-ellipsis shadow-none xl:h-6 xl:min-h-6 xl:px-2 xl:text-xs";
+export const PLAN_FIELD_CLASS = cn(
+  "nodrag nopan nokey h-6 min-h-6 w-full max-w-[6.5rem] min-w-0 truncate rounded-sm border border-transparent px-2 text-xs leading-4.5 text-ellipsis shadow-none xl:h-6 xl:min-h-6 xl:px-2 xl:text-xs",
+  PLAN_TYPE_COLORS.field,
+);
 
 interface PlanValueInputProps {
   readonly type: AgentParameterType;

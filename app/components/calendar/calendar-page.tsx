@@ -46,6 +46,15 @@ interface CalendarBodyProps {
   readonly now: CalendarNow | null;
 }
 
+/**
+ * The page area leaves 6rem above the calendar (header and padding) and 2.5rem
+ * below it. The panels are as high as the window allows up to the clearance
+ * of Pica's launcher; the padding below moves the end of a page that scrolls
+ * in a low window to the same line, so no panel part lies under the launcher.
+ */
+const PAGE_CLASS_NAME =
+  "pb-[calc(var(--pica-launcher-clearance)_-_2.5rem)] [--calendar-height:calc(100dvh_-_6rem_-_var(--pica-launcher-clearance))]";
+
 /** The own projects and every further project an entry belongs to. */
 function projectsOf(page: CalendarPageData): CalendarPageProject[] {
   const projects = [...page.projects];
@@ -110,9 +119,9 @@ function CalendarBody({
 }
 
 /**
- * The calendar page: the left column with the small month and
- * the calendars, the head with the views, the shown view, the detail of an
- * entry and the event form.
+ * The calendar page: two panels, the left one with the small month and the
+ * calendars and the main one with the head of the views and the shown view,
+ * then the detail of an entry and the event form.
  */
 export function CalendarPage({ page }: CalendarPageProps): React.ReactElement {
   const { t } = useTranslation();
@@ -153,30 +162,32 @@ export function CalendarPage({ page }: CalendarPageProps): React.ReactElement {
 
   return (
     <CalendarContextProvider value={context}>
-      <div className="flex flex-col gap-4 md:h-[calc(100dvh-8.5rem)] md:min-h-[36rem] md:flex-row md:gap-6">
-        <CalendarSidebar
-          date={page.date}
-          filters={filters}
-          hidden={visibility.hidden}
-          isOpen={isSidebarOpen}
-          onCreate={() =>
-            setFormRequest({
-              mode: "create",
-              start: { date: page.date, minute: null },
-            })
-          }
-          onSelectDate={navigation.setDate}
-          onToggleFilter={visibility.toggle}
-        />
-        <section className="flex h-[calc(100dvh-8.5rem)] min-h-[28rem] min-w-0 flex-1 flex-col md:h-auto">
-          <CalendarHeader
-            view={page.view}
+      <div className={PAGE_CLASS_NAME}>
+        <div className="flex flex-col gap-4 md:h-(--calendar-height) md:min-h-80 md:flex-row">
+          <CalendarSidebar
             date={page.date}
-            navigation={navigation}
-            onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
+            filters={filters}
+            hidden={visibility.hidden}
+            isOpen={isSidebarOpen}
+            onCreate={() =>
+              setFormRequest({
+                mode: "create",
+                start: { date: page.date, minute: null },
+              })
+            }
+            onSelectDate={navigation.setDate}
+            onToggleFilter={visibility.toggle}
           />
-          <CalendarBody page={page} entries={entries} now={now} />
-        </section>
+          <section className="flex h-(--calendar-height) min-h-80 min-w-0 flex-1 flex-col overflow-hidden rounded-xl border border-border bg-surface shadow-card md:h-auto">
+            <CalendarHeader
+              view={page.view}
+              date={page.date}
+              navigation={navigation}
+              onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
+            />
+            <CalendarBody page={page} entries={entries} now={now} />
+          </section>
+        </div>
       </div>
       <CalendarEntryDialog
         entry={shownEntry}

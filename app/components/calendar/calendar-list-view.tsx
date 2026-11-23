@@ -1,5 +1,6 @@
 import { useTranslation } from "react-i18next";
 
+import { ScrollViewport } from "@/app/components/ui/scroll-viewport";
 import { cn } from "@/app/lib/cn";
 
 import { useCalendarContext } from "./calendar-context";
@@ -31,32 +32,40 @@ export function CalendarListView({
 
   if (days.length === 0)
     return (
-      <p className="py-10 text-center text-sm text-muted-foreground">
+      <p className="px-5 py-10 text-center text-sm text-muted-foreground">
         {t("calendar.list.empty")}
       </p>
     );
 
   return (
-    <ol className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto pb-4">
-      {days.map(({ date, dayEntries }) => (
-        <li key={date} className="flex flex-col gap-2">
-          <h2
-            className={cn(
-              "text-sm font-semibold text-foreground",
-              date === today && "text-primary",
-            )}
-          >
-            {format.longDate(date)}
-          </h2>
-          <ul className="flex flex-col gap-1.5">
-            {dayEntries.map((entry) => (
-              <li key={entry.id}>
-                <CalendarEntryCard entry={entry} className="w-full py-2" />
-              </li>
-            ))}
-          </ul>
-        </li>
-      ))}
-    </ol>
+    <ScrollViewport
+      aria-label={t("calendar.views.content")}
+      containerClassName="min-h-0 flex-1"
+      className="focus-visible:-outline-offset-2"
+      role="region"
+      tabIndex={0}
+    >
+      <ol className="flex flex-col gap-5 px-4 py-4 md:px-5">
+        {days.map(({ date, dayEntries }) => (
+          <li key={date} className="flex flex-col gap-2">
+            <h2
+              className={cn(
+                "text-sm font-semibold text-foreground",
+                date === today && "text-primary",
+              )}
+            >
+              {format.longDate(date)}
+            </h2>
+            <ul className="flex flex-col gap-1.5">
+              {dayEntries.map((entry) => (
+                <li key={entry.id}>
+                  <CalendarEntryCard entry={entry} className="w-full py-2" />
+                </li>
+              ))}
+            </ul>
+          </li>
+        ))}
+      </ol>
+    </ScrollViewport>
   );
 }

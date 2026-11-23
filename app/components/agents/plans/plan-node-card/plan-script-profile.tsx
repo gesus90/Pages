@@ -17,9 +17,11 @@ import type {
 } from "../plan-script/plan-script-profile";
 
 // The one field over the full width of the footer: the profile's tile, its
-// name or choice and its status, inside the field's 1.5 px edge.
+// name or choice and its status, inside the field's 1 px edge with a 12 px
+// corner; the 28 px tile with a 6 px corner stands 5 px from the left, top
+// and bottom edge. The field stays neutral on a card in a status tone.
 const PROFILE_FIELD_CLASS =
-  "flex h-10 min-w-0 items-center gap-1.5 rounded-xl border-[1.5px] border-plan-script/40 bg-surface pr-2 pl-[5px]";
+  "flex h-10 min-w-0 items-center gap-1.5 rounded-lg border border-plan-script/40 bg-surface pr-2 pl-[5px]";
 const PROFILE_SELECT_CLASS =
   "nodrag nopan nokey h-8 min-h-8 min-w-0 flex-1 border-0 bg-transparent px-1 text-xs leading-4 font-semibold shadow-none xl:h-8 xl:px-1 xl:text-xs [&>span]:min-w-0 [&>span]:truncate";
 
@@ -70,7 +72,7 @@ export function PlanScriptProfile(props: {
       >
         <span
           aria-hidden="true"
-          className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-plan-script-subtle text-plan-script"
+          className="flex size-7 shrink-0 items-center justify-center rounded-[6px] bg-plan-script-subtle text-plan-script"
         >
           <SquareTerminal className="size-4" />
         </span>

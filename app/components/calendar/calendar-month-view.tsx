@@ -1,5 +1,6 @@
 import { useTranslation } from "react-i18next";
 
+import { ScrollViewport } from "@/app/components/ui/scroll-viewport";
 import { cn } from "@/app/lib/cn";
 
 import { useCalendarContext } from "./calendar-context";
@@ -48,7 +49,7 @@ function MonthCell({
 
   return (
     <div
-      className="flex min-h-0 min-w-0 cursor-cell flex-col gap-0.5 overflow-hidden border-t border-l border-border p-1.5"
+      className="flex min-h-0 min-w-0 cursor-cell flex-col gap-0.5 overflow-hidden border-t border-l border-border p-1.5 [&:nth-child(7n+1)]:border-l-0"
       onClick={handleCreate}
     >
       <button
@@ -79,37 +80,51 @@ function MonthCell({
   );
 }
 
-/** The month view: six weeks of seven days from the Monday before the first. */
+/**
+ * The month view: six weeks of seven days from the Monday before the first.
+ * @remarks
+ * A week keeps room for its entries and „+N weitere“; in a low panel the six
+ * weeks scroll beneath the weekdays instead of clipping the entries.
+ */
 export function CalendarMonthView({
   date,
   entries,
 }: CalendarMonthViewProps): React.ReactElement {
+  const { t } = useTranslation();
   const { format } = useCalendarContext();
   const days = monthGridDates(date);
   const month = date.slice(0, 7);
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col overflow-hidden border-r border-b border-border">
-      <div className="grid grid-cols-7">
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div className="grid shrink-0 grid-cols-7 overflow-y-hidden [scrollbar-gutter:stable]">
         {days.slice(0, 7).map((day) => (
           <span
             key={day}
-            className="border-t border-l border-border px-2.5 py-1.5 text-xs text-muted-foreground"
+            className="border-l border-border px-2.5 py-1.5 text-xs text-muted-foreground first:border-l-0"
           >
             {format.weekdayShort(day)}
           </span>
         ))}
       </div>
-      <div className="grid min-h-0 flex-1 grid-cols-7 grid-rows-6">
-        {days.map((day) => (
-          <MonthCell
-            key={day}
-            date={day}
-            isInMonth={day.startsWith(month)}
-            entries={entries}
-          />
-        ))}
-      </div>
+      <ScrollViewport
+        aria-label={t("calendar.views.content")}
+        className="flex flex-col focus-visible:-outline-offset-2"
+        containerClassName="min-h-0 flex-1"
+        role="region"
+        tabIndex={0}
+      >
+        <div className="grid flex-1 grid-cols-7 grid-rows-[repeat(6,minmax(6rem,1fr))]">
+          {days.map((day) => (
+            <MonthCell
+              key={day}
+              date={day}
+              isInMonth={day.startsWith(month)}
+              entries={entries}
+            />
+          ))}
+        </div>
+      </ScrollViewport>
     </div>
   );
 }

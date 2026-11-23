@@ -1,6 +1,9 @@
 import { planGroupContent } from "./AgentPlanGroupLoop";
 import { planStepTemplate } from "./AgentPlanConfiguration";
 import { planDecisionMode, planDecisionOutputPorts } from "./AgentPlanDecision";
+import { planStepSelection } from "./AgentPlanSelection";
+import { planProfileProblem } from "./AgentPlanProfile";
+import { storedAgentAccessMode } from "./AgentAccessMode";
 
 import type {
   AgentPlanDecision,
@@ -35,6 +38,13 @@ const CARD_ROW_GAP = 6;
 const CARD_EXECUTION = 35;
 const CARD_FOOTER = 65;
 const CARD_HINT = 37;
+// The notes above the rows of an agent, each 6 px above the next line: the
+// 24 px access badge of a stored access mode, the 16 px line of a required
+// choice whose card edge grows to 2 px, and the sentence of a profile problem
+// or an earlier write mode, which wraps to two 16 px lines in the card.
+const AGENT_ACCESS_NOTE = CARD_ROW_GAP + 24;
+const AGENT_SELECTION_NOTE = CARD_ROW_GAP + 16 + 2;
+const AGENT_SENTENCE_NOTE = CARD_ROW_GAP + 2 * 16;
 /** The compact logic node, now as wide as every card. */
 export const PLAN_DECISION_WIDTH = PLAN_CARD_WIDTH;
 /** The pill of a start or an end. */
@@ -77,6 +87,15 @@ const FRAME_MEMBER_BOTTOM_GAP = 18;
 /** The line 8 px below the member area that counts the members, with the 14 px below it. */
 export const PLAN_FRAME_FOOTER = 38;
 
+/**
+ * The height the canvas measured for a drawn node, if it measured one.
+ * @remarks
+ * A card is at least as tall as {@link planNodeHeight}; the lines of a shown
+ * run, an opened execution place or a larger font make it taller. A frame
+ * encloses such a member at its measured height.
+ */
+export type PlanMeasuredHeight = (id: string) => number | undefined;
+
 /** The height of a column of rows; a column always holds at least one row. */
 export function planCardRowsHeight(rows: number): number {
   const count = Math.max(1, rows);
@@ -88,13 +107,39 @@ function cardHeight(rows: number): number {
   return CARD_HEADER + CARD_BODY_PADDING + planCardRowsHeight(rows);
 }
 
+/** The note of a stored access mode: its badge, or the sentence of an earlier write mode. */
+function agentAccessHeight(step: AgentPlanStep): number {
+  const access = step.configuration?.template.run?.access;
+  if (access === undefined) return 0;
+  return storedAgentAccessMode(access) === null
+    ? AGENT_SENTENCE_NOTE
+    : AGENT_ACCESS_NOTE;
+}
+
+/** The notes of an agent's profile and stored configuration above its rows. */
+function agentNotesHeight(
+  step: AgentPlanStep,
+  sources: AgentPlanSources,
+): number {
+  const profile =
+    planProfileProblem(step, sources.agents) === null ? 0 : AGENT_SENTENCE_NOTE;
+  const selection = planStepSelection(step) === null ? 0 : AGENT_SELECTION_NOTE;
+  return profile + selection + agentAccessHeight(step);
+}
+
 /**
- * An agent card: its inputs and the event input on the left, its text and
- * boolean result on the right, the execution line and the model footer.
+ * An agent card: the notes of its configuration, its inputs and the event
+ * input on the left, its text and boolean result on the right, the execution
+ * line and the model footer.
  */
 function agentHeight(step: AgentPlanStep, sources: AgentPlanSources): number {
   const inputs = planStepTemplate(step, sources.agents)?.parameters.length ?? 0;
-  return cardHeight(Math.max(inputs + 1, 2)) + CARD_EXECUTION + CARD_FOOTER;
+  return (
+    cardHeight(Math.max(inputs + 1, 2)) +
+    agentNotesHeight(step, sources) +
+    CARD_EXECUTION +
+    CARD_FOOTER
+  );
 }
 
 /** A script card has the lines of an agent card: its inputs, its output and its profile. */
@@ -156,9 +201,23 @@ function frameContent(group: PlanFrame): readonly FrameContent[] {
   ];
 }
 
-function memberHeight(member: FrameContent, sources: AgentPlanSources): number {
-  if (member.type === "group" || member.type === "loop")
-    return groupHeight(member, sources);
+/** The planned height of a member, or its measured one when it is drawn taller. */
+function memberHeight(
+  member: FrameContent,
+  sources: AgentPlanSources,
+  measured: PlanMeasuredHeight | undefined,
+): number {
+  const planned =
+    member.type === "group" || member.type === "loop"
+      ? groupHeight(member, sources, measured)
+      : plannedCardHeight(member, sources);
+  return Math.max(planned, measured?.(member.id) ?? 0);
+}
+
+function plannedCardHeight(
+  member: AgentPlanStep | AgentPlanScript | AgentPlanDecision,
+  sources: AgentPlanSources,
+): number {
   if (member.type === "decision") return decisionHeight(member);
   return member.type === "script"
     ? scriptHeight(member)
@@ -181,10 +240,16 @@ export function planGroupWidth(group: PlanFrame): number {
   return Math.max(FRAME_MIN_WIDTH, right + 2 * PLAN_FRAME_PADDING);
 }
 
-function groupHeight(group: PlanFrame, sources: AgentPlanSources): number {
+function groupHeight(
+  group: PlanFrame,
+  sources: AgentPlanSources,
+  measured: PlanMeasuredHeight | undefined,
+): number {
   const bottom = Math.max(
     0,
-    ...frameContent(group).map((step) => step.y + memberHeight(step, sources)),
+    ...frameContent(group).map(
+      (step) => step.y + memberHeight(step, sources, measured),
+    ),
   );
   return (
     planGroupHeaderHeight() +
@@ -235,6 +300,9 @@ export function planNodeWidth(node: AgentPlanNode): number {
 
 /**
  * Bounds size React Flow nodes and keep group membership hit areas consistent.
+ * @param node - The node whose card or frame is sized.
+ * @param sources - What sizes the cards: the agents, whose inputs make a card taller.
+ * @param measured - The drawn heights of the members, so a frame encloses a member drawn taller than planned.
  * @remarks
  * A card is at least this tall; larger text lets it grow, and React Flow
  * then measures its ports again.
@@ -242,6 +310,7 @@ export function planNodeWidth(node: AgentPlanNode): number {
 export function planNodeHeight(
   node: AgentPlanNode,
   sources: AgentPlanSources,
+  measured?: PlanMeasuredHeight,
 ): number {
   const heights = {
     start: PLAN_ENDPOINT_HEIGHT,
@@ -252,7 +321,7 @@ export function planNodeHeight(
     asset: cardHeight(1) + ASSET_PREVIEW_HEIGHT,
   };
   if (node.type === "group" || node.type === "loop")
-    return groupHeight(node, sources);
+    return groupHeight(node, sources, measured);
   if (node.type === "agent") return agentHeight(node, sources);
   if (node.type === "script") return scriptHeight(node);
   if (node.type === "git_closeout") return cardHeight(1) + 49;

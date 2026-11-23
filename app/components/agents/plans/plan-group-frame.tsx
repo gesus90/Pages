@@ -23,7 +23,11 @@ import { planLinkKey, planLinkLabel } from "./plan-links";
 import { PlanNodeActions, PlanNodeEditButton } from "./plan-node-actions";
 import { PLAN_NODE_TEXT } from "./plan-node-text";
 import { PlanPaletteButton } from "./plan-palette-button";
-import { PlanGroupCount, PlanGroupStatus } from "./plan-group-progress";
+import {
+  PlanGroupCount,
+  PlanGroupStatus,
+  planGroupToneClass,
+} from "./plan-group-progress";
 import { PlanNodeWarning } from "./plan-node-warning";
 import { PLAN_STATUS_MARKER } from "./plan-status";
 
@@ -48,13 +52,17 @@ interface GroupFrameProps {
   readonly onSaveTemplate: (id: string) => void;
 }
 
+// A 16 px corner, collapsed as well, with a 1 px edge; while a run is shown
+// the container takes the status tone of its state. Its members are nodes of
+// their own and keep their own state.
 function groupFrameClass(props: GroupFrameProps): string {
+  const progress = planGroupProgress(props.group, props.run, props.runError);
   return cn(
-    "relative size-full border shadow-xs",
+    "relative size-full rounded-xl border shadow-xs",
     planNodeClass("group"),
+    props.run !== null && planGroupToneClass(progress.state),
     PLAN_TYPE_COLORS.frameEdge,
     PLAN_TYPE_COLORS.frameSurface,
-    props.isCollapsed ? "rounded-[0.875rem]" : "rounded-2xl",
     props.isDropTarget && "ring-2 ring-plan-group/40",
     props.graph.selectedId === props.group.id &&
       "ring-2 ring-info ring-offset-2 ring-offset-background",
@@ -226,7 +234,7 @@ function GroupMarks(props: GroupFrameProps): React.ReactElement {
       ) : (
         <PlanGroupSessionValue
           session={props.session}
-          className={cn(PLAN_FRAME_MARK, "text-plan-group")}
+          className={cn(PLAN_FRAME_MARK, PLAN_TYPE_COLORS.title)}
         />
       )}
       <PlanGroupAdapterBadge adapter={adapter} />
@@ -259,14 +267,17 @@ function CollapsedGroupHeader(
         >
           <span
             className={cn(
-              "mb-1 flex items-center gap-1 font-medium text-plan-group",
+              "mb-1 flex items-center gap-1 font-medium",
+              PLAN_TYPE_COLORS.title,
               PLAN_NODE_TEXT.meta,
             )}
           >
             <Boxes className="size-3" aria-hidden="true" />
             <GroupTypeLine {...props} />
           </span>
-          <span className="block truncate text-plan-group">{label}</span>
+          <span className={cn("block truncate", PLAN_TYPE_COLORS.title)}>
+            {label}
+          </span>
         </button>
         <PlanNodeWarning nodeId={group.id} issues={graph.issues} />
         <GroupToggle {...props} />

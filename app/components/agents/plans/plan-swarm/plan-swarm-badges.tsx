@@ -33,10 +33,11 @@ export function PlanSwarmSymbol(props: {
 /**
  * The helpers of a swarm as fields H1 … H10 beside the main model in the footer.
  * @remarks
- * Every field is 58 px wide and 40 px high with a 12 px corner and a 1.5 px
+ * Every field is 58 px wide and 40 px high with a 12 px corner and a 1 px
  * edge; the fields wrap into further rows. Its status shows as the plan
- * status color and a symbol, its tooltip names the model and the current
- * subtask.
+ * status color of its edge and text and a symbol on the neutral surface, so
+ * it never blends into a card in a status tone; its tooltip names the model
+ * and the current subtask.
  */
 export function PlanSwarmBadges(props: {
   readonly badges: readonly PlanSwarmBadge[];
@@ -55,8 +56,9 @@ export function PlanSwarmBadges(props: {
           data-symbol={badge.symbol ?? "none"}
           title={[badge.model, badge.task].filter(Boolean).join(" · ")}
           className={cn(
-            "flex h-10 w-[58px] shrink-0 items-center justify-center gap-1 rounded-xl border-[1.5px] text-xs leading-4 font-semibold tabular-nums",
+            "flex h-10 w-[58px] shrink-0 items-center justify-center gap-1 rounded-lg border text-xs leading-4 font-semibold tabular-nums",
             badge.className,
+            "bg-surface",
           )}
         >
           {badge.id}

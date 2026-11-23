@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 
+import { ScrollViewport } from "@/app/components/ui/scroll-viewport";
 import { cn } from "@/app/lib/cn";
 
 import { useCalendarContext } from "./calendar-context";
@@ -114,8 +115,8 @@ function HourLabels(): React.ReactElement {
 function useInitialScroll(
   dates: readonly string[],
   entries: readonly CalendarViewEntry[],
-): React.RefObject<HTMLDivElement | null> {
-  const scrollRef = useRef<HTMLDivElement>(null);
+): React.RefObject<HTMLElement | null> {
+  const scrollRef = useRef<HTMLElement>(null);
   const scrolledFor = useRef<string | null>(null);
   const rangeKey = dates.join(",");
   const minute = firstScrollMinute(entries, dates);
@@ -141,15 +142,20 @@ export function CalendarTimeGrid({
   entries,
   now,
 }: CalendarTimeGridProps): React.ReactElement {
+  const { t } = useTranslation();
   const scrollRef = useInitialScroll(dates, entries);
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <DayHeadings dates={dates} />
       <AllDayRow dates={dates} entries={entries} />
-      <div
+      <ScrollViewport
         ref={scrollRef}
-        className="min-h-0 flex-1 overflow-y-auto [scrollbar-gutter:stable]"
+        aria-label={t("calendar.views.content")}
+        className="focus-visible:-outline-offset-2"
+        containerClassName="min-h-0 flex-1"
+        role="region"
+        tabIndex={0}
       >
         <div className="relative grid" style={gridColumns(dates.length)}>
           <HourLabels />
@@ -177,7 +183,7 @@ export function CalendarTimeGrid({
             </div>
           ))}
         </div>
-      </div>
+      </ScrollViewport>
     </div>
   );
 }

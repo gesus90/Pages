@@ -11,7 +11,12 @@ import { PlanNodeActions, PlanNodeEditButton } from "./plan-node-actions";
 import { PlanNodeIcon } from "./plan-node-icon";
 import { PlanNodeWarning } from "./plan-node-warning";
 import { PLAN_NODE_TEXT } from "./plan-node-text";
-import { planStatusClass, planStatusKey } from "./plan-status";
+import {
+  planStatusClass,
+  planStatusKey,
+  planStatusTone,
+  planToneClass,
+} from "./plan-status";
 import { planEndpointPorts } from "./plan-jump/plan-jump-model";
 import { PlanPortGrid } from "./plan-jump/plan-jump-ports";
 import { firstFilledText } from "./plan-jump/plan-jump-text";
@@ -39,16 +44,17 @@ function useEndpointLabel(node: AgentPlanStart | AgentPlanEnd): string {
   return own || t(`plans.nodeType.${node.type}`);
 }
 
-// The status ring of the orb: 3 px of surface, then 2 px in the status color.
-const ORB_RINGS: Readonly<Record<AgentPlanStepStatus, string | null>> = {
-  waiting: null,
-  running: "ring-status-active",
-  succeeded: "ring-success",
-  failed: "ring-destructive",
-  cancelled: "ring-muted-foreground",
-  paused: "ring-muted-foreground",
-  skipped: "ring-muted-foreground",
-};
+// The pill in a status tone: the surface SS and an edge of 55 % S; without a
+// tone the neutral surface and border, the name in the foreground color.
+const PILL_COLORS =
+  "border-[color:var(--plan-edge,var(--color-border))] bg-[color:var(--plan-tone-subtle,var(--color-surface))]";
+const PILL_NAME_COLOR =
+  "text-[color:var(--plan-tone-text,var(--color-foreground))]";
+
+// The status ring of the orb: 3 px of SS, then 2 px in S; paused, cancelled
+// and skipped endpoints have no tone and take the muted color.
+const ORB_RING =
+  "ring-2 ring-offset-[3px] ring-[color:var(--plan-tone,var(--color-muted-foreground))] ring-offset-[color:var(--plan-tone-subtle,var(--color-surface))]";
 
 /** The symbol of the status circle: a check when it succeeded, a cross when it failed, else a clock. */
 function statusSymbol(
@@ -59,13 +65,16 @@ function statusSymbol(
   return status === "succeeded" ? Check : Clock;
 }
 
-/** The ring of the orb in the status color; a waiting endpoint has none. */
+/** The ring of the orb in the status color; a waiting endpoint that nothing blocks has none. */
 function orbRing(result: AgentPlanStepResult | undefined): string | false {
-  const ring = result?.isBlocked
-    ? ORB_RINGS.failed
-    : ORB_RINGS[result?.status ?? "waiting"];
-  return (
-    ring !== null && cn("ring-2 ring-offset-[3px] ring-offset-surface", ring)
+  const isWaiting = (result?.status ?? "waiting") === "waiting";
+  return (!isWaiting || result?.isBlocked === true) && ORB_RING;
+}
+
+/** The status tone of the pill while a run is shown, in the mapping of the cards. */
+function endpointToneClass(result: AgentPlanStepResult | undefined): string {
+  return planToneClass(
+    planStatusTone(result?.status ?? "waiting", result?.isBlocked === true),
   );
 }
 
@@ -100,10 +109,11 @@ function EndpointStatus(props: {
  * @remarks
  * The cards keep their stored coordinates. The orb only marks the node; it
  * starts nothing. While a run is shown, a ring in the status color surrounds
- * the orb, except while it waits. A start that other plans may call shows
- * its accepted inputs as value outputs below the pill, an end that returns
- * values shows one value input per return, in the rows of every card; a plan
- * without them keeps the compact pill.
+ * the orb, except while it waits; a running, done, failed or blocked pill
+ * takes the status tone on its surface, edge, name and orb. A start that
+ * other plans may call shows its accepted inputs as value outputs below the
+ * pill, an end that returns values shows one value input per return, in the
+ * rows of every card; a plan without them keeps the compact pill.
  */
 export function PlanEndpoint(props: PlanEndpointProps): React.ReactElement {
   const { draft, onEdit } = usePlanFlowContext();
@@ -126,7 +136,9 @@ export function PlanEndpoint(props: PlanEndpointProps): React.ReactElement {
     >
       <div
         className={cn(
-          "relative flex h-14 min-w-[170px] items-center gap-2 self-start rounded-[30px] border border-border bg-surface p-1.5 shadow-xs",
+          "relative flex h-14 min-w-[170px] items-center gap-2 self-start rounded-[30px] border p-1.5 shadow-xs",
+          props.hasRun && endpointToneClass(props.result),
+          PILL_COLORS,
           graph.selectedId === node.id &&
             "ring-2 ring-info ring-offset-2 ring-offset-surface",
         )}
@@ -185,6 +197,7 @@ function EndpointName(
       className={cn(
         "flex min-w-0 flex-1 flex-col self-stretch justify-center rounded-full text-left focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
         PLAN_NODE_TEXT.title,
+        PILL_NAME_COLOR,
         props.canEdit && "cursor-grab active:cursor-grabbing",
       )}
     >

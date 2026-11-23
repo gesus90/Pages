@@ -7,6 +7,7 @@ import {
 } from "@/definition/AgentPlanGitCloseout";
 
 import { usePlanFlowContext } from "../plan-flow-context";
+import { PLAN_TYPE_COLORS } from "../plan-layout";
 import { PLAN_NODE_TEXT } from "../plan-node-text";
 import { PlanRunMarker, planRunCardClass } from "../plan-status";
 import { PlanAgentInput } from "./plan-agent-input";
@@ -67,7 +68,12 @@ export function PlanGitCloseoutCard(props: {
           }
         />
       </div>
-      <div className="flex h-12 shrink-0 items-center border-t border-border px-3.5">
+      <div
+        className={cn(
+          "flex h-12 shrink-0 items-center border-t px-3.5",
+          PLAN_TYPE_COLORS.line,
+        )}
+      >
         <span
           className={cn(
             "min-w-0 truncate text-destructive",

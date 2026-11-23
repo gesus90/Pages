@@ -7,6 +7,22 @@
 /** Claude's own banners, such as a spend limit, carry no real usage. */
 const SYNTHETIC_MODEL = "<synthetic>";
 const MODEL_NAME = /^[A-Za-z0-9._:@/[\]-]{1,200}$/u;
+const WINDOW_REQUEST_ID = "pages-context-window";
+/** The CLI names this source when it assumed a default window for a model it does not know. */
+const ASSUMED_WINDOW_SOURCE = "unknown-model";
+/** A selection suffix such as `[1m]`, which the CLI's answers may leave out. */
+const SELECTION_SUFFIX = /\[[^\]]{1,20}\]$/u;
+
+/**
+ * The control request that asks the CLI for the context window of its model.
+ * The `summary` detail is answered by the CLI itself: no user message is sent
+ * and no model is called.
+ */
+export const CLAUDE_WINDOW_REQUEST = `${JSON.stringify({
+  type: "control_request",
+  request_id: WINDOW_REQUEST_ID,
+  request: { subtype: "get_context_usage", detail: "summary" },
+})}\n`;
 
 function count(input) {
   return Number.isSafeInteger(input) && input >= 0 ? input : null;
@@ -52,12 +68,61 @@ function positive(input) {
   return reading === null || reading === 0 ? null : reading;
 }
 
+function parsedLines(stdout) {
+  return stdout.split("\n").flatMap((line) => {
+    try {
+      return [JSON.parse(line)];
+    } catch {
+      return [];
+    }
+  });
+}
+
+/**
+ * Reads the CLI's answer to {@link CLAUDE_WINDOW_REQUEST}.
+ * @returns The model the job's selection resolves to and `rawMaxTokens`, the
+ * window the CLI uses for it; `null` without a valid answer or when the CLI
+ * only assumed a window for a model it does not know.
+ */
+export function readClaudeWindow(stdout) {
+  if (typeof stdout !== "string") return null;
+  const answer = parsedLines(stdout).find(
+    (message) =>
+      message?.type === "control_response" &&
+      message.response?.request_id === WINDOW_REQUEST_ID,
+  )?.response;
+  if (answer?.subtype !== "success") return null;
+  const model = modelName(answer.response?.model);
+  const limit = positive(answer.response?.rawMaxTokens);
+  if (
+    model === null ||
+    limit === null ||
+    answer.response.autocompactSource === ASSUMED_WINDOW_SOURCE
+  )
+    return null;
+  return { model, limit };
+}
+
+/**
+ * The window the CLI named before the job for exactly the current model.
+ * The answers of one selection may differ by a suffix such as `[1m]`; any
+ * other model, such as a fallback, has no window until its `result`.
+ */
+function startWindow(session) {
+  const { window, model } = session;
+  if (window === null || model === null) return null;
+  return window.model.replace(SELECTION_SUFFIX, "") ===
+    model.replace(SELECTION_SUFFIX, "")
+    ? window.limit
+    : null;
+}
+
 /** A new model ends every value measured for the previous one. */
 function observeModel(session, model) {
   if (model === null || model === session.model) return false;
   session.model = model;
   session.context = null;
-  session.limit = null;
+  session.limit = startWindow(session);
   return true;
 }
 
@@ -134,7 +199,25 @@ function reading(session) {
 
 /** Creates the reader of one job; nothing is shared between jobs or runs. */
 export function createClaudeSessionReader() {
-  return { model: null, context: null, limit: null, last: null };
+  return { model: null, context: null, limit: null, window: null, last: null };
+}
+
+/**
+ * Asks the CLI for the window of the job's model before the job starts, so
+ * the first reading, sent with the job's `system` `init`, already names it.
+ * The window of the turn's `result` replaces it. A question the CLI did not
+ * answer leaves the window unknown until then; it never stops the job.
+ * @param session - The reader of the job.
+ * @param ask - Starts the CLI with the job's model and environment and
+ * returns its output for {@link CLAUDE_WINDOW_REQUEST}, or `null`.
+ */
+export async function prepareClaudeSession(session, ask) {
+  try {
+    session.window = readClaudeWindow(await ask());
+  } catch {
+    // Without an answer the window stays unknown until the turn's result names it.
+    session.window = null;
+  }
 }
 
 /**

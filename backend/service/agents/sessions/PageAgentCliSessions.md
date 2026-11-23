@@ -187,15 +187,21 @@ Context occupancy and token counts are separate values:
   values. A reading without a measurement, also a compaction without a kept
   count, keeps the last valid one of the same model, also after the end, on
   reopening and into the next turn; a reading older than the stored one
-  changes nothing. The CLI names the window in the `result` at the end of a
-  turn, so a running step can display just its occupancy. The
+  changes nothing. Before the job starts, the runner asks the CLI for the
+  window of the job's model, so the first reading, sent with `system`
+  `init`, names the window with no occupancy yet; the `result` at the end of
+  a turn replaces it. The
   `stream_event` `message_delta`
   of an answer completes the reading of its `assistant` event, which holds the
   output tokens counted while the answer was still streaming.
 - Every new attempt starts with empty context readings. The sidebar refreshes
   the selected attempt's view after activity, at most once per 1.5 seconds.
-  It displays either reported field on its own and shows the bar once both
-  fields are present. Reopening reads the last stored values of that attempt.
+  The same "Kontext" block serves all six providers and shows "used /
+  window" with the bar below: a known window without a reading yet stands as
+  `0 / window` with an empty bar; an unknown window keeps the occupancy and
+  shows the shared placeholder ("unbekannt") as its denominator, without a
+  bar or a percentage; without both values only the placeholder stands.
+  Reopening reads the last stored values of that attempt, also after its end.
 - A Codex CLI job of a runner sends the same session readings with the
   source `codex_token_count`: the occupancy and window of the latest
   `token_count` in the rollout of its thread, the model of its
@@ -252,7 +258,20 @@ options of a runner job (`-p --output-format stream-json --verbose
 `get_context_usage` answers before the first model call (`maxTokens`
 1,000,000 for Haiku 5.5), but only a CLI started with `--input-format
 stream-json` reads control requests. A runner job passes its prompt as plain
-text, so Pages takes the window from that job's `result`.
+text, so the runner starts the CLI once more before the job
+(`askClaudeContextWindow` in `scripts/runner/cli.mjs`): with the job's
+`--model` and environment, the flags of the catalog query (no tools, MCP
+servers, hooks or session file) and the single control request
+`get_context_usage` with `detail: "summary"`, which the CLI answers from its
+own model data without a sign-in, a user message or a model call (about
+0.4 seconds with Claude Code 2.1.322). The answer names `model` and
+`rawMaxTokens`, for example `claude-sonnet-5-5` and 1,000,000. The reader
+(`readClaudeWindow` in `scripts/runner/claude-session.mjs`) applies that
+window only to the same model; a suffix such as `[1m]` may differ between
+the answers of one selection. An answer with `autocompactSource:
+"unknown-model"` is the CLI's default of 200,000 for a model it does not
+know and is dropped, as is a missing answer: the window then stays unknown
+until the turn's `result` names it.
 
 The path to the sidebar: the runner emits a `usage` event whose text is
 `{"session":{"model","context":{"used","limit","source"}}}` for every change;
@@ -260,6 +279,21 @@ The path to the sidebar: the runner emits a `usage` event whose text is
 (`agent_session_attempts.context_*`) in the transaction that receives the
 event; `AgentSessionService.view` returns it as `AgentSessionView.context`
 (`contextUsed` / `contextLimit`), and the sidebar shows "used / window".
+
+### Context window at the start, per provider
+
+| Provider                                     | Occupancy                                                | Window before the first reading                                                                               | Checked journal (used / window)                      | Open gap                                                                                                                                                                          |
+| -------------------------------------------- | -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Claude Code CLI (runner)                     | every top-level answer (`cli_assistant_usage`)           | `get_context_usage` before the job, see above; `result.modelUsage[model].contextWindow` at the end of a turn  | Haiku 5.5 36,912 / 1,000,000                         | A model the CLI does not know has no window until the `result`. Readings stored before this change show running steps without a window, such as Sonnet 5.5 101,724 / unknown.     |
+| Codex CLI (runner)                           | rollout `token_count` after every model response         | rollout `task_started.model_context_window` at the start of every turn                                        | `gpt-6.1-terra` 80,105 / 475,000                     | none                                                                                                                                                                              |
+| OpenCode (runner, ACP)                       | `usage_update.used`, sent when a turn ends               | the catalog entry of the attempt's model (`limit.context` of `opencode models --verbose`) in the session view | `opencode/deepseek-v4.1-flash-free` 24,581 / 200,000 | The OpenCode inventory of a runner host carries no window, so a connection without a Pages catalog entry for the model shows the placeholder until the first `usage_update.size`. |
+| OpenRouter (OpenCode with linked OpenRouter) | `usage_update.used`, sent when a turn ends               | OpenRouter catalog `context_length` of the model                                                              | `openrouter/meta/muse-ember` 135,227 / 1,048,576     | The same as OpenCode for a model the catalog has no `context_length` for.                                                                                                         |
+| Z.AI (OpenCode `zai/` models)                | `usage_update.used`, sent when a turn ends               | the catalog entry of the OpenCode model, as for OpenCode                                                      | no Z.AI attempt in the checked journal               | A Z.AI journal comparison is still open; the path is the shared OpenCode one and was replayed with sample readings only.                                                          |
+| Antigravity (`agy acp`)                      | `usage_update.used` at session start and after each call | `usage_update.size` with the same report; the Antigravity catalog names no window                             | `gemini-4-hydrogen` 48,449 / 1,048,576               | Until the first `usage_update` the window is unknown; the catalog of `agy acp` states none.                                                                                       |
+
+The values in the journal column come from `agent_session_attempts` of a
+snapshot database of 21 November 2026; the sidebar showed the same pair for
+each of them.
 
 ### Measured source of the context of a Codex CLI job
 

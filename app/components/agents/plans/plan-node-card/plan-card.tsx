@@ -7,11 +7,7 @@ import { isPlanTemplateNode } from "@/definition/AgentPlanNodeTemplate";
 import { usePlanFlowContext } from "../plan-flow-context";
 import { keepPlanControlKeys } from "../plan-flow-keys";
 import { planFlowDots, PlanFlowPorts } from "../plan-flow-ports";
-import {
-  planNodeAccent,
-  planNodeClass,
-  PLAN_TYPE_COLORS,
-} from "../plan-layout";
+import { planNodeClass, PLAN_TYPE_COLORS } from "../plan-layout";
 import { PlanNodeActions, PlanNodeEditButton } from "../plan-node-actions";
 import { PlanNodeIcon } from "../plan-node-icon";
 import { PlanNodeWarning } from "../plan-node-warning";
@@ -32,18 +28,22 @@ export const PLAN_CARD_ROW = "relative flex h-8 min-w-0 items-center";
 
 /**
  * The footer of an agent, a script and a swarm: a 1 px line above 64 px, 12
- * px inset around fields 40 px high and 8 px apart, each with a 12 px corner
- * and a 1.5 px edge around its 28 px tile.
+ * px inset around fields 40 px high and 8 px apart. Each field keeps its own
+ * 12 px corner and 1 px edge around its 28 px tile; the line takes the
+ * status tone, the fields stay neutral.
  */
-export const PLAN_CARD_FOOTER =
-  "grid h-[65px] shrink-0 items-center gap-2 border-t border-border p-3 [&_button.h-10]:rounded-xl [&_button.h-10]:border-[1.5px]";
+export const PLAN_CARD_FOOTER = cn(
+  "grid h-[65px] shrink-0 items-center gap-2 border-t p-3",
+  PLAN_TYPE_COLORS.line,
+);
 
 /**
  * A line across the card below the body, such as the hint of a decision: 36
  * px with a 1 px line above, 11 px muted text, centred.
  */
 export const PLAN_CARD_HINT = cn(
-  "flex min-h-9 shrink-0 flex-col items-center justify-center border-t border-border px-3.5 py-2.5 text-center text-muted-foreground",
+  "flex min-h-9 shrink-0 flex-col items-center justify-center border-t px-3.5 py-2.5 text-center text-muted-foreground",
+  PLAN_TYPE_COLORS.line,
   PLAN_NODE_TEXT.meta,
 );
 
@@ -51,11 +51,11 @@ interface PlanCardProps {
   readonly node: AgentPlanNode;
   /** The node's name; it names the card, its handle and its menu. */
   readonly label: string;
-  /** The name line of the header, in the type color. */
+  /** The name line of the header, in the type color or the status tone. */
   readonly title: string;
   /** The type line above the name, such as „Agent“. */
   readonly subtitle?: string;
-  /** A state of the card itself, such as the dashed edge of a skipped node or a broken file. */
+  /** A state of the card itself, such as the status tone of a run, the dashed edge of a skipped node or a broken file. */
   readonly stateClass?: string;
   /** The status marker, centred on the lower edge of the header; only nodes that run have one. */
   readonly status?: React.ReactNode;
@@ -70,12 +70,15 @@ interface PlanCardProps {
 
 /**
  * The shared frame of every node card: 340 px wide by its node, a 12 px
- * corner, the edge in the type color and a calm surface.
+ * corner, a 1 px edge in the type color without a shadow, and a calm surface.
  * @remarks
- * The 66 px header holds the icon tile, the type line and the name in the
- * type color, the edit button and the three-dot menu; the run status only
- * shows in the marker on the header's lower edge, never in the card colors.
- * Only the name moves the card; fields and menus keep pointer and keys.
+ * The 66 px header, 11 px round at the top, holds the icon tile, the type
+ * line and the name in the type color, the edit button and the three-dot
+ * menu; the marker on the header's lower edge names the run status. While a
+ * run is shown, the state class of a card that runs, is done or failed
+ * draws surface, edge, header, tile, name, value fields and dividers in the
+ * status tone instead. Only the name moves the card; fields and menus keep
+ * pointer and keys.
  */
 export function PlanCard(props: PlanCardProps): React.ReactElement {
   const { graph, canEdit } = usePlanFlowContext();
@@ -86,23 +89,25 @@ export function PlanCard(props: PlanCardProps): React.ReactElement {
   const hasDestructiveIssue = needsSelection
     ? nodeIssues.some((issue) => issue.reason !== "agent")
     : nodeIssues.length > 0;
+  const hasWideEdge = needsSelection && !hasDestructiveIssue;
   return (
     <article
       aria-label={props.label}
       data-plan-card={node.type}
       onKeyDown={keepPlanControlKeys}
       className={cn(
-        "relative flex w-full flex-col rounded-xl border bg-surface shadow-xs transition-shadow",
+        "relative flex w-full flex-col rounded-lg border transition-shadow",
         planNodeClass(node.type),
         PLAN_TYPE_COLORS.cardEdge,
+        PLAN_TYPE_COLORS.cardSurface,
         props.stateClass,
         props.isDimmed && "opacity-70",
         graph.selectedId === node.id &&
           "ring-2 ring-info ring-offset-2 ring-offset-surface",
-        needsSelection && !hasDestructiveIssue && "border-2 border-primary",
+        hasWideEdge && "border-2 border-primary",
       )}
     >
-      <PlanCardHeader {...props} />
+      <PlanCardHeader {...props} hasWideEdge={hasWideEdge} />
       <PlanFlowPorts
         node={node}
         graph={graph}
@@ -137,14 +142,22 @@ export function PlanCardColumns(props: {
   );
 }
 
-function PlanCardHeader(props: PlanCardProps): React.ReactElement {
+/**
+ * The header inside the card edge: its upper corners are the card's 12 px
+ * corner less the edge, 11 px, or 10 px within the 2 px edge of a required
+ * choice, so header and edge draw one line.
+ */
+function PlanCardHeader(
+  props: PlanCardProps & { readonly hasWideEdge: boolean },
+): React.ReactElement {
   const { t } = useTranslation();
   const { graph, canEdit, requestTemplate } = usePlanFlowContext();
   const { node } = props;
   return (
     <header
       className={cn(
-        "relative flex h-[66px] shrink-0 items-center gap-2 rounded-t-[11px] px-3 pb-5",
+        "relative flex h-[66px] shrink-0 items-center gap-2 px-3 pb-5",
+        props.hasWideEdge ? "rounded-t-[10px]" : "rounded-t-[11px]",
         PLAN_TYPE_COLORS.header,
       )}
     >
@@ -187,7 +200,7 @@ function PlanCardHeader(props: PlanCardProps): React.ReactElement {
           className={cn(
             "block truncate",
             PLAN_NODE_TEXT.title,
-            planNodeAccent(node.type),
+            PLAN_TYPE_COLORS.title,
           )}
         >
           {props.title}

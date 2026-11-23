@@ -23,7 +23,12 @@ import {
 } from "./plan-loop-summary";
 import { PlanNodeActions, PlanNodeEditButton } from "./plan-node-actions";
 import { PlanNodeWarning } from "./plan-node-warning";
-import { PLAN_STATUS_MARKER, planStatusClass } from "./plan-status";
+import {
+  PLAN_STATUS_MARKER,
+  planStatusClass,
+  planStatusTone,
+  planToneClass,
+} from "./plan-status";
 
 import type {
   AgentPlanInput,
@@ -84,9 +89,10 @@ function loopRunNote(
  * The full settings are not drawn here; the pencil opens them in a floating
  * panel. The container is one flow node outwardly, with its dots on the
  * container edge at half the header height; its members are separate nodes
- * of the canvas placed in it. Surface and edge keep the loop color in every
- * state; the status marker names whether the loop was left regularly with a
- * confirmed cleanup, never after a single iteration, or failed.
+ * of the canvas placed in it. The status marker names whether the loop was
+ * left regularly with a confirmed cleanup, never after a single iteration,
+ * or failed; while a run is shown, the container takes the tone of that
+ * marker, and its members keep their own state.
  */
 export function PlanLoopFrame(props: LoopFrameProps): React.ReactElement {
   const { t } = useTranslation();
@@ -101,8 +107,9 @@ export function PlanLoopFrame(props: LoopFrameProps): React.ReactElement {
       aria-label={t("plans.loops.frame", { name: label })}
       onKeyDown={keepPlanControlKeys}
       className={cn(
-        "relative size-full rounded-2xl border shadow-xs",
+        "relative size-full rounded-xl border shadow-xs",
         planNodeClass("loop"),
+        props.run !== null && loopToneClass(record?.status, isLeft),
         PLAN_TYPE_COLORS.frameEdge,
         PLAN_TYPE_COLORS.frameSurface,
         props.isDropTarget && "ring-2 ring-plan-loop/40",
@@ -152,7 +159,7 @@ function LoopMarks(props: LoopFrameProps): React.ReactElement {
     <>
       <PlanLoopInputMark {...props} />
       <span
-        className={cn(PLAN_FRAME_MARK, "text-plan-loop")}
+        className={cn(PLAN_FRAME_MARK, PLAN_TYPE_COLORS.title)}
         title={
           planLoopMode(loop) === "while"
             ? t("plans.loops.whileTooltip")
@@ -161,7 +168,7 @@ function LoopMarks(props: LoopFrameProps): React.ReactElement {
       >
         {planLoopSummary(props.draft, loop, t)}
       </span>
-      <span className={cn(PLAN_FRAME_MARK, "text-plan-loop")}>
+      <span className={cn(PLAN_FRAME_MARK, PLAN_TYPE_COLORS.title)}>
         {loopSessionText(props, t)}
       </span>
     </>
@@ -222,6 +229,16 @@ function loopStatusColors(
   if (isLeft) return planStatusClass("succeeded");
   if (status === "succeeded") return planStatusClass("waiting");
   return planStatusClass(status);
+}
+
+/** The status tone of the container, in the mapping of its marker colors. */
+function loopToneClass(
+  status: AgentPlanStepStatus | undefined,
+  isLeft: boolean,
+): string {
+  if (isLeft) return planToneClass("success");
+  if (status === "succeeded") return "";
+  return planToneClass(planStatusTone(status ?? "waiting"));
 }
 
 function loopStatusKey(

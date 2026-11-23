@@ -6130,8 +6130,6 @@
           },
           "activityWaiting": "Waiting for the restart",
           "context": "Context",
-          "contextTokens": "{{used}} tokens",
-          "contextUnknownOf": "unknown / {{limit}}",
           "unknown": "unknown",
           "session": "Session",
           "role": "Role",
@@ -10567,11 +10565,13 @@
       "day": "Day",
       "week": "Week",
       "month": "Month",
-      "list": "List"
+      "list": "List",
+      "content": "Calendar content"
     },
     "sidebar": {
       "calendars": "Calendars",
-      "toggle": "Show or hide the calendar panel"
+      "toggle": "Show or hide the calendar panel",
+      "label": "Calendar panel"
     },
     "miniMonth": {
       "previous": "Previous month",

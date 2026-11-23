@@ -37,7 +37,7 @@ const ENTRY_TONES = {
 
 /** One entry: a 28 px muted row with a 6 px corner. */
 const ENTRY_CLASS =
-  "relative flex h-7 min-w-0 items-center gap-2 rounded-md bg-muted pr-2 pl-1";
+  "relative flex h-7 min-w-0 items-center gap-2 rounded-sm bg-muted pr-2 pl-1";
 
 /** The place of an entry in an 18 px tile. */
 function EntryNumber(props: { readonly position: number }): React.ReactElement {
@@ -179,7 +179,7 @@ export function PlanStackEntries(props: {
       <p
         data-plan-stack-empty=""
         className={cn(
-          "flex h-7 items-center rounded-md bg-muted px-2 text-muted-foreground",
+          "flex h-7 items-center rounded-sm bg-muted px-2 text-muted-foreground",
           PLAN_NODE_TEXT.field,
         )}
       >

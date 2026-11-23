@@ -11,6 +11,7 @@ import {
 } from "@/definition/AgentPlanTarget";
 
 import { usePlanFlowContext } from "./plan-flow-context";
+import { PLAN_TYPE_COLORS } from "./plan-layout";
 import { PLAN_NODE_TEXT } from "./plan-node-text";
 
 import type { AgentPlanStep } from "@/definition/AgentPlan";
@@ -106,7 +107,7 @@ export function PlanNodeExecutionContext(props: {
       role="group"
       data-plan-execution=""
       aria-label={t("plans.execution.target")}
-      className="shrink-0 border-t border-border"
+      className={cn("shrink-0 border-t", PLAN_TYPE_COLORS.line)}
     >
       <button
         type="button"

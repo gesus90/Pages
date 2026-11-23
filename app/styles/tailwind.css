@@ -657,6 +657,17 @@
   --space-large: 1.5rem;
   /* Share of the calendar color in the fill of a calendar entry. */
   --calendar-fill-strength: 16%;
+  /* Pica's launcher: its size and its distance from the lower window edge.
+     The clearance is the strip from the window edge up to a free gap above
+     the launcher; a page whose content must not lie under the launcher ends
+     there. On narrow screens the launcher sits higher. */
+  --pica-launcher-size: 3.5rem;
+  --pica-launcher-bottom: calc(env(safe-area-inset-bottom) + 4rem);
+  --pica-launcher-gap: 1.5rem;
+  --pica-launcher-clearance: calc(
+    var(--pica-launcher-bottom) + var(--pica-launcher-size) +
+      var(--pica-launcher-gap)
+  );
 
   @variant dark {
     color-scheme: dark;
@@ -914,6 +925,14 @@
     --shadow-ink: 0 0 0;
     --shadow-strength: 4;
     --shadow-edge-alpha: 10%;
+  }
+}
+
+/* From the width where the sidebar replaces the navigation sheet, Pica's
+   launcher sits close to the lower window edge. */
+@media (min-width: 48rem) {
+  :root {
+    --pica-launcher-bottom: calc(env(safe-area-inset-bottom) + 1rem);
   }
 }
 

@@ -3,11 +3,13 @@ import { useTranslation } from "react-i18next";
 import { cn } from "@/app/lib/cn";
 
 import { PLAN_NODE_TEXT } from "./plan-node-text";
+import { planToneClass } from "./plan-status";
 
 import type {
   PlanGroupProgress,
   PlanGroupState,
 } from "@/definition/AgentPlanGroupProgress";
+import type { PlanStatusTone } from "./plan-status";
 
 const STATE_TONES: Record<PlanGroupState, string> = {
   ready: "text-muted-foreground",
@@ -22,6 +24,32 @@ const STATE_TONES: Record<PlanGroupState, string> = {
   failed: "text-destructive",
   unavailable: "text-destructive",
 };
+
+// The status tone of the whole container, in the mapping of the status text:
+// a group that runs, pauses or stops still runs; paused, stopped, skipped,
+// ready and an unreadable progress keep the type color.
+const STATE_FRAME_TONES: Record<PlanGroupState, PlanStatusTone | null> = {
+  ready: null,
+  running: "active",
+  pausing: "active",
+  paused: null,
+  stopping: "active",
+  stopped: null,
+  completed: "success",
+  skipped: null,
+  blocked: "warning",
+  failed: "destructive",
+  unavailable: null,
+};
+
+/**
+ * The status tone of a group container while a run is shown.
+ * @param state - The state of the group in the shown run.
+ * @returns The CSS variables of the tone, or nothing for the type color.
+ */
+export function planGroupToneClass(state: PlanGroupState): string {
+  return planToneClass(STATE_FRAME_TONES[state]);
+}
 
 /**
  * A readable status remains separate from the group's turquoise type identity.

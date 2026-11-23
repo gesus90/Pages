@@ -13,6 +13,7 @@ import type {
   AgentPlanEnd,
 } from "./AgentPlan";
 import type { AgentPlanJump, AgentPlanSignal } from "./AgentPlanJump";
+import type { PlanMeasuredHeight } from "./AgentPlanNodeSize";
 
 /** The width of the Jump card: two columns of ports, inputs left and outputs right. */
 export const PLAN_JUMP_WIDTH = PLAN_CARD_WIDTH;
@@ -112,12 +113,14 @@ export function planLayoutWidth(node: AgentPlanNode): number {
  * The height a card of the plan is laid out with.
  * @param node - Any node of the plan.
  * @param sources - What sizes the cards: the agents, whose inputs make a card taller.
+ * @param measured - The drawn heights of the members, so a frame encloses a member drawn taller than planned.
  * @remarks
  * A card is at least this tall and grows with its content.
  */
 export function planLayoutHeight(
   node: AgentPlanNode,
   sources: AgentPlanSources,
+  measured?: PlanMeasuredHeight,
 ): number {
   if (node.type === "jump") return jumpHeight(node);
   if (node.type === "signal")
@@ -131,5 +134,5 @@ export function planLayoutHeight(
       ENDPOINT_PORT_BOX +
       planCardRowsHeight(endpointRows(node))
     );
-  return planNodeHeight(node, sources);
+  return planNodeHeight(node, sources, measured);
 }

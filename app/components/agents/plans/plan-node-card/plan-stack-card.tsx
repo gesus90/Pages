@@ -16,7 +16,12 @@ import { usePlanFlowContext } from "../plan-flow-context";
 import { planNodeLabel } from "../plan-layout";
 import { PLAN_NODE_TEXT } from "../plan-node-text";
 import { planStackView } from "../plan-stack-summary";
-import { PLAN_STATUS_MARKER, planStatusClass } from "../plan-status";
+import {
+  PLAN_STATUS_MARKER,
+  planStatusClass,
+  planStatusTone,
+  planToneClass,
+} from "../plan-status";
 import {
   PlanCard,
   PlanCardColumns,
@@ -72,12 +77,32 @@ const OUTCOME_ICONS = {
   failed: CircleX,
 } as const;
 
-/** The colors of the note on a processing outcome; the card itself keeps its type colors. */
+/** The step status whose tone a processing outcome takes. */
+const OUTCOME_STATUSES = {
+  processing: "running",
+  succeeded: "succeeded",
+  failed: "failed",
+} as const;
+
+/** The colors of the note on a processing outcome. */
 function outcomeNoteClass(outcome: AgentPlanStackOutcome): string {
   if (outcome === "succeeded") return planStatusClass("succeeded");
   if (outcome === "open") return planStatusClass("succeeded", false, true);
   if (outcome === "failed") return planStatusClass("failed");
   return planStatusClass("running");
+}
+
+/**
+ * The status tone of the whole card, in the mapping of its outcome note:
+ * processing runs, a complete processing is done, an open report warns and
+ * a failed one fails; a stack whose entries nothing processed keeps its type
+ * colors.
+ */
+function outcomeToneClass(outcome: AgentPlanStackOutcome): string {
+  if (outcome === "none") return "";
+  if (outcome === "open")
+    return planToneClass(planStatusTone("succeeded", false, true));
+  return planToneClass(planStatusTone(OUTCOME_STATUSES[outcome]));
 }
 
 /**
@@ -191,7 +216,7 @@ function StackScopeNote(props: {
  * shown, entries that were handed over are checked, and the marker says
  * whether the stack is empty or used up. Handing over is no proof of
  * success: a separate note names how the processing of the handed-over
- * entries stands; the card keeps its type colors.
+ * entries stands, and the card takes the status tone of that processing.
  */
 export function PlanStackCard(props: {
   readonly stack: AgentPlanStack;
@@ -221,7 +246,7 @@ export function PlanStackCard(props: {
       {...files.handlers}
       data-plan-stack={stack.id}
       className={cn(
-        "w-full min-w-0 rounded-xl",
+        "flex w-full min-w-0 rounded-lg",
         props.isDropTarget && "ring-2 ring-plan-stack/50 ring-offset-2",
       )}
     >
@@ -230,6 +255,7 @@ export function PlanStackCard(props: {
         label={label}
         title={label}
         subtitle={t("plans.stack.caption")}
+        stateClass={props.hasRun ? outcomeToneClass(outcome) : undefined}
         status={<StackBadge view={view} hasRun={props.hasRun} />}
         flowDots={{ hasIn: false, hasOut: true }}
         onEdit={edit}
