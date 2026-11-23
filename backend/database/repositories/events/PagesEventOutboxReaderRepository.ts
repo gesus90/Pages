@@ -245,8 +245,9 @@ export class PagesEventOutboxReaderRepository {
         minimum_age_seconds: limits.minimumAgeSeconds,
         batch_size: limits.batchSize,
       });
-      const removed = readCountColumn(row ?? [], 0, "removed");
-      const highestRemoved = readCountColumn(row ?? [], 1, "highest_removed");
+      const counts = row ?? [];
+      const removed = readCountColumn(counts, 0, "removed");
+      const highestRemoved = readCountColumn(counts, 1, "highest_removed");
       if (highestRemoved > 0)
         await transaction.execute(RAISE_FLOOR, {
           pruned_through: highestRemoved,

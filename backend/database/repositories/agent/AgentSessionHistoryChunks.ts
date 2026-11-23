@@ -243,7 +243,6 @@ async function readExistingPrefix(
   attemptId: string,
   before: number,
 ): Promise<readonly AgentSessionEvent[]> {
-  if (before === 1) return [];
   const rows = await transaction.query(
     `
     SELECT

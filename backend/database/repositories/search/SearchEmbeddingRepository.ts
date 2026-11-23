@@ -207,13 +207,24 @@ function isMissingVectorType(error: unknown): boolean {
   return code !== null && UNDEFINED_OBJECT_CODES.has(code);
 }
 
+function withLiterals(
+  sections: readonly SearchEmbeddingSection[],
+): SectionWrite["sections"] {
+  return sections.map((section) => ({
+    section,
+    literal: toArrayLiteral(section.embedding),
+  }));
+}
+
 /** The sections of one source version as written in one transaction. */
 interface SectionWrite {
   readonly source: SearchEmbeddingSource;
   readonly modelVersion: string;
-  readonly sections: readonly SearchEmbeddingSection[];
-  /** The vectors of `sections` as array literals, in the same order. */
-  readonly literals: readonly string[];
+  /** Each section with its vector as an array literal. */
+  readonly sections: readonly {
+    readonly section: SearchEmbeddingSection;
+    readonly literal: string;
+  }[];
 }
 
 /**
@@ -225,7 +236,7 @@ async function writeSections(
   transaction: DatabaseTransaction,
   write: SectionWrite,
 ): Promise<void> {
-  const { source, modelVersion, sections, literals } = write;
+  const { source, modelVersion, sections } = write;
   await transaction.execute(
     `
       DELETE FROM search_embeddings
@@ -239,7 +250,7 @@ async function writeSections(
       source_id: source.sourceId,
     },
   );
-  for (const [position, section] of sections.entries()) {
+  for (const { section, literal } of sections) {
     await transaction.execute(
       `
         INSERT INTO search_embeddings (
@@ -271,7 +282,7 @@ async function writeSections(
         section_text: section.sectionText,
         model_version: modelVersion,
         dimensions: section.embedding.length,
-        embedding: literals[position] ?? "",
+        embedding: literal,
       },
     );
   }
@@ -328,15 +339,12 @@ export class SearchEmbeddingRepository {
     modelVersion: string,
     sections: readonly SearchEmbeddingSection[],
   ): Promise<void> {
-    const literals = sections.map((section) =>
-      toArrayLiteral(section.embedding),
-    );
+    const written = withLiterals(sections);
     await this.database.transaction(async (transaction) => {
       await writeSections(transaction, {
         source,
         modelVersion,
-        sections,
-        literals,
+        sections: written,
       });
     });
   }
@@ -353,15 +361,12 @@ export class SearchEmbeddingRepository {
     record: IndexedSourceRecord,
     sections: readonly SearchEmbeddingSection[],
   ): Promise<void> {
-    const literals = sections.map((section) =>
-      toArrayLiteral(section.embedding),
-    );
+    const written = withLiterals(sections);
     await this.database.transaction(async (transaction) => {
       await writeSections(transaction, {
         source: record,
         modelVersion: record.modelVersion,
-        sections,
-        literals,
+        sections: written,
       });
       await transaction.execute(
         `

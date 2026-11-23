@@ -35,8 +35,8 @@ class Uses {
   }
 }
 
-function isPlaceholder(token: string): boolean {
-  return /^\$[A-Za-z_]/u.test(token);
+function isPlaceholder(token: string | undefined): boolean {
+  return /^\$[A-Za-z_]/u.test(String(token));
 }
 
 function tokensOf(statement: string): Tokens {
@@ -53,8 +53,8 @@ function findOuter(
   isEnd: (token: string, index: number) => boolean,
 ): number {
   let depth = 0;
-  for (let index = start; index < tokens.length; index += 1) {
-    const token = tokens[index] ?? "";
+  for (const [offset, token] of tokens.slice(start).entries()) {
+    const index = start + offset;
     if (depth === 0 && isEnd(token, index)) return index;
     if (token === "(") depth += 1;
     if (token === ")") depth -= 1;
@@ -85,12 +85,12 @@ function splitAtCommas(tokens: Tokens): readonly Tokens[] {
 function isPlainAssignment(item: Tokens): boolean {
   const [column, equals, value, open, inner, comma, kept, close] = item;
   if (equals !== "=") return false;
-  if (item.length === 3) return isPlaceholder(value ?? "");
+  if (item.length === 3) return isPlaceholder(value);
   return (
     item.length === 8 &&
     value?.toUpperCase() === "COALESCE" &&
     open === "(" &&
-    isPlaceholder(inner ?? "") &&
+    isPlaceholder(inner) &&
     comma === "," &&
     kept === column &&
     close === ")"
@@ -207,20 +207,20 @@ function noteConflict(
 function noteInsert(tokens: Tokens, uses: Uses): void {
   const open = findOuter(tokens, 0, (token) => token === "(");
   const close = findOuter(tokens, open + 1, (token) => token === ")");
-  const source = (tokens[close + 1] ?? "").toUpperCase();
+  const source = tokens[close + 1]?.toUpperCase();
   if (source !== "VALUES" && source !== "SELECT") {
     uses.note(tokens, "unclear");
     return;
   }
   const columns = splitAtCommas(tokens.slice(open + 1, close)).map((column) =>
-    columnName(column[0] ?? ""),
+    columnName(column.slice(0, 1).join("")),
   );
   const conflict = findOuter(
     tokens,
     close + 1,
     (token, index) =>
       token.toUpperCase() === "ON" &&
-      (tokens[index + 1] ?? "").toUpperCase() === "CONFLICT",
+      tokens[index + 1]?.toUpperCase() === "CONFLICT",
   );
   const returning = findWord(tokens, close + 1, new Set(["RETURNING"]));
   const bodyEnd = Math.min(conflict, returning);

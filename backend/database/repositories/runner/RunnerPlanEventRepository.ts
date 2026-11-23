@@ -77,14 +77,15 @@ export class RunnerPlanEventRepository {
       "SELECT view_json, COALESCE(snapshot_file, snapshot_json) AS snapshot_json FROM agent_plan_runs WHERE id = $run_id;",
       { run_id: binding.runId },
     );
+    const columns = row ?? [];
     const run = readPlanRun(
-      JSON.parse(readTextColumn(row ?? [], 0, "view_json")),
+      JSON.parse(readTextColumn(columns, 0, "view_json")),
     );
     await new AgentWorkspaceReferencesRepository(transaction).requireReferences(
       JSON.parse(
         await readStoredAgentPayload(
           transaction,
-          readTextColumn(row ?? [], 1, "snapshot_json"),
+          readTextColumn(columns, 1, "snapshot_json"),
         ),
       ),
     );

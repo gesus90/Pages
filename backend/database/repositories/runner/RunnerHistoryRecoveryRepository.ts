@@ -36,6 +36,10 @@ import type { AgentPlanStepResult } from "@/definition/AgentPlan";
 import type { RunnerCliTool } from "@/definition/RunnerExecution";
 
 type PlanEvent = Extract<RunnerMessage, { type: "event" }>;
+type CliProgram = Extract<
+  NonNullable<RunnerJob["execution"]>["program"],
+  { kind: "cli" }
+>;
 
 /** Durable custody of history is independent of control and result projection. */
 export class RunnerHistoryRecoveryRepository {
@@ -319,8 +323,9 @@ export class RunnerHistoryRecoveryRepository {
       JSON.parse(readTextColumn(row ?? [], 0, "view_json")),
     );
     const step = attemptStep(run, plan);
-    const tool = programTool(job);
-    if (!tool || !attemptMatches(run, plan, step, tool))
+    const cli = cliProgram(job);
+    const tool = cli?.route.tool;
+    if (!cli || !tool || !attemptMatches(run, plan, step))
       throw new Error("History recovery attempt mismatch");
     if (!step) throw new Error("Runner step missing");
     const state = plan.managed
@@ -368,7 +373,7 @@ export class RunnerHistoryRecoveryRepository {
           END,
           updated_at = EXCLUDED.updated_at;
     `,
-      attemptParameters(job, run, tool, state),
+      attemptParameters(job, run, { plan, cli, tool }, state),
     );
     return stepUsageReported(step);
   }
@@ -384,22 +389,19 @@ function attemptStep(
   );
 }
 
-function programTool(job: RunnerJob): RunnerCliTool | undefined {
-  return job.execution?.program.kind === "cli"
-    ? job.execution.program.route.tool
-    : undefined;
+function cliProgram(job: RunnerJob): CliProgram | undefined {
+  const program = job.execution?.program;
+  return program?.kind === "cli" ? program : undefined;
 }
 
 function attemptMatches(
   run: ReturnType<typeof readPlanRun>,
   plan: RunnerPlanBinding,
   step: AgentPlanStepResult | undefined,
-  tool: RunnerCliTool,
 ): boolean {
   return (
     run.planId === plan.planId &&
-    (plan.managed === true || step?.execution?.attemptId === plan.attemptId) &&
-    tool !== undefined
+    (plan.managed === true || step?.execution?.attemptId === plan.attemptId)
   );
 }
 
@@ -421,13 +423,14 @@ function attemptHistoryEnd(plan: RunnerPlanBinding, job: RunnerJob): number {
 function attemptParameters(
   job: RunnerJob,
   run: ReturnType<typeof readPlanRun>,
-  tool: RunnerCliTool,
+  program: {
+    readonly plan: RunnerPlanBinding;
+    readonly cli: CliProgram;
+    readonly tool: RunnerCliTool;
+  },
   state: string,
 ): SqlParameters {
-  const plan = job.plan;
-  if (!plan) throw new Error("History recovery plan missing");
-  const program = job.execution?.program;
-  const cli = program?.kind === "cli" ? program : undefined;
+  const { plan } = program;
   return {
     attempt_id: plan.recordingAttemptId ?? plan.attemptId,
     plan_id: run.planId,
@@ -436,8 +439,8 @@ function attemptParameters(
     user_id: run.userId,
     connection_id: attemptConnectionId(plan, job),
     agent_id: plan.recordingAgentId ?? null,
-    provider: cli?.linkedProvider ?? RUNNER_TOOL_PROVIDERS[tool],
-    requested_model: plan.recordingModel ?? cli?.model ?? null,
+    provider: program.cli.linkedProvider ?? RUNNER_TOOL_PROVIDERS[program.tool],
+    requested_model: plan.recordingModel ?? program.cli.model ?? null,
     instance_id: plan.recordingInstanceId ?? job.jobId,
     state,
     is_managed: plan.managed === true,

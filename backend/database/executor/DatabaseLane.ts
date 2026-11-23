@@ -59,7 +59,7 @@ interface WaitingJob {
  */
 export class DatabaseLane {
   private readonly limits: LaneLimits;
-  private readonly waiting: WaitingJob[] = [];
+  private waiting: WaitingJob[] = [];
   private running = 0;
   private completed = 0;
   private refusedOverloaded = 0;
@@ -178,13 +178,11 @@ export class DatabaseLane {
   }
 
   private next(): void {
-    if (this.running >= this.limits.concurrency) return;
     this.waiting.shift()?.start();
   }
 
   private remove(job: WaitingJob): void {
-    const index = this.waiting.indexOf(job);
-    if (index >= 0) this.waiting.splice(index, 1);
+    this.waiting = this.waiting.filter((waiting) => waiting !== job);
     this.settleDrain();
   }
 

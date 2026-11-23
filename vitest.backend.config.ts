@@ -79,6 +79,66 @@ export const BACKEND_COVERAGE_SECTIONS = [
     include: `backend/agents/${SOURCE_FILE_PATTERN}`,
     minimum: 100,
   },
+  {
+    name: "database-core-executor-postgres",
+    include: `backend/database/{,executor/,postgres/}${SOURCE_FILE_PATTERN}`,
+    minimum: 100,
+  },
+  {
+    name: "database-project-task-wiki-repositories",
+    include: `backend/database/repositories/{{project,task,wiki}/**/,{Project,Task,Wiki}Repository}${SOURCE_FILE_PATTERN}`,
+    minimum: 100,
+  },
+  {
+    name: "database-chat-conversation-repositories",
+    include: `backend/database/repositories/{{chat,conversation}/**/,LiveChangeNotificationRepository}${SOURCE_FILE_PATTERN}`,
+    minimum: 100,
+  },
+  {
+    name: "database-agent-repositories",
+    include: `backend/database/repositories/{agents/**/,AgentConnectionRepository,agent/!(AgentPlan|Plan)*}${SOURCE_FILE_PATTERN}`,
+    minimum: 100,
+  },
+  {
+    name: "database-agent-plan-repositories",
+    include: `backend/database/repositories/agent/{AgentPlan{AccessRepository,AuditRepository,ChangeNotification,DeletionGuard,OneShotRepository,RemoteAccessRepository,Repository,ScriptApprovalRepository,StoredReferences,TeamRepository,TemplateRepository,WorkspaceRepository},PlanBridgeGrantRepository}${SOURCE_FILE_PATTERN}`,
+    minimum: 100,
+  },
+  {
+    name: "database-runner-plan-run-repositories",
+    include: `backend/database/repositories/{runner/**/,agent/{AgentPlan!(AccessRepository|AuditRepository|ChangeNotification|DeletionGuard|OneShotRepository|RemoteAccessRepository|Repository|ScriptApprovalRepository|StoredReferences|TeamRepository|TemplateRepository|WorkspaceRepository),Plan!(BridgeGrantRepository)}}${SOURCE_FILE_PATTERN}`,
+    minimum: 100,
+  },
+  {
+    name: "database-automation-repositories",
+    include: `backend/database/repositories/automation/**/${SOURCE_FILE_PATTERN}`,
+    minimum: 100,
+  },
+  {
+    name: "database-employee-repositories",
+    include: `backend/database/repositories/employee/**/${SOURCE_FILE_PATTERN}`,
+    minimum: 100,
+  },
+  {
+    name: "database-calendar-event-repositories",
+    include: `backend/database/repositories/{calendar,events}/**/${SOURCE_FILE_PATTERN}`,
+    minimum: 100,
+  },
+  {
+    name: "database-integration-repositories",
+    include: `backend/database/repositories/{{mobile,remote,integrations,discord,google,mcp,speech}/**/,GitHubRepository}${SOURCE_FILE_PATTERN}`,
+    minimum: 100,
+  },
+  {
+    name: "database-search-diagnosis-storage-repositories",
+    include: `backend/database/repositories/{{search,diagnosis,storage}/**/,{StoredTextForm,SystemMetricsRepository}}${SOURCE_FILE_PATTERN}`,
+    minimum: 100,
+  },
+  {
+    name: "database-remaining-repositories",
+    include: `backend/database/repositories/{AdministrationActivityRepository,AuthorizationRepository,InstanceSettingsRepository,LegacyAccountProvisioning,ManagementAuditRepository,ManagementRepository,SessionRepository,User{,BoardPreferences,Group,Settings}Repository}${SOURCE_FILE_PATTERN}`,
+    minimum: 100,
+  },
 ] as const;
 
 export const BACKEND_TEST_SECTIONS = BACKEND_COVERAGE_SECTIONS.map(

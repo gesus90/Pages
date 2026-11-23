@@ -27,7 +27,6 @@ import type { DatabaseLogSummary } from "@/backend/logging/DatabaseLogMetrics";
 import type { DatabaseEngine } from "./DatabaseEngine";
 import type { Migration } from "./Migration";
 import type { CallTransactionHost } from "./CallTransaction";
-import type { ReadScope } from "./ReadScope";
 
 /** A single column value returned by the database. */
 export type DatabaseValue = string | number | bigint | Buffer | null;
@@ -395,11 +394,7 @@ export class Database {
   ): Promise<Result> {
     const auditActor = managementAuditActor();
     const result = await this.executor.write(async (writer) => {
-      const progress: TransactionProgress = {
-        scope: undefined,
-        epoch: this.writes,
-        hasWritten: false,
-      };
+      const progress: TransactionProgress = { hasWritten: false };
       try {
         return await runInTransaction(
           writer,
@@ -523,21 +518,18 @@ async function requireFittingLocale(executor: PostgresExecutor): Promise<void> {
   }
 }
 
-/** What a transaction has done so far, and the read scope its reads may use. */
+/** What a transaction has done so far. */
 interface TransactionProgress {
-  readonly scope: ReadScope | undefined;
-  /** The number of writes the database had seen when the transaction took the queue. */
-  readonly epoch: number;
   hasWritten: boolean;
 }
 
 /**
- * Opens the transaction on its first statement that cannot be answered from the read scope.
+ * Opens the transaction on its first statement.
  *
  * @remarks
  * The transaction holds the queue, so nothing runs between its start and its
  * first statement; beginning it later changes no row it sees. A transaction
- * whose reads were all remembered never touches the database.
+ * without a statement never touches the database.
  */
 function lazyTransaction(
   writer: WriterSession,
@@ -561,20 +553,9 @@ function lazyTransaction(
         await writer.run(statement, parameters, "execute");
       },
       query: async (statement, parameters = {}) => {
-        const kind = statementKind(statement);
-        const scope =
-          kind === "repeatable" && !progress.hasWritten
-            ? progress.scope
-            : undefined;
-        const key = scope ? readScopeKey(statement, parameters) : null;
-        const known =
-          scope && key !== null ? scope.find(key, progress.epoch) : null;
-        if (known) return known;
         await open();
-        if (kind === "write") progress.hasWritten = true;
-        const rows = await writer.run(statement, parameters, "rows");
-        if (scope && key !== null) scope.store(key, progress.epoch, rows);
-        return rows;
+        if (statementKind(statement) === "write") progress.hasWritten = true;
+        return writer.run(statement, parameters, "rows");
       },
     },
   };

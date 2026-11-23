@@ -45,25 +45,21 @@ function translate(statement: string): TranslatedStatement {
   const known = translations.get(statement);
   if (known !== undefined) return known;
   const names: string[] = [];
-  const text = statement.replace(
-    STATEMENT_TOKEN,
-    (token: string, ...rest: unknown[]) => {
-      const name = placeholderName(rest.at(-1));
-      if (name === undefined) return token;
-      if (!names.includes(name)) names.push(name);
-      return `$${String(names.indexOf(name) + 1)}`;
-    },
-  );
+  let text = "";
+  let end = 0;
+  for (const match of statement.matchAll(STATEMENT_TOKEN)) {
+    const name = match.groups?.["name"];
+    if (name === undefined) continue;
+    if (!names.includes(name)) names.push(name);
+    text +=
+      statement.slice(end, match.index) + "$" + String(names.indexOf(name) + 1);
+    end = match.index + match[0].length;
+  }
+  text += statement.slice(end);
   const translation = { text, names, uses: parameterUses(statement) };
   if (translations.size < MAX_STATEMENTS)
     translations.set(statement, translation);
   return translation;
-}
-
-function placeholderName(groups: unknown): string | undefined {
-  if (typeof groups !== "object" || groups === null) return undefined;
-  const name: unknown = Object.getOwnPropertyDescriptor(groups, "name")?.value;
-  return typeof name === "string" ? name : undefined;
 }
 
 function toBoundValue(value: SqlParameters[string]): PostgresBoundValue {
