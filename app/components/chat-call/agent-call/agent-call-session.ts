@@ -10,11 +10,18 @@ import {
   reportSpokenAnswer,
   streamAgentTurn,
 } from "./agent-call-api";
+import { AgentLiveCall } from "./agent-live-call";
 import { AgentVoicePlayer } from "./agent-voice-player";
 import { SpeechDetector } from "./speech-detector";
 
-import type { AgentCallEvent, AgentCallFailure } from "@/definition/AgentCall";
+import type {
+  AgentCallEvent,
+  AgentCallFailure,
+  AgentCallPath,
+  AgentCallReadiness,
+} from "@/definition/AgentCall";
 import type { CallMicrophoneState } from "../call-audio-session";
+import type { PlaybackGap } from "./agent-stream-player";
 
 /** What the call does now, for the bar. */
 export type AgentCallActivity =
@@ -23,12 +30,22 @@ export type AgentCallActivity =
 /** The times of one answer, from the end of the person's speech, in milliseconds. */
 export interface AgentCallLatency {
   readonly turn: number;
+  /** The path the turn ran on; the buffered path when it is not named. */
+  readonly transport?: "live" | "buffered";
+  /** Whether an earlier turn of the call had already run, so connections were warm. */
+  readonly isWarm?: boolean;
+  /** From the end of speech to the first preliminary transcript; negative before the end. */
+  readonly firstPartialMs?: number | null;
+  /** From the end of speech to the first audio block that was sent; negative before the end. */
+  readonly firstBlockMs?: number;
   /** From the end of speech to the moment the end was detected and the audio sent. */
   readonly detectionMs: number;
   /** From the end of speech to the recognized text. */
   readonly transcriptMs: number | null;
   /** From the end of speech to the first sentence that can be spoken. */
   readonly firstSentenceMs: number | null;
+  /** From the end of speech to the first audio block that arrived; live path only. */
+  readonly firstAudioMs?: number | null;
   /** From the end of speech to the first audible sound of the agent. */
   readonly audibleMs: number | null;
   /** What the server measured from the complete recording. */
@@ -38,6 +55,20 @@ export interface AgentCallLatency {
     readonly firstAudioMs: number | null;
     readonly answerMs: number | null;
   } | null;
+}
+
+/** How fast an interruption silenced the agent. */
+export interface AgentCallInterruption {
+  readonly turn: number;
+  /** From the detected interruption to the last sound, the delay of the output included. */
+  readonly stopMs: number;
+  readonly heardCharacters: number;
+}
+
+/** The path each step of the call runs on. */
+export interface AgentCallPaths {
+  readonly recognition: AgentCallPath;
+  readonly synthesis: AgentCallPath;
 }
 
 /** What the bar shows about a running call with an agent. */
@@ -53,7 +84,19 @@ export interface AgentCallState {
   /** The saved voice is not offered by the model; the first voice speaks. */
   readonly isVoiceMissing: boolean;
   readonly latencies: readonly AgentCallLatency[];
+  /** How recognition and voice run; `null` until the call has started. */
+  readonly paths: AgentCallPaths | null;
+  /** The preliminary transcript of the running utterance; live path only. */
+  readonly partial: string | null;
+  /** The silent stretches inside answers; live path only. */
+  readonly gaps: readonly PlaybackGap[];
+  readonly interruptions: readonly AgentCallInterruption[];
 }
+
+const BUFFERED_PATHS: AgentCallPaths = {
+  recognition: "buffered",
+  synthesis: "buffered",
+};
 
 /** The running answer of one turn. */
 interface RunningTurn {
@@ -73,7 +116,10 @@ interface RunningTurn {
 /**
  * A voice call with an agent in the browser.
  * @remarks
- * The microphone opens only when the call starts. The speech detector cuts
+ * The microphone opens only when the call starts. Where the chosen
+ * recognition offers preliminary transcripts, the call runs live
+ * ({@link AgentLiveCall}); otherwise, and when the live connection cannot be
+ * opened, it runs buffered as described here. The speech detector cuts
  * out each utterance on the device; only a finished utterance is sent, so
  * silence, noise and a muted microphone send nothing. The answer arrives
  * sentence by sentence and plays while the rest is written. Speaking while
@@ -87,6 +133,7 @@ export class AgentCallSession {
   private detector: SpeechDetector | null = null;
   private player: AgentVoicePlayer | null = null;
   private running: RunningTurn | null = null;
+  private live: AgentLiveCall | null = null;
   private turnNumber = 0;
   private isClosed = false;
 
@@ -104,6 +151,10 @@ export class AgentCallSession {
       isFailedToStart: false,
       isVoiceMissing: false,
       latencies: [],
+      paths: null,
+      partial: null,
+      gaps: [],
+      interruptions: [],
     };
   }
 
@@ -131,10 +182,18 @@ export class AgentCallSession {
       return;
     }
     if (this.isClosed) return releaseStream(this.stream);
-    this.listen(this.stream);
+    const isLive = await this.listenLive(this.stream, readiness);
+    if (this.isClosed) return;
+    if (!isLive) this.listen(this.stream);
     this.update({
       activity: "listening",
       isVoiceMissing: readiness.isVoiceMissing,
+      paths: isLive
+        ? {
+            recognition: readiness.recognitionPath,
+            synthesis: readiness.synthesisPath,
+          }
+        : BUFFERED_PATHS,
     });
   }
 
@@ -146,6 +205,7 @@ export class AgentCallSession {
     if (this.stream === null) return;
     for (const track of this.stream.getAudioTracks()) track.enabled = !isMuted;
     this.detector?.setMuted(isMuted);
+    this.live?.setMuted(isMuted);
     this.update({ microphone: isMuted ? "muted" : "on" });
   }
 
@@ -154,10 +214,51 @@ export class AgentCallSession {
     if (this.isClosed) return;
     this.interrupt();
     this.isClosed = true;
+    this.live?.close();
+    this.live = null;
     this.detector?.close();
     this.detector = null;
     releaseStream(this.stream);
     this.stream = null;
+  }
+
+  // The live path needs the streaming recognition and its connection; it reports whether it runs.
+  private async listenLive(
+    stream: MediaStream,
+    readiness: AgentCallReadiness,
+  ): Promise<boolean> {
+    if (
+      readiness.recognitionPath !== "streaming" ||
+      typeof WebSocket === "undefined"
+    )
+      return false;
+    const live = new AgentLiveCall({
+      agentId: this.state.agentId,
+      callId: this.state.callId,
+      speakerId: readAudioPreferences().speaker?.id ?? "",
+      update: (change) => this.update(change),
+      read: () => this.state,
+      onLost: (lastTurn) => this.fallBack(lastTurn),
+    });
+    this.live = live;
+    const isLive = await live.start(stream);
+    if (!isLive && this.live === live) this.live = null;
+    return isLive;
+  }
+
+  // A live connection that came not back leaves the call on the buffered path.
+  private fallBack(lastTurn: number): void {
+    this.live = null;
+    // The buffered turns go on counting, so no turn of the call is taken for one before it.
+    this.turnNumber = Math.max(this.turnNumber, lastTurn);
+    if (this.isClosed || this.stream === null) return;
+    console.warn("Pages continues the call buffered.");
+    this.listen(this.stream);
+    this.update({
+      activity: "listening",
+      partial: null,
+      paths: BUFFERED_PATHS,
+    });
   }
 
   private listen(stream: MediaStream): void {
@@ -246,6 +347,8 @@ export class AgentCallSession {
       at === null ? null : Math.round(at - turn.endedAt);
     const latency: AgentCallLatency = {
       turn: turn.number,
+      transport: "buffered",
+      isWarm: turn.number > 1,
       detectionMs: Math.round(turn.sentAt - turn.endedAt),
       transcriptMs: since(turn.transcriptAt),
       firstSentenceMs: since(turn.firstSentenceAt),

@@ -11,6 +11,7 @@ import {
   measureUtterance,
   noiseReasonOf,
 } from "./AgentCallAudio";
+import { AgentCallLiveCalls } from "./AgentCallLive";
 import { AgentCallTurn } from "./AgentCallTurn";
 
 import type { ChatSessionRepository } from "@/backend/database/repositories/chat/ChatSessionRepository";
@@ -21,10 +22,13 @@ import type {
   AgentCallFailure,
   AgentCallReadiness,
   AgentCallSpokenReport,
+  AgentCallTimings,
 } from "@/definition/AgentCall";
+import type { AgentEmployeeVoice } from "@/definition/SpeechSynthesis";
 import type { User } from "@/definition/User";
 import type { AgentEmployeeSessions } from "../AgentEmployeeSessions";
-import type { SpokenSentence } from "./AgentCallTurn";
+import type { AgentCallLiveHandle, AgentCallLiveSend } from "./AgentCallLive";
+import type { AgentCallTurnOptions, SpokenSentence } from "./AgentCallTurn";
 
 /** What the voice calls of agents are built from. */
 export interface AgentCallDependencies {
@@ -32,8 +36,11 @@ export interface AgentCallDependencies {
     AgentEmployeeSessions,
     "startVoiceTurn" | "stop" | "directSessionId" | "voiceOf"
   >;
-  readonly recognition: Pick<SpeechRecognitionService, "transcribe" | "limits">;
-  readonly speech: Pick<AgentSpeechService, "speak" | "readiness">;
+  readonly recognition: Pick<SpeechRecognitionService, "transcribe" | "path">;
+  readonly speech: Pick<
+    AgentSpeechService,
+    "speak" | "speakStream" | "readiness"
+  >;
   readonly messages: Pick<
     ChatSessionRepository,
     "findByClientId" | "findMessage" | "replaceAnswerContent"
@@ -53,6 +60,27 @@ export interface AgentCallUtterance {
   readonly audio: Buffer;
   /** Ends the turn: the person interrupted, hung up or lost the connection. */
   readonly signal: AbortSignal;
+}
+
+/** Speaks the phrases of one answer with the voice the agent saved. */
+export type AgentCallSpeaker = (
+  voice: AgentEmployeeVoice | null,
+) => AgentCallTurnOptions["speak"];
+
+/** One utterance of the live path whose transcript is already final. */
+export interface AgentCallTranscribedUtterance {
+  readonly agentId: string;
+  readonly callId: string;
+  readonly turn: number;
+  /** The confirmed transcript; it is checked for noise again. */
+  readonly text: string;
+  /** When the end of the utterance was confirmed, on the clock of the service. */
+  readonly startedAt: number;
+  readonly signal: AbortSignal;
+  /** Hands the audio of each phrase to the browser while it is synthesized. */
+  readonly speaker: AgentCallSpeaker;
+  /** What the live path measured besides the times of the answer. */
+  readonly extraTimings?: () => Partial<AgentCallTimings>;
 }
 
 /** What the service keeps of a turn so its answer can be marked afterwards. */
@@ -139,10 +167,36 @@ export class AgentCallService {
   private readonly running = new Map<string, AbortController>();
   private readonly settledTurns = new Map<string, Promise<void>>();
   private readonly kept = new Map<string, KeptTurn>();
+  private readonly liveCalls: AgentCallLiveCalls;
 
   public constructor(dependencies: AgentCallDependencies) {
     this.dependencies = dependencies;
     this.now = dependencies.now ?? (() => performance.now());
+    this.liveCalls = new AgentCallLiveCalls({
+      service: this,
+      recognition: dependencies.recognition,
+      speech: dependencies.speech,
+      now: this.now,
+    });
+  }
+
+  /**
+   * Opens or resumes the live path of a call for one connection.
+   * @param person - The signed-in caller.
+   * @param identity - The agent and the ID the browser gave the call.
+   * @param send - Sends an event to this connection.
+   * @returns The handle the connection steers the call with.
+   * @throws {AgentEmployeeError} `invalidInput` for a malformed ID, `notFound`
+   * for an agent that does not exist.
+   */
+  public async openLive(
+    person: User,
+    identity: { readonly agentId: string; readonly callId: string },
+    send: AgentCallLiveSend,
+  ): Promise<AgentCallLiveHandle> {
+    if (!IDENTIFIER.test(identity.agentId) || !IDENTIFIER.test(identity.callId))
+      throw new AgentEmployeeError("invalidInput");
+    return this.liveCalls.open(person, identity, send);
   }
 
   /**
@@ -154,14 +208,16 @@ export class AgentCallService {
   public async readiness(agentId: string): Promise<AgentCallReadiness> {
     const voice = await this.dependencies.sessions.voiceOf(agentId);
     if (voice === null) throw new AgentEmployeeError("notFound");
-    const [limits, speech] = await Promise.all([
-      this.dependencies.recognition.limits(),
+    const [recognitionPath, speech] = await Promise.all([
+      this.dependencies.recognition.path(),
       this.dependencies.speech.readiness(voice.voiceId),
     ]);
     return {
-      recognition: limits === null ? "not_configured" : "ready",
+      recognition: recognitionPath === null ? "not_configured" : "ready",
       synthesis: speech.isConfigured ? "ready" : "not_configured",
       isVoiceMissing: speech.isVoiceMissing,
+      recognitionPath: recognitionPath ?? "buffered",
+      synthesisPath: speech.path,
     };
   }
 
@@ -178,35 +234,42 @@ export class AgentCallService {
     utterance: AgentCallUtterance,
     emit: (event: AgentCallEvent) => void,
   ): Promise<void> {
-    const { agentId, callId, turn } = utterance;
-    if (
-      !IDENTIFIER.test(agentId) ||
-      !IDENTIFIER.test(callId) ||
-      !Number.isSafeInteger(turn) ||
-      turn < 1
-    )
-      return emit({ type: "failed", code: "invalid" });
+    await this.exclusive(person, utterance, emit, (signal) =>
+      this.answer(person, { ...utterance, signal }, emit),
+    );
+  }
+
+  /**
+   * Answers one utterance of the live path once its transcript is final.
+   * @param person - The signed-in caller.
+   * @param utterance - Agent, call, running number, transcript and the speaker.
+   * @param emit - Receives each event as soon as it exists.
+   * @remarks
+   * A turn whose message is already stored answers `duplicate` and starts
+   * nothing, so a repeated end after a lost connection stays one turn.
+   */
+  public async transcribedTurn(
+    person: User,
+    utterance: AgentCallTranscribedUtterance,
+    emit: (event: AgentCallEvent) => void,
+  ): Promise<void> {
+    await this.exclusive(person, utterance, emit, (signal) =>
+      this.answerTranscript(person, { ...utterance, signal }, emit),
+    );
+  }
+
+  /**
+   * Stops the running answer of a person's call with an agent, because the
+   * person speaks again or hung up.
+   * @param person - The signed-in caller.
+   * @param agentId - The agent of the call.
+   */
+  public async stopAnswer(person: User, agentId: string): Promise<void> {
     const key = `${person.id}:${agentId}`;
-    const controller = new AbortController();
-    const abort = (): void => controller.abort();
-    utterance.signal.addEventListener("abort", abort, { once: true });
-    const previous = this.running.get(key);
-    this.running.set(key, controller);
-    try {
-      if (previous) await this.interrupt(person, agentId, previous);
-      await this.answer(
-        person,
-        { ...utterance, signal: controller.signal },
-        emit,
-      );
-    } catch (error: unknown) {
-      if (controller.signal.aborted) return;
-      logCaughtError(COMPONENT, error);
-      emit({ type: "failed", code: failureOf(error) });
-    } finally {
-      utterance.signal.removeEventListener("abort", abort);
-      if (this.running.get(key) === controller) this.running.delete(key);
-    }
+    const running = this.running.get(key);
+    if (running === undefined) return;
+    this.running.delete(key);
+    await this.interrupt(person, agentId, running);
   }
 
   /**
@@ -256,6 +319,43 @@ export class AgentCallService {
     );
   }
 
+  // One answer per person and agent: a new turn stops the one before it.
+  private async exclusive(
+    person: User,
+    utterance: Pick<
+      AgentCallUtterance,
+      "agentId" | "callId" | "turn" | "signal"
+    >,
+    emit: (event: AgentCallEvent) => void,
+    run: (signal: AbortSignal) => Promise<void>,
+  ): Promise<void> {
+    const { agentId, callId, turn } = utterance;
+    if (
+      !IDENTIFIER.test(agentId) ||
+      !IDENTIFIER.test(callId) ||
+      !Number.isSafeInteger(turn) ||
+      turn < 1
+    )
+      return emit({ type: "failed", code: "invalid" });
+    const key = `${person.id}:${agentId}`;
+    const controller = new AbortController();
+    const abort = (): void => controller.abort();
+    utterance.signal.addEventListener("abort", abort, { once: true });
+    const previous = this.running.get(key);
+    this.running.set(key, controller);
+    try {
+      if (previous) await this.interrupt(person, agentId, previous);
+      await run(controller.signal);
+    } catch (error: unknown) {
+      if (controller.signal.aborted) return;
+      logCaughtError(COMPONENT, error);
+      emit({ type: "failed", code: failureOf(error) });
+    } finally {
+      utterance.signal.removeEventListener("abort", abort);
+      if (this.running.get(key) === controller) this.running.delete(key);
+    }
+  }
+
   private async interrupt(
     person: User,
     agentId: string,
@@ -274,17 +374,7 @@ export class AgentCallService {
     const { agentId, callId, turn, audio, signal } = utterance;
     const startedAt = this.now();
     const clientMessageId = messageIdOf(callId, turn);
-    const sessionId = await this.dependencies.sessions.directSessionId(
-      agentId,
-      person.id,
-    );
-    if (
-      sessionId !== null &&
-      (await this.dependencies.messages.findByClientId(
-        sessionId,
-        clientMessageId,
-      )) !== null
-    )
+    if (await this.isStored(person, agentId, clientMessageId))
       return emit({ type: "duplicate" });
     const readiness = await this.readiness(agentId);
     if (readiness.recognition !== "ready")
@@ -301,9 +391,81 @@ export class AgentCallService {
     if (text === null || signal.aborted) return;
     await this.respond(
       person,
-      { ...utterance, text, clientMessageId, startedAt },
+      {
+        ...utterance,
+        text,
+        clientMessageId,
+        startedAt,
+        speaker: (voice) => this.sentenceSpeaker(voice, emit),
+      },
       emit,
     );
+  }
+
+  private async answerTranscript(
+    person: User,
+    utterance: AgentCallTranscribedUtterance,
+    emit: (event: AgentCallEvent) => void,
+  ): Promise<void> {
+    const clientMessageId = messageIdOf(utterance.callId, utterance.turn);
+    if (await this.isStored(person, utterance.agentId, clientMessageId))
+      return emit({ type: "duplicate" });
+    const readiness = await this.readiness(utterance.agentId);
+    if (readiness.synthesis !== "ready")
+      return emit({ type: "failed", code: "synthesis_not_configured" });
+    const noise = noiseReasonOf(utterance.text);
+    if (noise !== null) return emit({ type: "silent", reason: noise });
+    if (utterance.signal.aborted) return;
+    await this.respond(
+      person,
+      { ...utterance, text: utterance.text.trim(), clientMessageId },
+      emit,
+    );
+  }
+
+  private async isStored(
+    person: User,
+    agentId: string,
+    clientMessageId: string,
+  ): Promise<boolean> {
+    const sessionId = await this.dependencies.sessions.directSessionId(
+      agentId,
+      person.id,
+    );
+    return (
+      sessionId !== null &&
+      (await this.dependencies.messages.findByClientId(
+        sessionId,
+        clientMessageId,
+      )) !== null
+    );
+  }
+
+  // The buffered path hands each sentence over as one whole file.
+  private sentenceSpeaker(
+    voice: AgentEmployeeVoice | null,
+    emit: (event: AgentCallEvent) => void,
+  ): AgentCallTurnOptions["speak"] {
+    return async (phrase) => {
+      const outcome = await this.dependencies.speech.speak({
+        text: phrase.text,
+        voiceId: voice?.voiceId ?? null,
+        speedTenths: voice?.speedTenths ?? 10,
+        signal: phrase.signal,
+      });
+      if (!outcome.ok) return outcome;
+      if (phrase.signal.aborted) return { ok: true };
+      phrase.markAudio();
+      emit({
+        type: "sentence",
+        index: phrase.index,
+        text: phrase.text,
+        mimeType: outcome.mimeType,
+        playbackRate: outcome.playbackRate,
+        audio: outcome.audio.toString("base64"),
+      });
+      return { ok: true };
+    };
   }
 
   private async recognize(
@@ -336,23 +498,23 @@ export class AgentCallService {
 
   private async respond(
     person: User,
-    input: AgentCallUtterance & {
-      readonly text: string;
-      readonly clientMessageId: string;
-      readonly startedAt: number;
-    },
+    input: Pick<
+      AgentCallTranscribedUtterance,
+      | "agentId"
+      | "callId"
+      | "turn"
+      | "signal"
+      | "text"
+      | "startedAt"
+      | "speaker"
+      | "extraTimings"
+    > & { readonly clientMessageId: string },
     emit: (event: AgentCallEvent) => void,
   ): Promise<void> {
     const { agentId, signal, text, clientMessageId, startedAt } = input;
     const voice = await this.dependencies.sessions.voiceOf(agentId);
     const turn = new AgentCallTurn({
-      speak: (sentence, speechSignal) =>
-        this.dependencies.speech.speak({
-          text: sentence,
-          voiceId: voice?.voiceId ?? null,
-          speedTenths: voice?.speedTenths ?? 10,
-          signal: speechSignal,
-        }),
+      speak: input.speaker(voice),
       emit,
       signal,
       now: this.now,
@@ -383,9 +545,10 @@ export class AgentCallService {
       this.stopWhenCancelled(person, agentId, signal);
       await this.keep(person, input, turn);
       await turn.finish();
+      const timings = { ...turn.timings(), ...input.extraTimings?.() };
       if (!signal.aborted && turn.failedStep === null)
-        emit({ type: "done", timings: turn.timings() });
-      this.logTurn(turn, signal.aborted);
+        emit({ type: "done", timings });
+      this.logTurn(turn, timings, signal.aborted);
     } catch (error: unknown) {
       if (signal.aborted) return;
       if (error instanceof ChatError && error.code === "messageAlreadySent")
@@ -416,7 +579,7 @@ export class AgentCallService {
 
   private async keep(
     person: User,
-    input: AgentCallUtterance,
+    input: Pick<AgentCallUtterance, "agentId" | "callId" | "turn">,
     turn: AgentCallTurn,
   ): Promise<void> {
     const sessionId = await this.dependencies.sessions.directSessionId(
@@ -438,14 +601,18 @@ export class AgentCallService {
     }
   }
 
-  private logTurn(turn: AgentCallTurn, isInterrupted: boolean): void {
+  private logTurn(
+    turn: AgentCallTurn,
+    timings: AgentCallTimings,
+    isInterrupted: boolean,
+  ): void {
     logEvent({
       level: "info",
       event: "agent.call.turn",
       component: COMPONENT,
       message: "A voice call turn ended",
       metadata: {
-        ...turn.timings(),
+        ...timings,
         sentences: turn.sentences.length,
         reportedSentences: turn.reportedCount,
         isInterrupted,

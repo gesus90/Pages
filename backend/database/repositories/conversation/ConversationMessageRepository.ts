@@ -339,6 +339,24 @@ export class ConversationMessageRepository {
     return readCountColumn(rows[0] ?? [], 0, "context_count");
   }
 
+  /** Tells whether an account wrote at least one message of a conversation. */
+  public async hasSender(
+    conversationId: string,
+    senderId: string,
+  ): Promise<boolean> {
+    const rows = await this.database.query(
+      `
+        SELECT 1
+        FROM conversation_messages
+        WHERE conversation_id = $conversation_id
+            AND sender_id = $sender_id
+        LIMIT 1;
+      `,
+      { conversation_id: conversationId, sender_id: senderId },
+    );
+    return rows.length > 0;
+  }
+
   /** Returns a message by its ID alone, for the rights check of its audio. */
   public async findById(
     messageId: string,

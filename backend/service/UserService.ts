@@ -248,6 +248,17 @@ export class UserService {
   }
 
   /**
+   * Returns what identifies the image avatars of several users, without the images.
+   * @param userIds - Identifiers of the users whose avatars are asked for.
+   * @returns The digests by user ID; users without a current image avatar are missing.
+   */
+  public async getImageAvatarDigests(
+    userIds: readonly string[],
+  ): Promise<Map<string, StoredUserAvatarDigest>> {
+    return this.userRepository.findImageAvatarDigestsByUserIds(userIds);
+  }
+
+  /**
    * Persistently replaces a user's custom avatar image.
    * @param userId - Identifier of the user.
    * @param avatar - Image binary and metadata.

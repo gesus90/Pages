@@ -104,6 +104,7 @@ it("starts the entrance on the configured address with default retention", async
   const options = vi.mocked(createIngressServer).mock.calls[0]?.[0];
   expect(options).toEqual({
     backend: new URL("http://127.0.0.1:3100"),
+    mobileFiles: undefined,
     trustedProxies: [],
     core: undefined,
     serviceStatus: undefined,
@@ -153,7 +154,7 @@ it("uses the configured retention and trusted proxies and announces them", async
   );
 });
 
-it("passes every switch to the core as an origin and reports them", async () => {
+it("passes optional upstream origins and reports them", async () => {
   await startIngress([
     ...REQUIRED,
     "--core",
@@ -164,6 +165,8 @@ it("passes every switch to the core as an origin and reports them", async () => 
     "http://127.0.0.1:3202",
     "--core-console",
     "http://127.0.0.1:3203",
+    "--mobile-files",
+    "http://127.0.0.1:3003",
   ]);
 
   expect(createIngressServer).toHaveBeenCalledWith(
@@ -172,6 +175,7 @@ it("passes every switch to the core as an origin and reports them", async () => 
       serviceStatus: new URL("http://127.0.0.1:3201"),
       coreRunner: new URL("http://127.0.0.1:3202"),
       coreConsole: new URL("http://127.0.0.1:3203"),
+      mobileFiles: new URL("http://127.0.0.1:3003"),
     }),
   );
   expect(logEvent).toHaveBeenCalledWith(
@@ -185,6 +189,12 @@ it("passes every switch to the core as an origin and reports them", async () => 
         runner: "http://127.0.0.1:3202",
         console: "http://127.0.0.1:3203",
       },
+    }),
+  );
+  expect(logEvent).toHaveBeenCalledWith(
+    expect.objectContaining({
+      event: "ingress.mobile_files.configured",
+      metadata: { origin: "http://127.0.0.1:3003" },
     }),
   );
 });

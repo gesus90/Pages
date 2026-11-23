@@ -136,6 +136,12 @@ export interface ConversationParticipant {
   readonly name: string;
   /** The person color as `#rrggbb`; `null` without a chosen color. */
   readonly color: string | null;
+  /**
+   * The version of the account's current profile image, which
+   * `conversation_avatar_get` of `conversations.v1` names; missing without a
+   * deliverable image and in every answer that does not carry it.
+   */
+  readonly avatarVersion?: string;
 }
 
 /** A person or agent a new conversation can include. */

@@ -542,7 +542,10 @@ export class CliGitHubCredentials {
     const origin = bridge
       ? `ssh://git@github.com/${repository}`
       : `https://github.com/${repository}`;
-    await writePrivate(publishFile, gitPublishScript(repository, origin));
+    await writePrivate(
+      publishFile,
+      gitPublishScript(repository, origin, bridge?.grant.pushRefs ?? null),
+    );
     return { PAGES_GIT_PUBLISH: publishFile };
   }
 

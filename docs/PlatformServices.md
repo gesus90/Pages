@@ -146,6 +146,11 @@ Danach den Ordner `service-monitor/` im Datenordner löschen.
    Abschnitt). Ohne sie gilt Pica nicht als einsatzbereit; der sichere
    Wiederanlauf der übrigen Dienste hängt davon nicht ab.
 
+Bei Installationen mit `pages-ingress` bleibt die instanzspezifische
+`ingress.env` beim Release-Wechsel erhalten. Die Dienstvorlage des neuen
+Releases übernehmen und den Ingress damit neu starten. Für Mobile-Dateien
+gilt die zusätzliche [HTTPS-Freigabeprüfung](../deploy/ingress/README.md#pica-mobile-attachments-behind-https).
+
 ## Pica-Freigabeprüfung
 
 Ein grüner Gesundheitsstatus, eine Anmeldeseite mit `200` oder laufende

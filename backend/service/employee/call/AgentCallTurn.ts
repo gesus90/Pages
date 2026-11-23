@@ -7,7 +7,6 @@ import type {
   AgentCallFailure,
   AgentCallTimings,
 } from "@/definition/AgentCall";
-import type { AgentSpeechOutcome } from "@/backend/service/speech/AgentSpeechService";
 import type { AnswerTap } from "./AgentCallAnswerTap";
 import type { AnswerSentence } from "./AgentCallSentences";
 
@@ -21,13 +20,32 @@ export interface SpokenSentence {
   readonly speechLength: number;
 }
 
+/** One phrase of the answer the voice speaks. */
+export interface AgentCallPhrase {
+  /** The position of the phrase in the answer, from 0. */
+  readonly index: number;
+  readonly text: string;
+  readonly signal: AbortSignal;
+  /** Called when the first audio of the phrase goes to the browser. */
+  readonly markAudio: () => void;
+}
+
+/** What speaking one phrase gave. */
+export type AgentCallPhraseOutcome =
+  | { readonly ok: true }
+  | {
+      readonly ok: false;
+      readonly code:
+        "not_configured" | "provider_failed" | "provider_unreachable";
+    };
+
 /** What a running turn needs from its call. */
 export interface AgentCallTurnOptions {
-  /** Speaks one sentence; it never rejects except when the turn was cancelled. */
-  readonly speak: (
-    text: string,
-    signal: AbortSignal,
-  ) => Promise<AgentSpeechOutcome>;
+  /**
+   * Speaks one phrase and hands its audio to the browser, whole or in
+   * blocks; it never rejects except when the turn was cancelled.
+   */
+  readonly speak: (phrase: AgentCallPhrase) => Promise<AgentCallPhraseOutcome>;
   readonly emit: (event: AgentCallEvent) => void;
   /** Ends the turn: the person interrupted or hung up. */
   readonly signal: AbortSignal;
@@ -50,9 +68,10 @@ interface Segment {
 /**
  * One answer that is spoken while it is written.
  * @remarks
- * The turn hears the text of the running job, cuts it into sentences, has
- * each sentence spoken in order and reports the audio as soon as it exists,
- * so the first sentence plays while the rest is still written. A cancelled
+ * The turn hears the text of the running job, cuts it into short phrases and
+ * has each phrase spoken in order by the call's speaker, which hands the
+ * audio on as soon as it exists, so the first phrase plays while the rest is
+ * still written. A cancelled
  * turn drops every sentence that has not been reported yet. It keeps which
  * sentences were handed over, so the stored answer can be marked where an
  * interruption cut the speech.
@@ -209,9 +228,16 @@ export class AgentCallTurn implements AnswerTap {
   ): Promise<void> {
     const { signal } = this.options;
     if (signal.aborted || this.failure !== null) return;
-    let outcome: AgentSpeechOutcome;
+    let outcome: AgentCallPhraseOutcome;
     try {
-      outcome = await this.options.speak(sentence.speech, signal);
+      outcome = await this.options.speak({
+        index,
+        text: sentence.speech,
+        signal,
+        markAudio: () => {
+          this.firstAudioMs ??= this.elapsed();
+        },
+      });
     } catch (error: unknown) {
       if (!signal.aborted) logCaughtError("AgentCallTurn", error);
       return;
@@ -225,16 +251,7 @@ export class AgentCallTurn implements AnswerTap {
       this.options.emit({ type: "failed", code: this.failure });
       return;
     }
-    this.firstAudioMs ??= this.elapsed();
     this.reportedSentences += 1;
-    this.options.emit({
-      type: "sentence",
-      index,
-      text: sentence.speech,
-      mimeType: outcome.mimeType,
-      playbackRate: outcome.playbackRate,
-      audio: outcome.audio.toString("base64"),
-    });
   }
 
   private elapsed(): number {

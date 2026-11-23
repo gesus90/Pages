@@ -11,6 +11,7 @@ import {
 
 import { shrinkAvatarImage } from "./PicaMobileAvatarImage";
 
+import type { StoredUserAvatarDigest } from "@/backend/database/repositories/UserRepository";
 import type { UserService } from "@/backend/service/UserService";
 import type { User } from "@/definition/User";
 
@@ -18,6 +19,12 @@ import type { User } from "@/definition/User";
 export type PicaMobileAvatarSource = Pick<
   UserService,
   "getAvatar" | "getAvatarDigest"
+>;
+
+/** What the avatars of chat members need from the user storage. */
+export type PicaMobileMemberAvatarSource = Pick<
+  UserService,
+  "getAvatar" | "getImageAvatarDigests"
 >;
 
 /** The current avatar of an account, ready to send. */
@@ -39,7 +46,7 @@ const MAXIMUM_CACHED_AVATARS = 128;
 
 /**
  * The avatar images Pica Mobile delivers: the current image of the account
- * that asks, shrunk to the protocol limit.
+ * that asks or of a member of its conversations, shrunk to the protocol limit.
  * @remarks
  * The version is a digest of the stored image, so it changes exactly when the
  * image does and two uploads within one second never share one. The shrunk
@@ -70,22 +77,78 @@ export class PicaMobileAvatars {
 
     const stored = await source.getAvatarDigest(user.id);
 
-    if (stored === null || !SUPPORTED_AVATAR_MIME_TYPES.has(stored.mimeType)) {
+    return stored === null ? null : this.fromDigest(source, user.id, stored);
+  }
+
+  /**
+   * Reads the current avatar of any account, such as a member of a chat.
+   * @param source - The user storage.
+   * @param userId - The account whose image is asked for.
+   * @returns The avatar, or `null` when the account has no image avatar, was
+   * removed, or its image cannot be delivered.
+   */
+  public async ofAccount(
+    source: PicaMobileMemberAvatarSource,
+    userId: string,
+  ): Promise<PicaMobileAvatar | null> {
+    const stored = (await source.getImageAvatarDigests([userId])).get(userId);
+
+    return stored === undefined
+      ? null
+      : this.fromDigest(source, userId, stored);
+  }
+
+  /**
+   * Reads the versions of the current avatars of several accounts without
+   * decoding their images.
+   * @param source - The user storage.
+   * @param userIds - The accounts.
+   * @returns The version by account; an account without an image avatar, or
+   * whose image is already known to be undeliverable, is missing.
+   * @remarks
+   * A version is the one {@link PicaMobileAvatars.ofAccount} answers with
+   * for the same image, so the reference and the delivered image match.
+   */
+  public async versions(
+    source: PicaMobileMemberAvatarSource,
+    userIds: readonly string[],
+  ): Promise<Map<string, string>> {
+    const versions = new Map<string, string>();
+    const digests = await source.getImageAvatarDigests(userIds);
+
+    for (const [userId, stored] of digests) {
+      const isKnownMissing =
+        this.cache.get(cacheKey(userId, stored.sha256))?.avatar === null;
+
+      if (SUPPORTED_AVATAR_MIME_TYPES.has(stored.mimeType) && !isKnownMissing) {
+        versions.set(userId, toVersion(stored.sha256));
+      }
+    }
+
+    return versions;
+  }
+
+  private async fromDigest(
+    source: Pick<UserService, "getAvatar">,
+    userId: string,
+    stored: StoredUserAvatarDigest,
+  ): Promise<PicaMobileAvatar | null> {
+    if (!SUPPORTED_AVATAR_MIME_TYPES.has(stored.mimeType)) {
       return null;
     }
 
-    const key = cacheKey(user.id, stored.sha256);
+    const key = cacheKey(userId, stored.sha256);
     const cached = this.cache.get(key);
 
     if (cached !== undefined) {
       return cached.avatar;
     }
 
-    return this.queue.run(() => this.prepare(source, user.id, key));
+    return this.queue.run(() => this.prepare(source, userId, key));
   }
 
   private async prepare(
-    source: PicaMobileAvatarSource,
+    source: Pick<UserService, "getAvatar">,
     userId: string,
     key: string,
   ): Promise<PicaMobileAvatar | null> {
@@ -114,9 +177,7 @@ export class PicaMobileAvatars {
     }
 
     const avatar =
-      shrunk === null
-        ? null
-        : { ...shrunk, version: digest.slice(0, VERSION_LENGTH) };
+      shrunk === null ? null : { ...shrunk, version: toVersion(digest) };
 
     // The image may have been replaced since the digest was read; its own digest keys it.
     this.cache.set(cacheKey(userId, digest), { avatar });
@@ -127,4 +188,8 @@ export class PicaMobileAvatars {
 
 function cacheKey(userId: string, digest: string): string {
   return `${userId}:${digest}`;
+}
+
+function toVersion(digest: string): string {
+  return digest.slice(0, VERSION_LENGTH);
 }

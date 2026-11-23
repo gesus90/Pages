@@ -12,11 +12,15 @@ import { SettingsCard } from "@/app/components/settings/settings-layout";
 import { Button } from "@/app/components/ui/button";
 import { Select } from "@/app/components/ui/select";
 import { cn } from "@/app/lib/cn";
+import { agentCallSynthesisPath } from "@/definition/AgentCall";
 import { consumerModels } from "@/definition/AgentModelConsumers";
 import { agentModelKey } from "@/definition/AgentPlanConfiguration";
 import { SPEECH_SYNTHESIS_DURATION_CHOICES } from "@/definition/SpeechSynthesis";
 
-import { formatSpeechDuration } from "./speech-settings/speech-status";
+import {
+  formatSpeechDuration,
+  SpeechCallPathHint,
+} from "./speech-settings/speech-status";
 
 import type { AgentActionResult } from "@/app/lib/settings-actions/settings-agents-response.server";
 import type { PageAgentModel } from "@/definition/PageAgent";
@@ -162,6 +166,13 @@ function SpeechSynthesisForm({
   const models = consumerModels("tts", administration.models);
   const draft = useSpeechSynthesisDraft(administration, models);
   const isPending = fetcher.state !== "idle";
+  const chosen = models.find((entry) => entry.id === draft.modelKey);
+  const callPath =
+    chosen === undefined
+      ? null
+      : agentCallSynthesisPath(
+          chosen.isSimulation === true ? null : chosen.model,
+        );
   return (
     <fetcher.Form method="post" className="space-y-4">
       <input type="hidden" name="intent" value={INTENT} />
@@ -198,6 +209,7 @@ function SpeechSynthesisForm({
       {models.length === 0 ? (
         <p className="text-xs text-warning">{t("speechSynthesis.noModels")}</p>
       ) : null}
+      <SpeechCallPathHint path={callPath} step="synthesis" />
       <div className="flex justify-end">
         <Button type="submit" size="sm" disabled={isPending}>
           {t("settings.agents.save")}

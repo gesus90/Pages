@@ -26,6 +26,7 @@ import { startAgentTools } from "./AgentToolsStartup";
 import { installRunnerChannel } from "./RunnerChannel";
 import { installRemoteConsoleChannel } from "./RemoteConsoleChannel";
 import { installConversationWebChannel } from "./ConversationWebChannel";
+import { installAgentCallChannel } from "./AgentCallChannel";
 import { startPicaMobile } from "./PicaMobileRuntime";
 import { AppRoutes } from "./AppRoutes";
 import { requestTargetPath, serveAppDocument } from "./AppDocument";
@@ -370,6 +371,7 @@ export async function startPagesServer(
   installConversationWebChannel(server, {
     trustedProxies: runtime.getConfig().trustedProxies ?? [],
   });
+  installAgentCallChannel(server, runtime.getConfig().trustedProxies ?? []);
   registerShutdownTask(
     async () => {
       server.close();

@@ -362,6 +362,23 @@ export class ConversationReader {
     );
   }
 
+  /**
+   * Tells whether an account appears in a conversation of the person: as one
+   * of its members or as the sender of one of its messages.
+   * @throws {ConversationError} `not_found` for a conversation of which the
+   * person is no member, `invalid` for a malformed ID.
+   */
+  public async isVisibleParticipant(
+    person: User,
+    conversationId: string,
+    participantId: string,
+  ): Promise<boolean> {
+    const record = await this.requireMember(person, conversationId);
+    const id = readConversationIdentifier(participantId);
+    if ((await this.memberIds(record.id)).includes(id)) return true;
+    return this.dependencies.messages.hasSender(record.id, id);
+  }
+
   /** Reads the unread counts of the person after a change of the read state. */
   public async readState(
     person: User,

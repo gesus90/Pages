@@ -79,6 +79,7 @@ function openedConversation(
     case "conversation_participants":
     case "conversation_create":
     case "conversation_mute":
+    case "conversation_avatar_get":
       return undefined;
   }
 }

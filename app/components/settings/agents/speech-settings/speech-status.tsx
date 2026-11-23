@@ -2,6 +2,7 @@ import { useTranslation } from "react-i18next";
 
 import { cn } from "@/app/lib/cn";
 
+import type { AgentCallPath } from "@/definition/AgentCall";
 import type { PageAgentModel } from "@/definition/PageAgent";
 import type {
   SpeechAdministration,
@@ -100,6 +101,32 @@ export function SpeechOpenRouterHint({
   return (
     <p className="text-xs text-muted-foreground">
       {t("speechSettings.noOpenRouterModels")}
+    </p>
+  );
+}
+
+/**
+ * Names how a direct call with an agent uses the chosen model: live while the
+ * person speaks or the voice is synthesized, or only buffered.
+ * @param props - The path of the drafted model, `null` without one, and the step it names.
+ */
+export function SpeechCallPathHint({
+  path,
+  step,
+}: {
+  readonly path: AgentCallPath | null;
+  readonly step: "recognition" | "synthesis";
+}): React.ReactElement | null {
+  const { t } = useTranslation();
+  if (path === null) return null;
+  return (
+    <p
+      className={cn(
+        "text-xs",
+        path === "streaming" ? "text-muted-foreground" : "text-warning",
+      )}
+    >
+      {t(`speechSettings.callPath.${step}.${path}`)}
     </p>
   );
 }

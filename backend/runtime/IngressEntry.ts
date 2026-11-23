@@ -20,7 +20,7 @@ import {
 import type { PagesConfig } from "@/backend/config/PagesConfig";
 
 const USAGE =
-  "Usage: node pages-ingress.mjs --config /absolute/config.toml --listen <address>:<port> --backend http://127.0.0.1:<port> [--core http://127.0.0.1:<port>] [--service-status http://127.0.0.1:<port>] [--core-runner http://127.0.0.1:<port>] [--core-console http://127.0.0.1:<port>]";
+  "Usage: node pages-ingress.mjs --config /absolute/config.toml --listen <address>:<port> --backend http://127.0.0.1:<port> [--core http://127.0.0.1:<port>] [--service-status http://127.0.0.1:<port>] [--core-runner http://127.0.0.1:<port>] [--core-console http://127.0.0.1:<port>] [--mobile-files http://127.0.0.1:<port>]";
 
 /** What the entrance is started with. */
 interface IngressArguments {
@@ -29,6 +29,8 @@ interface IngressArguments {
   readonly address: string;
   readonly port: number;
   readonly backend: URL;
+  /** Set: the Mobile gateway serves app attachment requests. */
+  readonly mobileFiles?: URL;
   /** Set: `pages-core` serves the live stream. */
   readonly core?: URL;
   /** Set: `pages-core` serves the service status. */
@@ -39,12 +41,13 @@ interface IngressArguments {
   readonly coreConsole?: URL;
 }
 
-/** The optional switches to `pages-core`, each an origin like `--backend`. */
+/** Optional upstream switches, each an origin like `--backend`. */
 const SWITCH_OPTIONS = {
   "--core": "core",
   "--service-status": "serviceStatus",
   "--core-runner": "coreRunner",
   "--core-console": "coreConsole",
+  "--mobile-files": "mobileFiles",
 } as const;
 
 /** An `IngressArguments` key set by one of the switches. */
@@ -170,6 +173,7 @@ export async function startIngress(
     const trustedProxies = config?.trustedProxies ?? [];
     const server = createIngressServer({
       backend: options.backend,
+      mobileFiles: options.mobileFiles,
       trustedProxies,
       core: options.core,
       serviceStatus: options.serviceStatus,
@@ -205,6 +209,15 @@ export async function startIngress(
         console: options.coreConsole?.origin ?? null,
       },
     });
+    if (options.mobileFiles) {
+      logEvent({
+        level: "info",
+        event: "ingress.mobile_files.configured",
+        component: "IngressEntry",
+        message: "Mobile attachment forwarding is configured",
+        metadata: { origin: options.mobileFiles.origin },
+      });
+    }
     announceForwarding(trustedProxies);
   } catch (error: unknown) {
     await shutdownProcess(1, "ingress_startup", error);

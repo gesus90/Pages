@@ -1139,12 +1139,23 @@ token as connected; saving a token and testing the connection sets it again. The
 connection test reads the repository, so it does not prove push access.
 
 `sh "$PAGES_GIT_PUBLISH" <branch>` is the publish command of a session with a
-credential. It pushes HEAD to that branch of `origin` without force, repeats
+credential. `origin` must name the repository of the project connection: either
+its managed address or an SSH host whose `ssh -G` hostname is `github.com` or
+`ssh.github.com`, with exactly that `owner/name`. Anything else stops with exit
+code 64 before any transfer. Every transfer then goes to the managed address,
+never to `origin` itself, so an alias only identifies the repository and its
+key is not used. A bridge session also stops before any transfer when the
+branch is not one of its `pushRefs`.
+
+The command reads the remote branch first. When it already holds HEAD, nothing
+is pushed and the command prints `PUBLISHED` again, so a repeated closeout
+causes no further push. When HEAD does not contain the remote branch, it stops
+with exit code 78 before a push. Otherwise it pushes HEAD without force, repeats
 only transport failures, at most three times, and prints `PUBLISHED` only after
-reading the remote branch back and finding HEAD there. It never changes local
-commits or branches, and repeating it after an interruption is safe. Pages tells
-the agent to use it and to report anything else as not published, but does not
-check that claim itself.
+reading the remote branch back and finding HEAD there. It never forces, deletes
+or changes local commits or branches; it only moves the tracking branch of
+`origin` to the published commit. Pages tells the agent to use it and to report
+anything else as not published, but does not check that claim itself.
 
 An operator can give one plan step a Git route over a host SSH identity, for a
 repository whose project token cannot serve. There is no default: without a

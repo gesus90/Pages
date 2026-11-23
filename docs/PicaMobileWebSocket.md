@@ -900,23 +900,24 @@ Pages nennt `conversations.v1` in `connected.server.capabilities`, wenn die Verb
 
 ### Anfragen und Antworten
 
-| App → Pages                 | Nutzlast                                                        | Antwort                                                         |
-| --------------------------- | --------------------------------------------------------------- | --------------------------------------------------------------- |
-| `conversations_list`        | `{ cursor? }`                                                   | `conversations` `{ items, nextCursor, totalUnread }`            |
-| `conversation_history`      | `{ conversationId, beforeId? }`                                 | `conversation_messages` `{ conversationId, messages, hasMore }` |
-| `conversation_participants` | `{}`                                                            | `conversation_participant_list` `{ people, agents }`            |
-| `conversation_create`       | `{ kind: "direct" \| "group", participantIds, name? }`          | `conversation_event` `conversation`                             |
-| `conversation_send`         | `{ conversationId, clientMessageId, text }`                     | `conversation_event` `message`                                  |
-| `conversation_read`         | `{ conversationId, upToMessageId }`                             | `conversation_event` `read`                                     |
-| `conversation_mute`         | `{ conversationId, isMuted }`                                   | `conversation_event` `conversation`                             |
-| `voice_start`               | `{ id, conversationId, clientMessageId, mimeType, durationMs }` | keine; nur eine Ablehnung als `conversation_error`              |
-| `voice_chunk`               | `{ id, index, data }`                                           | keine; nur eine Ablehnung als `conversation_error`              |
-| `voice_finish`              | `{ id, chunkCount }`                                            | `conversation_event` `message` mit `voice`                      |
-| `voice_cancel`              | `{ id }`                                                        | keine                                                           |
+| App → Pages                 | Nutzlast                                                        | Antwort                                                                     |
+| --------------------------- | --------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| `conversations_list`        | `{ cursor? }`                                                   | `conversations` `{ items, nextCursor, totalUnread }`                        |
+| `conversation_history`      | `{ conversationId, beforeId? }`                                 | `conversation_messages` `{ conversationId, messages, hasMore }`             |
+| `conversation_participants` | `{}`                                                            | `conversation_participant_list` `{ people, agents }`                        |
+| `conversation_create`       | `{ kind: "direct" \| "group", participantIds, name? }`          | `conversation_event` `conversation`                                         |
+| `conversation_send`         | `{ conversationId, clientMessageId, text }`                     | `conversation_event` `message`                                              |
+| `conversation_read`         | `{ conversationId, upToMessageId }`                             | `conversation_event` `read`                                                 |
+| `conversation_mute`         | `{ conversationId, isMuted }`                                   | `conversation_event` `conversation`                                         |
+| `conversation_avatar_get`   | `{ conversationId, userId, version }`                           | `conversation_avatar` `{ conversationId, userId, version, mimeType, data }` |
+| `voice_start`               | `{ id, conversationId, clientMessageId, mimeType, durationMs }` | keine; nur eine Ablehnung als `conversation_error`                          |
+| `voice_chunk`               | `{ id, index, data }`                                           | keine; nur eine Ablehnung als `conversation_error`                          |
+| `voice_finish`              | `{ id, chunkCount }`                                            | `conversation_event` `message` mit `voice`                                  |
+| `voice_cancel`              | `{ id }`                                                        | keine                                                                       |
 
-- **Unterhaltung** (`items`, `conversation`): `{ id, kind, name, members, lastMessage, lastActivityAt, unreadCount, isMuted }`. `name` ist der Gruppenname oder bei einer Direktunterhaltung der Name des anderen Teilnehmers; `members` sind `{ id, kind, name, color }`. Die Liste ist nach letzter Aktivität sortiert, höchstens 50 je Seite; `nextCursor` setzt sie fort und ist auf der letzten Seite `null`.
+- **Unterhaltung** (`items`, `conversation`): `{ id, kind, name, members, lastMessage, lastActivityAt, unreadCount, isMuted }`. `name` ist der Gruppenname oder bei einer Direktunterhaltung der Name des anderen Teilnehmers; `members` sind `{ id, kind, name, color, avatarVersion? }` (siehe [Profilbilder](#profilbilder-von-mitgliedern-und-absendern)). Die Liste ist nach letzter Aktivität sortiert, höchstens 50 je Seite; `nextCursor` setzt sie fort und ist auf der letzten Seite `null`.
 - **`totalUnread`** zählt alle ungelesenen Nachrichten anderer, auch aus stummgeschalteten Unterhaltungen; `unreadCount` gilt je Unterhaltung und Mitglied.
-- **Nachricht:** `{ id, conversationId, clientMessageId, sender: { id, kind, name, color }, text, createdAt, mentions, voice? }`. `kind` ist `human` oder `agent`, `color` die Personenfarbe oder `null`. `mentions` sind die IDs der Mitglieder, die der Text mit `@Name` nennt: `@username`, oder der Anzeigename ohne Leerzeichen bzw. sein erstes Wort, solange kein anderes Mitglied denselben trägt. Ein Hinweis, warum ein Agent nicht geantwortet hat, trägt `notice` (`agent_inactive`, `agent_cost_limit`, `agent_unavailable` oder `agent_failed`); `text` sagt ihn dann auf Deutsch, und der Client darf ihn über den Code in seiner Sprache zeigen. Eine Sprachnachricht trägt `voice: { durationMs, transcriptionState, mimeType, sizeBytes }`; `transcriptionState` ist `pending`, `done` oder `failed`, `text` ist bis zur Erkennung leer.
+- **Nachricht:** `{ id, conversationId, clientMessageId, sender: { id, kind, name, color, avatarVersion? }, text, createdAt, mentions, voice? }`. `kind` ist `human` oder `agent`, `color` die Personenfarbe oder `null`. `mentions` sind die IDs der Mitglieder, die der Text mit `@Name` nennt: `@username`, oder der Anzeigename ohne Leerzeichen bzw. sein erstes Wort, solange kein anderes Mitglied denselben trägt. Ein Hinweis, warum ein Agent nicht geantwortet hat, trägt `notice` (`agent_inactive`, `agent_cost_limit`, `agent_unavailable` oder `agent_failed`); `text` sagt ihn dann auf Deutsch, und der Client darf ihn über den Code in seiner Sprache zeigen. Eine Sprachnachricht trägt `voice: { durationMs, transcriptionState, mimeType, sizeBytes }`; `transcriptionState` ist `pending`, `done` oder `failed`, `text` ist bis zur Erkennung leer.
 - **Verlauf:** älteste zuerst, je Seite die neuesten 50 Nachrichten und höchstens 400000 Zeichen, aber immer mindestens eine. `beforeId` ist die älteste gelieferte Nachricht und liest die Seite davor. Eine Anfrage ohne `beforeId` öffnet die Unterhaltung auf der Verbindung (siehe [Push](#push-bei-neuen-nachrichten)).
 - **`conversation_send`:** `clientMessageId` ist eine UUID; eine Wiederholung liefert die gespeicherte Nachricht und erzeugt keine zweite. `text` hat höchstens 16000 Zeichen, sonst `too_long`; ein leerer Text ist `invalid`.
 - **`conversation_create`:** `direct` braucht genau einen anderen Teilnehmer und liefert die vorhandene Unterhaltung des Paares, wenn es sie schon gibt. `group` braucht einen Namen (1 bis 80 Zeichen) und 1 bis 49 andere Teilnehmer. Die eigene ID, unbekannte und deaktivierte Konten ergeben `invalid`.
@@ -968,7 +969,24 @@ Eine Nachricht, die die Seite während einer Antwort sendet, trägt im Formular 
 
 ### Fehler
 
-`conversation_error` hat die Nutzlast `{ id, code }`. `id` ist bei `voice_*` die Upload-ID, sonst die genannte Unterhaltung oder `null`. `code` ist `forbidden` (Direktunterhaltung mit einem deaktivierten Konto), `not_found` (fehlende Unterhaltung, Nichtmitglied oder unbekannter Upload; ein Nichtmitglied und eine fehlende Unterhaltung antworten gleich), `invalid`, `too_large`, `too_long` oder `unsupported_format`.
+`conversation_error` hat die Nutzlast `{ id, code }`. `id` ist bei `voice_*` die Upload-ID, sonst die genannte Unterhaltung oder `null`. `code` ist `forbidden` (Direktunterhaltung mit einem deaktivierten Konto; bei `conversation_avatar_get` ein Konto, das in der Unterhaltung weder Mitglied noch Absender ist), `not_found` (fehlende Unterhaltung, Nichtmitglied oder unbekannter Upload; ein Nichtmitglied und eine fehlende Unterhaltung antworten gleich), `invalid`, `too_large`, `too_long` oder `unsupported_format`.
+
+### Profilbilder von Mitgliedern und Absendern
+
+Jedes Mitglied in `members` und jeder `sender` einer Nachricht trägt `avatarVersion`, wenn das Konto ein Profilbild als Avatar gewählt hat und Pages es liefern kann. Das gilt für die Unterhaltungen in `conversations`, für `lastMessage`, für den Verlauf in `conversation_messages` und für jedes `conversation_event` `message`, `message_updated` und `conversation`, auch als Antwort auf `conversation_create`, `conversation_send`, `conversation_mute` und `voice_finish`. Die Direktunterhaltung findet so in der Liste und im Kopf das Bild des anderen Teilnehmers unter dessen Eintrag in `members`. Ohne Bild, bei einem entfernten Konto oder einem Bild, das sich nicht verkleinern lässt, fehlt das Feld; die App zeigt dann wie bisher Initialen und Farbe. `conversation_participants` trägt keine Bildversion.
+
+`avatarVersion` ist ein Digest der gespeicherten Bildbytes wie die `version` von `avatar_get` und ändert sich mit jedem neuen Bild. Kann Pages die Versionen kurzzeitig nicht lesen, kommt die Antwort ohne das Feld; die Unterhaltung kommt trotzdem an.
+
+**`conversation_avatar_get`** holt ein Bild mit `{ conversationId, userId, version }`. `conversationId` und `userId` sind IDs wie in `members`, `version` ist die zuletzt gelieferte `avatarVersion` (1 bis 64 Zeichen aus Buchstaben, Ziffern, `.`, `_`, `:`, `-`). Pages prüft bei jedem Abruf in dieser Reihenfolge:
+
+1. die Sitzung wie bei jeder Anfrage;
+2. den Lesezugriff des angemeldeten Kontos auf die Unterhaltung: ein Nichtmitglied und eine fehlende Unterhaltung erhalten `conversation_error` `not_found`;
+3. die Sichtbarkeit der angefragten Person in dieser Unterhaltung: Sie ist aktuelles Mitglied oder Absender einer Nachricht der Unterhaltung, sonst `conversation_error` `forbidden`. Das eigene Konto ist als Mitglied immer sichtbar;
+4. Bild und Version: Ohne lieferbares Bild oder bei einer anderen als der aktuellen Version antwortet Pages `conversation_error` `not_found`. Die App liest die Unterhaltung dann neu und erhält die aktuelle `avatarVersion` oder keine.
+
+Die Antwort **`conversation_avatar`** trägt dieselbe `requestId` und `{ conversationId, userId, version, mimeType, data }`: `data` ist das verkleinerte Bild in Base64, höchstens 128 KiB dekodiert, `mimeType` `image/jpeg`, `image/png` oder `image/webp`, wie bei `avatar`. `conversation_error` nennt in `id` die angefragte Unterhaltung. Die App kann ein Bild je `userId` und `version` zwischenspeichern; dieselbe Person hat in allen Unterhaltungen dieselbe Version.
+
+Bestehende Clients ignorieren das unbekannte Feld `avatarVersion` und senden `conversation_avatar_get` nicht; für sie ändert sich nichts. Ein Pages, das `avatarVersion` nicht liefert, beantwortet `conversation_avatar_get` mit `unknown_type`. Die App fragt deshalb nur Bilder an, deren `avatarVersion` sie erhalten hat.
 
 ### Sprachnachrichten
 

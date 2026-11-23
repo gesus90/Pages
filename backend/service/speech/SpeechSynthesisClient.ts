@@ -3,8 +3,41 @@ import { AGENT_PROVIDERS } from "@/definition/AgentConnection";
 
 import { readPcmLayout, wavFromPcm } from "./SpeechSynthesisAudio";
 
+import type { PcmLayout } from "./SpeechSynthesisAudio";
+
 /** The audio formats Pages hands to a browser. */
 export type SynthesizedAudioType = "audio/wav" | "audio/mpeg";
+
+/** How the audio of a streamed request arrives. */
+export type SpeechStreamFormat =
+  | {
+      /** Raw 16-bit little-endian samples, handed on in blocks while they arrive. */
+      readonly mimeType: "audio/pcm";
+      readonly layout: PcmLayout;
+      readonly isSpeedApplied: boolean;
+    }
+  | {
+      /** A whole file, handed on in one block when it is complete. */
+      readonly mimeType: SynthesizedAudioType;
+      readonly layout: null;
+      readonly isSpeedApplied: boolean;
+    };
+
+/** Receives the audio of a streamed request. */
+export interface SpeechAudioSink {
+  /** The provider accepted the request; called once before the first block. */
+  readonly begin: (format: SpeechStreamFormat) => void;
+  /** The next block; raw PCM blocks always end on a whole sample frame. */
+  readonly block: (audio: Buffer) => void;
+}
+
+/** What a streamed request gave; the audio itself went to the sink. */
+export type SpeechStreamOutcome =
+  | { readonly ok: true }
+  | {
+      readonly ok: false;
+      readonly code: "provider_failed" | "provider_unreachable";
+    };
 
 /** One speech output request to OpenRouter. */
 export interface SpeechSynthesisRequest {
@@ -50,10 +83,15 @@ const REQUEST_TIMEOUT_MS = 60_000;
 /** The largest audio Pages reads: about ten minutes of 24 kHz PCM. */
 const MAXIMUM_AUDIO_BYTES = 32 * 1024 * 1024;
 
+/** The largest block a stream hands on, so a large provider chunk does not hold the first sound back. */
+const MAXIMUM_BLOCK_BYTES = 9_600;
+
 const COMPONENT = "SpeechSynthesisClient";
 
-const FAILED: SpeechSynthesisOutcome = { ok: false, code: "provider_failed" };
-const UNREACHABLE: SpeechSynthesisOutcome = {
+type SpeechFailure = Extract<SpeechSynthesisOutcome, { ok: false }>;
+
+const FAILED: SpeechFailure = { ok: false, code: "provider_failed" };
+const UNREACHABLE: SpeechFailure = {
   ok: false,
   code: "provider_unreachable",
 };
@@ -133,6 +171,62 @@ function playableAudio(
   return null;
 }
 
+function pcmLayoutOf(contentType: string): PcmLayout | null {
+  const type = (contentType.split(";")[0] ?? "").trim().toLowerCase();
+  return type === "audio/pcm" || type === "audio/l16"
+    ? readPcmLayout(contentType)
+    : null;
+}
+
+/** Cuts the arriving PCM into blocks of whole sample frames; a partial frame waits for the next chunk. */
+class PcmBlocks {
+  private readonly frameBytes: number;
+  private readonly sink: SpeechAudioSink;
+  private carry: Buffer = Buffer.alloc(0);
+
+  public constructor(layout: PcmLayout, sink: SpeechAudioSink) {
+    this.frameBytes = layout.channels * 2;
+    this.sink = sink;
+  }
+
+  /**
+   * Takes the next chunk of the response and hands its whole frames on.
+   * @param chunk - The bytes as the provider sent them.
+   */
+  public push(chunk: Uint8Array): void {
+    const joined = Buffer.concat([this.carry, chunk]);
+    const usable = joined.length - (joined.length % this.frameBytes);
+    this.carry = joined.subarray(usable);
+    const step = MAXIMUM_BLOCK_BYTES - (MAXIMUM_BLOCK_BYTES % this.frameBytes);
+    for (let start = 0; start < usable; start += step)
+      this.sink.block(joined.subarray(start, Math.min(usable, start + step)));
+  }
+}
+
+async function streamPcm(
+  response: Response,
+  blocks: PcmBlocks,
+): Promise<boolean> {
+  if (!response.body) return false;
+  const reader = response.body.getReader();
+  let bytes = 0;
+  try {
+    for (
+      let chunk = await reader.read();
+      !chunk.done;
+      chunk = await reader.read()
+    ) {
+      bytes += chunk.value.byteLength;
+      if (bytes > MAXIMUM_AUDIO_BYTES) return bytes > 0;
+      blocks.push(chunk.value);
+    }
+  } finally {
+    await reader.cancel();
+    reader.releaseLock();
+  }
+  return bytes > 0;
+}
+
 /**
  * Turns a text into speech through OpenRouter.
  *
@@ -162,6 +256,56 @@ export class SpeechSynthesisClient {
   public async synthesize(
     input: SpeechSynthesisRequest,
   ): Promise<SpeechSynthesisOutcome> {
+    const answer = await this.accepted(input);
+    if (!("response" in answer)) return answer;
+    return this.readAnswer(input, answer.response, answer.attempt);
+  }
+
+  /**
+   * Speaks a text and hands the audio on while it arrives.
+   * @param input - Key, model, text, voice, speed and the caller's cancellation.
+   * @param sink - Receives the format, then the audio in blocks: raw PCM as
+   * it arrives, any other format as one whole file.
+   * @returns Whether audio arrived; it never rejects, except when the caller
+   * cancelled.
+   * @remarks
+   * PCM is asked first, as for {@link synthesize}; a model that refuses it
+   * answers MP3, which is handed on whole, so that phrase is buffered.
+   */
+  public async synthesizeStream(
+    input: SpeechSynthesisRequest,
+    sink: SpeechAudioSink,
+  ): Promise<SpeechStreamOutcome> {
+    const answer = await this.accepted(input);
+    if (!("response" in answer)) return answer;
+    const { response, attempt } = answer;
+    const isSpeedApplied = input.speed === 1 || attempt.sendsSpeed;
+    const layout = pcmLayoutOf(response.headers.get("content-type") ?? "");
+    if (layout === null) {
+      const whole = await this.readAnswer(input, response, attempt);
+      if (!whole.ok) return whole;
+      sink.begin({ mimeType: whole.mimeType, layout: null, isSpeedApplied });
+      sink.block(whole.audio);
+      return { ok: true };
+    }
+    sink.begin({ mimeType: "audio/pcm", layout, isSpeedApplied });
+    try {
+      return (await streamPcm(response, new PcmBlocks(layout, sink)))
+        ? { ok: true }
+        : FAILED;
+    } catch {
+      input.signal.throwIfAborted();
+      return UNREACHABLE;
+    }
+  }
+
+  // Every refusal with 400 costs nothing, so the next attempt drops what was refused.
+  private async accepted(
+    input: SpeechSynthesisRequest,
+  ): Promise<
+    | { readonly response: Response; readonly attempt: SpeechAttempt }
+    | SpeechFailure
+  > {
     const signal = AbortSignal.any([
       input.signal,
       AbortSignal.timeout(REQUEST_TIMEOUT_MS),
@@ -174,7 +318,11 @@ export class SpeechSynthesisClient {
         await response.body?.cancel();
         continue;
       }
-      return this.readAnswer(input, response, attempt);
+      if (!response.ok) {
+        await response.body?.cancel();
+        return FAILED;
+      }
+      return { response, attempt };
     }
     return FAILED;
   }

@@ -399,6 +399,7 @@ describe("createMobileConversations", () => {
       authService: "auth",
       conversationReader: "reader",
       conversationService: "conversation-service",
+      userService: "users",
     });
   });
 });

@@ -28,6 +28,11 @@ The entrance
   `--core-console http://127.0.0.1:<core-port>`; each switch on its
   own, without it the API answers as before. An upgrade below `/api/core/` is
   refused with `404`;
+- passes the Pica chat and conversation attachment routes to the Mobile
+  gateway when started with `--mobile-files http://127.0.0.1:<mobile-port>`.
+  The gateway still authenticates the app and checks access to each file.
+  Uploads stream through the entrance, and the gateway's status and headers
+  go back to the app;
 - keeps `Host`, cookies, status codes, redirects and content types, sets
   `X-Forwarded-For` to the client it saw and `X-Forwarded-Proto` to `http`
   unless a trusted proxy sent them: a proxy on the same host (loopback) or an
@@ -69,3 +74,26 @@ the repository change. The template `pages-ingress@.service` expects:
    login page are no proof that Pica works behind that address.
 
 The service worker needs a secure context: HTTPS, or `localhost`.
+
+## Pica Mobile attachments behind HTTPS
+
+If the app uses the public HTTPS origin for file transfers, set
+`PAGES_INGRESS_MOBILE_FILES_OPTION="--mobile-files http://127.0.0.1:<mobile-port>"`
+in the instance's `ingress.env`. Use the Mobile gateway's reachable
+`picaMobilePort`. With `pages-core` relaying Mobile connections, use the
+port held by the core (`picaMobilePort`), since the API's relay listener
+expects the core's own connection format. Keep the origin in `ingress.env`
+in sync when the gateway port changes. Apply the setting on the next
+entrance restart. The existing WebSocket routing is independent of this
+option.
+
+Keep `/etc/pages/<instance>/ingress.env` across releases. When activating a
+new Pages release, install its `pages-ingress@.service` template, reload the
+systemd manager, and restart the entrance on the new bundle. This keeps the
+instance's configured `--mobile-files` argument when the release changes.
+
+After rollout approval, verify the running build and the entrance's start
+arguments. Send an unauthenticated `PUT /pica-mobile/chat/attachments` and
+`POST /pica-mobile/chat-page-api/files` to the public HTTPS origin. Both must
+return `401 accessDenied`. Then upload the same test file while signed in to
+Pica and to a regular chat using the existing APK.

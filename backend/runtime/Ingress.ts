@@ -2,6 +2,11 @@ import { createServer, request as httpRequest, Agent } from "node:http";
 
 import { logCaughtError, logEvent } from "@/backend/logging/Logger";
 import {
+  PICA_MOBILE_CHAT_ATTACHMENTS_PATH,
+  PICA_MOBILE_CONVERSATION_FILES_PATH,
+  PICA_MOBILE_CONVERSATION_UPLOAD_PATH,
+} from "@/definition/PicaMobile";
+import {
   SERVICE_STATUS_DETAILS_PATH,
   SERVICE_STATUS_PATH,
 } from "@/definition/ServiceStatus";
@@ -32,6 +37,8 @@ export interface IngressOptions {
   readonly clientDirectory: string;
   /** Origin of the API process, such as `http://127.0.0.1:3100`. */
   readonly backend: URL;
+  /** Origin of the Mobile gateway that serves Pica and conversation attachments. */
+  readonly mobileFiles?: URL;
   /**
    * Origin of `pages-core`, such as `http://127.0.0.1:3200`. Set:
    * `/live-changes` is served by the core. Missing: by the API, as before.
@@ -77,6 +84,14 @@ const SERVICE_STATUS_PATHS: ReadonlySet<string> = new Set([
 ]);
 /** The core's own API paths; only the core calls them, on the API's loopback port. */
 const CORE_API_PREFIX = "/api/core/";
+const PICA_ATTACHMENT_PATH = new RegExp(
+  `^${PICA_MOBILE_CHAT_ATTACHMENTS_PATH}/[^/]+$`,
+  "u",
+);
+const CONVERSATION_ATTACHMENT_PATH = new RegExp(
+  `^${PICA_MOBILE_CONVERSATION_FILES_PATH}[a-zA-Z0-9-]{1,100}(?:/thumbnail)?$`,
+  "u",
+);
 
 /** Headers that describe one connection and are never passed on. */
 const HOP_BY_HOP_HEADERS: ReadonlySet<string> = new Set([
@@ -340,6 +355,15 @@ function forwardUpgrade(
   upstream.end();
 }
 
+function isMobileFileRequest(method: string, pathname: string): boolean {
+  if (pathname === PICA_MOBILE_CHAT_ATTACHMENTS_PATH) return method === "PUT";
+  if (pathname === PICA_MOBILE_CONVERSATION_UPLOAD_PATH)
+    return method === "POST" || method === "PUT" || method === "DELETE";
+  if (PICA_ATTACHMENT_PATH.test(pathname))
+    return method === "GET" || method === "DELETE";
+  return method === "GET" && CONVERSATION_ATTACHMENT_PATH.test(pathname);
+}
+
 async function answerRequest(
   request: IncomingMessage,
   response: ServerResponse,
@@ -371,6 +395,13 @@ async function answerRequest(
       "Content-Type": "text/plain; charset=utf-8",
     });
     response.end("Not Found");
+    return;
+  }
+  if (
+    options.mobileFiles &&
+    isMobileFileRequest(method, requestTargetPath(request.url))
+  ) {
+    forward(options.mobileFiles);
     return;
   }
   if (options.core && pathname === LIVE_CHANGES_PATH) {

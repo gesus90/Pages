@@ -1,5 +1,8 @@
 import { z } from "zod";
 
+import { picaMobileAvatarVersionSchema } from "./PicaMobileProtocol";
+
+import type { PicaMobileAvatarPayload } from "./PicaMobileProtocol";
 import type {
   LiveAnswerEventPayload,
   LiveAnswerSyncComplete,
@@ -87,6 +90,14 @@ export const picaMobileConversationRequestSchema = z.discriminatedUnion(
       }),
     }),
     z.object({
+      type: z.literal("conversation_avatar_get"),
+      payload: z.object({
+        conversationId: conversationIdSchema,
+        userId: conversationIdSchema,
+        version: picaMobileAvatarVersionSchema,
+      }),
+    }),
+    z.object({
       type: z.literal("voice_start"),
       payload: z.object({
         id: voiceUploadIdSchema,
@@ -148,6 +159,15 @@ export type PicaMobileConversationMessagesPayload = ConversationHistoryPage;
 /** The answer to `conversation_participants`. */
 export type PicaMobileConversationParticipantListPayload = ConversationContacts;
 
+/**
+ * The answer to `conversation_avatar_get`: the shrunken current profile image
+ * of a member or sender of a conversation the account reads.
+ */
+export interface PicaMobileConversationAvatarPayload extends PicaMobileAvatarPayload {
+  readonly conversationId: string;
+  readonly userId: string;
+}
+
 /** An agent that starts (`isTyping: true`) or ends an answer in a conversation. */
 export interface PicaMobileConversationTyping {
   readonly conversationId: string;
@@ -203,6 +223,10 @@ export type PicaMobileConversationAnswer =
   | {
       readonly type: "conversation_event";
       readonly payload: PicaMobileConversationEventPayload;
+    }
+  | {
+      readonly type: "conversation_avatar";
+      readonly payload: PicaMobileConversationAvatarPayload;
     }
   | {
       readonly type: "conversation_error";

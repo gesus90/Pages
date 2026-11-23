@@ -64,6 +64,10 @@ function agentCallOf(
               isFailedToStart: state.isFailedToStart,
               isVoiceMissing: state.isVoiceMissing,
               latencies: state.latencies,
+              paths: state.paths,
+              partial: state.partial,
+              gaps: state.gaps,
+              interruptions: state.interruptions,
             },
           },
         }

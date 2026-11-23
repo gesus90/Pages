@@ -1,4 +1,5 @@
 import { isUniqueViolationOn } from "@/backend/database/Database";
+import { createInClause } from "@/backend/database/repositories/task/InClause";
 import {
   readBlobColumn,
   readBooleanColumn,
@@ -7,7 +8,7 @@ import {
   readTextColumn,
 } from "@/backend/database/RowValue";
 import { isRole } from "@/definition/Role";
-import { isUserAvatarType } from "@/definition/User";
+import { isUserAvatarType, USER_AVATAR_TYPE } from "@/definition/User";
 import {
   EmailTakenError,
   UsernameTakenError,
@@ -540,6 +541,43 @@ export class UserRepository {
       mimeType: readTextColumn(row, 0, "mime_type"),
       sha256: readDigestColumn(row, 1, "image_digest"),
     };
+  }
+
+  /**
+   * Returns the type and the SHA-256 of the image avatars of several users.
+   * @param userIds - User identifiers.
+   * @returns The digests by user ID; a user without a stored image, whose
+   * chosen avatar is no image, or who was removed is missing.
+   * @remarks
+   * The database hashes the images, so the bytes themselves stay in the database.
+   */
+  public async findImageAvatarDigestsByUserIds(
+    userIds: readonly string[],
+  ): Promise<Map<string, StoredUserAvatarDigest>> {
+    const digests = new Map<string, StoredUserAvatarDigest>();
+    if (userIds.length === 0) return digests;
+    const list = createInClause("user", userIds);
+    const rows = await this.database.query(
+      `
+        SELECT
+            user_avatars.user_id,
+            user_avatars.mime_type,
+            sha256(user_avatars.data) AS image_digest
+        FROM user_avatars
+        INNER JOIN users
+            ON users.id = user_avatars.user_id
+        WHERE user_avatars.user_id IN (${list.placeholders})
+            AND users.avatar_type = $avatar_type
+            AND users.removed_at IS NULL;
+      `,
+      { ...list.parameters, avatar_type: USER_AVATAR_TYPE.IMAGE },
+    );
+    for (const row of rows)
+      digests.set(readTextColumn(row, 0, "user_id"), {
+        mimeType: readTextColumn(row, 1, "mime_type"),
+        sha256: readDigestColumn(row, 2, "image_digest"),
+      });
+    return digests;
   }
 
   /**

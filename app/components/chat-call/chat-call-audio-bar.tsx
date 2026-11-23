@@ -6,8 +6,11 @@ import { cn } from "@/app/lib/cn";
 import type { AgentCallFailure } from "@/definition/AgentCall";
 import type {
   AgentCallActivity,
+  AgentCallInterruption,
   AgentCallLatency,
+  AgentCallPaths,
 } from "./agent-call/agent-call-session";
+import type { PlaybackGap } from "./agent-call/agent-stream-player";
 import type { CallAudioState } from "./call-audio-session";
 
 const FOCUS_RING =
@@ -23,6 +26,12 @@ export interface ChatCallBarAgent {
   /** The saved voice is not offered by the speech model. */
   readonly isVoiceMissing: boolean;
   readonly latencies: readonly AgentCallLatency[];
+  /** How recognition and voice run; `null` until the call has started. */
+  readonly paths: AgentCallPaths | null;
+  /** The preliminary transcript of what the person is saying. */
+  readonly partial: string | null;
+  readonly gaps: readonly PlaybackGap[];
+  readonly interruptions: readonly AgentCallInterruption[];
 }
 
 /** The audio of a running call, which the bar shows and steers. */
@@ -49,11 +58,13 @@ function problemOf(state: CallAudioState | null): MicrophoneProblem | null {
 function agentLine(
   agent: ChatCallBarAgent,
   isMuted: boolean,
-  t: (key: string) => string,
+  t: (key: string, options?: Record<string, unknown>) => string,
 ): string {
   if (agent.failure !== null)
     return t(`chatCall.agent.failure.${agent.failure}`);
   if (isMuted) return t("chatCall.audio.bar.microphoneOff");
+  if (agent.partial !== null && agent.activity !== "speaking")
+    return t("chatCall.agent.partial", { text: agent.partial });
   if (agent.isVoiceMissing && agent.activity === "listening")
     return t("chatCall.agent.voiceMissing");
   return t(`chatCall.agent.activity.${agent.activity}`);
@@ -61,7 +72,7 @@ function agentLine(
 
 function statusLine(
   audio: ChatCallBarAudio,
-  t: (key: string) => string,
+  t: (key: string, options?: Record<string, unknown>) => string,
 ): string {
   const { state, agent } = audio;
   if (agent !== undefined)
@@ -114,6 +125,30 @@ function MuteControls({
   );
 }
 
+/** Names a step that waits for the whole utterance or phrase, so the person knows why the voice is slower. */
+function BufferedMark({
+  paths,
+}: {
+  readonly paths: AgentCallPaths | null;
+}): React.ReactElement | null {
+  const { t } = useTranslation();
+  if (paths === null) return null;
+  const isRecognitionBuffered = paths.recognition === "buffered";
+  const isSynthesisBuffered = paths.synthesis === "buffered";
+  if (!isRecognitionBuffered && !isSynthesisBuffered) return null;
+  let key = "chatCall.agent.buffered.both";
+  if (!isSynthesisBuffered) key = "chatCall.agent.buffered.recognition";
+  if (!isRecognitionBuffered) key = "chatCall.agent.buffered.synthesis";
+  return (
+    <span
+      title={t(key)}
+      className="inline-flex h-6 shrink-0 items-center rounded-[7px] border border-border px-2 text-[11px] font-semibold text-muted-foreground"
+    >
+      {t("chatCall.agent.buffered.label")}
+    </span>
+  );
+}
+
 type BarProblem = MicrophoneProblem | "agent";
 
 /** What needs the person's attention: a call that could not start, or the microphone. */
@@ -146,6 +181,15 @@ function BarText({
       <p className="truncate text-xs leading-4 text-foreground/75">{line}</p>
     </div>
   );
+}
+
+/** A JSON data attribute of the bar; absent while the list is empty. */
+function jsonAttribute(
+  items: readonly unknown[] | undefined,
+): string | undefined {
+  return items === undefined || items.length === 0
+    ? undefined
+    : JSON.stringify(items);
 }
 
 function BarControls({
@@ -188,7 +232,10 @@ function BarControls({
  * The bar is one status message that changes only when the state changes. The
  * path of the audio, direct or relay, is named in `data-call-route` and the
  * measured times of each answer in `data-call-latency`, for the check of a
- * call.
+ * call. With an agent the bar shows the preliminary transcript while the
+ * person speaks and marks a buffered step; `data-call-paths`,
+ * `data-call-gaps` and `data-call-interruptions` carry the paths, the silent
+ * stretches inside answers and the time each interruption took.
  */
 export function AudioCallBar({
   name,
@@ -201,14 +248,15 @@ export function AudioCallBar({
 }): React.ReactElement {
   const { t } = useTranslation();
   const problem = barProblemOf(audio);
-  const latencies = audio.agent?.latencies ?? [];
+  const agent = audio.agent;
   return (
     <div
       role="status"
       data-call-route={audio.state?.route ?? undefined}
-      data-call-latency={
-        latencies.length === 0 ? undefined : JSON.stringify(latencies)
-      }
+      data-call-latency={jsonAttribute(agent?.latencies)}
+      data-call-paths={agent?.paths ? JSON.stringify(agent.paths) : undefined}
+      data-call-gaps={jsonAttribute(agent?.gaps)}
+      data-call-interruptions={jsonAttribute(agent?.interruptions)}
       className={cn(
         "-mt-1 flex h-14 shrink-0 items-center gap-3 rounded-2xl border pr-3 pl-4",
         problem === null
@@ -226,6 +274,9 @@ export function AudioCallBar({
         )}
       />
       <BarText name={name} audio={audio} problem={problem} />
+      {problem === null && agent !== undefined ? (
+        <BufferedMark paths={agent.paths} />
+      ) : null}
       <BarControls audio={audio} problem={problem} />
       <button
         type="button"

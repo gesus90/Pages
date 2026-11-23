@@ -91,6 +91,7 @@ export const PICA_MOBILE_CLIENT_MESSAGE_TYPE = {
   CONVERSATION_SEND: "conversation_send",
   CONVERSATION_READ: "conversation_read",
   CONVERSATION_MUTE: "conversation_mute",
+  CONVERSATION_AVATAR_GET: "conversation_avatar_get",
   VOICE_START: "voice_start",
   VOICE_CHUNK: "voice_chunk",
   VOICE_FINISH: "voice_finish",
@@ -135,6 +136,7 @@ export const PICA_MOBILE_SERVER_MESSAGE_TYPE = {
   CONVERSATION_PARTICIPANT_LIST: "conversation_participant_list",
   CONVERSATION_EVENT: "conversation_event",
   CONVERSATION_ERROR: "conversation_error",
+  CONVERSATION_AVATAR: "conversation_avatar",
   SPEECH_CONFIG: "speech_config",
   SPEECH_RESULT: "speech_result",
   SPEECH_ERROR: "speech_error",
@@ -169,7 +171,8 @@ export const PICA_MOBILE_SERVER_MESSAGE_TYPE = {
  * `conversations.v1` stands for the stored conversations with people, agents
  * and groups: the requests `conversations_list`,
  * `conversation_history`, `conversation_participants`, `conversation_create`,
- * `conversation_send`, `conversation_read`, `conversation_mute` and the
+ * `conversation_send`, `conversation_read`, `conversation_mute`,
+ * `conversation_avatar_get` and the
  * chunked voice upload `voice_start`, `voice_chunk`, `voice_finish`,
  * `voice_cancel`, with their answers, the `conversation_event` messages the
  * server sends on its own, and the voice endpoint on the same port.

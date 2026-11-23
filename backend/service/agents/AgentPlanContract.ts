@@ -115,7 +115,7 @@ function accessLines(
 /** The credential and publication rules of a session with a project connection. */
 const PROJECT_GITHUB_LINES = [
   "- GitHub: `printenv PAGES_GITHUB_ACCESS` says what Pages found out about the project connection when this session started. The connection reaches only the repository of this project; do not look for other Git credentials.",
-  '- Publish with `sh "$PAGES_GIT_PUBLISH" <branch>` (unset without a usable credential). It pushes HEAD without force, repeats only transport failures, at most three times, and reads the remote branch back. Only its `PUBLISHED` line proves a publication: report everything else as not published and keep your commit and branch. A repeated run after an interruption is safe.',
+  '- Publish with `sh "$PAGES_GIT_PUBLISH" <branch>` (unset without a usable credential). It accepts `origin` as the project repository or an SSH alias of GitHub for it, pushes HEAD over the project connection without force, pushes nothing when the remote branch already holds HEAD, stops before a push when the remote branch moved, repeats only transport failures, at most three times, and reads the remote branch back. Only its `PUBLISHED` line proves a publication: report everything else as not published and keep your commit and branch. A repeated run after an interruption is safe.',
   "- An authentication or permission failure needs a project manager: do not retry it. Report it as blocked with the message of Git and Pages.",
 ] as const;
 

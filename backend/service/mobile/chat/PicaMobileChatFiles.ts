@@ -2,7 +2,7 @@ import { pipeline } from "node:stream/promises";
 
 import { chatAttachmentDownloadHeaders } from "@/app/lib/chat-attachment-headers";
 import { logCaughtError } from "@/backend/logging/Logger";
-import { PICA_MOBILE_PATH } from "@/definition/PicaMobile";
+import { PICA_MOBILE_CHAT_ATTACHMENTS_PATH } from "@/definition/PicaMobile";
 
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type { PicaMobileSessionIdentity } from "../PicaMobileDashboardProvider";
@@ -31,7 +31,6 @@ type ChatFileRequest =
   | { readonly kind: "download" | "discard"; readonly attachmentId: string };
 
 const COMPONENT = "PicaMobileChatFiles";
-const ATTACHMENTS_PATH = `${PICA_MOBILE_PATH}/chat/attachments`;
 const MAXIMUM_TRANSFERS_PER_ACCOUNT = 4;
 const MAXIMUM_USER_AGENT_LENGTH = 200;
 const BEARER = /^Bearer ([^\s]{1,256})$/u;
@@ -58,7 +57,7 @@ function readChatFileRequest(request: IncomingMessage): ChatFileRequest | null {
     return null;
   }
 
-  if (url.pathname === ATTACHMENTS_PATH) {
+  if (url.pathname === PICA_MOBILE_CHAT_ATTACHMENTS_PATH) {
     return request.method === "PUT"
       ? {
           kind: "upload",
@@ -68,10 +67,12 @@ function readChatFileRequest(request: IncomingMessage): ChatFileRequest | null {
       : null;
   }
 
-  const attachmentId = url.pathname.slice(ATTACHMENTS_PATH.length + 1);
+  const attachmentId = url.pathname.slice(
+    PICA_MOBILE_CHAT_ATTACHMENTS_PATH.length + 1,
+  );
 
   if (
-    !url.pathname.startsWith(`${ATTACHMENTS_PATH}/`) ||
+    !url.pathname.startsWith(`${PICA_MOBILE_CHAT_ATTACHMENTS_PATH}/`) ||
     attachmentId.length === 0 ||
     attachmentId.includes("/")
   ) {

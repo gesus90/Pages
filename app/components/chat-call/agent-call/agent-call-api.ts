@@ -2,6 +2,7 @@ import { AGENT_CALL_ENDPOINT } from "@/definition/AgentCall";
 
 import type {
   AgentCallEvent,
+  AgentCallPath,
   AgentCallReadiness,
   AgentCallSpokenReport,
 } from "@/definition/AgentCall";
@@ -19,6 +20,11 @@ export interface AgentTurnRequest {
 
 function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+// A server that does not name a path offers only the buffered one.
+function pathOf(value: unknown): AgentCallPath {
+  return value === "streaming" ? "streaming" : "buffered";
 }
 
 function isEvent(value: unknown): value is AgentCallEvent {
@@ -49,7 +55,13 @@ export async function fetchAgentCallReadiness(
       typeof isVoiceMissing !== "boolean"
     )
       return null;
-    return { recognition, synthesis, isVoiceMissing };
+    return {
+      recognition,
+      synthesis,
+      isVoiceMissing,
+      recognitionPath: pathOf(body.readiness.recognitionPath),
+      synthesisPath: pathOf(body.readiness.synthesisPath),
+    };
   } catch (error: unknown) {
     console.warn("Pages could not read the state of the call.", error);
     return null;

@@ -12,6 +12,7 @@ import { SettingsCard } from "@/app/components/settings/settings-layout";
 import { Button } from "@/app/components/ui/button";
 import { Select } from "@/app/components/ui/select";
 import { cn } from "@/app/lib/cn";
+import { agentCallRecognitionPath } from "@/definition/AgentCall";
 import { consumerModels } from "@/definition/AgentModelConsumers";
 import { agentModelKey } from "@/definition/AgentPlanConfiguration";
 import {
@@ -20,6 +21,7 @@ import {
 } from "@/definition/SpeechRecognition";
 
 import {
+  SpeechCallPathHint,
   SpeechOpenRouterHint,
   SpeechStatusBadge,
   SpeechStatusNote,
@@ -28,6 +30,7 @@ import {
 import { SpeechTestResult, useSpeechTest } from "./speech-settings/speech-test";
 
 import type { AgentActionResult } from "@/app/lib/settings-actions/settings-agents-response.server";
+import type { AgentCallPath } from "@/definition/AgentCall";
 import type { PageAgentModel } from "@/definition/PageAgent";
 import type { SpeechAdministration } from "@/definition/SpeechRecognition";
 import type { FetcherWithComponents } from "react-router";
@@ -112,6 +115,16 @@ function useSpeechDraft(
   };
 }
 
+/** The recognition path of the chosen model, or `null` while none is chosen. */
+function recognitionPath(
+  model: PageAgentModel | undefined,
+): AgentCallPath | null {
+  if (model === undefined) return null;
+  return agentCallRecognitionPath(
+    model.isSimulation === true ? null : (model.provider ?? ""),
+  );
+}
+
 function SpeechSettingsForm({
   administration,
   fetcher,
@@ -126,6 +139,8 @@ function SpeechSettingsForm({
   const isPending = fetcher.state !== "idle";
   const canTest =
     administration.status === "ready" && !draft.isDirty && !isPending;
+  const chosen = models.find((entry) => entry.id === draft.modelKey);
+  const callPath = recognitionPath(chosen);
   return (
     <fetcher.Form method="post" className="space-y-4">
       <input type="hidden" name="intent" value="save-speech" />
@@ -168,6 +183,7 @@ function SpeechSettingsForm({
       />
       <SpeechStatusNote administration={administration} />
       <SpeechOpenRouterHint models={models} />
+      <SpeechCallPathHint path={callPath} step="recognition" />
       {draft.isDirty && administration.status === "ready" ? (
         <p className="text-xs text-muted-foreground">
           {t("speechSettings.saveBeforeTest")}

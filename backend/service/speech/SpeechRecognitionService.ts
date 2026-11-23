@@ -1,6 +1,7 @@
 import { setTimeout as wait } from "node:timers/promises";
 
 import { logCaughtError, logEvent } from "@/backend/logging/Logger";
+import { agentCallRecognitionPath } from "@/definition/AgentCall";
 import {
   readSpeechMimeType,
   SPEECH_MAXIMUM_BYTES,
@@ -14,6 +15,7 @@ import {
 } from "./SpeechSimulation";
 
 import type { AgentConnectionRepository } from "@/backend/database/repositories/AgentConnectionRepository";
+import type { AgentCallPath } from "@/definition/AgentCall";
 import type { InstanceSecretCipher } from "@/backend/security/InstanceSecretCipher";
 import type {
   SpeechMimeType,
@@ -61,6 +63,17 @@ function failure(
 }
 
 /**
+ * Whether a speech model gives preliminary transcripts while the person speaks.
+ * @param model - The chosen speech model of the instance.
+ * @returns The path {@link agentCallRecognitionPath} names for its connection.
+ */
+export function speechRecognitionPathOf(
+  model: SpeechModelEntry,
+): AgentCallPath {
+  return agentCallRecognitionPath(model.connection?.provider ?? null);
+}
+
+/**
  * Turns a finished recording into text with the model of the instance.
  * @remarks
  * The text comes after the recording, never live. Audio stays in memory: it
@@ -90,6 +103,17 @@ export class SpeechRecognitionService {
           maxDurationMs: configuration.maxDurationMs,
           mimeTypes: SPEECH_MIME_TYPES,
         };
+  }
+
+  /**
+   * How recognition runs during a call with the chosen model.
+   * @returns The path, or `null` while speech recognition is off.
+   */
+  public async path(): Promise<AgentCallPath | null> {
+    const configuration = await this.dependencies.settings.configuration();
+    return configuration === null
+      ? null
+      : speechRecognitionPathOf(configuration.model);
   }
 
   /**

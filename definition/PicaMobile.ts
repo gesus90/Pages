@@ -1,6 +1,13 @@
 /** Path of the Pica Mobile WebSocket endpoint on its own port. */
 export const PICA_MOBILE_PATH = "/pica-mobile";
 
+/** Upload and individual-attachment endpoints for the Pica chat. */
+export const PICA_MOBILE_CHAT_ATTACHMENTS_PATH = `${PICA_MOBILE_PATH}/chat/attachments`;
+/** Upload, thumbnail upload and discard endpoint for conversation attachments. */
+export const PICA_MOBILE_CONVERSATION_UPLOAD_PATH = `${PICA_MOBILE_PATH}/chat-page-api/files`;
+/** Original and thumbnail download paths for conversation attachments. */
+export const PICA_MOBILE_CONVERSATION_FILES_PATH = `${PICA_MOBILE_PATH}/chat/files/`;
+
 const LOWEST_PORT = 1;
 const HIGHEST_PORT = 65_535;
 const PORT_TEXT = /^\d{1,5}$/u;

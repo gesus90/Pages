@@ -4141,6 +4141,13 @@
         "agent_unavailable": "The agent cannot be reached right now.",
         "agent_busy": "The agent is still answering another message. Please say it again in a moment.",
         "invalid": "The recording could not be processed."
+      },
+      "partial": "“{{text}}”",
+      "buffered": {
+        "label": "Buffered",
+        "both": "The chosen speech recognition and speech output only work buffered here: recognition starts after you stop speaking, and each sentence plays only once it is fully synthesized.",
+        "recognition": "Speech recognition only works buffered here: it starts after you stop speaking, and there is no preliminary transcript.",
+        "synthesis": "The chosen speech output delivers its audio only after a phrase is fully synthesized; the answer plays phrase by phrase."
       }
     }
   },
@@ -8507,6 +8514,16 @@
       "provider_model_not_found": "The chosen model is no speech recognition model of this instance.",
       "profile_invalid": "The setting is invalid. Please check the model and the longest recording.",
       "profile_conflict": "The setting was changed in the meantime. Reload the page and save again."
+    },
+    "callPath": {
+      "recognition": {
+        "streaming": "In a direct call with an agent: the audio is sent while the person speaks, and preliminary transcripts appear before the end of speech. The provider recognizes whole recordings only, so Pages recognizes the growing utterance again at widening steps and in the pause.",
+        "buffered": "In a direct call with an agent only buffered: recognition starts after the end of speech."
+      },
+      "synthesis": {
+        "streaming": "In a direct call with an agent: the audio of each phrase plays while it is still synthesized.",
+        "buffered": "In a direct call with an agent only buffered: this model delivers the audio of a phrase only after it is fully synthesized."
+      }
     }
   },
   "speechSynthesis": {

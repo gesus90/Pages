@@ -64,6 +64,7 @@ export function createMobileConversations(): PagesPicaMobileConversations {
         authService: services.authService,
         conversationReader: services.conversationReader,
         conversationService: services.conversationService,
+        userService: services.userService,
       };
     },
     events: sharedConversationEvents(),

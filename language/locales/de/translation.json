@@ -4141,6 +4141,13 @@
         "agent_unavailable": "Der Agent ist gerade nicht erreichbar.",
         "agent_busy": "Der Agent beantwortet noch eine andere Nachricht. Sprich gleich noch einmal.",
         "invalid": "Die Aufnahme konnte nicht verarbeitet werden."
+      },
+      "partial": "„{{text}}“",
+      "buffered": {
+        "label": "Gepuffert",
+        "both": "Die gewählte Spracherkennung und Sprachausgabe arbeiten hier nur gepuffert: Die Erkennung beginnt erst nach dem Sprechende, und jeder Satz wird erst nach seiner vollständigen Synthese abgespielt.",
+        "recognition": "Die Spracherkennung arbeitet hier nur gepuffert: Sie beginnt erst nach dem Sprechende, ein vorläufiges Transkript gibt es nicht.",
+        "synthesis": "Die gewählte Sprachausgabe liefert ihr Audio erst nach der vollständigen Synthese einer Phrase; die Antwort wird phrasenweise abgespielt."
       }
     }
   },
@@ -8514,6 +8521,16 @@
       "provider_model_not_found": "Das gewählte Modell ist kein Spracherkennungsmodell dieser Instanz.",
       "profile_invalid": "Die Einstellung ist ungültig. Bitte Modell und längste Aufnahme prüfen.",
       "profile_conflict": "Die Einstellung wurde inzwischen geändert. Seite neu laden und erneut speichern."
+    },
+    "callPath": {
+      "recognition": {
+        "streaming": "Im Direktanruf mit einem Agenten: Das Audio wird während des Sprechens übertragen, und vorläufige Transkripte erscheinen schon vor dem Sprechende. Der Anbieter erkennt nur ganze Aufnahmen; Pages lässt deshalb die wachsende Äußerung in größer werdenden Abständen und in der Sprechpause erneut erkennen.",
+        "buffered": "Im Direktanruf mit einem Agenten nur gepuffert: Die Erkennung beginnt erst nach dem Sprechende."
+      },
+      "synthesis": {
+        "streaming": "Im Direktanruf mit einem Agenten: Das Audio jeder Phrase wird schon während der Synthese abgespielt.",
+        "buffered": "Im Direktanruf mit einem Agenten nur gepuffert: Dieses Modell liefert das Audio einer Phrase erst nach ihrer vollständigen Synthese."
+      }
     }
   },
   "speechSynthesis": {

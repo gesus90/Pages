@@ -10,7 +10,10 @@ import {
   CONVERSATION_ATTACHMENT_MAXIMUM_BYTES,
   CONVERSATION_THUMBNAIL_MAXIMUM_BYTES,
 } from "@/definition/ConversationContent";
-import { PICA_MOBILE_PATH } from "@/definition/PicaMobile";
+import {
+  PICA_MOBILE_CONVERSATION_FILES_PATH,
+  PICA_MOBILE_CONVERSATION_UPLOAD_PATH,
+} from "@/definition/PicaMobile";
 
 import {
   authenticatePicaMobileBearer,
@@ -58,9 +61,6 @@ type AttachmentRequest =
   | { readonly kind: "discard"; readonly attachmentId: string };
 
 const COMPONENT = "PicaMobileAttachmentFiles";
-/** The web addresses `/chat/files/…` and `/chat-page-api/files` below the app's path. */
-const FILES_PATH = `${PICA_MOBILE_PATH}/chat/files/`;
-const UPLOAD_PATH = `${PICA_MOBILE_PATH}/chat-page-api/files`;
 const IDENTIFIER = /^[a-zA-Z0-9-]{1,100}$/u;
 const MAXIMUM_TRANSFERS_PER_ACCOUNT = 4;
 const OPEN_END = Number.MAX_SAFE_INTEGER;
@@ -78,10 +78,13 @@ function readDownload(
   request: IncomingMessage,
   url: URL,
 ): AttachmentRequest | null {
-  if (request.method !== "GET" || !url.pathname.startsWith(FILES_PATH))
+  if (
+    request.method !== "GET" ||
+    !url.pathname.startsWith(PICA_MOBILE_CONVERSATION_FILES_PATH)
+  )
     return null;
   const [attachmentId = "", part, ...rest] = url.pathname
-    .slice(FILES_PATH.length)
+    .slice(PICA_MOBILE_CONVERSATION_FILES_PATH.length)
     .split("/");
   const isThumbnail = part === "thumbnail";
   if (
@@ -108,7 +111,8 @@ function readAttachmentRequest(
   } catch {
     return null;
   }
-  if (url.pathname !== UPLOAD_PATH) return readDownload(request, url);
+  if (url.pathname !== PICA_MOBILE_CONVERSATION_UPLOAD_PATH)
+    return readDownload(request, url);
   const attachmentId = url.searchParams.get("attachmentId") ?? "";
   if (request.method === "POST")
     return {

@@ -1,14 +1,18 @@
 import { logCaughtError } from "@/backend/logging/Logger";
+import { agentCallSynthesisPath } from "@/definition/AgentCall";
 import { effectiveAgentVoice } from "@/definition/SpeechSynthesis";
 
 import { simulatedSpeech } from "./SpeechSynthesisSimulation";
 
 import type { AgentConnectionRepository } from "@/backend/database/repositories/AgentConnectionRepository";
 import type { InstanceSecretCipher } from "@/backend/security/InstanceSecretCipher";
+import type { AgentCallPath } from "@/definition/AgentCall";
 import type {
+  SpeechStreamFormat,
   SpeechSynthesisClient,
   SynthesizedAudioType,
 } from "./SpeechSynthesisClient";
+import type { SpeechSynthesisModelEntry } from "./SpeechSynthesisModels";
 import type { SpeechSynthesisSettingsService } from "./SpeechSynthesisSettingsService";
 import type { SpeechSynthesisSimulationMode } from "./SpeechSynthesisSimulation";
 
@@ -17,7 +21,10 @@ export interface AgentSpeechDependencies {
   readonly settings: Pick<SpeechSynthesisSettingsService, "configuration">;
   readonly connections: Pick<AgentConnectionRepository, "findSecretEncrypted">;
   readonly cipher: Pick<InstanceSecretCipher, "decrypt">;
-  readonly client: Pick<SpeechSynthesisClient, "synthesize">;
+  readonly client: Pick<
+    SpeechSynthesisClient,
+    "synthesize" | "synthesizeStream"
+  >;
   readonly simulation: SpeechSynthesisSimulationMode;
 }
 
@@ -36,7 +43,32 @@ export interface AgentSpeechReadiness {
   readonly isConfigured: boolean;
   /** The saved voice is not one the model lists; the first voice speaks instead. */
   readonly isVoiceMissing: boolean;
+  /** Whether the chosen model delivers audio while it still synthesizes. */
+  readonly path: AgentCallPath;
 }
+
+/** How the audio of a streamed text arrives. */
+export interface AgentSpeechFormat {
+  /** `audio/pcm` arrives in blocks while it is synthesized, any other type as one whole file. */
+  readonly mimeType: "audio/pcm" | SynthesizedAudioType;
+  /** The sample rate of `audio/pcm`; 0 for a whole file. */
+  readonly sampleRate: number;
+  /** The channels of `audio/pcm`; 0 for a whole file. */
+  readonly channels: number;
+  /** The rate the player applies: the speed when the model refused it, otherwise 1. */
+  readonly playbackRate: number;
+}
+
+/** Receives the audio of a text while it is synthesized. */
+export interface AgentSpeechSink {
+  /** Called once, before the first block. */
+  readonly begin: (format: AgentSpeechFormat) => void;
+  readonly block: (audio: Buffer) => void;
+}
+
+/** What streaming a text gave; the audio itself went to the sink. */
+export type AgentSpeechStreamOutcome =
+  { readonly ok: true } | Extract<AgentSpeechOutcome, { ok: false }>;
 
 /** What speaking a text gave. */
 export type AgentSpeechOutcome =
@@ -54,6 +86,37 @@ export type AgentSpeechOutcome =
     };
 
 const COMPONENT = "AgentSpeechService";
+
+/** The sample rate and size of the simulated blocks: 100 milliseconds of 24 kHz mono. */
+const SIMULATION_SAMPLE_RATE = 24_000;
+const SIMULATION_BLOCK_BYTES = 4_800;
+const WAV_HEADER_BYTES = 44;
+
+/**
+ * Whether a speech output model streams its audio.
+ * @param model - The chosen model of the instance.
+ * @returns `streaming` for the simulation and for every OpenRouter model whose
+ * PCM arrives while it is synthesized, `buffered` for the others.
+ */
+export function speechSynthesisPathOf(
+  model: SpeechSynthesisModelEntry,
+): AgentCallPath {
+  return agentCallSynthesisPath(
+    model.connection === null ? null : model.choice.model,
+  );
+}
+
+function formatOf(
+  format: SpeechStreamFormat,
+  speed: number,
+): AgentSpeechFormat {
+  return {
+    mimeType: format.mimeType,
+    sampleRate: format.layout?.sampleRate ?? 0,
+    channels: format.layout?.channels ?? 0,
+    playbackRate: format.isSpeedApplied ? 1 : speed,
+  };
+}
 
 /**
  * Speaks the text of an agent's answer with the voice the agent saved.
@@ -82,12 +145,50 @@ export class AgentSpeechService {
   ): Promise<AgentSpeechReadiness> {
     const configuration = await this.dependencies.settings.configuration();
     if (configuration === null)
-      return { isConfigured: false, isVoiceMissing: false };
+      return { isConfigured: false, isVoiceMissing: false, path: "buffered" };
     const voice = effectiveAgentVoice(configuration.model.voices, voiceId);
     return {
       isConfigured: true,
       isVoiceMissing: voice.missingVoiceId !== null,
+      path: speechSynthesisPathOf(configuration.model),
     };
+  }
+
+  /**
+   * Speaks one text and hands its audio on while it is synthesized.
+   * @param input - Text, voice, speed and the caller's cancellation.
+   * @param sink - Receives the format and then the audio in blocks.
+   * @returns Whether audio arrived, or why there is none.
+   * @remarks
+   * The audio passes through memory only; nothing of it is kept.
+   */
+  public async speakStream(
+    input: AgentSpeechInput,
+    sink: AgentSpeechSink,
+  ): Promise<AgentSpeechStreamOutcome> {
+    const configuration = await this.dependencies.settings.configuration();
+    if (configuration === null) return { ok: false, code: "not_configured" };
+    const { model } = configuration;
+    const voice = effectiveAgentVoice(model.voices, input.voiceId).voiceId;
+    const speed = input.speedTenths / 10;
+    if (model.connection === null)
+      return this.simulateStream(input.text, { voice, speed }, sink);
+    const apiKey = await this.readApiKey(model.connection.id);
+    if (apiKey === null) return { ok: false, code: "not_configured" };
+    return this.dependencies.client.synthesizeStream(
+      {
+        apiKey,
+        model: model.choice.model,
+        text: input.text,
+        voice,
+        speed,
+        signal: input.signal,
+      },
+      {
+        begin: (format) => sink.begin(formatOf(format, speed)),
+        block: (audio) => sink.block(audio),
+      },
+    );
   }
 
   /**
@@ -135,6 +236,30 @@ export class AgentSpeechService {
       mimeType: "audio/wav",
       playbackRate: 1,
     };
+  }
+
+  // The simulated tone arrives in blocks like a streaming provider's PCM.
+  private simulateStream(
+    text: string,
+    options: { readonly voice: string | null; readonly speed: number },
+    sink: AgentSpeechSink,
+  ): AgentSpeechStreamOutcome {
+    if (this.dependencies.simulation.scenario === "provider_failed")
+      return { ok: false, code: "provider_failed" };
+    const pcm = simulatedSpeech({
+      text,
+      voice: options.voice ?? "",
+      speed: options.speed,
+    }).subarray(WAV_HEADER_BYTES);
+    sink.begin({
+      mimeType: "audio/pcm",
+      sampleRate: SIMULATION_SAMPLE_RATE,
+      channels: 1,
+      playbackRate: 1,
+    });
+    for (let start = 0; start < pcm.length; start += SIMULATION_BLOCK_BYTES)
+      sink.block(pcm.subarray(start, start + SIMULATION_BLOCK_BYTES));
+    return { ok: true };
   }
 
   // A key that is missing or no longer decrypts makes the setting unusable; it is no provider failure.

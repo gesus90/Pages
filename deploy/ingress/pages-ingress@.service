@@ -30,11 +30,13 @@ Environment=PAGES_INGRESS_STATUS_OPTION=
 # Empty: the API answers the WebSocket channels of runners and consoles.
 # "--core-runner http://127.0.0.1:3200" and "--core-console http://127.0.0.1:3200":
 # pages-core relays them and holds the connections while the API restarts
-# Two switches of their own; Pica Mobile is switched in config.toml.
+# Two switches of their own.
 Environment=PAGES_INGRESS_RUNNER_OPTION=
 Environment=PAGES_INGRESS_CONSOLE_OPTION=
+# Optional app attachment forwarding to the Mobile gateway's picaMobilePort.
+Environment=PAGES_INGRESS_MOBILE_FILES_OPTION=
 EnvironmentFile=-/etc/pages/%i/ingress.env
-ExecStart=/usr/bin/env node --max-old-space-size=256 /opt/pages/pages-ingress.mjs --config /etc/pages/%i/config.toml --listen ${PAGES_INGRESS_LISTEN} --backend ${PAGES_INGRESS_BACKEND} $PAGES_INGRESS_CORE_OPTION $PAGES_INGRESS_STATUS_OPTION $PAGES_INGRESS_RUNNER_OPTION $PAGES_INGRESS_CONSOLE_OPTION
+ExecStart=/usr/bin/env node --max-old-space-size=256 /opt/pages/pages-ingress.mjs --config /etc/pages/%i/config.toml --listen ${PAGES_INGRESS_LISTEN} --backend ${PAGES_INGRESS_BACKEND} $PAGES_INGRESS_CORE_OPTION $PAGES_INGRESS_STATUS_OPTION $PAGES_INGRESS_RUNNER_OPTION $PAGES_INGRESS_CONSOLE_OPTION $PAGES_INGRESS_MOBILE_FILES_OPTION
 Restart=always
 RestartSec=2
 MemoryMax=384M
