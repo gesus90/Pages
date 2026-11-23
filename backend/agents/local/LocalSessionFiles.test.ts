@@ -89,7 +89,8 @@ it("writes and reads a record", async () => {
 it("removes the pending file when publishing fails", async () => {
   const dir = path.join(root, "publish");
   const file = path.join(dir, "blocked");
-  await mkdir(file, { recursive: true });
+  await mkdir(dir, { mode: 0o700 });
+  await mkdir(file);
   await writeFile(path.join(file, "keep"), "x");
   await expect(writeLocalRecord(file, 1)).rejects.toThrow();
   expect(await readdir(dir)).toEqual(["blocked"]);
@@ -98,7 +99,8 @@ it("removes the pending file when publishing fails", async () => {
 it("reports both failures when the pending file cannot be removed", async () => {
   const dir = path.join(root, "aggregate");
   const file = path.join(dir, "blocked");
-  await mkdir(file, { recursive: true });
+  await mkdir(dir, { mode: 0o700 });
+  await mkdir(file);
   await writeFile(path.join(file, "keep"), "x");
   overrides.rm = async () => {
     throw new Error("rm failed");
