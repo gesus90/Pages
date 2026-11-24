@@ -74,6 +74,12 @@ export interface PagesAgentApiProjectNames {
   readonly projectNames: readonly string[];
 }
 
+/** What Pages adds beside the answer of an operation while the step of the session still owes something. */
+export interface PagesAgentApiNotice {
+  /** The open obligation of the step, worded for the agent. */
+  readonly notice?: string;
+}
+
 /** Stable failures from the versioned authentication boundary. */
 export type PagesAgentApiErrorCode =
   | "AUTH_REQUIRED"

@@ -16,6 +16,7 @@ import { TOOL_ENTRIES } from "@/definition/AgentTools/ToolCatalog";
 import {
   planSessionReach,
   planSessionScope,
+  planStepTools,
 } from "@/backend/service/agents/AgentPlanSessionAccess";
 import { agentRunOptionsFor } from "@/definition/AgentConfiguration";
 import { AGENT_STEP_PROGRESS_OPERATION } from "@/definition/AgentPlanStepProgress";
@@ -361,11 +362,7 @@ export class RunnerPagesAccessService {
       });
       if (!("tools" in verification))
         throw new AgentError("plan_mcp_unavailable");
-      return {
-        tools: TOOL_ENTRIES.filter((entry) =>
-          verification.tools.includes(entry.operation),
-        ).map((entry) => entry.tool),
-      };
+      return { tools: planStepTools(verification.tools) };
     }
     if (request.kind !== "call") throw new AgentError("plan_mcp_unavailable");
     return this.call(access, request, api);

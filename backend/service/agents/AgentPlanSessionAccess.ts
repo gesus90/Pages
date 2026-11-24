@@ -3,10 +3,13 @@ import {
   isAgentWriteAccess,
 } from "@/definition/AgentConfiguration";
 import {
+  AGENT_SWARM_ROLES,
   agentSwarmOperations,
   agentSwarmTools,
 } from "@/definition/AgentPlanSwarmOperations";
+import { TOOL_ENTRIES } from "@/definition/AgentTools/ToolCatalog";
 
+import type { Tool } from "@modelcontextprotocol/server";
 import type { CliSessionMcp } from "@/backend/agents/cli/CliSessionPlans";
 import type { PlanBridgeGrants } from "./bridge/PlanBridgeGrants";
 import type { AgentRunCredentialService } from "@/backend/service/mcp/AgentRunCredentialService";
@@ -41,6 +44,18 @@ const SESSION_TOOLS = [
 // Moving a bound ticket between statuses is offered only to a node that reports its own progress.
 const STATUS_OPERATION = "ticket.setStatus";
 const STATUS_TOOL = "set_ticket_status";
+
+/** The `_meta` key with which an MCP server has Antigravity hand one of its tools to the agent up front. */
+const ANTIGRAVITY_ALWAYS_LOAD = "antigravity/alwaysLoad";
+
+/** The tools the run contract and the swarm rules of a step tell the agent to call. */
+const CONTRACT_TOOLS: ReadonlySet<string> = new Set([
+  ...SESSION_TOOLS,
+  STATUS_TOOL,
+  ...AGENT_SWARM_ROLES.flatMap((role) =>
+    agentSwarmTools(role, { hasMemory: true }),
+  ),
+]);
 
 // The credential outlives the session limit a little, so a slow closing report still reaches Pages.
 const CREDENTIAL_MARGIN_MS = 5 * 60_000;
@@ -128,6 +143,30 @@ export function planSessionTools(
       ? agentSwarmTools(grant.swarm, { hasMemory: grant.swarmMemory })
       : []),
   ];
+}
+
+function upfrontTool(tool: Tool): Tool {
+  if (!CONTRACT_TOOLS.has(tool.name)) return tool;
+  return { ...tool, _meta: { ...tool._meta, [ANTIGRAVITY_ALWAYS_LOAD]: true } };
+}
+
+/**
+ * Lists the tool definitions a plan step offers for the operations its credential allows.
+ * @param allowed - The operations the credential of the step may call.
+ * @returns The definitions; those the run contract names ask Antigravity to load them up front.
+ * @remarks
+ * `agy acp` offers the tools of an MCP server only on demand, behind its own
+ * tool search, and ignores the `eagerMcpServers` hint of `session/new`. A
+ * model that never searches never sees `update_step_progress`, so the work
+ * list of its node stayed empty for the whole turn. An MCP server can mark a
+ * tool in its `tools/list` answer instead; other clients ignore the key. Only
+ * the tools the contract names are marked, so the rest of a `read` or `full`
+ * catalog is still found on demand.
+ */
+export function planStepTools(allowed: readonly string[]): readonly Tool[] {
+  return TOOL_ENTRIES.filter((entry) => allowed.includes(entry.operation)).map(
+    (entry) => upfrontTool(entry.tool),
+  );
 }
 
 /** How a plan engine opens and ends the plan bridge access of its nodes. */

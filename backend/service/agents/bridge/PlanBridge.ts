@@ -1,6 +1,7 @@
 import { AgentOperationError } from "@/backend/error/AgentOperationError";
 import { McpAuthorizationError } from "@/backend/error/McpAuthorizationError";
 import { logCaughtError, logDiagnostic } from "@/backend/logging/Logger";
+import { planStepTools } from "@/backend/service/agents/AgentPlanSessionAccess";
 import { TOOL_ENTRIES } from "@/definition/AgentTools/ToolCatalog";
 import { READ_ANNOTATIONS } from "@/definition/AgentTools/ToolDefinition";
 import {
@@ -55,6 +56,13 @@ function authorizationFailed(): PlanBridgeRpcError {
 function textResult(value: unknown, isError: boolean): PlanBridgeToolResult {
   const content = [{ type: "text", text: JSON.stringify(value) }] as const;
   return isError ? { content, isError: true } : { content };
+}
+
+/** Puts the hint of Pages beside a result, so the agent reads both in one answer. */
+function withNotice(result: object, notice: string | undefined): unknown {
+  return notice === undefined || Array.isArray(result)
+    ? result
+    : { ...result, notice };
 }
 
 function failureResult(failure: PlanOperationFailure): PlanBridgeToolResult {
@@ -152,9 +160,7 @@ export class PlanBridge {
       ...(allowed.includes("projects.names.list")
         ? [LIST_PROJECT_NAMES_TOOL]
         : []),
-      ...TOOL_ENTRIES.filter((entry) => allowed.includes(entry.operation)).map(
-        (entry) => entry.tool,
-      ),
+      ...planStepTools(allowed),
     ];
   }
 
@@ -215,7 +221,7 @@ export class PlanBridge {
         response.result === null
       )
         throw new Error("Pages operation failed.");
-      return textResult(response.result, false);
+      return textResult(withNotice(response.result, response.notice), false);
     } catch (caughtError: unknown) {
       return this.refusal(caughtError);
     }

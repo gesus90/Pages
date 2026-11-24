@@ -3,6 +3,7 @@ import {
   withDatabaseWork,
 } from "@/backend/database/executor/DatabaseWorkContext";
 import { loggedOperation } from "@/backend/logging/LoggedOperation";
+import { logCaughtError } from "@/backend/logging/Logger";
 import { AgentOperationError } from "@/backend/error/AgentOperationError";
 import { McpAuthorizationError } from "@/backend/error/McpAuthorizationError";
 import { AGENT_STEP_PROGRESS_OPERATION } from "@/definition/AgentPlanStepProgress";
@@ -37,9 +38,18 @@ import type {
   AgentRunScope,
 } from "@/definition/McpAuthorization";
 import type {
+  PagesAgentApiNotice,
   PagesAgentApiProjectNames,
   PagesAgentApiVerification,
 } from "@/definition/PagesAgentApi";
+
+/** The answer of an operation of a session, before Pages adds a hint. */
+type SessionAnswer =
+  | PagesAgentApiVerification
+  | PagesAgentApiProjectNames
+  | PagesAgentReadResponse
+  | PagesAgentStructuredReadResponse
+  | PagesAgentWriteResponse;
 
 let catalogOperations: ReadonlySet<string> | null = null;
 
@@ -174,13 +184,7 @@ export class PagesAgentApiService {
   public async handle(
     token: string,
     input: Readonly<Record<string, unknown>>,
-  ): Promise<
-    | PagesAgentApiVerification
-    | PagesAgentApiProjectNames
-    | PagesAgentReadResponse
-    | PagesAgentStructuredReadResponse
-    | PagesAgentWriteResponse
-  > {
+  ): Promise<SessionAnswer & PagesAgentApiNotice> {
     const identity = await this.verify(token);
     return withDatabaseWork(
       { ...currentDatabaseWork(), origin: agentApiOrigin(input.operation) },
@@ -191,10 +195,45 @@ export class PagesAgentApiService {
           async () => {
             if (!identity.run)
               throw new McpAuthorizationError("invalid_token", 401);
-            return this.handleSession(identity, identity.run, token, input);
+            return this.withPendingNotice(
+              identity,
+              input.operation,
+              await this.handleSession(identity, identity.run, token, input),
+            );
           },
         ),
     );
+  }
+
+  /**
+   * Adds the hint of a missing own work list beside the answer of an operation.
+   * @remarks
+   * The progress and the result report name the obligation in their own
+   * answer, and `verify` only lists the tools. Every other call of a step
+   * that owes its list carries the hint, so a model that never calls the
+   * progress tool reads it with its first Pages answer. The operation has
+   * run by then, so a hint that cannot be read is logged and leaves the
+   * answer as it is; failing here would make the agent repeat a finished write.
+   */
+  private async withPendingNotice(
+    identity: AgentIdentity,
+    operation: unknown,
+    answer: SessionAnswer,
+  ): Promise<SessionAnswer & PagesAgentApiNotice> {
+    if (
+      !this.stepProgress ||
+      operation === "verify" ||
+      operation === AGENT_STEP_PROGRESS_OPERATION ||
+      operation === AGENT_STEP_REPORT_OPERATION
+    )
+      return answer;
+    try {
+      const notice = await this.stepProgress.pendingNotice(identity);
+      return notice === undefined ? answer : { ...answer, notice };
+    } catch (caughtError: unknown) {
+      logCaughtError("PagesAgentApiService", caughtError, "warn");
+      return answer;
+    }
   }
 
   /**

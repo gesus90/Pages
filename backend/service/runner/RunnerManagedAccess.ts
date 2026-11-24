@@ -4,6 +4,7 @@ import { AgentExecutionError } from "@/backend/error/AgentExecutionErrors";
 import { AgentOperationError } from "@/backend/error/AgentOperationError";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { apiProviderEndpoint } from "@/definition/AgentConnection";
+import { planStepTools } from "@/backend/service/agents/AgentPlanSessionAccess";
 import { TOOL_ENTRIES } from "@/definition/AgentTools/ToolCatalog";
 import { requestHeaders } from "@/backend/agents/providers/ProviderHttpClient";
 import { readTextProviderResponse } from "@/backend/agents/providers/TextProviderPayload";
@@ -160,11 +161,7 @@ export class RunnerManagedAccess {
     const api = await this.dependencies.api();
     const identity = await api.handle(token, { operation: "verify" });
     if (!("tools" in identity)) throw new AgentError("plan_mcp_unavailable");
-    return {
-      tools: TOOL_ENTRIES.filter((entry) =>
-        identity.tools.includes(entry.operation),
-      ).map((entry) => entry.tool),
-    };
+    return { tools: planStepTools(identity.tools) };
   }
 
   private async bridgeCall(

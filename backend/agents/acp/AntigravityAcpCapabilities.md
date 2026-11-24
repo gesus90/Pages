@@ -134,6 +134,32 @@ with Pages tools keeps its own work list in the `plan` field of
 `update_step_progress`, which the read-only profile approves like every Pages
 tool; a session without Pages tools gets no work list rules.
 
+`agy acp` lists the tools of an MCP server only on demand, behind its own
+tool search (the model capability `supports_deferred_tool_loading`; the
+changelog of the CLI describes the opt-out since 1.3.3). The hint
+`eagerMcpServers` in the `_meta` of `session/new` came with the 1.4.4 adapter:
+neither 1.5.9 nor 1.5.11 contains the name, so it changes nothing. A model
+that does not search therefore never sees `update_step_progress` and runs its
+whole turn without a work list; its history shows no call of the tool. The
+documented way for an MCP server is `_meta: {"antigravity/alwaysLoad": true}`
+on a tool in its `tools/list` answer. Pages sets it on the tools the run
+contract and the swarm rules name (`planStepTools` in
+`AgentPlanSessionAccess.ts`): the ticket and checklist tools,
+`set_ticket_status`, `update_step_progress`, `report_step_result` and the
+swarm tools. The HTTP bridge, the managed runner and the remote runner list
+their tools through that one function, so the key reaches `agy acp` through
+the stdio relay of the runner as well; the rest of the catalog of a `read` or
+`full` session stays on demand, and other clients ignore the key.
+
+The version of a managed generation names the release it was installed from;
+the binary decides what runs. A generation folder named 1.5.9 was found to
+hold a binary that reports 1.5.11 (`agy --version`, and `agentInfo.version` in
+`initialize`), written in place on 18.11.2026, although every start of Pages
+sets `AGY_CLI_DISABLE_AUTO_UPDATE=1`. Evidence of an Antigravity run names the
+version that `initialize` reports, not the folder. The embedded changelog of
+1.5.10 changes nothing in plan reporting, tool naming or permission titles;
+1.5.11 adds no entry to it.
+
 Plan turns, streaming, continuation, targeted session resume, deadlines,
 instance-wide leases and confirmed process cleanup use the shared ACP engine.
 Unconfirmed cleanup retains the connection lock.

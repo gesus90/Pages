@@ -5,6 +5,7 @@ import { AGENT_TODO_STATUSES } from "@/definition/AgentPlanAgentTodos";
 
 import type { Database } from "@/backend/database/Database";
 import type { AgentPlanAgentTodo } from "@/definition/AgentPlanAgentTodos";
+import type { PlanStepReportSlot } from "./AgentPlanStepReportRepository";
 
 /** The stored TODO list of one attempt, its entries as JSON. */
 export interface StoredAgentTodoList {
@@ -78,7 +79,9 @@ export class AgentPlanAgentTodoRepository {
    * Replaces the list of an attempt that Pages knows.
    * @remarks
    * Run and node come from the stored attempt, so a caller that only knows the
-   * attempt cannot file a list under a foreign run.
+   * attempt cannot file a list under a foreign run. A list reported earlier
+   * than the stored one, such as a plan event that reaches Pages late, never
+   * replaces it.
    */
   public async save(
     attemptId: string,
@@ -104,7 +107,8 @@ export class AgentPlanAgentTodoRepository {
       WHERE attempt_id = $attempt_id
       ON CONFLICT (attempt_id, worker_id) DO UPDATE SET
           todos_json = excluded.todos_json,
-          updated_at = excluded.updated_at;
+          updated_at = excluded.updated_at
+      WHERE agent_plan_agent_todos.updated_at <= excluded.updated_at;
     `,
       {
         attempt_id: attemptId,
@@ -112,6 +116,57 @@ export class AgentPlanAgentTodoRepository {
         updated_at: updatedAt,
       },
     );
+  }
+
+  /**
+   * Replaces the own work list the running attempt of a report slot reported.
+   * @param slot - The slot Pages opened for the turn; it names run, node and attempt.
+   * @param todos - The complete list.
+   * @param updatedAt - When the report arrived.
+   * @returns Whether the list was stored; `false` when a newer list of the attempt stays.
+   * @remarks
+   * Unlike {@link save} the list does not wait for the stored session attempt:
+   * a session owned by a runner has none until its first history reaches
+   * Pages, and a first report that arrived before it would be stored nowhere.
+   * The slot is issued by Pages for exactly this attempt, so the credential of
+   * a session cannot file a list under a foreign run.
+   */
+  public async saveReported(
+    slot: Pick<PlanStepReportSlot, "runId" | "stepId" | "attemptId">,
+    todos: readonly AgentPlanAgentTodo[],
+    updatedAt: string,
+  ): Promise<boolean> {
+    const rows = await this.database.query(
+      `
+      INSERT INTO agent_plan_agent_todos (
+          run_id,
+          step_id,
+          attempt_id,
+          todos_json,
+          updated_at
+      )
+      VALUES (
+          $run_id,
+          $step_id,
+          $attempt_id,
+          $todos_json,
+          $updated_at
+      )
+      ON CONFLICT (attempt_id, worker_id) DO UPDATE SET
+          todos_json = excluded.todos_json,
+          updated_at = excluded.updated_at
+      WHERE agent_plan_agent_todos.updated_at <= excluded.updated_at
+      RETURNING attempt_id;
+    `,
+      {
+        run_id: slot.runId,
+        step_id: slot.stepId,
+        attempt_id: slot.attemptId,
+        todos_json: JSON.stringify(todos),
+        updated_at: updatedAt,
+      },
+    );
+    return rows.length > 0;
   }
 }
 

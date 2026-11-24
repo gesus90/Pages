@@ -45,7 +45,10 @@ import type {
   AgentPlanStepProgressTodo,
 } from "@/definition/AgentPlanStepProgress";
 import type { AgentIdentity } from "@/definition/McpAuthorization";
-import type { AgentPlanStepReportRepository } from "@/backend/database/repositories/agent/AgentPlanStepReportRepository";
+import type {
+  AgentPlanStepReportRepository,
+  PlanStepReportSlot,
+} from "@/backend/database/repositories/agent/AgentPlanStepReportRepository";
 import type {
   AgentPlanStepProgressRepository,
   StoredPlanStepProgress,
@@ -57,9 +60,9 @@ const MAXIMUM_PROBLEMS = 50;
 const MISSING_WORK_LIST =
   "Send your own work list before you report done: call update_step_progress with plan, one concrete entry per work step of this step, every finished entry done.";
 
-/** The hint of a progress call without plan while the attempt has no own work list yet. */
+/** The hint beside an answer of Pages while the attempt has no own work list yet; it names the tool, because any answer may carry it. */
 const MISSING_WORK_LIST_NOTICE =
-  "Your own work list is missing. Send it now with the plan field: one concrete entry per work step, every entry open and the current one active; send it again after each finished entry. report_step_result refuses done without it.";
+  "Your own work list is missing. Send it now: call update_step_progress with plan, one concrete entry per work step, every entry open and the current one active; send it again after each finished entry. report_step_result refuses done without it.";
 
 const identifier = z.string().trim().min(1).max(200);
 // OpenCode models copy the entry shape of their own task list; its priority says nothing Pages shows, so it is ignored.
@@ -214,7 +217,10 @@ export class AgentPlanStepProgressService {
   private readonly tickets:
     Pick<AgentTicketChecklistService, "read" | "set"> | undefined;
   private readonly agentTodos:
-    | Pick<AgentPlanAgentTodoRepository, "findPlan" | "findEntries" | "save">
+    | Pick<
+        AgentPlanAgentTodoRepository,
+        "findPlan" | "findEntries" | "saveReported"
+      >
     | undefined;
 
   public constructor(dependencies: {
@@ -227,7 +233,7 @@ export class AgentPlanStepProgressService {
     readonly tickets?: Pick<AgentTicketChecklistService, "read" | "set">;
     readonly agentTodos?: Pick<
       AgentPlanAgentTodoRepository,
-      "findPlan" | "findEntries" | "save"
+      "findPlan" | "findEntries" | "saveReported"
     >;
   }) {
     this.reports = dependencies.reports;
@@ -283,11 +289,7 @@ export class AgentPlanStepProgressService {
     const earlier = await this.progress.find(runId, slot.stepId);
     await this.checkTicketTodos(identity, contract, parsed.data.todos);
     const updatedAt = this.clock();
-    const ownPlan = await this.saveOwnPlan(
-      slot.attemptId,
-      parsed.data.plan,
-      updatedAt,
-    );
+    const ownPlan = await this.saveOwnPlan(slot, parsed.data.plan, updatedAt);
     // The effective contract mirrors the own list; read after the new list is
     // stored, the receipt and the saved state never lag one call behind it.
     const effective = ownPlan.plan
@@ -461,6 +463,28 @@ export class AgentPlanStepProgressService {
     const row = await this.progress.find(runId, stepId);
     return row ? readStepLiveProgress(row) : null;
   }
+
+  /**
+   * Names a missing own work list for a Pages tool call that reports no progress.
+   * @param identity - The verified caller; only a session credential has a run.
+   * @returns The hint; `undefined` when the attempt has its list or no turn of the step runs.
+   * @remarks
+   * The list is owed from the first command on. A model that reads tickets or
+   * checklists first, or that never calls the progress tool, still reads the
+   * hint beside the answer of its first Pages call instead of at the refused
+   * closing report.
+   */
+  public async pendingNotice(
+    identity: AgentIdentity,
+  ): Promise<string | undefined> {
+    if (!identity.run || !this.agentTodos) return undefined;
+    const { runId, stepId: sessionScopeId } = identity.run;
+    const slot = await this.reports.find({ runId, sessionScopeId });
+    if (!slot || !(await this.isWorkListMissing(slot.attemptId)))
+      return undefined;
+    return MISSING_WORK_LIST_NOTICE;
+  }
+
   private async checkTicketTodos(
     identity: AgentIdentity,
     contract: AgentPlanContract,
@@ -506,15 +530,12 @@ export class AgentPlanStepProgressService {
     }
   }
 
-  /**
-   * Replaces the own work list of the running attempt.
-   * @returns The stored list for the receipt; empty when the call sent no `plan`.
-   * @remarks
-   * The list lands where a structured CLI plan of the same attempt lands, so
-   * the terminal, the reload and the completion check read one list per
-   * attempt; the newest report of either way wins and replays never add
-   * entries, because a plan always replaces the whole list.
-   */
+  /** Whether the attempt has stored no own work list, or an empty one. */
+  private async isWorkListMissing(attemptId: string): Promise<boolean> {
+    const stored = await this.agentTodos?.findPlan(attemptId);
+    return stored === null || stored?.length === 0;
+  }
+
   /**
    * Names a missing own work list in the receipt of a call without `plan`.
    * @remarks
@@ -527,22 +548,36 @@ export class AgentPlanStepProgressService {
     ownPlan: Pick<AgentPlanStepProgressReceipt, "plan">,
   ): Promise<Pick<AgentPlanStepProgressReceipt, "notice">> {
     if (ownPlan.plan || !this.agentTodos) return {};
-    const stored = await this.agentTodos.findPlan(attemptId);
-    return stored === null || stored.length === 0
+    return (await this.isWorkListMissing(attemptId))
       ? { notice: MISSING_WORK_LIST_NOTICE }
       : {};
   }
 
+  /**
+   * Replaces the own work list of the running attempt.
+   * @returns The stored list for the receipt; empty when the call sent no `plan`.
+   * @remarks
+   * The list lands where a structured CLI plan of the same attempt lands, so
+   * the terminal, the reload and the completion check read one list per
+   * attempt; the newest report of either way wins and replays never add
+   * entries, because a plan always replaces the whole list. A report that is
+   * older than the stored list changes nothing, and the receipt then names
+   * the list that stays.
+   */
   private async saveOwnPlan(
-    attemptId: string,
+    slot: Pick<PlanStepReportSlot, "runId" | "stepId" | "attemptId">,
     plan: readonly z.infer<typeof planEntrySchema>[] | undefined,
     updatedAt: string,
   ): Promise<Pick<AgentPlanStepProgressReceipt, "plan">> {
     if (!plan) return {};
     if (!this.agentTodos) throw new AgentOperationError("FORBIDDEN");
-    const previous = await this.agentTodos.findEntries(attemptId);
+    const previous = await this.agentTodos.findEntries(slot.attemptId);
     const merged = mergeAgentTodos(planEntries(plan), previous, updatedAt);
-    await this.agentTodos.save(attemptId, merged, updatedAt);
-    return { plan: merged };
+    const isStored = await this.agentTodos.saveReported(
+      slot,
+      merged,
+      updatedAt,
+    );
+    return { plan: isStored ? merged : previous };
   }
 }

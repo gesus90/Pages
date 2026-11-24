@@ -734,8 +734,15 @@ the report check requires every entry done. Claude Code 2.1 offers no built-in
 task list in `claude -p`, so its sessions keep the list only in this field.
 `agy acp` (Antigravity 1.5.9) offers no task list tool and sends no ACP plan
 update, so Antigravity keeps the list only in this field, and a session
-without Pages MCP gets no native work list rules. OpenCode (1.18.34) sent its
-first list in this field with the names of its own `todowrite` tool, which
+without Pages MCP gets no native work list rules. Antigravity lists the tools
+of an MCP server only on demand, behind its own tool search, and ignores the
+`eagerMcpServers` hint of `session/new`; a model that does not search would
+never see `update_step_progress`. Pages therefore marks the tools the run
+contract names (ticket and checklist tools, `set_ticket_status`,
+`update_step_progress`, `report_step_result` and the swarm tools) in every
+`tools/list` answer with `_meta` `antigravity/alwaysLoad`
+(`planStepTools`); the rest of the catalog stays on demand. OpenCode
+(1.18.34) sent its first list in this field with the names of its own `todowrite` tool, which
 Pages refused before it accepted them, so the list arrived one call later;
 the `todos` field accepts these names too, and a `priority` copied from
 `todowrite` is ignored. OpenCode models, OpenRouter ones included, often keep
@@ -745,7 +752,14 @@ and in the result metadata), so `AgentToolCallEvents` records such a call as
 a `plan` event of the attempt, and "Lesend" allows `todowrite`, which changes
 nothing on the host. A `done` report of an attempt that never sent a list is
 refused with the missing list named, so the agent can still send it; until
-then a progress call without `plan` names it in `notice`.
+then a progress call without `plan` names it in `notice`, and every other
+Pages answer of the step carries the same `notice` beside its result
+(`PagesAgentApiService.withPendingNotice`), so a model that never calls the
+progress tool reads it with its first Pages call. The list is stored through
+the report slot of the running attempt
+(`AgentPlanAgentTodoRepository.saveReported`), so a first report that arrives
+before a runner-owned session has written its attempt is not lost, and a
+report older than the stored list never replaces it.
 The terminal shows the node name and the
 bound tickets with their titles (kept in the contract since then) as the
 heading of the list, and marks an entry a failed, cancelled or paused step left
