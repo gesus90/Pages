@@ -1,8 +1,8 @@
 import { AgentError } from "@/backend/error/AgentErrors";
 import { logCaughtError, logDiagnostic } from "@/backend/logging/Logger";
-import { canonicalClaudeModel } from "@/definition/ClaudePriceModels";
 
 import { codexPromptTokens } from "../usage/CodexPromptTokens";
+import { buildPromptUsage } from "./AgentSessionPromptUsage";
 import { activityEvent } from "./AgentSessionRecorderEvents";
 import { AgentToolCallEvents } from "./AgentToolCallEvents";
 import { readContinuationCapabilities } from "./AgentSessionContinuation";
@@ -22,6 +22,7 @@ import { chargeOpenRouterMessage } from "./OpenRouterPricing";
 import type { ClaudeUsageObservation } from "@/definition/ClaudeUsage";
 import type {
   AgentSessionCost,
+  AgentSessionTokenUsage,
   AgentSessionTurnUsage,
 } from "@/definition/AgentSessionJournal";
 import type {
@@ -30,6 +31,7 @@ import type {
   Usage,
 } from "@agentclientprotocol/sdk";
 import type { AcpSessionListener } from "@/backend/agents/acp/AcpChat";
+import type { AntigravityPromptCalls } from "@/backend/agents/acp/AntigravityNativeUsage";
 import type { AcpContinuationCapabilities } from "./AgentSessionContinuation";
 import type { ProviderUsageHost } from "./AgentSessionProviderUsage";
 import type {
@@ -127,6 +129,12 @@ export class AgentSessionRecorder implements AcpSessionListener {
   private hasWriteFailure = false;
   private hasNativeCodexUsage = false;
   private lastUsage: Usage | null = null;
+  /** The model calls of the running Antigravity prompt read so far, with the attempt and turn they belong to. */
+  private liveAntigravity: {
+    readonly attemptId: string;
+    readonly turn: number;
+    readonly calls: AntigravityPromptCalls;
+  } | null = null;
   private hasClaudeObservation = false;
   private continuation: AcpContinuationCapabilities | null = null;
   private writes: Promise<void> = Promise.resolve();
@@ -256,15 +264,27 @@ export class AgentSessionRecorder implements AcpSessionListener {
     }
     const delta = this.promptDelta(usage);
     this.lastUsage = usage ?? this.lastUsage;
+    const live = this.takeLiveAntigravity(key.attemptId, turn);
     this.endTurn(key.attemptId, turn, isContinued);
     if (this.shouldSkipPromptUsage(provider, usage, delta)) return;
-    const recorded = buildPromptUsage({
-      attempt,
-      turn,
-      delta,
-      nativeSessionId,
-      reportedAt: this.clock(),
-    });
+    const reportedAt = this.clock();
+    // The prompt's own sum replaces the live count; the calls stand in only without one.
+    const recorded =
+      delta === null && live
+        ? antigravityCallUsage(attempt, turn, live, reportedAt)
+        : buildPromptUsage({
+            attempt,
+            turn,
+            delta,
+            nativeSessionId,
+            reportedAt,
+          });
+    if (delta && live)
+      this.record({
+        kind: "usage",
+        turn,
+        text: antigravityCallCheck(delta.tokens, live),
+      });
     this.enqueue(() =>
       (
         this.dependencies.saveUsage ??
@@ -304,6 +324,26 @@ export class AgentSessionRecorder implements AcpSessionListener {
         { kind: "usage", turn: usage.turn, text: "Claude usage updated" },
       ]);
     });
+  };
+
+  /**
+   * Stores the model calls of the running Antigravity prompt as the turn's live count.
+   * @remarks
+   * The count is written under the same attempt and turn as the prompt's
+   * answer later, so the answer's sum replaces it instead of adding to it.
+   */
+  public readonly antigravityCalls = (calls: AntigravityPromptCalls): void => {
+    const attempt = this.attempt;
+    if (attempt.provider !== "antigravity") return;
+    const turn = this.turn();
+    this.liveAntigravity = { attemptId: attempt.key.attemptId, turn, calls };
+    const usage = antigravityCallUsage(attempt, turn, calls, this.clock());
+    this.enqueue(() =>
+      (
+        this.dependencies.saveUsage ??
+        this.dependencies.store.saveTurnUsage.bind(this.dependencies.store)
+      )(usage),
+    );
   };
 
   /** Captures native message usage as OpenCode updates each model step. */
@@ -412,6 +452,18 @@ export class AgentSessionRecorder implements AcpSessionListener {
       isEmptyClaudeTally ? null : usage,
       this.lastUsage,
     );
+  }
+
+  /** The live calls of the given turn; they end with it. */
+  private takeLiveAntigravity(
+    attemptId: string,
+    turn: number,
+  ): AntigravityPromptCalls | null {
+    const live = this.liveAntigravity;
+    this.liveAntigravity = null;
+    return live?.attemptId === attemptId && live.turn === turn
+      ? live.calls
+      : null;
   }
 
   private shouldSkipPromptUsage(
@@ -542,73 +594,53 @@ export class AgentSessionRecorder implements AcpSessionListener {
   }
 }
 
-function promptModel(attempt: AgentSessionAttemptRecord): string | null {
-  return attempt.provider === "claude_code"
-    ? (attempt.confirmedModel.value ?? attempt.requestedModel ?? null)
-    : attempt.confirmedModel.value;
-}
-
-interface BuildPromptUsageOptions {
-  readonly attempt: AgentSessionAttemptRecord;
-  readonly turn: number;
-  readonly delta: TurnTokenDelta | null;
-  readonly nativeSessionId: string | undefined;
-  readonly reportedAt: string;
-}
-
-function buildPromptUsage({
-  attempt,
-  turn,
-  delta,
-  nativeSessionId,
-  reportedAt,
-}: BuildPromptUsageOptions): AgentSessionTurnUsage {
-  const { provider, key } = attempt;
-  const model = promptModel(attempt);
+/**
+ * The usage of an Antigravity turn from the model calls read from its conversation store.
+ * @remarks
+ * The store has no verified cache write count and the prompt's total comes
+ * only with its answer, so both stay missing and the turn counts as partial.
+ */
+function antigravityCallUsage(
+  attempt: AgentSessionAttemptRecord,
+  turn: number,
+  calls: AntigravityPromptCalls,
+  reportedAt: string,
+): AgentSessionTurnUsage {
   return {
-    ...(delta?.tokens ?? {
-      inputTokens: null,
-      outputTokens: null,
-      cacheReadTokens: null,
-      cacheWriteTokens: null,
-      totalTokens: null,
-      inputIncludesCache: provider === "antigravity" ? null : false,
-      isPartial: true,
-    }),
-    ...(provider === "claude_code" && nativeSessionId && delta
-      ? {
-          claudeObservation: {
-            sessionId: nativeSessionId,
-            id: `${key.attemptId}:${turn}`,
-            kind: "prompt" as const,
-            models: [
-              {
-                model: canonicalClaudeModel(model ?? "unknown"),
-                inputTokens: delta.tokens.inputTokens,
-                outputTokens: delta.tokens.outputTokens,
-                cacheReadTokens: delta.tokens.cacheReadTokens,
-                cacheWriteTokens: delta.tokens.cacheWriteTokens,
-              },
-            ],
-          },
-        }
-      : {}),
-    attemptId: key.attemptId,
+    attemptId: attempt.key.attemptId,
     turn,
-    provider,
-    model:
-      provider === "codex_cli"
-        ? (model ?? attempt.requestedModel ?? null)
-        : model,
-    ...(provider === "codex_cli"
-      ? {
-          codex: {
-            connectionId: attempt.connectionId ?? "",
-            agentId: attempt.agentId ?? "",
-            report: null,
-          },
-        }
-      : {}),
+    provider: "antigravity",
+    model: attempt.confirmedModel.value,
+    inputTokens: calls.inputTokens,
+    outputTokens: calls.outputTokens,
+    cacheReadTokens: calls.cacheReadTokens,
+    cacheWriteTokens: null,
+    totalTokens: null,
+    inputIncludesCache: false,
+    isPartial: true,
     reportedAt,
   };
+}
+
+/** Compares the counts the prompt reported with the sum of its model calls, for a technical check in the history. */
+function antigravityCallCheck(
+  tokens: AgentSessionTokenUsage,
+  calls: AntigravityPromptCalls,
+): string {
+  const differences = (
+    [
+      ["input", tokens.inputTokens, calls.inputTokens],
+      ["cache read", tokens.cacheReadTokens, calls.cacheReadTokens],
+      ["output", tokens.outputTokens, calls.outputTokens],
+    ] as const
+  ).filter(([, reported, read]) => reported !== read);
+  const subject = `${calls.calls} model call(s)`;
+  return differences.length === 0
+    ? `Antigravity prompt usage matches its ${subject}`
+    : `Antigravity prompt usage differs from its ${subject}: ${differences
+        .map(
+          ([label, reported, read]) =>
+            `${label} ${reported ?? "missing"} reported, ${read} read`,
+        )
+        .join("; ")}`;
 }

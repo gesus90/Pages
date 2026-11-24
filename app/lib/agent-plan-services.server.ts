@@ -167,7 +167,7 @@ export type AgentPlanLoaderServices = Pick<
 function planScripts(): AgentPlanScripts {
   return new AgentPlanScripts({
     snapshot: async () =>
-      (await getPagesRuntime()).interpreterProfiles.snapshot(),
+      (await getPagesRuntime()).interpreterProfiles.runtimeSnapshot(),
   });
 }
 

@@ -8,15 +8,78 @@ import { AgentToolActions } from "./agent-tool-actions";
 import { AgentToolConnections } from "./agent-tool-card/agent-tool-connections";
 import { AgentToolReleaseFacts } from "./agent-tool-card/agent-tool-release-facts";
 
+import { AGENT_TOOL_UPDATE_TARGET_FIELD } from "@/definition/AgentTools";
+
+import type { TFunction } from "i18next";
 import type {
   AgentToolTerminalEntry,
+  AgentToolUpdateTargetVersion,
   AgentToolView,
 } from "@/definition/AgentTools";
 
 interface ToolActionResult {
   readonly ok: boolean;
+  /** An update was accepted and runs on; its row shows the progress. */
+  readonly accepted?: boolean;
   readonly diagnostic?: string;
   readonly error?: string;
+}
+
+function updateCapability(tool: AgentToolView): string {
+  if (!tool.update.isSupported) return "agentTools.update.unsupported";
+  return tool.update.isExternal
+    ? "agentTools.update.external"
+    : "agentTools.update.managed";
+}
+
+// A tool of the combination either moves to its checked release or stays and is checked with its partner.
+function targetLabel(
+  t: TFunction,
+  entry: AgentToolUpdateTargetVersion,
+): string {
+  const tool = t(`agentTools.names.${entry.id}`);
+  return entry.version === null
+    ? t("agentTools.update.keep", { tool })
+    : t("agentTools.update.targetVersion", { tool, version: entry.version });
+}
+
+// Which checked releases of the combination an update installs, and why none can start.
+function ToolUpdateFacts({
+  tool,
+}: {
+  readonly tool: AgentToolView;
+}): React.ReactElement {
+  const { t } = useTranslation();
+  const { update } = tool;
+  const hasTarget = update.targetVersions.some(
+    (entry) => entry.version !== null,
+  );
+  const targets = update.targetVersions
+    .map((entry) => targetLabel(t, entry))
+    .join(" · ");
+  return (
+    <div className="space-y-1 text-sm">
+      <p className="font-medium">{t("agentTools.update.title")}</p>
+      <p className="text-muted-foreground">{t(updateCapability(tool))}</p>
+      {update.isSupported && hasTarget ? (
+        <p>
+          {t("agentTools.update.target")}: {targets}
+        </p>
+      ) : null}
+      {update.blocker ? (
+        <p className="text-muted-foreground">
+          {t("agentTools.update.blocked", {
+            reason: t(`agentTools.diagnostic.${update.blocker}`),
+          })}
+        </p>
+      ) : null}
+      {update.target !== null && !update.isNewer ? (
+        <p className="text-muted-foreground">
+          {t("agentTools.update.current")}
+        </p>
+      ) : null}
+    </div>
+  );
 }
 
 // Rendered inside the card's form, so the retry button submits the same
@@ -108,6 +171,8 @@ function ToolOutcome({
   const { t } = useTranslation();
   if (isPending) return <p>{t("agentTools.working")}</p>;
   if (!result) return null;
+  if (result.ok && result.accepted)
+    return <p>{t("agentTools.update.accepted")}</p>;
   if (result.ok) return <p>{t("agentTools.success")}</p>;
   return (
     <p role="alert" className="text-destructive">
@@ -270,16 +335,12 @@ export function AgentToolCard({
         <dt className="text-muted-foreground">{t("agentTools.processes")}</dt>
         <dd>{tool.activities.length}</dd>
       </dl>
-      {tool.updateAvailable ? (
+      {tool.update.isNewer && tool.update.target !== null ? (
         <p className="text-sm text-primary-text">
           {t("agentTools.updateAvailable")}
         </p>
       ) : null}
-      {tool.source === "system" && tool.release.source ? (
-        <p className="text-sm text-muted-foreground">
-          {t("agentTools.externalHint")}
-        </p>
-      ) : null}
+      {tool.kind === "browser" ? null : <ToolUpdateFacts tool={tool} />}
       <p className="text-sm text-muted-foreground">
         {t(`agentTools.diagnostic.${tool.diagnostic}`)}
         {tool.dependency
@@ -293,6 +354,11 @@ export function AgentToolCard({
         className="flex flex-wrap gap-2"
       >
         <input type="hidden" name="tool" value={tool.id} />
+        <input
+          type="hidden"
+          name={AGENT_TOOL_UPDATE_TARGET_FIELD}
+          value={tool.update.target ?? ""}
+        />
         <AgentToolActions tool={tool} isPending={isPending} />
         <div className="basis-full">
           <AgentToolOperation tool={tool} isPending={isPending} />

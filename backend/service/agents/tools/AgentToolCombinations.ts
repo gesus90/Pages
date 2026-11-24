@@ -1,6 +1,10 @@
 import { AgentToolActivation } from "./AgentToolActivation";
 import { AgentToolReadinessError } from "./AgentToolReadinessError";
-import { agentToolDefinition, pairedCli } from "./AgentToolRegistry";
+import {
+  agentToolDefinition,
+  isArchiveRelease,
+  pairedCli,
+} from "./AgentToolRegistry";
 
 import type {
   AgentToolAction,
@@ -65,10 +69,63 @@ export function agentToolCombination(id: AgentToolId): AgentToolCombination {
   return { cli, adapter, ids: adapter ? [cli.id, adapter.id] : [cli.id] };
 }
 
-function diagnosticOf(error: unknown): AgentToolDiagnostic {
+function diagnosticOf(
+  error: unknown,
+  signal: AbortSignal,
+): AgentToolDiagnostic {
+  // A shutdown ends the change before its result; the next start shows it as interrupted.
+  if (signal.aborted) return "update_interrupted";
   return error instanceof AgentToolReadinessError
     ? error.diagnostic
     : "installation_failed";
+}
+
+// A managed generation has to be the published one; an external tool has none published.
+function isPublished(
+  published: AgentToolLocation | null,
+  used: AgentToolLocation | undefined,
+): boolean {
+  if (!used) return true;
+  return published ? published.file === used.file : used.source !== "managed";
+}
+
+/**
+ * Resolves the tools of a start so that a CLI and its adapter belong to one published combination.
+ * @param files - The storage whose combination pointer is read once per pair.
+ * @param ids - Every tool the start needs.
+ * @param ensure - Makes one tool ready and returns the generation it uses.
+ * @remarks
+ * A switch while the tools were resolved one after the other makes the
+ * start resolve them again, so it sees the old or the new checked
+ * combination and never one tool of each.
+ * @throws {AgentToolReadinessError} `update_running` when the combination kept changing.
+ */
+export async function resolvePublishedCombination(
+  files: AgentToolStorage,
+  ids: ReadonlySet<AgentToolId>,
+  ensure: (id: AgentToolId) => Promise<AgentToolLocation>,
+): Promise<ReadonlyMap<AgentToolId, AgentToolLocation>> {
+  const clis = [...ids]
+    .map((id) => agentToolDefinition(id))
+    .filter((tool) => tool.adapter !== undefined && ids.has(tool.adapter));
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    const locations = new Map<AgentToolId, AgentToolLocation>();
+    for (const id of ids) locations.set(id, await ensure(id));
+    let isConsistent = true;
+    for (const cli of clis) {
+      const pair = await files.currentPair?.(cli);
+      if (!pair || !cli.adapter) continue;
+      isConsistent &&=
+        isPublished(pair.cli, locations.get(cli.id)) &&
+        isPublished(pair.adapter, locations.get(cli.adapter));
+    }
+    if (isConsistent) return locations;
+  }
+  throw new AgentToolReadinessError(
+    clis[0]?.id ?? "node",
+    "updating",
+    "update_running",
+  );
 }
 
 /**
@@ -98,11 +155,13 @@ export class AgentToolCombinations {
     const run = async (): Promise<void> => {
       try {
         await this.host.dependenciesReady(cli);
-        // An adapter installs next to a working CLI; the CLI's own lock is already held here.
-        if (action === "install" && id !== cli.id)
-          await this.host.ready(cli.id);
-        if (action === "rollback") await this.rollback(combination);
-        else await this.update(combination, action, id);
+        await this.locked(cli.id, async () => {
+          // An adapter installs next to a working CLI; the CLI's own lock is already held here.
+          if (action === "install" && id !== cli.id)
+            await this.host.ready(cli.id);
+          if (action === "rollback") await this.rollback(combination);
+          else await this.update(combination, action, id);
+        });
       } catch (error: unknown) {
         // The previous generations stay active, so their state stays as it was.
         if (error instanceof AgentToolReadinessError) throw error;
@@ -117,7 +176,7 @@ export class AgentToolCombinations {
       );
       operations.succeed(ids);
     } catch (error: unknown) {
-      operations.fail(ids, diagnosticOf(error), action);
+      operations.fail(ids, diagnosticOf(error, this.host.signal), action);
       throw error;
     }
   }
@@ -139,7 +198,7 @@ export class AgentToolCombinations {
       this.host.signal,
     );
     if (release) return release;
-    if (tool.release.kind === "github")
+    if (isArchiveRelease(tool))
       throw new AgentToolReadinessError(
         tool.id,
         "failed",
@@ -168,11 +227,32 @@ export class AgentToolCombinations {
         "unsupported",
         "not_installed",
       );
-    const activated = await this.activation([tool.id]).update(
-      { tool, target },
-      null,
-    );
-    await this.publish(activated);
+    await this.locked(pairedCli(tool).id, async () => {
+      const activated = await this.activation([tool.id]).update(
+        { tool, target },
+        null,
+      );
+      await this.publish(activated);
+    });
+  }
+
+  /**
+   * Runs a change while this process holds the combination's lock across all Pages processes.
+   * @remarks
+   * Another process that holds it makes the change fail with
+   * `update_running`; the actual installation then decides what a repeated
+   * request still has to do.
+   */
+  private async locked(
+    key: AgentToolId,
+    work: () => Promise<void>,
+  ): Promise<void> {
+    const release = await this.host.files.lock?.(key);
+    try {
+      await work();
+    } finally {
+      await release?.();
+    }
   }
 
   private async update(
@@ -211,16 +291,22 @@ export class AgentToolCombinations {
     });
   }
 
+  // Every state of a combination changes in the same turn, so a start never reads one of each.
   private async publish(
     activated: readonly AgentToolActivated[],
   ): Promise<void> {
+    const locations: AgentToolLocation[] = [];
     for (const entry of activated)
+      locations.push(await this.host.published(entry.tool, entry.location));
+    const checkedAt = new Date().toISOString();
+    activated.forEach((entry, index) => {
       this.host.states.set(entry.tool.id, {
-        location: await this.host.published(entry.tool, entry.location),
+        location: locations[index] ?? entry.location,
         health: entry.health,
         dependency: null,
-        checkedAt: new Date().toISOString(),
+        checkedAt,
       });
+    });
   }
 
   /**

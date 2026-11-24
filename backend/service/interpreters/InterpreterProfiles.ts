@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import path from "node:path";
 
 import { CliLocator } from "@/backend/agents/cli/CliLocator";
+import { managedInterpreterProfiles } from "@/backend/service/agents/tools/AgentToolRuntimePaths";
 import { interpreterProfilesSchema } from "@/definition/InterpreterProfile";
 
 import { checkInterpreterVersion } from "./InterpreterVersionCheck";
@@ -60,6 +61,41 @@ export class InterpreterProfiles {
       if (check) checks[profile.id] = check;
     }
     return { profiles, checks, revision: revision(profiles) };
+  }
+
+  /**
+   * The profiles scripts can start: the configured ones and the Pages-managed runtimes.
+   * @remarks
+   * A Pages-managed profile names the concrete program of the active managed
+   * generation and replaces a configured profile with its reserved ID. The
+   * editable settings keep using {@link snapshot}, so a managed profile is
+   * never saved into the configuration.
+   */
+  public async runtimeSnapshot(): Promise<InterpreterSnapshot> {
+    const snapshot = await this.snapshot();
+    const managed = await managedInterpreterProfiles();
+    const checks: Record<string, InterpreterCheck> = { ...snapshot.checks };
+    for (const profile of managed)
+      checks[profile.id] = {
+        path: profile.path,
+        status: "ok",
+        version: profile.version,
+      };
+    return {
+      ...snapshot,
+      profiles: [
+        ...snapshot.profiles.filter(
+          (profile) => !managed.some((entry) => entry.id === profile.id),
+        ),
+        ...managed.map(({ id, name, path: program }) => ({
+          id,
+          name,
+          path: program,
+        })),
+      ],
+      checks,
+      managed,
+    };
   }
 
   /** A check is an observation only; it never writes configuration. */

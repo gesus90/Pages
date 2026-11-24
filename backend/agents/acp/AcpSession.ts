@@ -21,6 +21,7 @@ import { readClaudeQuotaWindow, registerClaudeQuota } from "./ClaudeAcpQuota";
 import { AcpMcpReadiness } from "./AcpMcpReadiness";
 import { cancelAcpTurn, closeAcpProtocol } from "./AcpProtocolClose";
 import { readAntigravityTurnFailure } from "./AntigravityTurnFailure";
+import { antigravityTurnCalls } from "./AntigravityNativeUsage";
 import { logAcpToolUpdate } from "./AcpSessionToolLogging";
 import {
   describeAcpSession,
@@ -118,6 +119,7 @@ export class AcpSession implements PlanSession {
   private configurationOptions: readonly SessionConfigOption[] = [];
   private readonly mcpReadiness: AcpMcpReadiness;
   private readonly codexUsage: CodexThreadUsage | null;
+  private readonly antigravityCalls: ReturnType<typeof antigravityTurnCalls>;
   private readonly picaCodex: PicaCodexRequests | null;
   /** The commands a plan turn waits for after the agent ended its prompt; `null` without such an adapter. */
   private readonly background: ReturnType<typeof acpBackgroundCommands>;
@@ -155,6 +157,7 @@ export class AcpSession implements PlanSession {
             },
           )
         : null;
+    this.antigravityCalls = antigravityTurnCalls(context);
     if (
       (context.listener?.picaCodex || context.listener?.picaHelper) &&
       !context.picaSupport
@@ -430,6 +433,7 @@ export class AcpSession implements PlanSession {
           sessionId,
           Boolean(this.context.request.resumeSessionId),
         );
+        this.antigravityCalls?.begin(sessionId);
         return this.connection.agent.request(
           methods.agent.session.prompt,
           acpPromptParams(sessionId, next, this.context.driver.provider),
@@ -474,6 +478,7 @@ export class AcpSession implements PlanSession {
     isContinued = false,
   ): void {
     const listener = this.context.listener;
+    this.antigravityCalls?.finish();
     if (this.context.driver.provider === "claude_code") {
       listener?.prompted(usage, isContinued, sessionId);
       return;
@@ -542,9 +547,10 @@ export class AcpSession implements PlanSession {
     this.expectedConfiguration = configured.expected;
   }
 
-  /** Reads completed OpenRouter messages only for a plan's OpenCode session. */
+  /** Reads the finished model calls of a running Antigravity prompt and completed OpenRouter messages of a plan's OpenCode session. */
   private async synchronizeNativeUsage(): Promise<void> {
     const { listener, openCodeDataHome, request, driver } = this.context;
+    this.antigravityCalls?.observe();
     if (
       driver.provider !== "opencode" ||
       !request.model.startsWith("openrouter/") ||

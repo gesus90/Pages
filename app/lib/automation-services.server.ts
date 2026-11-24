@@ -66,7 +66,7 @@ function executionPorts(
 ): AutomationExecutionPorts {
   const scripts = new AgentPlanScripts({
     snapshot: async () =>
-      (await getPagesRuntime()).interpreterProfiles.snapshot(),
+      (await getPagesRuntime()).interpreterProfiles.runtimeSnapshot(),
   });
   return {
     startPlan: async (userId, planId) => {

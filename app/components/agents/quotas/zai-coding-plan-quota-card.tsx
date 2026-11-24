@@ -8,18 +8,21 @@ import { useTranslation } from "react-i18next";
 import zaiUrl from "@/assets/providers/logo-zai.png?no-inline";
 
 import { ProviderBadge } from "@/app/components/agents/plans/plan-agent-console/console-header-badges";
+import { cn } from "@/app/lib/cn";
 import { zaiWindowMinutes } from "@/definition/ZaiCodingPlanQuota";
 
 import { QuotaCardFrame, QuotaHeaderBadges } from "./quota-card-frame";
 import {
+  QUOTA_COMPACT_WINDOW_SLOT_CLASS,
   QUOTA_COMPACT_WINDOWS_AREA_CLASS,
+  QUOTA_WINDOW_SLOT_CLASS,
   QUOTA_WINDOWS_AREA_CLASS,
 } from "./quota-card-layout";
 import { zaiCodingPlanCardView } from "./quota-card-state";
 import { QuotaNotice } from "./quota-notice";
 import { QuotaWindowsPlaceholder } from "./quota-placeholders";
 import { QuotaStatusLine } from "./quota-status-line";
-import { useQuotaWindowExpiry } from "./quota-time";
+import { formatQuotaReset, useQuotaWindowExpiry } from "./quota-time";
 import { QuotaWindow } from "./quota-window";
 
 import type { TFunction } from "i18next";
@@ -81,6 +84,67 @@ function countLabel(
   return undefined;
 }
 
+/**
+ * A window whose usage Z.AI did not report: its name, "Nutzung unbekannt", an
+ * empty bar, the reported reset or "Rücksetzzeit nicht gemeldet" and the
+ * reported counts, so a missing share never reads as 0 %.
+ */
+function ZaiUnknownUsageWindow({
+  quotaWindow,
+  isCompact,
+}: {
+  readonly quotaWindow: ZaiCodingPlanQuotaWindow;
+  readonly isCompact: boolean;
+}): React.ReactElement {
+  const { t, i18n } = useTranslation();
+  const format = { t, language: i18n.language };
+  const label = windowLabel(quotaWindow, t);
+  const reset = formatQuotaReset(quotaWindow.resetsAt, new Date(), format);
+  const counts = countLabel(quotaWindow, format);
+  return (
+    <section
+      data-quota-window={quotaWindow.key}
+      data-quota-usage="unknown"
+      aria-label={label}
+      className={cn(
+        isCompact ? QUOTA_COMPACT_WINDOW_SLOT_CLASS : QUOTA_WINDOW_SLOT_CLASS,
+        !isCompact && "gap-2 md:gap-2.5",
+      )}
+    >
+      <div
+        className={cn(
+          "flex shrink-0 items-center gap-2",
+          isCompact ? "h-[18px]" : "h-5",
+        )}
+      >
+        <h4
+          className="min-w-0 truncate text-[13px] font-semibold text-foreground"
+          title={label}
+        >
+          {label}
+        </h4>
+        <span className="ml-auto shrink-0 whitespace-nowrap text-[13px] font-semibold text-muted-foreground">
+          {t("agentsPage.zaiCodingPlan.usageUnknown")}
+        </span>
+      </div>
+      <div
+        aria-hidden="true"
+        className="h-2.5 shrink-0 rounded-[5px] bg-muted"
+      />
+      <div className="flex h-4 items-center justify-between gap-2 text-xs leading-4 text-muted-foreground">
+        <span className="min-w-0 truncate" title={reset.full}>
+          {reset.full}
+        </span>
+        {counts === undefined ? null : (
+          <span className="min-w-0 truncate" title={counts}>
+            {counts}
+          </span>
+        )}
+      </div>
+    </section>
+  );
+}
+
 function ZaiQuotaWindow({
   quotaWindow,
   targetAt,
@@ -93,6 +157,10 @@ function ZaiQuotaWindow({
   readonly isCompact: boolean;
 }): React.ReactElement {
   const { t, i18n } = useTranslation();
+  if (quotaWindow.usedPercent === null)
+    return (
+      <ZaiUnknownUsageWindow quotaWindow={quotaWindow} isCompact={isCompact} />
+    );
   return (
     <QuotaWindow
       figures={{
@@ -154,6 +222,11 @@ function ZaiCardWindows({
           notice={body.notice}
           provider="zai_coding_plan"
           hasPlan={hasPlan}
+          reasonKey={
+            body.reason === null
+              ? undefined
+              : `agentsPage.zaiCodingPlan.notice.${body.reason}`
+          }
         />
       )}
     </div>
@@ -217,7 +290,9 @@ function ZaiCardHeader({
  * Z.AI reported one, otherwise "Tarif unbekannt"; from the small width on it
  * also carries the "Z.AI │ Coding Plan" badge. Each window names what it
  * counts, its length, its used share and, when reported, its counts and
- * reset; a length or reset Z.AI did not report reads as unknown. A card
+ * reset; a length, usage or reset Z.AI did not report reads as unknown. A
+ * successful query without a window to show says whether Z.AI reported no
+ * entry, only expired windows or only entries Pages cannot read. A card
  * without figures shows placeholders and "Wird geladen …"; after a failed
  * query the last figures stay with the time of their answer.
  */

@@ -7,6 +7,7 @@ import { omitSystemdServiceEnvironment } from "@/backend/agents/SystemdServiceEn
 import { AgentError } from "@/backend/error/AgentErrors";
 import { correlationEnvironment } from "@/backend/logging/LogCorrelation";
 import { redactCredentials } from "@/backend/security/AgentTextSafety";
+import { agentNodeDirectory } from "@/backend/service/agents/tools/AgentToolRuntimePaths";
 
 import { planTemporaryEnvironment } from "../PlanRunTemporaryDirectory";
 import { nativeProviderEnvironment } from "./CliEnvironment";
@@ -128,7 +129,7 @@ export function nativeHostEnvironment(
     ...new Set([
       ...(host.environment.PATH ?? "").split(path.delimiter),
       path.dirname(request.toolFile ?? request.file),
-      path.dirname(process.execPath),
+      agentNodeDirectory(),
     ]),
   ]
     .filter((entry) => entry !== "")

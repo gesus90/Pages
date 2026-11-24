@@ -34,7 +34,9 @@ weekly limits. The article names no model IDs and no effort levels.
    (`versions`) of every tool. Health checks run `--version` and accept only an
    allowlisted version (`isAgentToolVersionSupported`).
 2. `AgentToolFiles.current` reads the activated generation from
-   `tools/<tool>/active.json`.
+   `tools/<tool>/active.json`; once Claude Code and Claude ACP were published
+   together, both come from the shared pointer file `tools/pairs/claude.json`,
+   which a combination change replaces in one rename.
 3. `AgentToolManagerService.inspect` takes that generation, otherwise the system
    location of `AgentToolServices`: `CliLocator` searches the service PATH and the
    directory of the running Node; `isTrustedSystemLocation` refuses a file whose

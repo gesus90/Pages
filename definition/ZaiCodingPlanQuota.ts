@@ -11,9 +11,10 @@ import type { QuotaPace } from "@/definition/QuotaForecast";
 /**
  * What a window of the Coding Plan counts, after the `type` Z.AI reports:
  * `tokens` for `TOKENS_LIMIT`, `mcp` for the separate MCP tool window
- * `TIME_LIMIT`.
+ * `TIME_LIMIT` and `quota` for a window of another type that reports its
+ * used share, such as a credit window, whose measure Pages does not name.
  */
-export const ZAI_QUOTA_MEASURES = ["tokens", "mcp"] as const;
+export const ZAI_QUOTA_MEASURES = ["tokens", "quota", "mcp"] as const;
 export type ZaiQuotaMeasure = (typeof ZAI_QUOTA_MEASURES)[number];
 
 /** The units of a window length Pages can name from Z.AI's `unit` code. */
@@ -30,8 +31,10 @@ export interface ZaiWindowLength {
  * One window of a Coding Plan subscription as Z.AI reported it.
  * @remarks
  * `key` names the window across answers. `usedPercent` is the reported used
- * share, 0 to 100. `length` is `null` when Z.AI named no length or one Pages
- * cannot read. `used`, `limit` and `remaining` are the reported counts of the
+ * share, 0 to 100, or the share of the reported used or remaining count in
+ * the reported limit; `null` when Z.AI reported neither, so the card shows
+ * the usage as unknown instead of 0 %. `length` is `null` when Z.AI named no
+ * length or one Pages cannot read. `used`, `limit` and `remaining` are the reported counts of the
  * window in its own measure (tokens or MCP calls), each `null` when Z.AI did
  * not report it; a reported 0 stays 0. `resetsAt` is the ISO time Z.AI named
  * for the next reset, `null` when it named none; Pages never derives one.
@@ -42,7 +45,7 @@ export interface ZaiCodingPlanQuotaWindow {
   readonly key: string;
   readonly measure: ZaiQuotaMeasure;
   readonly length: ZaiWindowLength | null;
-  readonly usedPercent: number;
+  readonly usedPercent: number | null;
   readonly used: number | null;
   readonly limit: number | null;
   readonly remaining: number | null;
@@ -55,7 +58,11 @@ export interface ZaiCodingPlanQuotaWindow {
  * `plan` is the subscription level Z.AI reported, such as `pro`; `null` when
  * it reported none. `windows` holds only the windows Z.AI reported, token
  * windows before the MCP window; a missing window is absent, never a window
- * with 0 %. The status kinds are those of the Claude card; a Coding Plan card
+ * with 0 %. `windows` also holds windows whose reset has passed since the
+ * answer, so the card can tell expired windows from an empty answer.
+ * `unreadableCount` counts the reported entries Pages could not read as a
+ * window, such as an entry of an unknown type without a used share. The
+ * status kinds are those of the Claude card; a Coding Plan card
  * never has the status `skipped`, because a running session does not keep
  * Pages from asking.
  */
@@ -67,6 +74,7 @@ export interface ZaiCodingPlanQuotaAccount {
   readonly name: string;
   readonly plan: string | null;
   readonly windows: readonly ZaiCodingPlanQuotaWindow[];
+  readonly unreadableCount: number;
   readonly status: ClaudeQuotaStatus;
 }
 
@@ -82,7 +90,7 @@ const windowSchema = z.object({
       count: z.number().int().positive(),
     })
     .nullable(),
-  usedPercent: z.number().min(0).max(100),
+  usedPercent: z.number().min(0).max(100).nullable(),
   used: countSchema,
   limit: countSchema,
   remaining: countSchema,
@@ -100,6 +108,7 @@ export const zaiCodingPlanQuotaAccountSchema = z.object({
   name: z.string().max(400),
   plan: z.string().min(1).max(40).nullable(),
   windows: z.array(windowSchema).max(MAX_ZAI_QUOTA_WINDOWS),
+  unreadableCount: z.number().int().min(0),
   status: quotaStatusSchema,
 });
 
@@ -123,31 +132,38 @@ export function zaiWindowMinutes(
 /**
  * Whether a window has nothing left.
  * @param window - The window.
+ * @returns `false` for a window whose usage Z.AI did not report.
  */
 export function isZaiWindowExhausted(
   window: ZaiCodingPlanQuotaWindow,
 ): boolean {
-  return window.usedPercent >= 100;
+  return window.usedPercent !== null && window.usedPercent >= 100;
 }
 
 /**
  * The windows a card shows at a moment.
  * @param windows - The reported windows of a connection.
- * @param now - The moment of display.
+ * @param moments - The moment of display and the time of Z.AI's answer,
+ * `null` when there is none.
  * @returns The windows whose reset is not behind them, in the reported order.
  * @remarks
- * A window whose reset passed describes a period that is over, so the card
- * drops it until the next answer, as it does for Claude and Codex; a window
- * without a reset stays.
+ * A window whose reset passed after the answer describes a period that is
+ * over, so the card drops it until the next answer, as it does for Claude
+ * and Codex; a window without a reset stays. A window whose reset was
+ * already behind the answer is still what Z.AI reports now, so it stays and
+ * reads "Fenster abgelaufen" instead of disappearing at once.
  */
 export function visibleZaiQuotaWindows(
   windows: readonly ZaiCodingPlanQuotaWindow[],
-  now: Date,
+  moments: { readonly now: Date; readonly answeredAt: string | null },
 ): ZaiCodingPlanQuotaWindow[] {
-  return windows.filter(
-    (window) =>
-      window.resetsAt === null || Date.parse(window.resetsAt) > now.getTime(),
-  );
+  const answeredAt =
+    moments.answeredAt === null ? NaN : Date.parse(moments.answeredAt);
+  return windows.filter((window) => {
+    if (window.resetsAt === null) return true;
+    const reset = Date.parse(window.resetsAt);
+    return reset > moments.now.getTime() || reset <= answeredAt;
+  });
 }
 
 /**

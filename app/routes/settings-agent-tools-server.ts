@@ -15,6 +15,7 @@ import {
 import { AgentToolReadinessError } from "@/backend/service/agents/tools/AgentToolReadinessError";
 import {
   AGENT_TOOL_CHECK_UPDATES,
+  AGENT_TOOL_UPDATE_TARGET_FIELD,
   isAgentToolAction,
   isAgentToolId,
 } from "@/definition/AgentTools";
@@ -50,7 +51,13 @@ export async function loader({
   }
 }
 
-/** Accepts fixed IDs/actions only; direct requests have the same authorization as the page and never name a package, URL or command. */
+/**
+ * Accepts fixed IDs/actions only; direct requests have the same authorization as the page and never name a package, URL or command.
+ * @remarks
+ * An update names the checked target its page showed and is accepted with
+ * 202 while it runs on; a changed target, a running update or a missing
+ * compatible release is refused with 409 and its diagnostic.
+ */
 export async function action({
   request,
   context,
@@ -76,6 +83,19 @@ export async function action({
       return Response.json({ ok: true }, { headers: AGENT_NO_STORE });
     }
     if (!isAgentToolId(id)) throw new AgentError("configuration_invalid");
+    if (intent === "update") {
+      // The update runs on; its phases and result appear in the tool's row.
+      const target = form.get(AGENT_TOOL_UPDATE_TARGET_FIELD);
+      await services.agentToolUpdateJobs.start(
+        actor,
+        id,
+        typeof target === "string" && target !== "" ? target : null,
+      );
+      return Response.json(
+        { ok: true, accepted: true },
+        { status: 202, headers: AGENT_NO_STORE },
+      );
+    }
     if (intent === "enable" || intent === "disable")
       await services.agentToolManagerService.setEnabled(
         actor,

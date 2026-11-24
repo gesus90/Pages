@@ -6167,27 +6167,13 @@
           "workspace": "Workspace",
           "restarts": "Restarts",
           "usage": {
-            "title": "Session usage",
-            "input": "Input",
-            "inputWithoutCache": "Input without cache",
-            "inputWithCache": "Input incl. cache",
-            "cacheReadTokens": "Read from cache",
-            "cacheWriteTokens": "Written to cache",
+            "title": "Usage",
+            "inputTokens": "Input",
             "outputTokens": "Output",
-            "totalTokens": "Total",
-            "charged": "Charged",
-            "estimate": "Estimated equivalent",
-            "estimateValue": "≈ {{amount}}",
-            "unavailable": "not available",
-            "estimateBasis": "Estimate from the OpenRouter price of {{models}}, as of {{dates}}. Not a charged amount.",
-            "notDelivered": "Antigravity reports no charged amount and no billing status; usage counts against the quota of the Google account.",
-            "gap": {
-              "attempt": "This attempt has not reported any usage yet.",
-              "tokens": "Incomplete: not every turn reported all counts; the sums contain only reported values. No estimate.",
-              "cache_semantics": "No estimate: the cache counting is not verified.",
-              "model": "No estimate: no price is known for the model.",
-              "price": "No estimate: no price list is available."
-            }
+            "cacheReadTokens": "Cache read",
+            "cacheWriteTokens": "Cache written",
+            "afterTurn": "after the turn",
+            "costEstimate": "Cost · estimate"
           }
         },
         "toolKind": {
@@ -8296,6 +8282,7 @@
     "namespace": "Functional namespace probe",
     "names": {
       "node": "Node.js",
+      "python": "Python",
       "bubblewrap": "Bubblewrap",
       "codex": "OpenAI Codex CLI",
       "claude": "Claude Code CLI",
@@ -8369,7 +8356,11 @@
       "update_not_checked": "Run “Search for updates” first; only then is a checked update target known.",
       "release_incompatible": "The official source offers no compatible stable release. The previous version stays active.",
       "release_unavailable": "The official source did not confirm the chosen release or was unreachable. Try again later.",
-      "adapter_incompatible": "CLI and adapter do not work together in this combination. Nothing was activated; the previous combination stays usable."
+      "adapter_incompatible": "CLI and adapter do not work together in this combination. Nothing was activated; the previous combination stays usable.",
+      "target_changed": "The checked update target changed since it was shown. The new target is shown now; click again to update.",
+      "update_running": "An update of this installation is already running. No second one starts; progress and result appear in this row.",
+      "update_interrupted": "The update was interrupted, for example by a restart. The previous version stays active; the update can be started again.",
+      "integrity_failed": "The downloaded file does not match the checksum of the official source. Nothing was activated; the previous version stays active."
     },
     "unknown": "Not checked yet",
     "browserVersion": "Browser version",
@@ -8382,7 +8373,6 @@
     "integratedAdapter": "ACP is built into the CLI",
     "checkUpdates": "Search for updates",
     "checkUpdatesHint": "Reads only version data of the fixed official sources; installs and activates nothing.",
-    "externalHint": "Managed externally: Pages does not change this installation. “Install managed” creates Pages' own checked installation that new sessions use afterwards.",
     "release": {
       "title": "Newest stable version",
       "target": "Update target",
@@ -8408,6 +8398,8 @@
         "resolving": "Resolve version",
         "installing_cli": "Install CLI",
         "verifying_cli": "Check CLI",
+        "installing_runtime": "Install runtime",
+        "verifying_runtime": "Check runtime with a script start",
         "installing_adapter": "Install adapter",
         "verifying_adapter": "Check adapter with CLI",
         "activating": "Activate",
@@ -8428,7 +8420,21 @@
       "missingModel": "The saved model “{{model}}” is no longer available. Pages does not replace it; choose a model deliberately.",
       "missingEffort": "The saved reasoning level “{{effort}}” is no longer offered by the model. Pages does not change it.",
       "accountHint": "New models depend on the account and the provider; a version number alone does not guarantee them."
-    }
+    },
+    "update": {
+      "title": "Update through Pages",
+      "managed": "Updatable: Pages installs the target version separately, checks it and only then activates it for new sessions.",
+      "external": "Managed externally: Pages does not change this installation. “Update” creates Pages' own checked generation next to it, which new Pages starts use.",
+      "unsupported": "No update through Pages: this version is bound to Pages or to the host.",
+      "target": "Checked target",
+      "targetVersion": "{{tool}} {{version}}",
+      "keep": "{{tool}} stays and is checked along",
+      "updateTo": "Update to {{version}}",
+      "current": "The shown target version is already active.",
+      "blocked": "Update blocked: {{reason}}",
+      "accepted": "Update started. Progress and result appear in this row, also after reloading the page."
+    },
+    "runtimeHint": "Pages-managed starts of sessions and scripts use the active generation. The Pages service itself, system paths and own interpreter profiles stay unchanged."
   },
   "agentExecution": {
     "error": {
@@ -9981,6 +9987,7 @@
       "windowLabel": "{{measure}} · {{window}}",
       "measure": {
         "tokens": "Tokens",
+        "quota": "Quota",
         "mcp": "MCP tools"
       },
       "window": {
@@ -9994,10 +10001,19 @@
       },
       "used": "{{used}} of {{limit}} used",
       "remaining": "{{remaining}} of {{limit}} left",
+      "usageUnknown": "Usage unknown",
       "notice": {
         "noWindows": {
           "title": "Z.AI reported no quota windows for this connection.",
           "detail": "Pages queried successfully."
+        },
+        "expired": {
+          "title": "The quota windows Z.AI reported have expired.",
+          "detail": "The next query shows the new windows."
+        },
+        "unsupported": {
+          "title": "Z.AI reported quota details Pages cannot read.",
+          "detail": "Pages queried successfully; the format of these windows is not supported."
         },
         "skipped": {
           "title": "Pages did not query this connection.",

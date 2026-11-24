@@ -27,6 +27,13 @@ export interface AgentToolHealthGateOptions {
   readonly now?: () => number;
 }
 
+/** The generation one check starts, with the CLI an adapter runs with. */
+interface CheckTarget {
+  readonly tool: AgentToolDefinition;
+  readonly location: AgentToolLocation;
+  readonly cli: AgentToolLocation | undefined;
+}
+
 interface KeptHealth {
   readonly health: AgentToolHealth;
   readonly checkedAt: number;
@@ -73,24 +80,33 @@ export class AgentToolHealthGate implements AgentToolHealthChecks {
     this.now = options.now ?? ((): number => performance.now());
   }
 
-  /** Answers from a fresh success, joins a running check or runs one within the limit. */
+  /**
+   * Answers from a fresh success, joins a running check or runs one within the limit.
+   * @param tool - The tool to check.
+   * @param location - The generation that is checked.
+   * @param signal - Ends the check at shutdown.
+   * @param cli - The CLI generation an adapter is checked with; part of the kept result.
+   */
   public check(
     tool: AgentToolDefinition,
     location: AgentToolLocation,
     signal: AbortSignal,
+    cli?: AgentToolLocation,
   ): Promise<AgentToolHealth> {
-    const key = `${tool.id}\u0000${location.file}`;
+    const key = `${tool.id}\u0000${location.file}\u0000${cli?.file ?? ""}`;
     const kept = this.kept.get(key);
     if (kept && this.now() - kept.checkedAt < this.readyTtlMs)
       return Promise.resolve(kept.health);
     const shared = this.running.get(key);
     if (shared) return shared;
-    const pending = this.repeated(tool, location, signal).then((health) => {
-      if (health.status === "ready")
-        this.kept.set(key, { health, checkedAt: this.now() });
-      else this.kept.delete(key);
-      return health;
-    });
+    const pending = this.repeated({ tool, location, cli }, signal).then(
+      (health) => {
+        if (health.status === "ready")
+          this.kept.set(key, { health, checkedAt: this.now() });
+        else this.kept.delete(key);
+        return health;
+      },
+    );
     this.running.set(key, pending);
     const settle = (): void => {
       if (this.running.get(key) === pending) this.running.delete(key);
@@ -106,11 +122,10 @@ export class AgentToolHealthGate implements AgentToolHealthChecks {
   }
 
   private async repeated(
-    tool: AgentToolDefinition,
-    location: AgentToolLocation,
+    target: CheckTarget,
     signal: AbortSignal,
   ): Promise<AgentToolHealth> {
-    const first = await this.attempt(tool, location, signal, 1);
+    const first = await this.attempt(target, signal, 1);
     if (
       first.status === "ready" ||
       !isTransientAgentToolFailure(first.diagnostic) ||
@@ -123,20 +138,20 @@ export class AgentToolHealthGate implements AgentToolHealthChecks {
       // Shutdown ended the pause; the first result stands.
       return first;
     }
-    return this.attempt(tool, location, signal, 2);
+    return this.attempt(target, signal, 2);
   }
 
   private async attempt(
-    tool: AgentToolDefinition,
-    location: AgentToolLocation,
+    target: CheckTarget,
     signal: AbortSignal,
     attempt: number,
   ): Promise<AgentToolHealth> {
+    const { tool, location, cli } = target;
     if (!(await this.acquire(signal))) return NOT_RUN;
     const startedAt = this.now();
     let health: AgentToolHealth;
     try {
-      health = await this.checks.check(tool, location, signal);
+      health = await this.checks.check(tool, location, signal, cli);
     } finally {
       this.release();
     }

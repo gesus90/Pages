@@ -30,7 +30,9 @@ const HOUR_HEIGHT = "3.5rem";
 const SCROLL_MARGIN = 12;
 
 function gridColumns(days: number): React.CSSProperties {
-  return { gridTemplateColumns: `3.5rem repeat(${days}, minmax(0, 1fr))` };
+  // The labels column holds "ganztägig" (about 52 px in Inter at 11 px) and
+  // the widest hour label with 12 px free on both sides.
+  return { gridTemplateColumns: `4.75rem repeat(${days}, minmax(0, 1fr))` };
 }
 
 /** The weekdays above the columns, today in the accent color. */
@@ -71,7 +73,7 @@ function AllDayRow({ dates, entries }: GridRowProps): React.ReactElement {
       className="grid overflow-y-hidden border-b border-border [scrollbar-gutter:stable]"
       style={gridColumns(dates.length)}
     >
-      <span className="self-center pr-1 text-[0.6875rem] text-muted-foreground">
+      <span className="self-center pr-3 text-right text-[0.6875rem] whitespace-nowrap text-muted-foreground">
         {t("calendar.allDay")}
       </span>
       {dates.map((date) => (
@@ -101,7 +103,7 @@ function HourLabels(): React.ReactElement {
       {HOURS.map((hour) => (
         <div key={hour} className="relative" style={{ height: HOUR_HEIGHT }}>
           {hour === 0 ? null : (
-            <span className="absolute -top-2 right-2 text-[0.6875rem] text-muted-foreground">
+            <span className="absolute -top-2 right-3 text-[0.6875rem] text-muted-foreground">
               {format.hour(hour)}
             </span>
           )}

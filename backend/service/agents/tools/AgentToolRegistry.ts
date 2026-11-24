@@ -18,8 +18,38 @@ export interface AgentToolGitHubSource {
   readonly member: string;
 }
 
+/**
+ * The official Node.js distribution on nodejs.org.
+ * @remarks
+ * The release index names the versions, the release's `SHASUMS256.txt` the
+ * digest of the Linux archive. An update stays on the reviewed major line,
+ * so the adapters and CLIs started with it keep their runtime contract.
+ */
+export interface AgentToolNodeSource {
+  readonly kind: "node";
+  readonly major: number;
+}
+
+/**
+ * Relocatable CPython builds of a fixed GitHub project.
+ * @remarks
+ * Every release publishes one `install_only` archive per interpreter and
+ * architecture with its SHA-256 digest. An update stays on the reviewed
+ * minor line, because scripts and their packages depend on it.
+ */
+export interface AgentToolPythonSource {
+  readonly kind: "python";
+  readonly repository: string;
+  /** The `major.minor` line an update stays on. */
+  readonly line: string;
+}
+
 /** A fixed provider source; no web request can name another package, host or URL. */
-export type AgentToolReleaseSource = AgentToolNpmSource | AgentToolGitHubSource;
+export type AgentToolReleaseSource =
+  | AgentToolNpmSource
+  | AgentToolGitHubSource
+  | AgentToolNodeSource
+  | AgentToolPythonSource;
 
 /** Trusted installation and health policy; web requests can select only its IDs. */
 export interface AgentToolDefinition {
@@ -49,11 +79,14 @@ export interface AgentToolDefinition {
   /** Whether the CLI serves ACP itself, so it needs no separate adapter. */
   readonly hasIntegratedAdapter?: boolean;
   readonly dependencies: readonly AgentToolId[];
-  readonly probe: "version" | "acp" | "mcp" | "browser" | "sandbox";
+  /** `runtime` starts the interpreter with its version flag and a representative script. */
+  readonly probe: "version" | "acp" | "mcp" | "browser" | "sandbox" | "runtime";
   /** Publishes a stable `bin/<binary>` link to the active managed generation for the operator's terminal. */
   readonly hasTerminalEntry?: boolean;
 }
 
+// Without a managed generation, sessions keep the Node.js that runs Pages; an
+// update installs a separate generation that only Pages-managed starts use.
 const NODE: AgentToolDefinition = {
   id: "node",
   name: "Node.js",
@@ -62,9 +95,28 @@ const NODE: AgentToolDefinition = {
   packageName: null,
   version: null,
   minimumVersion: "24.0.0",
-  release: null,
+  release: { kind: "node", major: 24 },
   dependencies: [],
-  probe: "version",
+  probe: "runtime",
+};
+
+// Interpreter profiles with their own paths stay as they are; only the
+// Pages-managed profile starts the managed generation.
+const PYTHON: AgentToolDefinition = {
+  id: "python",
+  name: "Python",
+  kind: "runtime",
+  binary: "python3",
+  packageName: null,
+  version: null,
+  minimumVersion: "3.10.0",
+  release: {
+    kind: "python",
+    repository: "astral-sh/python-build-standalone",
+    line: "3.14",
+  },
+  dependencies: [],
+  probe: "runtime",
 };
 
 const PLAYWRIGHT_REVISION = "1.64.0-alpha-1790635538000";
@@ -79,6 +131,7 @@ const PLAYWRIGHT_REVISION = "1.64.0-alpha-1790635538000";
  */
 export const AGENT_TOOL_REGISTRY: readonly AgentToolDefinition[] = [
   NODE,
+  PYTHON,
   {
     id: "bubblewrap",
     name: "Bubblewrap",
@@ -134,7 +187,8 @@ export const AGENT_TOOL_REGISTRY: readonly AgentToolDefinition[] = [
     release: { kind: "npm", packageName: "opencode-ai" },
     hasIntegratedAdapter: true,
     dependencies: ["node"],
-    probe: "version",
+    // The version flag and the `opencode acp` handshake of the same binary have to agree.
+    probe: "acp",
   },
   {
     id: "codex_acp",
@@ -287,6 +341,23 @@ export function isAgentToolInstallable(tool: AgentToolDefinition): boolean {
   return (
     tool.packageName !== null ||
     tool.kind === "browser" ||
-    tool.release?.kind === "github"
+    isArchiveRelease(tool)
   );
+}
+
+/** Whether the tool comes as an official archive whose digest the source publishes. */
+export function isArchiveRelease(tool: AgentToolDefinition): boolean {
+  const kind = tool.release?.kind;
+  return kind === "github" || kind === "node" || kind === "python";
+}
+
+/** The CLI and adapter that change and start only as one checked combination, or `null`. */
+export function agentToolPair(tool: AgentToolDefinition): {
+  readonly cli: AgentToolDefinition;
+  readonly adapter: AgentToolDefinition;
+} | null {
+  const cli = pairedCli(tool);
+  return cli.adapter
+    ? { cli, adapter: agentToolDefinition(cli.adapter) }
+    : null;
 }

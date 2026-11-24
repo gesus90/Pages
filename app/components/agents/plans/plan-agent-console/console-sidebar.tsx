@@ -5,6 +5,7 @@ import { ModelBadge } from "@/app/components/agents/badges/model-badge";
 import { ReasoningBadge } from "@/app/components/agents/badges/reasoning-badge";
 import { RunBranchBadge } from "@/app/components/agents/badges/run-branch-badge";
 import { modelBadgeDisplay } from "@/app/components/agents/model-picker/model-catalog";
+import { cn } from "@/app/lib/cn";
 import { modelBadgeVendor } from "@/definition/AgentModelIdentity";
 import { PLAN_BLOCKER_RETRIES } from "@/definition/AgentPlanRetry";
 
@@ -13,6 +14,7 @@ import { providerBadgeKey } from "./console-header-badges";
 import {
   Fact,
   RowBadge,
+  SIDEBAR_TITLE_CLASS,
   SidebarRow,
   SidebarSection,
 } from "./console-sidebar-parts";
@@ -28,13 +30,19 @@ import type { AntigravityUsageTotal } from "@/definition/AgentSessionPricing";
 const SIDEBAR_KEY = "plans.console.terminal.sidebar";
 const USAGE_KEY = `${SIDEBAR_KEY}.usage`;
 
-/** The counts after the input, each in its own row; cache reads and writes never merge into the input. */
-const TOKEN_ROWS = [
+/**
+ * The rows of the block "Verbrauch" in their fixed order, one per count
+ * Antigravity reports; cache reads and writes never merge into the input.
+ */
+const USAGE_ROWS = [
+  "inputTokens",
+  "outputTokens",
   "cacheReadTokens",
   "cacheWriteTokens",
-  "outputTokens",
-  "totalTokens",
 ] as const;
+
+/** The value of a count that has not been reported yet. */
+const NOT_REPORTED = "–";
 
 /** An estimate keeps up to four decimals, so a cent fraction of a short session stays visible. */
 const ESTIMATE_FORMAT: Intl.NumberFormatOptions = {
@@ -194,97 +202,97 @@ function BranchValue({
   );
 }
 
-/** The input row's label: what the reported input contains decides whether the cache reads are part of it. */
-function inputLabelKey(includesCache: boolean | null): string {
-  if (includesCache === null) return `${USAGE_KEY}.input`;
-  return includesCache
-    ? `${USAGE_KEY}.inputWithCache`
-    : `${USAGE_KEY}.inputWithoutCache`;
-}
-
-/** A count as reported; a reported 0 stays 0, a count never reported is unknown. */
-function countText(
-  count: number | null,
-  numbers: Intl.NumberFormat,
-  unknown: string,
-): string {
-  return count === null ? unknown : numbers.format(count);
-}
-
 /**
- * The notes below the usage rows: every reason without an estimate, the
- * price basis of an estimate, and what Antigravity does not deliver.
- */
-function usageNotes(
-  usage: AntigravityUsageTotal,
-  { t, i18n }: Pick<ReturnType<typeof useTranslation>, "t" | "i18n">,
-): readonly string[] {
-  const dates = new Intl.DateTimeFormat(i18n.language, { dateStyle: "medium" });
-  const notes = usage.gaps.map((gap) => t(`${USAGE_KEY}.gap.${gap}`));
-  if (usage.amountUsd !== null)
-    notes.push(
-      t(`${USAGE_KEY}.estimateBasis`, {
-        models: usage.priceModels.join(", "),
-        dates: usage.priceAsOf
-          .filter((priceAsOf) => Number.isFinite(Date.parse(priceAsOf)))
-          .map((priceAsOf) => dates.format(new Date(priceAsOf)))
-          .join(", "),
-      }),
-    );
-  notes.push(t(`${USAGE_KEY}.notDelivered`));
-  return notes;
-}
-
-/**
- * The block "Sitzungsverbrauch": the tokens the selected attempt's session
- * processed, summed over its turns, and what they cost.
+ * Whether the counts of the selected attempt come only with the end of its
+ * running turn.
  * @remarks
- * The counts are the adapter's own; Pages adds no cache count to the input
- * or the total. Antigravity reports no charge, so "Berechnet" stays not
- * available, and the estimate from a catalog price stands in its own row,
- * marked as an equivalent. Without complete counts and a price of the model
- * there is no estimate, and the notes name why.
+ * A local session reads each finished model call from the conversation
+ * store of `agy acp` while the prompt runs. A runner reports the counts of
+ * a prompt only with its answer.
+ */
+function isWaitingForTurnEnd(
+  step: AgentPlanStepResult,
+  view: AgentSessionView,
+): boolean {
+  return (
+    step.execution?.target?.kind === "remote" &&
+    step.status === "running" &&
+    (view.state === "running" || view.state === "starting")
+  );
+}
+
+/** One row of the block "Verbrauch"; a value not reported yet stands as a muted dash. */
+function UsageRow({
+  label,
+  value,
+}: {
+  readonly label: string;
+  readonly value: string | null;
+}): React.ReactElement {
+  return (
+    <SidebarRow label={label}>
+      <span
+        className={cn(
+          "min-w-0 truncate tabular-nums",
+          value === null && "text-agent-console-muted",
+        )}
+      >
+        {value ?? NOT_REPORTED}
+      </span>
+    </SidebarRow>
+  );
+}
+
+/**
+ * The block "Verbrauch": the tokens the selected attempt's session
+ * processed, summed over its turns.
+ * @remarks
+ * The four rows stand from the start, so the session block below does not
+ * move when the counts arrive. A reported 0 stays 0. The counts are the
+ * adapter's own; Pages adds no cache count to the input. Antigravity reports
+ * no charge, so a cost row appears only with an estimate from a catalog
+ * price, which needs complete counts of every turn.
  */
 function UsageSection({
   usage,
+  isAfterTurn,
 }: {
   readonly usage: AntigravityUsageTotal;
+  readonly isAfterTurn: boolean;
 }): React.ReactElement {
-  const translation = useTranslation();
-  const { t, i18n } = translation;
-  const unknown = t(`${SIDEBAR_KEY}.unknown`);
-  const unavailable = t(`${USAGE_KEY}.unavailable`);
+  const { t, i18n } = useTranslation();
+  const title = t(`${USAGE_KEY}.title`);
   const numbers = new Intl.NumberFormat(i18n.language);
   const currency = new Intl.NumberFormat(i18n.language, ESTIMATE_FORMAT);
-  const estimate =
-    usage.amountUsd === null
-      ? unavailable
-      : t(`${USAGE_KEY}.estimateValue`, {
-          amount: currency.format(usage.amountUsd),
-        });
   return (
-    <SidebarSection title={t(`${USAGE_KEY}.title`)}>
-      <dl className="mt-1" data-console-usage="">
-        <Fact
-          label={t(inputLabelKey(usage.inputIncludesCache))}
-          value={countText(usage.inputTokens, numbers, unknown)}
-        />
-        {TOKEN_ROWS.map((field) => (
-          <Fact
-            key={field}
-            label={t(`${USAGE_KEY}.${field}`)}
-            value={countText(usage[field], numbers, unknown)}
+    <section aria-label={title} data-console-usage="" className="min-w-0">
+      <div className="flex items-baseline justify-between gap-3">
+        <h3 className={SIDEBAR_TITLE_CLASS}>{title}</h3>
+        {isAfterTurn ? (
+          <span className="min-w-0 truncate text-[13px] text-agent-console-muted">
+            {t(`${USAGE_KEY}.afterTurn`)}
+          </span>
+        ) : null}
+      </div>
+      <dl className="mt-1">
+        {USAGE_ROWS.map((field) => {
+          const count = usage[field];
+          return (
+            <UsageRow
+              key={field}
+              label={t(`${USAGE_KEY}.${field}`)}
+              value={count === null ? null : numbers.format(count)}
+            />
+          );
+        })}
+        {usage.amountUsd === null ? null : (
+          <UsageRow
+            label={t(`${USAGE_KEY}.costEstimate`)}
+            value={currency.format(usage.amountUsd)}
           />
-        ))}
-        <Fact label={t(`${USAGE_KEY}.charged`)} value={unavailable} />
-        <Fact label={t(`${USAGE_KEY}.estimate`)} value={estimate} />
+        )}
       </dl>
-      <ul className="mt-1.5 space-y-1 text-xs text-agent-console-muted">
-        {usageNotes(usage, translation).map((note) => (
-          <li key={note}>{note}</li>
-        ))}
-      </ul>
-    </SidebarSection>
+    </section>
   );
 }
 
@@ -337,9 +345,9 @@ function SessionSection(props: ConsoleSidebarProps): React.ReactElement {
  * The attempt's progress, context and session facts in the plan terminal.
  * @remarks
  * Every provider shows the todo list first, then the context, then the
- * session. An Antigravity attempt shows its summed session usage between
- * context and session, so the occupancy of the window and the tokens the
- * session processed stand apart. The todo list takes the remaining room. A
+ * session. An Antigravity attempt shows its summed usage between context
+ * and session, so the occupancy of the window and the tokens the session
+ * processed stand apart. The todo list takes the remaining room. A
  * short window scrolls the whole sidebar so the context and session rows
  * remain reachable.
  */
@@ -356,7 +364,10 @@ export function ConsoleSidebar(props: ConsoleSidebarProps): React.ReactElement {
       />
       <ConsoleContextSection view={props.view} />
       {props.view.antigravity ? (
-        <UsageSection usage={props.view.antigravity.attempt} />
+        <UsageSection
+          usage={props.view.antigravity.attempt}
+          isAfterTurn={isWaitingForTurnEnd(props.step, props.view)}
+        />
       ) : null}
       <SessionSection {...props} />
     </aside>

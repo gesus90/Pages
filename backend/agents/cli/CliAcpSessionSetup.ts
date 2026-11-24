@@ -133,6 +133,10 @@ export function openCliAcpSession(
     listener: input.chat?.listener ?? input.journal,
     openCodeDataHome:
       driver.provider === "opencode" ? start.home.config : undefined,
+    antigravityDataHome:
+      driver.provider === "antigravity" && !input.chat
+        ? start.home.config
+        : undefined,
     picaSupport: context.picaSupport,
     codexHome:
       driver.provider === "codex_cli" && !input.chat

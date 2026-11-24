@@ -6167,27 +6167,13 @@
           "workspace": "Arbeitsplatz",
           "restarts": "Neustarts",
           "usage": {
-            "title": "Sitzungsverbrauch",
-            "input": "Eingabe",
-            "inputWithoutCache": "Eingabe ohne Cache",
-            "inputWithCache": "Eingabe inkl. Cache",
-            "cacheReadTokens": "Aus Cache gelesen",
-            "cacheWriteTokens": "In Cache geschrieben",
+            "title": "Verbrauch",
+            "inputTokens": "Eingabe",
             "outputTokens": "Ausgabe",
-            "totalTokens": "Gesamt",
-            "charged": "Berechnet",
-            "estimate": "Schätzwert",
-            "estimateValue": "≈ {{amount}}",
-            "unavailable": "nicht verfügbar",
-            "estimateBasis": "Schätzung nach OpenRouter-Preis für {{models}}, Stand {{dates}}. Kein berechneter Betrag.",
-            "notDelivered": "Antigravity liefert keinen berechneten Betrag und keinen Abrechnungsstatus; die Nutzung läuft über das Kontingent des Google-Kontos.",
-            "gap": {
-              "attempt": "Dieser Versuch hat noch keinen Verbrauch gemeldet.",
-              "tokens": "Unvollständig: Nicht jede Runde hat alle Zählungen gemeldet; die Summen enthalten nur gemeldete Werte. Keine Schätzung.",
-              "cache_semantics": "Keine Schätzung: Die Cache-Zählung ist nicht belegt.",
-              "model": "Keine Schätzung: Für das Modell ist kein Preis bekannt.",
-              "price": "Keine Schätzung: Kein Preisstand verfügbar."
-            }
+            "cacheReadTokens": "Cache gelesen",
+            "cacheWriteTokens": "Cache geschrieben",
+            "afterTurn": "nach dem Zug",
+            "costEstimate": "Kosten · Schätzung"
           }
         },
         "toolKind": {
@@ -8296,6 +8282,7 @@
     "namespace": "Funktionsprüfung des Namespaces",
     "names": {
       "node": "Node.js",
+      "python": "Python",
       "bubblewrap": "Bubblewrap",
       "codex": "OpenAI Codex CLI",
       "claude": "Claude Code CLI",
@@ -8369,7 +8356,11 @@
       "update_not_checked": "Zuerst „Updates suchen“ ausführen; erst dann steht ein geprüftes Update-Ziel fest.",
       "release_incompatible": "Die offizielle Quelle bietet keine kompatible stabile Version an. Die bisherige Version bleibt aktiv.",
       "release_unavailable": "Die offizielle Quelle hat die gewählte Version nicht bestätigt oder war nicht erreichbar. Später erneut versuchen.",
-      "adapter_incompatible": "CLI und Adapter funktionieren in dieser Kombination nicht zusammen. Nichts wurde aktiviert; die bisherige Kombination bleibt nutzbar."
+      "adapter_incompatible": "CLI und Adapter funktionieren in dieser Kombination nicht zusammen. Nichts wurde aktiviert; die bisherige Kombination bleibt nutzbar.",
+      "target_changed": "Das geprüfte Update-Ziel hat sich seit der Anzeige geändert. Das neue Ziel wird angezeigt; zum Aktualisieren erneut klicken.",
+      "update_running": "Für diese Installation läuft bereits ein Update. Es startet kein zweites; Fortschritt und Ergebnis erscheinen in dieser Zeile.",
+      "update_interrupted": "Das Update wurde unterbrochen, etwa durch einen Neustart. Die bisherige Version bleibt aktiv; das Update kann erneut gestartet werden.",
+      "integrity_failed": "Die heruntergeladene Datei stimmt nicht mit der Prüfsumme der offiziellen Quelle überein. Nichts wurde aktiviert; die bisherige Version bleibt aktiv."
     },
     "unknown": "Noch nicht ermittelt",
     "browserVersion": "Browser-Version",
@@ -8382,7 +8373,6 @@
     "integratedAdapter": "ACP ist in die CLI eingebaut",
     "checkUpdates": "Updates suchen",
     "checkUpdatesHint": "Liest nur Versionsdaten der festen offiziellen Quellen; installiert und aktiviert nichts.",
-    "externalHint": "Extern verwaltet: Pages verändert diese Installation nicht. „Verwaltet installieren“ legt eine eigene, geprüfte Installation an, die danach neue Sessions verwenden.",
     "release": {
       "title": "Neueste stabile Version",
       "target": "Update-Ziel",
@@ -8408,6 +8398,8 @@
         "resolving": "Version auflösen",
         "installing_cli": "CLI installieren",
         "verifying_cli": "CLI prüfen",
+        "installing_runtime": "Laufzeit installieren",
+        "verifying_runtime": "Laufzeit mit Skriptstart prüfen",
         "installing_adapter": "Adapter installieren",
         "verifying_adapter": "Adapter mit CLI prüfen",
         "activating": "Aktivieren",
@@ -8428,7 +8420,21 @@
       "missingModel": "Gespeichertes Modell „{{model}}“ ist nicht mehr verfügbar. Pages ersetzt es nicht; bitte bewusst ein Modell wählen.",
       "missingEffort": "Gespeicherte Reasoning-Stufe „{{effort}}“ wird vom Modell nicht mehr angeboten. Pages ändert sie nicht.",
       "accountHint": "Neue Modelle hängen vom Konto und Anbieter ab; die Versionsnummer allein garantiert sie nicht."
-    }
+    },
+    "update": {
+      "title": "Update über Pages",
+      "managed": "Updatefähig: Pages installiert die Zielversion getrennt, prüft sie und aktiviert sie erst danach für neue Sessions.",
+      "external": "Extern verwaltet: Pages verändert diese Installation nicht. „Aktualisieren“ legt daneben eine eigene, geprüfte Generation an, die neue Pages-Starts verwenden.",
+      "unsupported": "Kein Update über Pages: Diese Version ist an Pages oder an den Host gebunden.",
+      "target": "Geprüftes Ziel",
+      "targetVersion": "{{tool}} {{version}}",
+      "keep": "{{tool}} bleibt und wird mitgeprüft",
+      "updateTo": "Aktualisieren auf {{version}}",
+      "current": "Die angezeigte Zielversion ist bereits aktiv.",
+      "blocked": "Update gesperrt: {{reason}}",
+      "accepted": "Update gestartet. Fortschritt und Ergebnis erscheinen in dieser Zeile, auch nach einem Neuladen der Seite."
+    },
+    "runtimeHint": "Pages-verwaltete Starts von Sessions und Skripten nutzen die aktive Generation. Der Pages-Dienst selbst, Systempfade und eigene Interpreterprofile bleiben unverändert."
   },
   "agentExecution": {
     "error": {
@@ -9988,6 +9994,7 @@
       "windowLabel": "{{measure}} · {{window}}",
       "measure": {
         "tokens": "Tokens",
+        "quota": "Kontingent",
         "mcp": "MCP-Tools"
       },
       "window": {
@@ -10001,10 +10008,19 @@
       },
       "used": "{{used}} von {{limit}} genutzt",
       "remaining": "{{remaining}} von {{limit}} übrig",
+      "usageUnknown": "Nutzung unbekannt",
       "notice": {
         "noWindows": {
           "title": "Z.AI hat für diese Verbindung keine Kontingentfenster gemeldet.",
           "detail": "Pages hat erfolgreich abgefragt."
+        },
+        "expired": {
+          "title": "Die von Z.AI gemeldeten Kontingentfenster sind abgelaufen.",
+          "detail": "Die nächste Abfrage zeigt die neuen Fenster."
+        },
+        "unsupported": {
+          "title": "Z.AI hat Kontingentangaben gemeldet, die Pages nicht lesen kann.",
+          "detail": "Pages hat erfolgreich abgefragt; das Format dieser Fenster wird nicht unterstützt."
         },
         "skipped": {
           "title": "Pages hat diese Verbindung nicht abgefragt.",

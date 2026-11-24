@@ -5,6 +5,7 @@ import { ClaudeMonthlyBudgetRepository } from "@/backend/database/repositories/a
 import { canProcessRuns } from "@/backend/runtime/RunsMode";
 import { AgentToolStartupService } from "@/backend/service/agents/tools/AgentToolStartupService";
 import { AgentToolRebindService } from "@/backend/service/agents/tools/AgentToolRebindService";
+import { AgentToolUpdateJobs } from "@/backend/service/agents/tools/AgentToolUpdateJobs";
 import { CatalogProviderClient } from "@/backend/agents/catalog/CatalogProviderClient";
 import { AgentCatalogRefresh } from "@/backend/service/agents/AgentCatalogRefresh";
 import { AgentCatalogService } from "@/backend/service/agents/AgentCatalogService";
@@ -91,6 +92,8 @@ export interface AgentApplicationServices
   readonly agentToolManagerService: AgentToolManagerService;
   readonly agentToolStartupService: AgentToolStartupService;
   readonly agentToolRebindService: AgentToolRebindService;
+  /** Starts single tool updates bound to the target the Tools page showed. */
+  readonly agentToolUpdateJobs: AgentToolUpdateJobs;
   readonly acpResourceScheduler: AcpResourceScheduler;
   readonly agentAssignmentService: AgentAssignmentService;
   readonly agentCatalogService: AgentCatalogService;
@@ -401,9 +404,10 @@ function createToolServices(input: {
   readonly checks: AgentCheckService;
 }): Pick<
   AgentApplicationServices,
-  "agentToolStartupService" | "agentToolRebindService"
+  "agentToolStartupService" | "agentToolRebindService" | "agentToolUpdateJobs"
 > {
   const { manager, connections, runtime, resources, checks } = input;
+  const rebind = new AgentToolRebindService({ manager, connections, checks });
   return {
     agentToolStartupService: new AgentToolStartupService({
       manager,
@@ -411,11 +415,8 @@ function createToolServices(input: {
       runtime,
       resources,
     }),
-    agentToolRebindService: new AgentToolRebindService({
-      manager,
-      connections,
-      checks,
-    }),
+    agentToolRebindService: rebind,
+    agentToolUpdateJobs: new AgentToolUpdateJobs({ manager, rebind }),
   };
 }
 

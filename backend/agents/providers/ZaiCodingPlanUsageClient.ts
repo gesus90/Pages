@@ -48,69 +48,123 @@ const AUTH_ENVELOPE_CODES: ReadonlySet<number> = new Set([
  */
 const MIN_RESET_EPOCH_MS = 1_000_000_000_000;
 
+/** Numbers Z.AI may send as text, such as `"12.5"`. */
+const NUMERIC_TEXT = /^\d+(?:\.\d+)?$/u;
+
+/** An ISO time with a date and a clock time, such as `2026-11-24T16:00:00Z`. */
+const ISO_TIME_TEXT = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/u;
+
+/** A `type` Pages may name in its log; anything else reads as `other`. */
+const LOGGABLE_TYPE = /^[A-Z][A-Z0-9_]{0,39}$/u;
+
 /** What Z.AI reported for one Coding Plan key. */
 export interface ZaiCodingPlanUsage {
   /** The reported subscription level, such as `pro`; `null` when none was reported. */
   readonly plan: string | null;
   readonly windows: readonly ZaiCodingPlanQuotaWindow[];
+  /** The reported entries Pages could not read as a window. */
+  readonly unreadableCount: number;
 }
 
 /** A window before Pages gives it a key. */
 type ReportedWindow = Omit<ZaiCodingPlanQuotaWindow, "key">;
 
+/**
+ * Why an entry of the answer is no window of the card: not an object, an
+ * unknown type without a used share, or an MCP entry that names neither its
+ * own length nor its own reset and so proves no window of its own.
+ */
+type OmittedReason = "not_object" | "unknown_type" | "mcp_without_window";
+
+type EntryReading =
+  | { readonly kind: "window"; readonly window: ReportedWindow }
+  | { readonly kind: "omitted"; readonly reason: OmittedReason };
+
+/** A quota answer as Pages read it, with a summary of every entry for the log. */
+interface QuotaAnswerReading {
+  readonly usage: ZaiCodingPlanUsage;
+  readonly entries: readonly string[];
+}
+
+function readNumber(value: unknown): number | null {
+  if (typeof value === "number") return Number.isFinite(value) ? value : null;
+  if (typeof value !== "string") return null;
+  const text = value.trim();
+  return NUMERIC_TEXT.test(text) ? Number(text) : null;
+}
+
 function readCount(value: unknown): number | null {
-  return typeof value === "number" && Number.isFinite(value) && value >= 0
-    ? value
-    : null;
+  const count = readNumber(value);
+  return count !== null && count >= 0 ? count : null;
 }
 
 function clampPercent(value: number): number {
   return Math.min(100, Math.max(0, value));
 }
 
-/** The used share as reported, or from the reported used count and limit. */
+/**
+ * The used share as reported, or from the reported used or remaining count
+ * and the reported limit; `null` when the answer allows neither.
+ */
 function readUsedPercent(entry: Record<string, unknown>): number | null {
-  const percentage = entry.percentage;
-  if (typeof percentage === "number" && Number.isFinite(percentage))
-    return clampPercent(percentage);
-  const used = readCount(entry.currentValue);
+  const percentage = readNumber(entry.percentage);
+  if (percentage !== null) return clampPercent(percentage);
   const limit = readCount(entry.usage);
-  if (used === null || limit === null || limit === 0) return null;
-  return clampPercent((used / limit) * 100);
+  if (limit === null || limit === 0) return null;
+  const used = readCount(entry.currentValue);
+  if (used !== null) return clampPercent((used / limit) * 100);
+  const remaining = readCount(entry.remaining);
+  if (remaining === null) return null;
+  return clampPercent(((limit - remaining) / limit) * 100);
 }
 
 function readResetsAt(value: unknown): string | null {
-  if (typeof value !== "number" || !Number.isFinite(value)) return null;
-  if (value < MIN_RESET_EPOCH_MS) return null;
-  const reset = new Date(value);
+  const epoch =
+    typeof value === "string" && ISO_TIME_TEXT.test(value.trim())
+      ? Date.parse(value.trim())
+      : readNumber(value);
+  if (epoch === null || !Number.isFinite(epoch)) return null;
+  if (epoch < MIN_RESET_EPOCH_MS) return null;
+  const reset = new Date(epoch);
   return Number.isNaN(reset.getTime()) ? null : reset.toISOString();
 }
 
 function readLength(unit: unknown, count: unknown): ZaiWindowLength | null {
-  if (typeof unit !== "number" || typeof count !== "number") return null;
-  const known = UNIT_BY_CODE.get(unit);
-  if (!known || !Number.isInteger(count) || count <= 0) return null;
-  return { unit: known, count };
+  const unitCode = readNumber(unit);
+  const length = readNumber(count);
+  if (unitCode === null || length === null) return null;
+  const known = UNIT_BY_CODE.get(unitCode);
+  if (!known || !Number.isInteger(length) || length <= 0) return null;
+  return { unit: known, count: length };
+}
+
+function readMeasure(type: unknown): ZaiQuotaMeasure {
+  if (typeof type !== "string") return "quota";
+  return MEASURE_BY_TYPE.get(type) ?? "quota";
 }
 
 /**
- * One window of the answer, or `null` for an entry Pages cannot show.
+ * One entry of the answer as a window, or why it is none.
  * @remarks
- * An entry of an unknown type or without a used share is left out. The MCP
- * entry stands as a window of its own only when it names its own length or
- * reset; otherwise it proves no window apart from the token credits.
+ * An entry of a known type stays a window even without a used share, length
+ * or reset, which the card then shows as unknown. An entry of an unknown
+ * type is a window only with a used share. The MCP entry stands as a window
+ * of its own only when it names its own length or reset; otherwise it
+ * proves no window apart from the token credits.
  */
-function readWindow(entry: unknown): ReportedWindow | null {
+function readEntry(entry: unknown): EntryReading {
+  if (typeof entry !== "object" || entry === null || Array.isArray(entry))
+    return { kind: "omitted", reason: "not_object" };
   const fields = readAgentObject(entry);
-  const measure =
-    typeof fields.type === "string" ? MEASURE_BY_TYPE.get(fields.type) : null;
-  if (!measure) return null;
+  const measure = readMeasure(fields.type);
   const usedPercent = readUsedPercent(fields);
-  if (usedPercent === null) return null;
+  if (measure === "quota" && usedPercent === null)
+    return { kind: "omitted", reason: "unknown_type" };
   const length = readLength(fields.unit, fields.number);
   const resetsAt = readResetsAt(fields.nextResetTime);
-  if (measure === "mcp" && length === null && resetsAt === null) return null;
-  return {
+  if (measure === "mcp" && length === null && resetsAt === null)
+    return { kind: "omitted", reason: "mcp_without_window" };
+  const window: ReportedWindow = {
     measure,
     length,
     usedPercent,
@@ -119,6 +173,51 @@ function readWindow(entry: unknown): ReportedWindow | null {
     remaining: readCount(fields.remaining),
     resetsAt,
   };
+  return { kind: "window", window };
+}
+
+function loggableType(type: unknown): string {
+  if (typeof type !== "string") return "none";
+  return LOGGABLE_TYPE.test(type) ? type : "other";
+}
+
+/** Whether a readable reset lies ahead of the answer (`+`), behind it (`-`) or is unknown (`?`). */
+function resetState(value: unknown): string {
+  const reset = readResetsAt(value);
+  if (reset === null) return "reset?";
+  return Date.parse(reset) > Date.now() ? "reset+" : "reset-";
+}
+
+/**
+ * A line of the log about one entry, without any reported value.
+ * @remarks
+ * It names the type, how Pages read the entry, the raw unit and number
+ * codes, which figures were present and whether a readable reset lies ahead
+ * of or behind the answer, so a missing bar can be explained without the
+ * answer itself.
+ */
+function entrySummary(entry: unknown, reading: EntryReading): string {
+  const fields = readAgentObject(entry);
+  const outcome = reading.kind === "window" ? "window" : reading.reason;
+  const reported: readonly (readonly [string, unknown])[] = [
+    ["pct", fields.percentage],
+    ["cur", fields.currentValue],
+    ["lim", fields.usage],
+    ["rem", fields.remaining],
+  ];
+  const figures = reported
+    .filter(([, value]) => readNumber(value) !== null)
+    .map(([name]) => name)
+    .join(",");
+  const unit = readNumber(fields.unit) ?? "?";
+  const count = readNumber(fields.number) ?? "?";
+  return [
+    loggableType(fields.type),
+    outcome,
+    `u${unit}n${count}`,
+    figures || "nofigures",
+    resetState(fields.nextResetTime),
+  ].join("/");
 }
 
 function windowKey(window: ReportedWindow, taken: Set<string>): string {
@@ -149,31 +248,77 @@ function envelopeFailure(
   return null;
 }
 
-/**
- * Reads the windows and the plan of a quota answer.
- * @param payload - The parsed JSON body of the answer.
- * @returns The plan and the windows, token windows before the MCP window.
- * @throws {AgentError} `provider_auth_failed` for a rejected key,
- * `provider_bad_response` for an answer without a list of limits.
- */
-export function readZaiCodingPlanUsage(payload: unknown): ZaiCodingPlanUsage {
+function readQuotaAnswer(payload: unknown): QuotaAnswerReading {
   const envelope = readAgentObject(payload);
   const failure = envelopeFailure(envelope);
   if (failure) throw new AgentError(failure);
   const quota = readAgentObject(envelope.data);
   if (!Array.isArray(quota.limits))
     throw new AgentError("provider_bad_response");
+  const limits: readonly unknown[] = quota.limits;
+  const entries = limits.map((entry) => {
+    const reading = readEntry(entry);
+    return { reading, summary: entrySummary(entry, reading) };
+  });
+  const readings = entries.map((entry) => entry.reading);
   const taken = new Set<string>();
-  const windows = quota.limits
-    .map(readWindow)
-    .filter((window): window is ReportedWindow => window !== null)
+  const windows = readings
+    .flatMap((reading) => (reading.kind === "window" ? [reading.window] : []))
     .sort(
       (first, second) =>
         Number(first.measure === "mcp") - Number(second.measure === "mcp"),
     )
     .slice(0, MAX_ZAI_QUOTA_WINDOWS)
     .map((window) => ({ key: windowKey(window, taken), ...window }));
-  return { plan: readPlan(quota.level), windows };
+  const unreadableCount = readings.filter(
+    (reading) =>
+      reading.kind === "omitted" && reading.reason !== "mcp_without_window",
+  ).length;
+  return {
+    usage: { plan: readPlan(quota.level), windows, unreadableCount },
+    entries: entries.map((entry) => entry.summary),
+  };
+}
+
+/**
+ * Reads the windows and the plan of a quota answer.
+ * @param payload - The parsed JSON body of the answer.
+ * @returns The plan, the windows, token windows before the MCP window, and
+ * the number of entries Pages could not read.
+ * @throws {AgentError} `provider_auth_failed` for a rejected key,
+ * `provider_bad_response` for an answer without a list of limits.
+ */
+export function readZaiCodingPlanUsage(payload: unknown): ZaiCodingPlanUsage {
+  return readQuotaAnswer(payload).usage;
+}
+
+/**
+ * Logs how Pages read an answer, without the key or any reported value.
+ * @remarks
+ * An answer without a window or with an entry Pages cannot read is logged
+ * as information, so the reason for a card without bars stays traceable in
+ * the operations log; every other answer only at debug level.
+ */
+function logQuotaAnswer(reading: QuotaAnswerReading): void {
+  const { usage, entries } = reading;
+  const omitted = entries.length - usage.windows.length;
+  logEvent({
+    level:
+      usage.windows.length === 0 || usage.unreadableCount > 0
+        ? "info"
+        : "debug",
+    event: "integration.provider.quota_read",
+    component: "ZaiCodingPlanUsageClient",
+    message: "Z.AI quota answer read",
+    metadata: {
+      provider: "zai-coding-plan",
+      evaluatedEntries: entries.length,
+      deliveredEntries: usage.windows.length,
+      unsupportedEntries: usage.unreadableCount,
+      hiddenEntries: omitted - usage.unreadableCount,
+      diagnostic: entries.join(";"),
+    },
+  });
 }
 
 function statusFailure(status: number): AgentErrorCode | null {
@@ -223,7 +368,9 @@ export class ZaiCodingPlanUsageClient {
       );
     }
     if (signal.aborted) throw new AgentError("check_timeout");
-    return readZaiCodingPlanUsage(payload);
+    const reading = readQuotaAnswer(payload);
+    logQuotaAnswer(reading);
+    return reading.usage;
   }
 
   private async send(

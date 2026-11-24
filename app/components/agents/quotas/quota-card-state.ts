@@ -271,6 +271,14 @@ export function antigravityCardView(
   };
 }
 
+/**
+ * Why a Z.AI Coding Plan card that queried successfully shows no window:
+ * every reported window has passed its reset since the answer, or Z.AI
+ * reported entries Pages cannot read as a window. Without a reason the
+ * answer held no entry at all.
+ */
+export type ZaiNoticeReason = "expired" | "unsupported";
+
 /** What the window area of a Z.AI Coding Plan card holds. */
 export type ZaiCodingPlanCardBody =
   | {
@@ -278,7 +286,21 @@ export type ZaiCodingPlanCardBody =
       readonly windows: readonly ZaiCodingPlanQuotaWindow[];
       readonly isStale: boolean;
     }
-  | { readonly kind: "notice"; readonly notice: QuotaNoticeKind };
+  | {
+      readonly kind: "notice";
+      readonly notice: QuotaNoticeKind;
+      readonly reason: ZaiNoticeReason | null;
+    };
+
+/** Why a successful query left the card without a window, after its answer. */
+function zaiNoticeReason(
+  account: ZaiCodingPlanQuotaAccount,
+  notice: QuotaNoticeKind,
+): ZaiNoticeReason | null {
+  if (notice !== "noWindows") return null;
+  if (account.windows.length > 0) return "expired";
+  return account.unreadableCount > 0 ? "unsupported" : null;
+}
 
 /** What a Z.AI Coding Plan card shows at a moment. */
 export interface ZaiCodingPlanCardView {
@@ -294,11 +316,13 @@ export interface ZaiCodingPlanCardView {
  * @param now - The moment of display.
  * @returns The status line, the window area and the limit the status line names.
  * @remarks
- * It follows the Codex card: a window leaves once its reset passed, a
- * reported card without a window left reads "Keine Fenster gemeldet", and a
- * missed query keeps the windows of the last answer, marked with its time. A
- * used-up window adds "Limit erreicht" to the line of a current answer, with
- * the reset of that window when exactly one is used up.
+ * It follows the Codex card: a window leaves once its reset passed after the
+ * answer, a reported card without a window left reads "Keine Fenster
+ * gemeldet", and a missed query keeps the windows of the last answer, marked
+ * with its time. The notice of a successful query tells an empty answer,
+ * windows that have expired and entries Pages cannot read apart. A used-up
+ * window adds "Limit erreicht" to the line of a current answer, with the
+ * reset of that window when exactly one is used up.
  */
 export function zaiCodingPlanCardView(
   account: ZaiCodingPlanQuotaAccount,
@@ -307,17 +331,26 @@ export function zaiCodingPlanCardView(
   const isStale = isStaleReading(account.status);
   const windows = isStale
     ? account.windows
-    : visibleZaiQuotaWindows(account.windows, now);
+    : visibleZaiQuotaWindows(account.windows, {
+        now,
+        answeredAt: lastQuotaAnswerAt(account.status),
+      });
   const status: ClaudeQuotaStatus =
     account.status.kind === "reported" && windows.length === 0
       ? { kind: "no_windows", at: account.status.at }
       : account.status;
-  if (status.kind === "signed_out" || windows.length === 0)
+  if (status.kind === "signed_out" || windows.length === 0) {
+    const notice = NOTICE_BY_STATUS[status.kind];
     return {
       status,
-      body: { kind: "notice", notice: NOTICE_BY_STATUS[status.kind] },
+      body: {
+        kind: "notice",
+        notice,
+        reason: zaiNoticeReason(account, notice),
+      },
       limit: null,
     };
+  }
   return {
     status,
     body: { kind: "windows", windows, isStale },

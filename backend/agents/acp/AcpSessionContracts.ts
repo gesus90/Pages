@@ -92,6 +92,8 @@ export interface AcpSessionContext {
   readonly openRouterModelIds?: Readonly<Record<string, string>>;
   /** OpenCode's connection-scoped XDG data directory, for its own message archive. */
   readonly openCodeDataHome?: string;
+  /** The Gemini folder of an Antigravity plan session, whose conversation store holds the counts of each model call. */
+  readonly antigravityDataHome?: string;
   /** Releases the process read only after a native notification and its journal writes were handled. */
   readonly notificationHandled?: () => void;
   /** A person may type into and interrupt the running turn of this plan node. */

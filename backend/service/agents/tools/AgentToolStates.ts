@@ -21,10 +21,21 @@ export const UNCHECKED_TOOL_STATE: AgentToolState = {
   checkedAt: null,
 };
 
+/** Learns every changed state, such as the runtime binding of new starts. */
+export type AgentToolStateListener = (
+  id: AgentToolId,
+  state: AgentToolState,
+) => void;
+
 /** Cached tool states, together with the time each tool was last found ready. */
 export class AgentToolStates {
   private readonly states = new Map<AgentToolId, AgentToolState>();
   private readonly lastSuccess = new Map<AgentToolId, string>();
+  private readonly listener: AgentToolStateListener | null;
+
+  public constructor(listener: AgentToolStateListener | null = null) {
+    this.listener = listener;
+  }
 
   /** The cached state, or `undefined` before the first check. */
   public get(id: AgentToolId): AgentToolState | undefined {
@@ -36,6 +47,7 @@ export class AgentToolStates {
     this.states.set(id, state);
     if (state.health.status === "ready" && state.checkedAt !== null)
       this.lastSuccess.set(id, state.checkedAt);
+    this.listener?.(id, state);
   }
 
   /** When the tool was last found ready, or `null` when it never was. */

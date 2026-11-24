@@ -43,10 +43,18 @@ const FAILURE_STATES: Readonly<
 };
 
 function sourceLabel(tool: AgentToolDefinition): string | null {
-  if (!tool.release) return null;
-  return tool.release.kind === "npm"
-    ? `registry.npmjs.org/${tool.release.packageName}`
-    : `github.com/${tool.release.repository}/releases`;
+  const source = tool.release;
+  if (!source) return null;
+  switch (source.kind) {
+    case "npm":
+      return `registry.npmjs.org/${source.packageName}`;
+    case "node":
+      return `nodejs.org/dist (v${source.major}.x)`;
+    case "python":
+      return `github.com/${source.repository}/releases (${source.line}.x)`;
+    case "github":
+      return `github.com/${source.repository}/releases`;
+  }
 }
 
 function outcomeRecord(

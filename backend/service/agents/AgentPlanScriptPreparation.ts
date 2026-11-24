@@ -29,7 +29,8 @@ export interface AgentPlanScriptSnapshot {
 }
 
 interface ScriptPreparationDependencies {
-  readonly scripts: Pick<AgentPlanScripts, "executable">;
+  readonly scripts: Pick<AgentPlanScripts, "executable"> &
+    Partial<Pick<AgentPlanScripts, "isStartable">>;
   readonly workspaces: Pick<AgentWorkspaceService, "resolve">;
   readonly access: Pick<AgentPlanAccess, "require">;
   readonly authorization: Pick<AuthorizationRepository, "snapshot">;
@@ -118,14 +119,17 @@ export class AgentPlanScriptPreparation {
     if (script.step.executionTarget?.kind === "remote")
       throw new AgentError("plan_remote_unavailable");
     const workspace = await this.authorize(userId, plan);
-    const interpreter = await this.dependencies.scripts.executable(
-      script.interpreter.id,
-    );
+    const { scripts } = this.dependencies;
+    const interpreter = await scripts.executable(script.interpreter.id);
+    // A managed runtime switched since the run was prepared keeps the run on its generation.
+    const isSameInterpreter =
+      interpreter.path === script.interpreter.path ||
+      ((await scripts.isStartable?.(script.interpreter)) ?? false);
     if (
       workspace.path !== script.workspace.path ||
       workspace.directoryIdentity !== script.workspace.directoryIdentity ||
       workspace.revision !== script.workspace.revision ||
-      interpreter.path !== script.interpreter.path
+      !isSameInterpreter
     )
       throw new AgentError("plan_context_changed");
     for (const taskId of script.taskIds)

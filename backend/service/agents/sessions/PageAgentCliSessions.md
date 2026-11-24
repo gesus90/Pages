@@ -257,15 +257,50 @@ added to the input or the total.
 which replaces the previous reading and is never summed. It names no `cost`.
 Antigravity therefore delivers no charged amount and no billing status; a
 connection signs in with a Google account and its usage counts against that
-account's quota. The terminal sidebar shows the attempt's summed counts in the
-block "Sitzungsverbrauch" below "Kontext", "Berechnet" as not available and,
-apart from it, an estimated equivalent from the daily OpenRouter catalogue
-with the priced catalogue entry and its date. The estimate exists only when
-every turn of the attempt reported all four counts and the catalogue prices
-the model, including its cache reads and writes; otherwise the block names
-the reason. `thoughtTokens` is reported but not stored, because whether the
-output count already contains it is not verified. Delegated work of a YOLO
+account's quota. `thoughtTokens` is reported but not stored, because whether
+the output count already contains it is not verified. Delegated work of a YOLO
 session in another native conversation has not been measured.
+
+#### Counts while a prompt runs
+
+The CLI keeps each ACP session as its own conversation store,
+`<Gemini folder>/antigravity-acp/conversations/<session id>.db`, a SQLite file
+that the ACP server log names with `Created conversation <session id>`. Its
+table `gen_metadata` holds one protobuf row per finished model call. In the
+row's message 1, message 4 carries the counts: field 2 input without cache
+reads, field 3 output and field 5 cache reads; an absent field is the protobuf
+default 0. Message 1 also lists the key `request_id`, which stays the same when
+a call is read again. The two calls of the measurement above sum to exactly
+the prompt response (28,682 + 2,410 input, 0 + 26,633 cache read, 181 + 15
+output). A Gemini 4 Neon conversation of 24.11.2026 has the same layout:
+31 calls of one prompt, each with a few thousand input tokens beside more than
+100,000 cache reads, so the Neon input also leaves out the cache reads. The
+store names no verified cache write count.
+
+A local plan session notes the last row before it sends each prompt. While the
+prompt runs, every `usage_update` makes Pages read the rows after that one,
+read-only and only numbers, sum each call once by its `request_id` and store
+the sum under the same attempt and turn as the prompt's answer later. The
+cache write and the total stay missing there and the turn counts as partial,
+so no estimate is formed from it. When the prompt answers with `usage`, that
+sum replaces the live count, because both are stored under the same attempt
+and turn; a history entry says whether the answer matches the sum of the
+calls. Without `usage` in the answer the calls stand as the turn's count.
+Between prompts nothing is read, and the rows of earlier prompts, attempts and
+reconnections never count again. A runner job reports the counts only with
+the prompt's answer.
+
+#### Terminal sidebar
+
+The block "Verbrauch" stands below "Kontext" with four fixed rows: Eingabe,
+Ausgabe, Cache gelesen and Cache geschrieben, each the attempt's sum over its
+turns. A count not reported yet reads "–", a reported 0 reads "0"; the rows
+stand from the start, so the block "Session" does not move when counts arrive.
+For a runner job the title reads "nach dem Zug" while the turn runs. A cost row
+"Kosten · Schätzung" appears only with an estimate from the daily OpenRouter
+catalogue, which exists only when every turn of the attempt reported all four
+counts and the catalogue prices the model, including its cache reads and
+writes. The reported total stays stored for technical checks and is not shown.
 
 ### Measured source of the context of a Claude Code CLI job
 

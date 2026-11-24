@@ -1,6 +1,7 @@
 /** Fixed identifiers accepted by the instance tool manager. */
 export const AGENT_TOOL_IDS = [
   "node",
+  "python",
   "bubblewrap",
   "codex",
   "claude",
@@ -49,7 +50,11 @@ export type AgentToolDiagnostic =
   | "update_not_checked"
   | "release_incompatible"
   | "release_unavailable"
-  | "adapter_incompatible";
+  | "adapter_incompatible"
+  | "target_changed"
+  | "update_running"
+  | "update_interrupted"
+  | "integrity_failed";
 export type AgentToolAction =
   | "install"
   | "update"
@@ -62,6 +67,9 @@ export type AgentToolAction =
 
 /** The page-wide action that reads release metadata of every fixed source. */
 export const AGENT_TOOL_CHECK_UPDATES = "check_updates";
+
+/** The form field that binds an update click to the target the page showed. */
+export const AGENT_TOOL_UPDATE_TARGET_FIELD = "target";
 
 /**
  * What "Updates suchen" found for one tool.
@@ -95,6 +103,8 @@ export type AgentToolPhase =
   | "resolving"
   | "installing_cli"
   | "verifying_cli"
+  | "installing_runtime"
+  | "verifying_runtime"
   | "installing_adapter"
   | "verifying_adapter"
   | "activating"
@@ -131,6 +141,33 @@ export interface AgentToolConnectionView {
   readonly missingReasoningEffort: string | null;
 }
 
+/** One release an update installs, per tool of the changed combination. */
+export interface AgentToolUpdateTargetVersion {
+  readonly id: AgentToolId;
+  /** `null` keeps the installed generation of this tool and checks it with its partner again. */
+  readonly version: string | null;
+}
+
+/**
+ * Whether and to which checked release "Aktualisieren" moves a tool.
+ * @remarks
+ * `target` is sent back with the click; the server starts the update only
+ * while it still names the same checked releases of the whole combination.
+ */
+export interface AgentToolUpdateView {
+  /** Pages can install its own generation of this tool from a fixed source. */
+  readonly isSupported: boolean;
+  /** New sessions use an installation outside Pages; an update installs a Pages generation next to it. */
+  readonly isExternal: boolean;
+  /** The checked combination target a click installs, or `null` when no update can start. */
+  readonly target: string | null;
+  /** The tool's own target is newer than the version new sessions use, also next to an external installation. */
+  readonly isNewer: boolean;
+  readonly targetVersions: readonly AgentToolUpdateTargetVersion[];
+  /** Why no update can start now; `null` when one can or the tool is current. */
+  readonly blocker: AgentToolDiagnostic | null;
+}
+
 /** Secret-free native activity, separate from installation and health. */
 export interface AgentToolActivity {
   readonly instanceId: string;
@@ -159,6 +196,7 @@ export interface AgentToolView {
   readonly supportedVersions: readonly string[];
   readonly approvedVersion: string | null;
   readonly updateAvailable: boolean;
+  readonly update: AgentToolUpdateView;
   readonly release: AgentToolReleaseView;
   /** The adapter of a CLI, or the CLI of an adapter; never the same version. */
   readonly pairedTool: AgentToolId | null;

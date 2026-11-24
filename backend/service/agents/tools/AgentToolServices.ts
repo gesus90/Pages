@@ -12,6 +12,7 @@ import { AgentToolInstaller } from "./AgentToolInstaller";
 import { AgentToolManagerService } from "./AgentToolManagerService";
 import { agentToolDefinition } from "./AgentToolRegistry";
 import { AgentToolReleaseCheck } from "./AgentToolReleaseCheck";
+import { registerManagedRuntimes } from "./AgentToolRuntimePaths";
 import { AgentToolUpdateSearch } from "./AgentToolUpdateSearch";
 
 import type { CliLocator } from "@/backend/agents/cli/CliLocator";
@@ -26,6 +27,7 @@ export function createAgentToolManager(input: {
   readonly runner: CliProcessRunner;
 }): AgentToolManagerService {
   const files = new AgentToolFiles(path.join(input.instanceDirectory, "tools"));
+  registerManagedRuntimes(files);
   const system = async (
     tool: AgentToolDefinition,
   ): Promise<AgentToolLocation | null> => {

@@ -1,15 +1,11 @@
-import { createHash } from "node:crypto";
-import { createWriteStream } from "node:fs";
 import { chmod, lstat, rename, rm } from "node:fs/promises";
 import path from "node:path";
-import { Readable, Transform } from "node:stream";
-import { pipeline } from "node:stream/promises";
+
+import { downloadOfficialArchive } from "./AgentToolArchive";
 
 import type { CliProcessRunner } from "@/backend/agents/cli/CliProcessRunner";
 import type { CliLocator } from "@/backend/agents/cli/CliLocator";
 import type { AgentToolLocation, AgentToolStorage } from "./AgentToolContracts";
-
-const ARCHIVE_LIMIT = 500 * 1024 * 1024;
 
 /** The official archive and the program it carries, both fixed by the registry. */
 interface OfficialArchive {
@@ -23,41 +19,6 @@ interface OfficialArchive {
   readonly locator: Pick<CliLocator, "locate">;
   readonly runner: Pick<CliProcessRunner, "run">;
   readonly temporaryDirectory: string;
-}
-
-async function download(
-  input: OfficialArchive,
-  file: string,
-  signal: AbortSignal,
-): Promise<void> {
-  // The release asset redirects to GitHub's download host; the digest proves the content.
-  const response = await fetch(input.archiveUrl, {
-    signal,
-    redirect: "follow",
-  });
-  if (!response.ok || !response.body)
-    throw new Error("Antigravity archive unavailable");
-  const hash = createHash("sha256");
-  let bytes = 0;
-  const verify = new Transform({
-    transform(chunk: Buffer, encoding, callback) {
-      bytes += chunk.length;
-      if (bytes > ARCHIVE_LIMIT) {
-        callback(new Error("Antigravity archive exceeds limit"));
-        return;
-      }
-      hash.update(chunk);
-      callback(null, chunk);
-    },
-  });
-  await pipeline(
-    Readable.from(response.body),
-    verify,
-    createWriteStream(file, { mode: 0o600, flags: "wx" }),
-    { signal },
-  );
-  if (`sha256:${hash.digest("hex")}` !== input.digest)
-    throw new Error("Antigravity archive integrity mismatch");
 }
 
 /**
@@ -76,7 +37,15 @@ export async function installAntigravityRelease(
   if (!tar.path) throw new Error("Antigravity installation requires tar");
   const archive = path.join(release, "release.tar.gz");
   try {
-    await download(input, archive, signal);
+    await downloadOfficialArchive(
+      {
+        tool: "antigravity_acp",
+        url: input.archiveUrl,
+        digest: input.digest,
+        file: archive,
+      },
+      signal,
+    );
     const result = await input.runner.run({
       file: tar.path,
       arguments: [

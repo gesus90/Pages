@@ -7,6 +7,7 @@ import { requireAgentAdministrator } from "@/backend/service/agents/AgentService
 import {
   AgentToolCombinations,
   agentToolCombination,
+  resolvePublishedCombination,
 } from "./AgentToolCombinations";
 import { AgentToolOperationLog } from "./AgentToolOperationLog";
 import {
@@ -18,7 +19,12 @@ import {
 } from "./AgentToolRegistry";
 import { AgentToolReadinessError } from "./AgentToolReadinessError";
 import { AgentRuntimeSupervisor } from "./AgentRuntimeSupervisor";
+import { bindManagedNode } from "./AgentToolRuntimePaths";
 import { AgentToolStates, UNCHECKED_TOOL_STATE } from "./AgentToolStates";
+import {
+  agentToolUpdateView,
+  requireUpdateTarget,
+} from "./AgentToolUpdateJobs";
 import { agentToolView } from "./AgentToolViews";
 
 import type {
@@ -62,8 +68,10 @@ export class AgentToolManagerService {
     string,
     { readonly tool: AgentToolId; readonly isReady: boolean }
   >();
-  private readonly states = new AgentToolStates();
-  private readonly operations = new AgentToolOperationLog();
+  private readonly states = new AgentToolStates((id, state) => {
+    if (id === "node") bindManagedNode(state);
+  });
+  private readonly operations: AgentToolOperationLog;
   private readonly combinations: AgentToolCombinations;
   private readonly connections = new Map<
     AgentToolId,
@@ -79,6 +87,10 @@ export class AgentToolManagerService {
 
   public constructor(dependencies: ManagerDependencies) {
     this.dependencies = dependencies;
+    const { files } = dependencies;
+    this.operations = new AgentToolOperationLog(
+      files.saveOperation?.bind(files) ?? null,
+    );
     this.combinations = new AgentToolCombinations({
       files: dependencies.files,
       installer: dependencies.installer,
@@ -220,6 +232,15 @@ export class AgentToolManagerService {
     await this.dependencies.updates.search(this.shutdownController.signal);
   }
 
+  /**
+   * Accepts an update only for the target its page showed and shows it as running at once.
+   * @throws {AgentToolReadinessError} `target_changed` or the reason no update can start.
+   */
+  public acceptUpdate(id: AgentToolId, expected: string | null): void {
+    requireUpdateTarget(this.view(agentToolDefinition(id), false), expected);
+    this.operations.start(agentToolCombination(id).ids, "update", "resolving");
+  }
+
   /** Keeps the secret-free result of re-binding the connections that use a tool. */
   public recordConnections(
     id: AgentToolId,
@@ -324,9 +345,11 @@ export class AgentToolManagerService {
     const required = this.closure(ids);
     this.supervisor.reserve(input.instanceId, [...required]);
     try {
-      const locations = new Map<AgentToolId, AgentToolLocation>();
-      for (const id of required) locations.set(id, await this.ensureTool(id));
-      return locations;
+      return await resolvePublishedCombination(
+        this.dependencies.files,
+        required,
+        (id) => this.ensureTool(id),
+      );
     } catch (error: unknown) {
       this.supervisor.release(input.instanceId);
       throw error;
@@ -341,10 +364,11 @@ export class AgentToolManagerService {
   }
 
   private async restore(): Promise<void> {
+    const { files } = this.dependencies;
     try {
-      await this.dependencies.files.initialize?.();
-      for (const id of await this.dependencies.files.readEnabled())
-        this.requested.add(id);
+      await files.initialize?.();
+      for (const id of await files.readEnabled()) this.requested.add(id);
+      await this.operations.restore(files);
     } catch {
       this.settingsFailure = true;
       for (const tool of AGENT_TOOL_REGISTRY)
@@ -622,6 +646,12 @@ export class AgentToolManagerService {
       tool,
       enabled,
       ...state,
+      update: agentToolUpdateView(
+        tool,
+        state,
+        this.dependencies.updates,
+        this.operations,
+      ),
       lastSuccessfulCheck: this.states.lastSuccessfulCheck(tool.id),
       release: this.dependencies.updates.view(tool, {
         version: state.location?.version ?? state.health.version,

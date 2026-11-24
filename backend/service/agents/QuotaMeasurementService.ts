@@ -76,13 +76,23 @@ function antigravityReading(
   };
 }
 
-function zaiReading(window: ZaiCodingPlanQuotaWindow): WindowReading {
+/** The reading of a window, `null` when Z.AI reported no usage to measure. */
+function zaiReading(window: ZaiCodingPlanQuotaWindow): WindowReading | null {
+  if (window.usedPercent === null) return null;
   return {
     key: window.key,
     used: window.usedPercent,
     resetsAt: window.resetsAt,
     durationMinutes: zaiWindowMinutes(window.length),
   };
+}
+
+function zaiWindowWithPace(
+  window: ZaiCodingPlanQuotaWindow,
+  measured: MeasuredQuotaWindows,
+): ZaiCodingPlanQuotaWindow {
+  const reading = zaiReading(window);
+  return reading === null ? window : withPace(window, reading, measured);
 }
 
 function windowReadings(reading: ProviderReading): WindowReading[] {
@@ -96,7 +106,7 @@ function windowReadings(reading: ProviderReading): WindowReading[] {
         group.windows.map((window) => antigravityReading(window, group.name)),
       );
     case "zai_coding_plan":
-      return reading.windows.map(zaiReading);
+      return reading.windows.flatMap((window) => zaiReading(window) ?? []);
   }
 }
 
@@ -267,7 +277,7 @@ function cardWithPace(
       return {
         ...card,
         windows: card.windows.map((window) =>
-          withPace(window, zaiReading(window), measured),
+          zaiWindowWithPace(window, measured),
         ),
       };
     case "openrouter":

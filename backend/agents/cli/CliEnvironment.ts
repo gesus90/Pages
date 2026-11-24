@@ -1,6 +1,7 @@
 import path from "node:path";
 
 import { correlationEnvironment } from "@/backend/logging/LogCorrelation";
+import { agentNodeDirectory } from "@/backend/service/agents/tools/AgentToolRuntimePaths";
 
 import {
   sharedAgentEnvironment,
@@ -112,7 +113,7 @@ export function createCliEnvironment(
               path.join(home.sharedEnvironment, "pnpm"),
             ]
           : []),
-        path.dirname(process.execPath),
+        agentNodeDirectory(),
         path.dirname(file),
         "/usr/local/bin",
         "/usr/bin",

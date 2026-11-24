@@ -68,9 +68,23 @@ export interface InterpreterCheck {
   readonly diagnostic?: string;
 }
 
+/**
+ * A profile Pages manages itself: it starts the active managed runtime generation.
+ * @remarks
+ * `path` is the concrete program of the generation new starts use;
+ * `retainedPaths` also names the previous generation, which a run prepared
+ * before a switch may still start.
+ */
+export interface ManagedInterpreterProfile extends InterpreterProfile {
+  readonly version: string | null;
+  readonly retainedPaths: readonly string[];
+}
+
 /** Snapshot used for optimistic concurrency; checks are never persisted. */
 export interface InterpreterSnapshot {
   readonly profiles: readonly InterpreterProfile[];
   readonly checks: Readonly<Record<string, InterpreterCheck>>;
   readonly revision: string;
+  /** Pages-managed profiles; present only where scripts are started, never in the editable settings. */
+  readonly managed?: readonly ManagedInterpreterProfile[];
 }

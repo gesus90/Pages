@@ -4,7 +4,9 @@ import path from "node:path";
 
 import { containsWorkspacePath } from "@/backend/service/agents/AgentWorkspacePath";
 
+import { installRuntimeArchive } from "./AgentToolArchive";
 import { AgentToolReadinessError } from "./AgentToolReadinessError";
+import { isArchiveRelease } from "./AgentToolRegistry";
 import { AgentToolRunFiles } from "./AgentToolRunFiles";
 import { installAntigravityRelease } from "./AntigravityRelease";
 
@@ -97,28 +99,12 @@ export class AgentToolInstaller implements AgentToolInstallation {
     candidate: AgentToolLocation,
     control: InstallContext,
   ): Promise<void> {
-    const { signal, temporaryDirectory, target } = control;
-    signal.throwIfAborted();
+    control.signal.throwIfAborted();
     if (!candidate.release) throw new Error("Missing managed release");
     if (process.getuid?.() === 0)
       throw new AgentToolReadinessError(tool.id, "failed", "root_not_allowed");
-    if (tool.release?.kind === "github") {
-      if (!target?.archiveUrl || !target.integrity)
-        throw new Error("Unresolved official archive");
-      await installAntigravityRelease(
-        {
-          candidate,
-          binary: tool.binary,
-          member: tool.release.member,
-          archiveUrl: target.archiveUrl,
-          digest: target.integrity,
-          files: this.files,
-          locator: this.locator,
-          runner: this.runner,
-          temporaryDirectory,
-        },
-        signal,
-      );
+    if (isArchiveRelease(tool)) {
+      await this.officialArchive(tool, candidate, control);
       return;
     }
     if (tool.kind === "browser") {
@@ -126,6 +112,34 @@ export class AgentToolInstaller implements AgentToolInstallation {
       return;
     }
     await this.npmPackage(tool, candidate.release, control);
+  }
+
+  // The archive of a binary distribution is never installed without the source's digest.
+  private async officialArchive(
+    tool: AgentToolDefinition,
+    candidate: AgentToolLocation,
+    control: InstallContext,
+  ): Promise<void> {
+    const { signal, temporaryDirectory, target } = control;
+    if (!target?.archiveUrl || !target.integrity)
+      throw new Error("Unresolved official archive");
+    const archive = {
+      candidate,
+      archiveUrl: target.archiveUrl,
+      digest: target.integrity,
+      files: this.files,
+      locator: this.locator,
+      runner: this.runner,
+      temporaryDirectory,
+    };
+    if (tool.release?.kind === "github") {
+      await installAntigravityRelease(
+        { ...archive, binary: tool.binary, member: tool.release.member },
+        signal,
+      );
+      return;
+    }
+    await installRuntimeArchive({ ...archive, tool: tool.id }, signal);
   }
 
   private async npmPackage(
@@ -203,7 +217,7 @@ export class AgentToolInstaller implements AgentToolInstallation {
       entry?.version !== target.version ||
       entry.integrity !== target.integrity
     )
-      throw new Error("Package integrity mismatch");
+      throw new AgentToolReadinessError(tool.id, "failed", "integrity_failed");
   }
 
   private environment(

@@ -8,6 +8,7 @@ import type {
 } from "@agentclientprotocol/sdk";
 import type { AcpSessionListener } from "@/backend/agents/acp/AcpChat";
 import type { OpenCodeMessageUsage } from "@/backend/agents/cli/OpenCodeSessionUsage";
+import type { AntigravityPromptCalls } from "@/backend/agents/acp/AntigravityNativeUsage";
 import type { AgentSessionRecorder } from "@/backend/service/agents/sessions/AgentSessionRecorder";
 import type { LocalSessionJournal } from "./LocalSessionJournal";
 
@@ -55,6 +56,17 @@ export class LocalAcpJournalListener implements AcpSessionListener {
         freeModelId,
         mapping,
       );
+      await this.recorder.drained();
+    });
+    void this.pending.catch((error: unknown) => {
+      this.failure ??= error;
+    });
+  };
+
+  /** Stores the live count of the running Antigravity prompt in order with its other updates. */
+  public readonly antigravityCalls = (calls: AntigravityPromptCalls): void => {
+    this.pending = this.writes.run(async () => {
+      this.recorder.antigravityCalls(calls);
       await this.recorder.drained();
     });
     void this.pending.catch((error: unknown) => {

@@ -36,11 +36,24 @@ interface ActivationDependencies {
   ) => Promise<AgentToolLocation | null>;
 }
 
+interface StepPhases {
+  readonly installing: AgentToolPhase;
+  readonly verifying: AgentToolPhase;
+}
+
 interface Prepared {
   readonly tool: AgentToolDefinition;
   readonly location: AgentToolLocation;
   readonly health: AgentToolHealth;
   readonly isCandidate: boolean;
+}
+
+function stepPhases(tool: AgentToolDefinition, isAdapter: boolean): StepPhases {
+  if (isAdapter)
+    return { installing: "installing_adapter", verifying: "verifying_adapter" };
+  return tool.kind === "runtime"
+    ? { installing: "installing_runtime", verifying: "verifying_runtime" }
+    : { installing: "installing_cli", verifying: "verifying_cli" };
 }
 
 /**
@@ -49,8 +62,9 @@ interface Prepared {
  * Every changed tool gets its own unpublished candidate generation. The
  * adapter is checked with the CLI generation it will run with, the candidate
  * as well as a kept CLI. Only when every check passed are the generations
- * published, CLI first; a failure discards the candidates and leaves the
- * previous generations active. Running sessions keep the files they pinned.
+ * published, together in one step where the storage offers it; a failure
+ * discards the candidates and leaves the previous generations active.
+ * Running sessions keep the files they pinned.
  */
 export class AgentToolActivation {
   private readonly dependencies: ActivationDependencies;
@@ -140,6 +154,7 @@ export class AgentToolActivation {
   ): Promise<Prepared> {
     const { files, installer, signal, progress } = this.dependencies;
     const isAdapter = cli !== null;
+    const phases = stepPhases(step.tool, isAdapter);
     if (!step.target) {
       // A kept adapter has to work with the new CLI before that CLI is published.
       const current = await this.dependencies.locate(step.tool);
@@ -149,7 +164,7 @@ export class AgentToolActivation {
           "failed",
           "not_installed",
         );
-      progress(isAdapter ? "verifying_adapter" : "verifying_cli");
+      progress(phases.verifying);
       const health = await this.verify(
         step.tool,
         current,
@@ -158,7 +173,7 @@ export class AgentToolActivation {
       );
       return { tool: step.tool, location: current, health, isCandidate: false };
     }
-    progress(isAdapter ? "installing_adapter" : "installing_cli");
+    progress(phases.installing);
     const candidate = await files.candidate(step.tool, step.target.version);
     try {
       await installer.install(step.tool, candidate, step.target, signal);
@@ -166,7 +181,7 @@ export class AgentToolActivation {
       await files.discard(candidate);
       throw error;
     }
-    progress(isAdapter ? "verifying_adapter" : "verifying_cli");
+    progress(phases.verifying);
     try {
       const health = await this.verify(
         step.tool,
@@ -212,12 +227,22 @@ export class AgentToolActivation {
     );
   }
 
-  // Publishes CLI before adapter; a failed later step restores what was active before.
+  // Publishes a combination in one step where the storage offers it, otherwise
+  // CLI before adapter; a failed later step restores what was active before.
   private async publish(
     entries: readonly Prepared[],
   ): Promise<readonly AgentToolActivated[]> {
     const { files, progress } = this.dependencies;
     progress("activating");
+    const result = entries.map(({ tool, location, health }) => ({
+      tool,
+      location,
+      health,
+    }));
+    if (files.activateCombination && entries.length > 0) {
+      await files.activateCombination(result);
+      return result;
+    }
     const restorable = new Map<AgentToolId, AgentToolLocation | null>();
     for (const entry of entries)
       restorable.set(entry.tool.id, await files.current(entry.tool));
@@ -234,10 +259,6 @@ export class AgentToolActivation {
       }
       throw error;
     }
-    return entries.map(({ tool, location, health }) => ({
-      tool,
-      location,
-      health,
-    }));
+    return result;
   }
 }

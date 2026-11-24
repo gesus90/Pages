@@ -16,20 +16,34 @@ import path from "node:path";
 
 import { isAgentToolId } from "@/definition/AgentTools";
 
+import { agentToolPair } from "./AgentToolRegistry";
 import { AgentToolRunFiles } from "./AgentToolRunFiles";
+import { AgentToolUpdateLock } from "./AgentToolUpdateLock";
 
 import type { CliHome } from "@/backend/agents/cli/CliContracts";
 import type {
   AgentToolId,
+  AgentToolOperationView,
   AgentToolTerminalEntry,
 } from "@/definition/AgentTools";
-import type { AgentToolLocation, AgentToolStorage } from "./AgentToolContracts";
+import type {
+  AgentToolActivationEntry,
+  AgentToolLocation,
+  AgentToolPairLocations,
+  AgentToolStorage,
+} from "./AgentToolContracts";
 import type { AgentToolDefinition } from "./AgentToolRegistry";
 
 interface ReleasePointer {
   readonly current: string;
   readonly previous: string | null;
   readonly approvedTarget?: string | null;
+}
+
+/** One pointer change; `null` removes the tool's pointer. */
+interface PointerChange {
+  readonly tool: AgentToolDefinition;
+  readonly pointer: ReleasePointer | null;
 }
 
 function missing(error: unknown): boolean {
@@ -43,12 +57,21 @@ function releaseVersion(name: string): string {
   );
 }
 
-/** Owns only the instance's tools directory; no credential path is accepted. */
+/**
+ * Owns only the instance's tools directory; no credential path is accepted.
+ * @remarks
+ * A CLI and its adapter share one pointer file, `pairs/<cli>.json`, which
+ * names both generations. Publishing a combination replaces that file in
+ * one rename, so a reader, a crash or an error between two steps sees the
+ * old or the new checked combination, never one tool of each.
+ */
 export class AgentToolFiles implements AgentToolStorage {
   public readonly root: string;
+  private readonly updateLock: AgentToolUpdateLock;
 
   public constructor(root: string) {
     this.root = path.resolve(root);
+    this.updateLock = new AgentToolUpdateLock(this.root);
   }
 
   /** Clears leftovers before startup probes, preserving persistent probe directories. */
@@ -103,24 +126,88 @@ export class AgentToolFiles implements AgentToolStorage {
     tool: AgentToolDefinition,
     location: AgentToolLocation,
   ): Promise<void> {
-    if (
-      !location.release ||
-      path.dirname(location.release) !==
-        path.join(this.root, tool.id, "releases")
-    )
-      throw new Error("Invalid managed release");
-    const previous = await this.pointer(tool);
-    const current = path.basename(location.release);
-    const isSameVersion = previous
-      ? releaseVersion(previous.current) === releaseVersion(current)
-      : false;
-    await this.writeJson(path.join(this.root, tool.id, "active.json"), {
-      current,
-      previous:
-        (isSameVersion ? previous?.previous : previous?.current) ?? null,
-      approvedTarget: location.version ?? releaseVersion(current),
-    });
-    if (tool.hasTerminalEntry) await this.publishTerminalEntry(tool, location);
+    await this.activateCombination([{ tool, location }]);
+  }
+
+  /** Publishes the generations of a CLI and its adapter together, in one rename of their pointer file. */
+  public async activateCombination(
+    entries: readonly AgentToolActivationEntry[],
+  ): Promise<void> {
+    const changes: PointerChange[] = [];
+    for (const { tool, location } of entries) {
+      if (
+        !location.release ||
+        path.dirname(location.release) !==
+          path.join(this.root, tool.id, "releases")
+      )
+        throw new Error("Invalid managed release");
+      const previous = await this.pointer(tool);
+      const current = path.basename(location.release);
+      const isSameVersion = previous
+        ? releaseVersion(previous.current) === releaseVersion(current)
+        : false;
+      changes.push({
+        tool,
+        pointer: {
+          current,
+          previous:
+            (isSameVersion ? previous?.previous : previous?.current) ?? null,
+          approvedTarget: location.version ?? releaseVersion(current),
+        },
+      });
+    }
+    await this.writePointers(changes);
+    for (const { tool, location } of entries)
+      if (tool.hasTerminalEntry)
+        await this.publishTerminalEntry(tool, location);
+  }
+
+  /** Reads both generations of a combination from one pointer read. */
+  public async currentPair(
+    cli: AgentToolDefinition,
+  ): Promise<AgentToolPairLocations | null> {
+    const pair = agentToolPair(cli);
+    if (!pair) return null;
+    const members = await this.readPair(pair.cli);
+    const pointer = (
+      tool: AgentToolDefinition,
+    ): Promise<ReleasePointer | null> =>
+      members
+        ? Promise.resolve(members.get(tool.id) ?? null)
+        : this.legacyPointer(tool);
+    const cliPointer = await pointer(pair.cli);
+    const adapterPointer = await pointer(pair.adapter);
+    return {
+      cli: cliPointer ? this.location(pair.cli, cliPointer.current) : null,
+      adapter: adapterPointer
+        ? this.location(pair.adapter, adapterPointer.current)
+        : null,
+    };
+  }
+
+  /** Takes the cross-process lock of a combination, named by its CLI. */
+  public lock(key: AgentToolId): Promise<() => Promise<void>> {
+    return this.updateLock.acquire(key);
+  }
+
+  /** Whether a live process holds the lock of a combination. */
+  public isLocked(key: AgentToolId): Promise<boolean> {
+    return this.updateLock.isHeld(key);
+  }
+
+  /** Keeps the last operation state of a tool for a page reload or a restart. */
+  public saveOperation(
+    id: AgentToolId,
+    operation: AgentToolOperationView,
+  ): void {
+    this.updateLock.saveOperation(id, operation);
+  }
+
+  /** Reads the kept operation states. */
+  public readOperations(): Promise<
+    ReadonlyMap<AgentToolId, AgentToolOperationView>
+  > {
+    return this.updateLock.readOperations();
   }
 
   /** Resolves the retained generation without publishing it before its health check. */
@@ -153,10 +240,7 @@ export class AgentToolFiles implements AgentToolStorage {
       releaseVersion(pointer.current) === releaseVersion(pointer.previous)
     ) {
       pointer = { ...pointer, previous: null };
-      await this.writeJson(
-        path.join(this.root, tool.id, "active.json"),
-        pointer,
-      );
+      await this.writePointers([{ tool, pointer }]);
     }
     const kept = new Set([pointer?.current, pointer?.previous]);
     const releases = path.join(this.root, tool.id, "releases");
@@ -176,6 +260,9 @@ export class AgentToolFiles implements AgentToolStorage {
 
   /** Explicit removal never touches system packages or connection homes. */
   public async remove(tool: AgentToolDefinition): Promise<void> {
+    const pair = agentToolPair(tool);
+    if (pair && (await this.readPair(pair.cli)))
+      await this.writePointers([{ tool, pointer: null }]);
     await rm(path.join(this.root, tool.id), { recursive: true, force: true });
   }
 
@@ -202,6 +289,7 @@ export class AgentToolFiles implements AgentToolStorage {
     let file = path.join(release, "node_modules", ".bin", tool.binary);
     if (tool.kind === "browser") file = path.join(release, "browser");
     if (tool.release?.kind === "github") file = path.join(release, tool.binary);
+    if (tool.kind === "runtime") file = path.join(release, "bin", tool.binary);
     const version = releaseVersion(name);
     return {
       file,
@@ -257,15 +345,94 @@ export class AgentToolFiles implements AgentToolStorage {
     }
   }
 
+  // A tool of a combination reads the shared pointer file once it exists.
   private async pointer(
+    tool: AgentToolDefinition,
+  ): Promise<ReleasePointer | null> {
+    const pair = agentToolPair(tool);
+    const members = pair ? await this.readPair(pair.cli) : null;
+    if (members) return members.get(tool.id) ?? null;
+    return this.legacyPointer(tool);
+  }
+
+  private async legacyPointer(
     tool: AgentToolDefinition,
   ): Promise<ReleasePointer | null> {
     const input = await this.readJson(
       path.join(this.root, tool.id, "active.json"),
     );
-    if (input === null) return null;
+    return input === null ? null : this.validPointer(tool, input);
+  }
+
+  private pairFile(cli: AgentToolDefinition): string {
+    return path.join(this.root, "pairs", `${cli.id}.json`);
+  }
+
+  private async readPair(
+    cli: AgentToolDefinition,
+  ): Promise<Map<AgentToolId, ReleasePointer | null> | null> {
+    const pair = agentToolPair(cli);
+    const input = await this.readJson(this.pairFile(cli));
+    if (input === null || !pair) return null;
     if (
       typeof input !== "object" ||
+      !("members" in input) ||
+      typeof input.members !== "object" ||
+      input.members === null
+    )
+      throw new Error("Invalid combination pointer");
+    const members = new Map<AgentToolId, ReleasePointer | null>();
+    for (const tool of [pair.cli, pair.adapter]) {
+      const member: unknown = Object.entries(input.members).find(
+        ([id]) => id === tool.id,
+      )?.[1];
+      members.set(
+        tool.id,
+        member === undefined || member === null
+          ? null
+          : this.validPointer(tool, member),
+      );
+    }
+    return members;
+  }
+
+  // Pointers of one combination change in one rename of their shared file.
+  private async writePointers(
+    changes: readonly PointerChange[],
+  ): Promise<void> {
+    const first = changes.at(0);
+    const pair = first ? agentToolPair(first.tool) : null;
+    if (!first || !pair) {
+      for (const change of changes) await this.writeOwnPointer(change);
+      return;
+    }
+    if (changes.some((change) => agentToolPair(change.tool)?.cli !== pair.cli))
+      throw new Error("Pointer changes span several combinations");
+    const members =
+      (await this.readPair(pair.cli)) ??
+      new Map<AgentToolId, ReleasePointer | null>([
+        [pair.cli.id, await this.legacyPointer(pair.cli)],
+        [pair.adapter.id, await this.legacyPointer(pair.adapter)],
+      ]);
+    for (const change of changes) members.set(change.tool.id, change.pointer);
+    await this.writeJson(this.pairFile(pair.cli), {
+      members: Object.fromEntries(members),
+    });
+  }
+
+  private async writeOwnPointer(change: PointerChange): Promise<void> {
+    const file = path.join(this.root, change.tool.id, "active.json");
+    if (change.pointer === null) await rm(file, { force: true });
+    else await this.writeJson(file, change.pointer);
+  }
+
+  private validPointer(
+    tool: AgentToolDefinition,
+    input: unknown,
+  ): ReleasePointer {
+    if (
+      typeof input !== "object" ||
+      input === null ||
       !("current" in input) ||
       typeof input.current !== "string" ||
       !("previous" in input) ||

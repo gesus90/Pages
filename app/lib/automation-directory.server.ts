@@ -231,11 +231,11 @@ export class PagesAutomationDirectory implements AutomationDirectory {
       .map((choice) => ({ id: choice.id, name: choice.name }));
   }
 
-  /** The configured interpreter profiles, without their paths. */
+  /** The configured and the Pages-managed interpreter profiles, without their paths. */
   public async interpreterProfiles(): Promise<readonly AutomationChoice[]> {
     const snapshot = await (
       await getPagesRuntime()
-    ).interpreterProfiles.snapshot();
+    ).interpreterProfiles.runtimeSnapshot();
     return snapshot.profiles.map((profile) => ({
       id: profile.id,
       name: profile.name,

@@ -6,6 +6,7 @@ import type {
   AgentToolId,
   AgentToolOperationView,
   AgentToolReleaseView,
+  AgentToolUpdateView,
   AgentToolView,
 } from "@/definition/AgentTools";
 import type { AgentToolDefinition } from "./AgentToolRegistry";
@@ -21,6 +22,7 @@ export interface AgentToolViewFacts {
   readonly checkedAt: string | null;
   readonly lastSuccessfulCheck: string | null;
   readonly release: AgentToolReleaseView;
+  readonly update: AgentToolUpdateView;
   readonly operation: AgentToolOperationView | null;
   readonly connections: readonly AgentToolConnectionView[];
   readonly activities: readonly AgentToolActivity[];
@@ -110,6 +112,7 @@ export function agentToolView(facts: AgentToolViewFacts): AgentToolView {
     dependency: facts.dependency,
     installed: facts.checkedAt === null ? null : location !== null,
     ...versionFacts(facts),
+    update: facts.update,
     release: facts.release,
     pairedTool: pairedTool(tool),
     hasIntegratedAdapter: tool.hasIntegratedAdapter === true,

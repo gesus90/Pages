@@ -28,14 +28,18 @@ function implementation(input: unknown): input is Implementation {
 
 function protocolProvider(tool: AgentToolDefinition): NativeAcpProviderId {
   if (tool.id === "antigravity_acp") return "antigravity";
+  if (tool.id === "opencode") return "opencode";
   return tool.id === "claude_acp" ? "claude_code" : "codex_cli";
 }
 
+// A CLI with its own ACP entry point starts it as a session would.
 function protocolArguments(
   tool: AgentToolDefinition,
   home: CliHome,
 ): readonly string[] {
-  return tool.id === "antigravity_acp" ? antigravityAcpArguments(home) : [];
+  if (tool.id === "antigravity_acp") return antigravityAcpArguments(home);
+  if (tool.id === "opencode") return acpDriverFor("opencode").arguments ?? [];
+  return [];
 }
 
 function isolatedArguments(

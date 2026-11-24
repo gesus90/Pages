@@ -2,6 +2,7 @@ import type { CliHome } from "@/backend/agents/cli/CliContracts";
 import type {
   AgentToolDiagnostic,
   AgentToolId,
+  AgentToolOperationView,
   AgentToolStatus,
   AgentToolTerminalEntry,
 } from "@/definition/AgentTools";
@@ -49,6 +50,18 @@ export interface AgentToolRunContext {
   readonly temporaryDirectory: string;
 }
 
+/** One verified generation to publish. */
+export interface AgentToolActivationEntry {
+  readonly tool: AgentToolDefinition;
+  readonly location: AgentToolLocation;
+}
+
+/** Both managed generations of a CLI and its adapter, read together; `null` for none. */
+export interface AgentToolPairLocations {
+  readonly cli: AgentToolLocation | null;
+  readonly adapter: AgentToolLocation | null;
+}
+
 /** Persistence boundary kept separate from credentials and the connection store. */
 export interface AgentToolStorage {
   readonly root: string;
@@ -64,6 +77,19 @@ export interface AgentToolStorage {
     tool: AgentToolDefinition,
     location: AgentToolLocation,
   ): Promise<void>;
+  /** Publishes the generations of one combination in a single step. */
+  activateCombination?(
+    entries: readonly AgentToolActivationEntry[],
+  ): Promise<void>;
+  /** Reads both generations of a combination together; `null` for a tool without one. */
+  currentPair?(
+    cli: AgentToolDefinition,
+  ): Promise<AgentToolPairLocations | null>;
+  /** Takes the cross-process lock of a combination and returns its release. */
+  lock?(key: AgentToolId): Promise<() => Promise<void>>;
+  isLocked?(key: AgentToolId): Promise<boolean>;
+  saveOperation?(id: AgentToolId, operation: AgentToolOperationView): void;
+  readOperations?(): Promise<ReadonlyMap<AgentToolId, AgentToolOperationView>>;
   previous(tool: AgentToolDefinition): Promise<AgentToolLocation | null>;
   discard(location: AgentToolLocation): Promise<void>;
   remove(tool: AgentToolDefinition): Promise<void>;

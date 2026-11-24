@@ -67,5 +67,10 @@ The [remaining repository inventory](BackendRepositoryGroups.md) assigns the
 77 employee, calendar, event, mobile, remote, integration, Discord, MCP, search,
 diagnosis, storage, Google, speech and root repository modules to five groups
 that no section selects yet.
+The [service groups inventory](BackendServiceGroups.md) assigns 186 wiki, task,
+project, calendar, event, automation, GitHub, Google, Discord, remote,
+integration, management, system, interpreter and search service modules to
+eight disjoint groups that no section selects yet, and records the remaining
+service areas separately.
 Tests use isolated inputs and mock external services. Live services and
 instance data are outside their scope.

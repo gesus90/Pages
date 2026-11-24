@@ -5,6 +5,13 @@ import {
 } from "@/definition/AgentToolVersion";
 
 import { isAgentToolVersionSupported } from "./AgentToolRegistry";
+import {
+  ReleaseIncompatibleError,
+  ReleaseMetadataError,
+  ReleaseSourceUnreachableError,
+  nodeRuntimeRelease,
+  pythonRuntimeRelease,
+} from "./AgentToolRuntimeReleases";
 
 import type {
   AgentToolDefinition,
@@ -28,15 +35,6 @@ export type AgentToolReleaseFailure = "unreachable" | "failed" | "incompatible";
 export type AgentToolReleaseOutcome =
   | { readonly ok: true; readonly release: AgentToolRelease }
   | { readonly ok: false; readonly failure: AgentToolReleaseFailure };
-
-/** A source could not be reached, which is not the same as having no update. */
-class ReleaseSourceUnreachableError extends Error {}
-
-/** The source answered with metadata Pages does not accept. */
-class ReleaseMetadataError extends Error {}
-
-/** The source names a pre-release or another non-stable version. */
-class ReleaseIncompatibleError extends Error {}
 
 function failureOf(
   error: unknown,
@@ -96,10 +94,7 @@ export class AgentToolReleaseCheck {
   ): Promise<AgentToolReleaseOutcome> {
     if (!tool.release) return { ok: false, failure: "failed" };
     try {
-      const release =
-        tool.release.kind === "npm"
-          ? await this.npm(tool.release, version, signal)
-          : await this.github(tool.release, version, signal);
+      const release = await this.release(tool, version, signal);
       if (version !== null && release.version !== version)
         return { ok: false, failure: "failed" };
       if (!isAgentToolVersionSupported(tool, release.version))
@@ -154,6 +149,30 @@ export class AgentToolReleaseCheck {
       const failure = failureOf(error, signal);
       if (failure === null) throw error;
       return { ok: false, failure };
+    }
+  }
+
+  private async release(
+    tool: AgentToolDefinition,
+    version: string | null,
+    signal: AbortSignal,
+  ): Promise<AgentToolRelease> {
+    const source = tool.release;
+    const read = (
+      url: string,
+      headers: Readonly<Record<string, string>>,
+      limit: number,
+    ): Promise<string> => this.body(url, headers, signal, limit);
+    if (!source) throw new ReleaseMetadataError();
+    switch (source.kind) {
+      case "npm":
+        return this.npm(source, version, signal);
+      case "github":
+        return this.github(source, version, signal);
+      case "node":
+        return nodeRuntimeRelease(source, version, read);
+      case "python":
+        return pythonRuntimeRelease(source, version, read);
     }
   }
 
@@ -242,6 +261,23 @@ export class AgentToolReleaseCheck {
     signal: AbortSignal,
     limit = METADATA_LIMIT,
   ): Promise<Record<string, unknown>> {
+    const body = await this.body(url, headers, signal, limit);
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(body);
+    } catch {
+      throw new ReleaseMetadataError();
+    }
+    if (!record(parsed)) throw new ReleaseMetadataError();
+    return parsed;
+  }
+
+  private async body(
+    url: string,
+    headers: Readonly<Record<string, string>>,
+    signal: AbortSignal,
+    limit: number,
+  ): Promise<string> {
     let response: Response;
     try {
       response = await this.fetcher(url, {
@@ -261,13 +297,6 @@ export class AgentToolReleaseCheck {
       throw new ReleaseSourceUnreachableError();
     });
     if (Buffer.byteLength(body) > limit) throw new ReleaseMetadataError();
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(body);
-    } catch {
-      throw new ReleaseMetadataError();
-    }
-    if (!record(parsed)) throw new ReleaseMetadataError();
-    return parsed;
+    return body;
   }
 }

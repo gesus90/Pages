@@ -1,3 +1,5 @@
+import { agentToolDefinition, pairedCli } from "./AgentToolRegistry";
+
 import type {
   AgentToolAction,
   AgentToolDiagnostic,
@@ -5,6 +7,13 @@ import type {
   AgentToolOperationView,
   AgentToolPhase,
 } from "@/definition/AgentTools";
+import type { AgentToolStorage } from "./AgentToolContracts";
+
+/** Keeps each changed operation outside the process, so a reload or restart still shows it. */
+export type AgentToolOperationPersistence = (
+  id: AgentToolId,
+  operation: AgentToolOperationView,
+) => void;
 
 /**
  * Keeps the last maintenance operation of each tool for the settings page.
@@ -14,6 +23,35 @@ import type {
  */
 export class AgentToolOperationLog {
   private readonly operations = new Map<AgentToolId, AgentToolOperationView>();
+  private readonly persist: AgentToolOperationPersistence | null;
+
+  public constructor(persist: AgentToolOperationPersistence | null = null) {
+    this.persist = persist;
+  }
+
+  /**
+   * Takes over the operations kept before a restart.
+   * @remarks
+   * An operation that was still running when its process ended is shown as
+   * interrupted, with the same action as its repetition; one that another
+   * live process still runs, as its combination's lock shows, stays running.
+   * @param files - The tools directory with the kept operations and locks.
+   */
+  public async restore(
+    files: Pick<AgentToolStorage, "readOperations" | "isLocked">,
+  ): Promise<void> {
+    // Missing history never blocks the tools; the next operation writes it again.
+    try {
+      const kept = (await files.readOperations?.()) ?? new Map();
+      for (const [id, operation] of kept) await this.take(files, id, operation);
+    } catch (error: unknown) {
+      const code =
+        error instanceof Error && "code" in error ? error.code : null;
+      console.warn(
+        `[pages] Kept agent tool operations cannot be read (${String(code ?? "invalid")}).`,
+      );
+    }
+  }
 
   /** Starts an operation that covers one tool or a CLI and its adapter. */
   public start(
@@ -30,7 +68,10 @@ export class AgentToolOperationLog {
       startedAt: new Date().toISOString(),
       finishedAt: null,
     };
-    for (const id of ids) this.operations.set(id, operation);
+    for (const id of ids) {
+      this.operations.set(id, operation);
+      this.persist?.(id, operation);
+    }
   }
 
   /** Records the step that runs now. */
@@ -67,13 +108,41 @@ export class AgentToolOperationLog {
     return this.operations.get(id) ?? null;
   }
 
+  private async take(
+    files: Pick<AgentToolStorage, "isLocked">,
+    id: AgentToolId,
+    operation: AgentToolOperationView,
+  ): Promise<void> {
+    if (this.operations.has(id)) return;
+    const key = pairedCli(agentToolDefinition(id)).id;
+    if (
+      operation.state !== "running" ||
+      ((await files.isLocked?.(key)) ?? false)
+    ) {
+      this.operations.set(id, operation);
+      return;
+    }
+    const interrupted: AgentToolOperationView = {
+      ...operation,
+      state: "failed",
+      diagnostic: "update_interrupted",
+      retryAction: operation.action,
+      finishedAt: new Date().toISOString(),
+    };
+    this.operations.set(id, interrupted);
+    this.persist?.(id, interrupted);
+  }
+
   private update(
     ids: readonly AgentToolId[],
     change: (operation: AgentToolOperationView) => AgentToolOperationView,
   ): void {
     for (const id of ids) {
       const operation = this.operations.get(id);
-      if (operation) this.operations.set(id, change(operation));
+      if (!operation) continue;
+      const changed = change(operation);
+      this.operations.set(id, changed);
+      this.persist?.(id, changed);
     }
   }
 }

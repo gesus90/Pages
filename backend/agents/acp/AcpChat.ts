@@ -12,6 +12,7 @@ import type {
 } from "@agentclientprotocol/sdk";
 import type { PicaCodexListener } from "./PicaCodexRequests";
 import type { OpenCodeMessageUsage } from "@/backend/agents/cli/OpenCodeSessionUsage";
+import type { AntigravityPromptCalls } from "./AntigravityNativeUsage";
 
 /**
  * The extension method that adds a prompt to the running turn; codex-acp and
@@ -75,6 +76,8 @@ export interface AcpSessionListener {
   ) => void;
   /** Synchronizes completed native OpenCode messages after each usage report. */
   readonly nativeUsage?: (sessionId: string, dataHome: string) => Promise<void>;
+  /** The summed model calls of the running Antigravity prompt, read from its conversation store while it runs. */
+  readonly antigravityCalls?: (calls: AntigravityPromptCalls) => void;
   /** The connection to the adapter ended, for example because its process exited. */
   readonly closed: () => void;
   /** Waits for the journal writes caused by the last notification. */

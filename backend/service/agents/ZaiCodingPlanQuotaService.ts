@@ -138,7 +138,10 @@ export class ZaiCodingPlanQuotaService {
    * The card of a connection.
    * @remarks
    * A connection without a confirmed key has no subscription Z.AI could
-   * vouch for, so its card shows neither a plan nor windows.
+   * vouch for, so its card shows neither a plan nor windows. The card gets
+   * every window of the last answer, also those whose reset has passed since,
+   * so it can tell expired windows from an empty answer; the status counts
+   * only the windows it still shows.
    */
   private account(
     connection: AgentConnectionRecord,
@@ -147,16 +150,17 @@ export class ZaiCodingPlanQuotaService {
   ): ZaiCodingPlanQuotaAccount {
     const reading = this.dependencies.probe.latest(connection);
     const reportedAt = reading?.reportedAt ?? null;
-    const windows = visibleZaiQuotaWindows(
-      reading?.usage.windows ?? [],
-      quotaWindowsAt(outcome, reportedAt, now),
-    );
+    const windows = reading?.usage.windows ?? [];
+    const visible = visibleZaiQuotaWindows(windows, {
+      now: quotaWindowsAt(outcome, reportedAt, now),
+      answeredAt: reportedAt,
+    });
     const status: ClaudeQuotaStatus =
       connection.cliLoggedInAt === null
         ? { kind: "signed_out" }
         : quotaCardStatus(outcome, {
             at: reportedAt,
-            hasWindows: windows.length > 0,
+            hasWindows: visible.length > 0,
           });
     const isSignedOut = status.kind === "signed_out";
     return {
@@ -166,6 +170,7 @@ export class ZaiCodingPlanQuotaService {
       name: connection.name,
       plan: isSignedOut ? null : (reading?.usage.plan ?? null),
       windows: isSignedOut ? [] : windows,
+      unreadableCount: isSignedOut ? 0 : (reading?.usage.unreadableCount ?? 0),
       status,
     };
   }

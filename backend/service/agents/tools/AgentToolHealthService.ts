@@ -38,6 +38,29 @@ const playwright = load('playwright');
 });
 `;
 
+/** A representative Node.js start: built-in modules, a digest and the reported runtime version. */
+export const NODE_RUNTIME_PROBE_SCRIPT = `
+const { createHash } = require('node:crypto');
+const { writeFileSync, readFileSync } = require('node:fs');
+const { join } = require('node:path');
+const file = join(process.env.TMPDIR, 'pages-runtime-probe');
+writeFileSync(file, 'pages');
+const digest = createHash('sha256').update(readFileSync(file)).digest('hex');
+process.stdout.write(JSON.stringify({ version: process.versions.node, digest }));
+`;
+
+/** A representative Python start in isolated mode: standard modules with native parts and the version. */
+export const PYTHON_RUNTIME_PROBE_SCRIPT = [
+  "import hashlib, json, sqlite3, ssl, sys, zlib",
+  "sqlite3.connect(':memory:').execute('select 1')",
+  "digest = hashlib.sha256(zlib.decompress(zlib.compress(b'pages'))).hexdigest()",
+  "print(json.dumps({'version': '%d.%d.%d' % sys.version_info[:3], 'digest': digest}))",
+].join("\n");
+
+/** SHA-256 of `pages`, which both runtime probes compute. */
+const RUNTIME_PROBE_DIGEST =
+  "bfa062de040f55a15ce910800757061ec3d2fc31d6b7c72d9fa02b75a9ad1133";
+
 /** The scratch directory of one check and the CLI generation an adapter is checked with. */
 interface CheckContext extends AgentToolRunContext {
   readonly cli?: AgentToolLocation;
@@ -118,6 +141,7 @@ export class AgentToolHealthService implements AgentToolHealthChecks {
     control.signal.throwIfAborted();
     if (tool.probe === "sandbox") return this.sandbox(control);
     await access(location.file, constants.X_OK);
+    if (tool.probe === "runtime") return this.runtime(tool, location, control);
     if (tool.probe === "browser") return this.browser(tool, location, control);
     if (tool.hasIntegratedAdapter && tool.probe === "acp")
       return this.integrated(tool, location, control);
@@ -180,6 +204,53 @@ export class AgentToolHealthService implements AgentToolHealthChecks {
     return isAgentToolVersionSupported(tool, version)
       ? { ...READY, version }
       : { status: "unsupported", diagnostic: "version_unsupported", version };
+  }
+
+  // The concrete interpreter has to report the same version for its flag and a script start.
+  private async runtime(
+    tool: AgentToolDefinition,
+    location: AgentToolLocation,
+    control: AgentToolRunContext,
+  ): Promise<AgentToolHealth> {
+    const reported = await this.version(tool, location, control);
+    if (reported.status !== "ready") return reported;
+    const result = await this.runner.run({
+      file: location.file,
+      arguments:
+        tool.id === "python"
+          ? ["-I", "-c", PYTHON_RUNTIME_PROBE_SCRIPT]
+          : ["-e", NODE_RUNTIME_PROBE_SCRIPT],
+      provider: "codex_cli",
+      home: await this.files.home(),
+      stdin: "ignore",
+      environment: { TMPDIR: control.temporaryDirectory },
+      signal: control.signal,
+      timeoutMs: 15_000,
+    });
+    const started = readRuntimeProbe(result.stdout);
+    if (
+      result.exitCode === 0 &&
+      result.errorCode === null &&
+      started?.version === reported.version &&
+      started.digest === RUNTIME_PROBE_DIGEST
+    )
+      return reported;
+    logEvent({
+      level: "warn",
+      event: "agent.tool.probe_failed",
+      component: "AgentToolHealthService",
+      message: "The script start of a runtime did not answer as expected",
+      metadata: {
+        tool: tool.id,
+        code: result.errorCode,
+        exitCode: result.exitCode,
+      },
+    });
+    return {
+      status: "failed",
+      diagnostic: "execution_failed",
+      version: reported.version,
+    };
   }
 
   private async sandbox(
@@ -334,6 +405,26 @@ function healthProvider(tool: AgentToolDefinition): CliProviderId {
   if (tool.id === "opencode") return "opencode";
   if (tool.id === "antigravity_acp") return "antigravity";
   return "codex_cli";
+}
+
+function readRuntimeProbe(
+  stdout: string,
+): { readonly version: string; readonly digest: string } | null {
+  try {
+    const reported: unknown = JSON.parse(stdout.trim());
+    if (
+      typeof reported !== "object" ||
+      reported === null ||
+      !("version" in reported) ||
+      typeof reported.version !== "string" ||
+      !("digest" in reported) ||
+      typeof reported.digest !== "string"
+    )
+      return null;
+    return { version: reported.version, digest: reported.digest };
+  } catch {
+    return null;
+  }
 }
 
 function readBrowserVersion(

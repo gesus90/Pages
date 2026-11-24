@@ -179,14 +179,19 @@ first report of the prompt. The token counts of the prompt response are the
 sum of the model calls of that prompt, not of the native session, and stay
 separate from the occupancy. Their input leaves out the cache reads, and
 `totalTokens` is input + cache reads + output; `usage_update` names no `cost`.
+While a prompt of a local plan session runs, Pages reads the finished model
+calls from the CLI's own conversation store of that session
+(`antigravity-acp/conversations/<session id>.db`, table `gen_metadata`) and
+shows their sum as the turn's live count; the prompt response replaces it.
 The measurement is described under "Session usage of an Antigravity attempt"
 in [the session notes](../../service/agents/sessions/PageAgentCliSessions.md).
 
 A separate mathematical OpenRouter comparison covers captured ACP usage, with
 explicit gaps and subscription charges kept separate. The plan terminal shows
-it per attempt in the block "Sitzungsverbrauch". The reduced
-implementation, targeted tests and deferred live/historical-price evidence are
-documented in [the accounting handoff](../../../docs/PAGE-368.md).
+the attempt's counts in the block "Verbrauch" and an estimate only as the row
+"Kosten · Schätzung". The reduced implementation, targeted tests and deferred
+live/historical-price evidence are documented in
+[the accounting handoff](../../../docs/PAGE-368.md).
 
 The earlier adapter 1.4.4 reported its own failures (exhausted quota, failed MCP load,
 execution error, lost connection) as ordinary agent text and still ends the

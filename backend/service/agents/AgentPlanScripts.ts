@@ -71,6 +71,25 @@ export class AgentPlanScripts {
   }
 
   /**
+   * Whether a run prepared earlier may still start its frozen interpreter.
+   * @remarks
+   * A configured profile has to keep its exact path. A Pages-managed profile
+   * may also start the previous generation it was prepared with, so a run
+   * keeps its runtime while new runs use the newly activated one.
+   * @param frozen - The profile with the program path the run was prepared with.
+   */
+  public async isStartable(frozen: InterpreterProfile): Promise<boolean> {
+    const current = await this.executable(frozen.id);
+    if (current.path === frozen.path) return true;
+    const snapshot = await this.source?.snapshot();
+    return (
+      snapshot?.managed
+        ?.find((profile) => profile.id === frozen.id)
+        ?.retainedPaths.includes(frozen.path) ?? false
+    );
+  }
+
+  /**
    * Requires every script node to name a configured interpreter profile.
    * @remarks
    * A script whose saved profile has since been removed from the server keeps

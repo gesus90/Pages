@@ -47,8 +47,8 @@ function isAgentToolsData(value: unknown): value is AgentToolsData {
 
 /** The tool inventory, kept per account and rights, the admin mode included. */
 const SETTINGS_AGENT_TOOLS_STATE: LocalStateRouteKind<AgentToolsData> = {
-  // 3: tools name their releases, last operation and re-bound connections.
-  schemaVersion: 3,
+  // 4: tools name their update capability and the checked target an update click binds to.
+  schemaVersion: 4,
   isPayload: isAgentToolsData,
   isCurrent: (inventory) => isCurrentLocalStateAudience(inventory.audience),
   ownerOf: (inventory) => inventory.audience.userId,
@@ -134,6 +134,9 @@ export default function SettingsAgentToolsRoute(): React.ReactElement {
         </p>
         <p className="text-sm text-muted-foreground">
           {t("agentTools.hostHint")}
+        </p>
+        <p className="text-sm text-muted-foreground">
+          {t("agentTools.runtimeHint")}
         </p>
       </div>
       <UpdateSearch />

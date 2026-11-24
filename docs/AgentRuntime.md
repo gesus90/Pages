@@ -7,6 +7,7 @@ Version-specific provider behavior below retains its original verification
 boundaries; moving the text does not constitute a new provider test.
 
 - [Agent Tool & Runtime Manager](#agent-tool--runtime-manager)
+- [Single updates from the Tools tab](#single-updates-from-the-tools-tab)
 - [Native ACP resource scheduling](#native-acp-resource-scheduling)
 - [Limited worker units](#limited-worker-units)
 - [OpenCode plan nodes with a Console / Zen key](#opencode-plan-nodes-with-a-console--zen-key)
@@ -84,7 +85,9 @@ polling; adding an approved target is a reviewed source change, with no
 uncontrolled major upgrade.
 
 New calls resolve a CLI in one order: the activated managed generation
-(`tools/<tool>/active.json`), otherwise a system installation from the service
+(`tools/<tool>/active.json`, or `tools/pairs/<cli>.json` for a CLI and its
+adapter, see [Single updates from the Tools tab](#single-updates-from-the-tools-tab)),
+otherwise a system installation from the service
 PATH whose real path passes the trust check and whose version is on the
 allowlist. Login, status check, model catalog, CLI test and new plan or ACP
 sessions all start the generation this check returned; ACP receives it as
@@ -183,6 +186,83 @@ verify health on the target. Missing npm, network access, write permissions,
 external Claude ACP, system libraries or namespaces remain concrete operator
 diagnoses. Cleanup uncertainty stays pinned by the existing ACP recovery journal
 and blocks destructive maintenance until a later startup confirms cleanup.
+
+## Single updates from the Tools tab
+
+"Aktualisieren" in a tool's row starts exactly the update that row shows. It
+covers Node.js, Python, OpenCode, Codex with Codex ACP, Claude Code with Claude
+ACP and the Antigravity CLI. Bubblewrap, Playwright MCP and the browsers stay
+on the version Pages or the host provides; their row says so. Updates of
+several tools at once and changes of operating system packages are not part
+of this function.
+
+**Sources.** "Updates suchen" reads only fixed official sources and installs
+nothing:
+
+| Tool                                                | Source                                                 | Target                                                                                       | Integrity proof                                              |
+| --------------------------------------------------- | ------------------------------------------------------ | -------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
+| Codex, Codex ACP, Claude Code, Claude ACP, OpenCode | `registry.npmjs.org`                                   | newest stable release; a CLI stays in the range its adapter declares or at the reviewed pair | npm `dist.integrity`, compared with the installed lock entry |
+| Antigravity CLI                                     | GitHub releases of the official project                | newest stable release                                                                        | SHA-256 `digest` of the release asset                        |
+| Node.js                                             | `nodejs.org/dist` (`index.json`, `SHASUMS256.txt`)     | newest release of the reviewed major line 24 for `linux-x64` or `linux-arm64`                | SHA-256 from `SHASUMS256.txt` of the release                 |
+| Python                                              | GitHub releases of `astral-sh/python-build-standalone` | newest `install_only` build of the reviewed line 3.14                                        | SHA-256 `digest` of the release asset                        |
+
+Without a compatible, verifiable release the row shows why and the update
+stays blocked; the active version remains in use.
+
+**The row.** Each row names whether Pages can update the tool, the checked
+target of the whole combination (CLI and adapter together) and whether the
+installation new sessions use is external. An external installation, such as
+the Node.js that runs Pages or `/usr/bin/python3`, is never changed: an update
+installs a Pages generation next to it, which only Pages-managed starts use.
+Progress, result, the failed phase and "Erneut versuchen" appear in the same
+row. The state is kept in `tools/operations/<tool>.json`, so it survives a page
+reload and a restart; an update that was still running when its process ended
+is shown as interrupted, with the same action as its repetition.
+
+**Binding the click.** The form sends the checked target it showed. The server
+compares it with its current checked target of the combination; a changed
+target answers `target_changed`, the row shows the new one and asks for a new
+click. Only active system administrators in admin mode start an update or read
+its state; a direct request without these rights is refused like the page.
+
+**One update at a time.** A second click or a concurrent direct request for the
+same combination is refused with `update_running` while an update runs. Across
+Pages processes the lock file `tools/locks/<cli>.lock` decides; it names its
+process by ID and start time, so a lock left by a crash no longer counts and
+the next update replaces it. What a repeated update still has to do is decided
+from the installed generations, for CLI and adapter together: a combination
+already at its target is not activated a second time.
+
+**Install, check, activate.** Each changed tool gets a new candidate
+generation. An archive is downloaded and checked against the source's digest
+before it is unpacked; a different content fails with `integrity_failed` and
+nothing is activated. The check starts the concrete candidate: Node.js and
+Python report their version and run a representative script (built-in
+modules, a file in the check's `TMPDIR`, a digest; for Python in isolated mode
+with `sqlite3`, `ssl` and `zlib`), OpenCode reports its version and answers an
+ACP `initialize` through `opencode acp`, and an adapter answers ACP
+`initialize` with the candidate CLI it will run with. Only after every check
+passed is the combination published.
+
+**Pairs switch together.** A CLI and its adapter share the pointer file
+`tools/pairs/<cli>.json`, which names both generations and their previous ones.
+Publishing replaces it in one rename, so a crash or an error before the rename
+keeps the old checked pair and one after it the new one. A session start
+resolves CLI and adapter and compares them with this file; when a switch
+happened in between, it resolves them again, so it never starts one tool of
+each. Rollback restores both previous generations in the same way.
+
+**Runtimes for new starts.** A ready managed Node.js generation is the `node`
+that new agent sessions, tool checks, native YOLO sessions (after the host's
+own `PATH`) and plan scripts find on `PATH`; without one they keep the Node.js
+that runs Pages. Plans and automations also offer the Pages-managed interpreter
+profiles `pages-node` and `pages-python`, which start the concrete program of
+the active generation. A run prepared before a switch keeps its generation, new
+runs use the new one. Configured interpreter profiles with their own paths,
+system paths, the Pages service process and separate remote runners are not
+switched. A running session or script keeps the program it started; the
+previous generation stays for rollback and is removed by maintenance only when
+it is neither current nor previous and no session uses the tool.
 
 ## Native ACP resource scheduling
 

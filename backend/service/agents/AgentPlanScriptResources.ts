@@ -12,6 +12,7 @@ import {
 import { RUN_INSTANCE_VARIABLE } from "@/backend/agents/cli/CliProcessScan";
 import { correlationEnvironment } from "@/backend/logging/LogCorrelation";
 import { pagesTempDirectory } from "@/backend/config/PagesTempDirectory";
+import { agentNodeDirectory } from "@/backend/service/agents/tools/AgentToolRuntimePaths";
 
 import type { PlanTemporaryScope } from "@/backend/agents/PlanRunTemporaryDirectory";
 
@@ -143,7 +144,7 @@ export function scriptEnvironment(input: {
             ]
           : []),
         path.dirname(input.interpreter),
-        path.dirname(process.execPath),
+        agentNodeDirectory(),
         "/usr/local/bin",
         "/usr/bin",
         "/bin",
