@@ -192,9 +192,11 @@ and blocks destructive maintenance until a later startup confirms cleanup.
 "Aktualisieren" in a tool's row starts exactly the update that row shows. It
 covers Node.js, Python, OpenCode, Codex with Codex ACP, Claude Code with Claude
 ACP and the Antigravity CLI. Bubblewrap, Playwright MCP and the browsers stay
-on the version Pages or the host provides; their row says so. Updates of
-several tools at once and changes of operating system packages are not part
-of this function.
+on the version Pages or the host provides; their menu entry "Aktualisieren"
+stays dimmed. When at least two rows offer an update, "Alle aktualisieren (n)"
+starts each of them at once, one update per CLI/adapter pair, with the same
+checked targets the rows show. Changes of operating system packages are not
+part of this function.
 
 **Sources.** "Updates suchen" reads only fixed official sources and installs
 nothing:
@@ -209,15 +211,23 @@ nothing:
 Without a compatible, verifiable release the row shows why and the update
 stays blocked; the active version remains in use.
 
-**The row.** Each row names whether Pages can update the tool, the checked
-target of the whole combination (CLI and adapter together) and whether the
-installation new sessions use is external. An external installation, such as
-the Node.js that runs Pages or `/usr/bin/python3`, is never changed: an update
-installs a Pages generation next to it, which only Pages-managed starts use.
-Progress, result, the failed phase and "Erneut versuchen" appear in the same
-row. The state is kept in `tools/operations/<tool>.json`, so it survives a page
-reload and a restart; an update that was still running when its process ended
-is shown as interrupted, with the same action as its repetition.
+**The row.** The Tools tab lists every tool in one card with the groups
+coding agents, ACP adapters, runtime and sandbox, and browser and MCP. A row
+shows the tool with its source (system installation or Pages-managed), the
+version new sessions use, its status and, when an update is available, the
+target version below the version with the button "Aktualisieren". Opening the
+row shows the executable, the last check, the terminal entry, the active
+processes, the fallback version and the connections; the menu "…" holds every
+other action, and an action that does not fit the tool stays dimmed. An
+external installation, such as the Node.js that runs Pages or
+`/usr/bin/python3`, is never changed: an update installs a Pages generation
+next to it, which only Pages-managed starts use. An update starts without a
+confirmation; removing a managed installation and rolling back ask first.
+Progress with the running step, the failed phase and "Erneut versuchen"
+appear in the same row. The state is kept in `tools/operations/<tool>.json`,
+so it survives a page reload and a restart; an update that was still running
+when its process ended is shown as interrupted, with the same action as its
+repetition.
 
 **Binding the click.** The form sends the checked target it showed. The server
 compares it with its current checked target of the combination; a changed
@@ -553,19 +563,19 @@ verified.
 
 ## Updates, re-binding and rollback of agent tools
 
-**Settings → Agents → Tools** runs one administrative flow for Claude Code,
+**Settings → Tools** runs one administrative flow for Claude Code,
 Codex, Antigravity (`agy`) and OpenCode with their adapters. CLI and adapter
-have their own cards, versions and generations.
+have their own rows, versions and generations.
 
 1. **Search for updates** reads only release metadata of the fixed official
    sources: the npm registry (`registry.npmjs.org`) for the npm packages and the
    GitHub releases of `google-antigravity/antigravity-cli` for `agy`. It
-   installs and activates nothing. Each tool shows its installed, active,
-   newest stable and target version, the source, the time of the search and
-   the time of its last successful check. The states are _current_, _update
-   available_, _check failed_, _source unreachable_, _managed externally_ and
-   _incompatible_; a network error never reads as current. Pre-releases and
-   releases below the minimum version are incompatible.
+   installs and activates nothing. Each row shows the version new sessions
+   use and, below it, the target version of an available update or a failed
+   search (_check failed_, _source unreachable_, _incompatible_); the bar
+   above the card names the time of the last search. A network error never
+   reads as current. Pre-releases and releases below the minimum version are
+   incompatible.
 2. **Update** installs the target as a separate candidate generation and
    checks it without a model call: the started binary's version, the ACP or
    MCP handshake, and for an adapter the handshake with the CLI generation it

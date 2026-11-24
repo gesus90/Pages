@@ -1,94 +1,122 @@
 import { useTranslation } from "react-i18next";
 
-import { useRegionFormatter } from "@/app/components/common/region-provider";
+import type { TFunction } from "i18next";
+import type {
+  AgentToolConnectionView,
+  AgentToolView,
+} from "@/definition/AgentTools";
 
-import type { AgentToolConnectionView } from "@/definition/AgentTools";
+const CONNECTION_STATUS: Readonly<
+  Record<AgentToolConnectionView["status"], string>
+> = {
+  ready: "agentTools.status.ready",
+  login_required: "agentTools.status.authentication_required",
+  failed: "agentTools.status.failed",
+};
 
-function ConnectionEntry({
-  connection,
+// Without a re-binding result the sign-in checks only know a connection ID, so they are counted.
+function authenticationSummary(t: TFunction, tool: AgentToolView): string {
+  const ready = tool.authentication.filter((check) => check.isReady).length;
+  const waiting = tool.authentication.length - ready;
+  const parts = [
+    ready > 0 ? `${ready} ${t("agentTools.status.ready")}` : null,
+    waiting > 0
+      ? `${waiting} ${t("agentTools.status.authentication_required")}`
+      : null,
+  ];
+  return parts.filter((part) => part !== null).join(" · ") || "—";
+}
+
+function failureText(
+  t: TFunction,
+  connection: AgentToolConnectionView,
+): string {
+  const failed = t("agentTools.connections.status.failed");
+  if (!connection.errorCode) return failed;
+  const reason = t(`settings.agents.error.${connection.errorCode}`, {
+    defaultValue: connection.errorCode,
+  });
+  return `${failed} (${reason})`;
+}
+
+function connectionProblems(
+  t: TFunction,
+  connection: AgentToolConnectionView,
+): readonly string[] {
+  const problems = [
+    connection.status === "login_required"
+      ? t("agentTools.connections.status.login_required")
+      : null,
+    connection.status === "failed" ? failureText(t, connection) : null,
+    connection.isCatalogStale
+      ? t("agentTools.connections.stale", {
+          reason: t(
+            `settings.agents.error.${connection.catalogErrorCode ?? "general"}`,
+            { defaultValue: connection.catalogErrorCode ?? "" },
+          ),
+        })
+      : null,
+    connection.missingModel
+      ? t("agentTools.connections.missingModel", {
+          model: connection.missingModel,
+        })
+      : null,
+    connection.missingReasoningEffort
+      ? t("agentTools.connections.missingEffort", {
+          effort: connection.missingReasoningEffort,
+        })
+      : null,
+  ];
+  return problems
+    .filter((problem) => problem !== null)
+    .map((problem) => `${connection.name}: ${problem}`);
+}
+
+/**
+ * The value of the fact "Verbindungen": every connection with its state after re-binding.
+ * @remarks
+ * Before a re-binding only the sign-in checks are known, which name no
+ * connection, so the value counts ready and waiting ones.
+ */
+export function AgentToolConnectionsFact({
+  tool,
 }: {
-  readonly connection: AgentToolConnectionView;
+  readonly tool: AgentToolView;
 }): React.ReactElement {
   const { t } = useTranslation();
-  const { formatDateTime } = useRegionFormatter();
-  const isProblem = connection.status !== "ready";
+  if (tool.connections.length === 0)
+    return <>{authenticationSummary(t, tool)}</>;
   return (
-    <li className="space-y-1 rounded-md border border-border p-2">
-      <p className="break-words font-medium">{connection.name}</p>
-      <p className={isProblem ? "text-destructive" : "text-muted-foreground"}>
-        {t(`agentTools.connections.status.${connection.status}`)}
-        {connection.errorCode && connection.status === "failed"
-          ? ` (${t(`settings.agents.error.${connection.errorCode}`, {
-              defaultValue: connection.errorCode,
-            })})`
-          : ""}
-      </p>
-      <p className="text-muted-foreground">
-        {t("agentTools.connections.models", {
-          count: connection.modelCount,
-          date: formatDateTime(connection.catalogRefreshedAt),
-        })}
-      </p>
-      {connection.isCatalogStale ? (
-        <p className="text-destructive">
-          {t("agentTools.connections.stale", {
-            reason: t(
-              `settings.agents.error.${connection.catalogErrorCode ?? "general"}`,
-              { defaultValue: connection.catalogErrorCode ?? "" },
-            ),
-          })}
-        </p>
-      ) : null}
-      {connection.missingModel ? (
-        <p className="text-destructive">
-          {t("agentTools.connections.missingModel", {
-            model: connection.missingModel,
-          })}
-        </p>
-      ) : null}
-      {connection.missingReasoningEffort ? (
-        <p className="text-destructive">
-          {t("agentTools.connections.missingEffort", {
-            effort: connection.missingReasoningEffort,
-          })}
-        </p>
-      ) : null}
-    </li>
+    <>
+      {tool.connections
+        .map(
+          (connection) =>
+            `${connection.name} · ${t(CONNECTION_STATUS[connection.status])}`,
+        )
+        .join(", ")}
+    </>
   );
 }
 
 /**
- * Lists each connection's state after re-binding, with its catalog and any saved choice it lost.
+ * Lists what went wrong with a connection after re-binding, one entry per problem.
  * @remarks
  * A saved model or reasoning level that the new catalog no longer offers is
- * named, never replaced.
+ * named, never replaced. Renders list items for the problem list of a row.
  */
-export function AgentToolConnections({
+export function AgentToolConnectionProblems({
   connections,
 }: {
   readonly connections: readonly AgentToolConnectionView[];
 }): React.ReactElement {
   const { t } = useTranslation();
   return (
-    <section className="space-y-2 text-sm">
-      <h4 className="font-medium">{t("agentTools.connections.title")}</h4>
-      {connections.length === 0 ? (
-        <p className="text-muted-foreground">
-          {t("agentTools.connections.empty")}
-        </p>
-      ) : (
-        <ul className="space-y-2">
-          {connections.map((connection) => (
-            <ConnectionEntry
-              key={connection.connectionId}
-              connection={connection}
-            />
-          ))}
-        </ul>
+    <>
+      {connections.flatMap((connection) =>
+        connectionProblems(t, connection).map((problem) => (
+          <li key={`${connection.connectionId}/${problem}`}>{problem}</li>
+        )),
       )}
-      <p className="text-xs text-muted-foreground">
-        {t("agentTools.connections.accountHint")}
-      </p>
-    </section>
+    </>
   );
 }

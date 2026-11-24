@@ -1,21 +1,32 @@
+import { ChevronRight, Loader2 } from "lucide-react";
+import { useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useFetcher } from "react-router";
 
 import { useRegionFormatter } from "@/app/components/common/region-provider";
-import { Button } from "@/app/components/ui/button";
+import { cn } from "@/app/lib/cn";
 
-import { AgentToolActions } from "./agent-tool-actions";
-import { AgentToolConnections } from "./agent-tool-card/agent-tool-connections";
-import { AgentToolReleaseFacts } from "./agent-tool-card/agent-tool-release-facts";
+import { AgentToolActions, isAgentToolSwitchable } from "./agent-tool-actions";
+import {
+  AgentToolConnectionProblems,
+  AgentToolConnectionsFact,
+} from "./agent-tool-card/agent-tool-connections";
+import { AgentToolVersion } from "./agent-tool-card/agent-tool-release-facts";
 
 import { AGENT_TOOL_UPDATE_TARGET_FIELD } from "@/definition/AgentTools";
 
+import type { ReactNode } from "react";
 import type { TFunction } from "i18next";
+import type { AgentToolIntent } from "./agent-tool-actions";
 import type {
-  AgentToolTerminalEntry,
-  AgentToolUpdateTargetVersion,
+  AgentToolAction,
+  AgentToolId,
+  AgentToolStatus,
   AgentToolView,
 } from "@/definition/AgentTools";
+
+/** The settings action that runs every operation of the tools page. */
+export const AGENT_TOOLS_ACTION_PATH = "/settings/tools";
 
 interface ToolActionResult {
   readonly ok: boolean;
@@ -25,351 +36,357 @@ interface ToolActionResult {
   readonly error?: string;
 }
 
-function updateCapability(tool: AgentToolView): string {
-  if (!tool.update.isSupported) return "agentTools.update.unsupported";
-  return tool.update.isExternal
-    ? "agentTools.update.external"
-    : "agentTools.update.managed";
+type StatusTone = "success" | "warning" | "destructive" | "muted" | "busy";
+
+interface RowStatus {
+  readonly tone: StatusTone;
+  readonly labelKey: string;
 }
 
-// A tool of the combination either moves to its checked release or stays and is checked with its partner.
-function targetLabel(
-  t: TFunction,
-  entry: AgentToolUpdateTargetVersion,
-): string {
-  const tool = t(`agentTools.names.${entry.id}`);
-  return entry.version === null
-    ? t("agentTools.update.keep", { tool })
-    : t("agentTools.update.targetVersion", { tool, version: entry.version });
+const DOT_CLASS: Readonly<Record<Exclude<StatusTone, "busy">, string>> = {
+  success: "bg-success-dot",
+  warning: "bg-warning",
+  destructive: "bg-destructive",
+  muted: "bg-muted-foreground/50",
+};
+
+const TEXT_CLASS: Readonly<Record<StatusTone, string>> = {
+  success: "text-foreground",
+  warning: "text-warning",
+  destructive: "text-destructive",
+  muted: "text-muted-foreground",
+  busy: "text-foreground",
+};
+
+const HEALTH_TONE: Readonly<Record<AgentToolStatus, StatusTone>> = {
+  ready: "success",
+  installing: "busy",
+  updating: "busy",
+  repairing: "busy",
+  authentication_required: "warning",
+  missing_dependency: "destructive",
+  unsupported: "warning",
+  failed: "destructive",
+};
+
+// Actions without a status of their own show their name while they run.
+const RUNNING_LABEL: Readonly<Partial<Record<AgentToolAction, string>>> = {
+  install: "agentTools.status.installing",
+  update: "agentTools.status.updating",
+  repair: "agentTools.status.repairing",
+};
+
+// Diagnostics that report no problem; the facts already show them.
+const QUIET_DIAGNOSTICS: ReadonlySet<string> = new Set([
+  "ready",
+  "not_checked",
+]);
+
+/**
+ * The fetcher of a tool row, shared with "Alle aktualisieren", so the row shows that submission too.
+ * @param id - The tool of the row.
+ */
+export function agentToolFetcherKey(id: AgentToolId): string {
+  return `agent-tool-${id}`;
 }
 
-// Which checked releases of the combination an update installs, and why none can start.
-function ToolUpdateFacts({
-  tool,
-}: {
-  readonly tool: AgentToolView;
-}): React.ReactElement {
-  const { t } = useTranslation();
-  const { update } = tool;
-  const hasTarget = update.targetVersions.some(
-    (entry) => entry.version !== null,
-  );
-  const targets = update.targetVersions
-    .map((entry) => targetLabel(t, entry))
-    .join(" · ");
-  return (
-    <div className="space-y-1 text-sm">
-      <p className="font-medium">{t("agentTools.update.title")}</p>
-      <p className="text-muted-foreground">{t(updateCapability(tool))}</p>
-      {update.isSupported && hasTarget ? (
-        <p>
-          {t("agentTools.update.target")}: {targets}
-        </p>
-      ) : null}
-      {update.blocker ? (
-        <p className="text-muted-foreground">
-          {t("agentTools.update.blocked", {
-            reason: t(`agentTools.diagnostic.${update.blocker}`),
-          })}
-        </p>
-      ) : null}
-      {update.target !== null && !update.isNewer ? (
-        <p className="text-muted-foreground">
-          {t("agentTools.update.current")}
-        </p>
-      ) : null}
-    </div>
-  );
+/**
+ * The form a row sends: the tool, the intent and the checked target the row shows.
+ * @param tool - The tool of the row.
+ * @param intent - The action or switch to run.
+ */
+export function agentToolFormData(
+  tool: AgentToolView,
+  intent: AgentToolIntent,
+): FormData {
+  const form = new FormData();
+  form.set("tool", tool.id);
+  form.set("intent", intent);
+  form.set(AGENT_TOOL_UPDATE_TARGET_FIELD, tool.update.target ?? "");
+  return form;
 }
 
-// Rendered inside the card's form, so the retry button submits the same
-// fixed action the server serializes per tool.
-function AgentToolOperation({
-  tool,
-  isPending,
-}: {
-  readonly tool: AgentToolView;
-  readonly isPending: boolean;
-}): React.ReactElement | null {
-  const { t } = useTranslation();
+// A running or failed operation outranks the health of the installation it changes.
+function rowStatusOf(tool: AgentToolView, isPending: boolean): RowStatus {
   const { operation } = tool;
-  if (!operation) return null;
-  const values = {
-    action: t(`agentTools.actions.${operation.action}`),
-    phase: t(`agentTools.operation.phase.${operation.phase}`),
+  if (isPending) return { tone: "busy", labelKey: "agentTools.working" };
+  if (operation?.state === "running")
+    return {
+      tone: "busy",
+      labelKey:
+        RUNNING_LABEL[operation.action] ??
+        `agentTools.actions.${operation.action}`,
+    };
+  if (operation?.state === "failed")
+    return { tone: "destructive", labelKey: "agentTools.status.failed" };
+  if (isAgentToolSwitchable(tool) && !tool.enabled)
+    return { tone: "muted", labelKey: "agentTools.status.disabled" };
+  if (tool.installed === null)
+    return { tone: "muted", labelKey: "agentTools.unknown" };
+  if (!tool.installed) return { tone: "muted", labelKey: "agentTools.missing" };
+  return {
+    tone: HEALTH_TONE[tool.status],
+    labelKey: `agentTools.status.${tool.status}`,
   };
-  if (operation.state !== "failed")
-    return (
-      <p className="text-sm text-muted-foreground">
-        {t(`agentTools.operation.${operation.state}`, values)}
-      </p>
-    );
-  return (
-    <div role="alert" className="space-y-2 text-sm text-destructive">
-      <p>{t("agentTools.operation.failed", values)}</p>
-      {operation.diagnostic ? (
-        <p>{t(`agentTools.diagnostic.${operation.diagnostic}`)}</p>
-      ) : null}
-      {operation.retryAction ? (
-        <Button
-          type="submit"
-          name="intent"
-          value={operation.retryAction}
-          size="sm"
-          variant="outline"
-          disabled={isPending}
-        >
-          {t("agentTools.operation.retry", {
-            action: t(`agentTools.actions.${operation.retryAction}`),
-          })}
-        </Button>
-      ) : null}
-    </div>
-  );
 }
 
-function ToolActivity({
-  tool,
+function ToolStatus({
+  status,
 }: {
-  readonly tool: AgentToolView;
+  readonly status: RowStatus;
 }): React.ReactElement {
   const { t } = useTranslation();
+  const { tone } = status;
   return (
-    <ul className="space-y-1 break-words text-xs text-muted-foreground">
-      {tool.activities.map((activity) => (
-        <li key={`${activity.instanceId}/${activity.processId}`}>
-          {t("agentTools.activity", {
-            instance: activity.instanceId,
-            pid: activity.processId ?? "—",
-            session: activity.sessionId ?? "—",
-          })}
-        </li>
-      ))}
-      {tool.authentication.map((check) => (
-        <li key={check.connectionId}>
-          {t("agentTools.authentication", {
-            connection: check.connectionId,
-            status: t(
-              check.isReady
-                ? "agentTools.status.ready"
-                : "agentTools.status.authentication_required",
-            ),
-          })}
-        </li>
-      ))}
-    </ul>
-  );
-}
-
-function ToolOutcome({
-  isPending,
-  result,
-}: {
-  readonly isPending: boolean;
-  readonly result: ToolActionResult | undefined;
-}): React.ReactElement | null {
-  const { t } = useTranslation();
-  if (isPending) return <p>{t("agentTools.working")}</p>;
-  if (!result) return null;
-  if (result.ok && result.accepted)
-    return <p>{t("agentTools.update.accepted")}</p>;
-  if (result.ok) return <p>{t("agentTools.success")}</p>;
-  return (
-    <p role="alert" className="text-destructive">
-      {t(`agentTools.diagnostic.${result.diagnostic ?? "execution_failed"}`)}
+    <p
+      className={cn(
+        "pointer-events-none relative flex min-w-0 items-center gap-2 text-sm",
+        TEXT_CLASS[tone],
+      )}
+    >
+      {tone === "busy" ? (
+        <Loader2
+          className="size-3.5 shrink-0 text-primary motion-safe:animate-spin"
+          aria-hidden="true"
+        />
+      ) : (
+        <span
+          className={cn("size-2 shrink-0 rounded-full", DOT_CLASS[tone])}
+          aria-hidden="true"
+        />
+      )}
+      <span className="truncate">{t(status.labelKey)}</span>
     </p>
   );
 }
 
-function ToolSupportedVersions({
-  tool,
-}: {
-  readonly tool: AgentToolView;
-}): React.ReactElement {
-  const { t } = useTranslation();
-  if (tool.id === "bubblewrap") return <span>{t("agentTools.namespace")}</span>;
-  return <span>{tool.supportedVersions.join(", ")}</span>;
+// Below the name: the running step, a refused click, or where the installation comes from.
+function nameLine(
+  t: TFunction,
+  tool: AgentToolView,
+  result: ToolActionResult | undefined,
+): { readonly text: string; readonly isProblem: boolean } {
+  const { operation } = tool;
+  if (operation?.state === "running")
+    return {
+      text: t(`agentTools.operation.phase.${operation.phase}`),
+      isProblem: false,
+    };
+  if (result && !result.ok)
+    return {
+      text: t(
+        `agentTools.diagnostic.${result.diagnostic ?? "execution_failed"}`,
+      ),
+      isProblem: true,
+    };
+  return {
+    text: t(`agentTools.source.${tool.source ?? "none"}`),
+    isProblem: false,
+  };
 }
 
-function TerminalEntryFact({
-  entry,
+function ToolName({
+  tool,
+  result,
 }: {
-  readonly entry: AgentToolTerminalEntry;
+  readonly tool: AgentToolView;
+  readonly result: ToolActionResult | undefined;
 }): React.ReactElement {
   const { t } = useTranslation();
+  const line = nameLine(t, tool, result);
   return (
-    <>
-      <dt className="text-muted-foreground">{t("agentTools.terminalEntry")}</dt>
-      <dd className="space-y-1">
-        <code className="pages-selectable block break-all">{entry.path}</code>
-        <span className="block text-xs text-muted-foreground">
-          {t(
-            entry.isCurrent
-              ? "agentTools.terminalEntryCurrent"
-              : "agentTools.terminalEntryStale",
-          )}
-        </span>
+    <div className="pointer-events-none relative min-w-0">
+      <p className="truncate text-sm font-semibold text-foreground">
+        {t(`agentTools.names.${tool.id}`)}
+      </p>
+      <p
+        aria-live="polite"
+        className={cn(
+          "truncate text-xs",
+          line.isProblem ? "text-destructive" : "text-muted-foreground",
+        )}
+      >
+        {line.text}
+      </p>
+    </div>
+  );
+}
+
+function Fact({
+  label,
+  title,
+  children,
+}: {
+  readonly label: string;
+  readonly title?: string;
+  readonly children: ReactNode;
+}): React.ReactElement {
+  return (
+    <div className="flex min-h-6.5 min-w-0 items-center justify-between gap-4">
+      <dt className="shrink-0 text-muted-foreground">{label}</dt>
+      <dd className="min-w-0 truncate text-right text-foreground" title={title}>
+        {children}
       </dd>
-    </>
+    </div>
   );
 }
 
-// Which file new calls start, what a rollback would activate, and the terminal link to the same file.
-function ToolLocationFacts({
-  tool,
-}: {
-  readonly tool: AgentToolView;
-}): React.ReactElement {
-  const { t } = useTranslation();
-  return (
-    <>
-      {tool.executable ? (
-        <>
-          <dt className="text-muted-foreground">
-            {t("agentTools.executable")}
-          </dt>
-          <dd>
-            <code className="pages-selectable break-all">
-              {tool.executable}
-            </code>
-          </dd>
-        </>
-      ) : null}
-      {tool.source === "managed" ? (
-        <>
-          <dt className="text-muted-foreground">{t("agentTools.rollback")}</dt>
-          <dd className="break-all">{tool.rollbackRelease ?? "—"}</dd>
-        </>
-      ) : null}
-      {tool.terminalEntry ? (
-        <TerminalEntryFact entry={tool.terminalEntry} />
-      ) : null}
-    </>
-  );
-}
-
-function installationLabel(installed: boolean | null): string {
-  if (installed === null) return "agentTools.unknown";
-  return installed ? "agentTools.installed" : "agentTools.missing";
-}
-
-function ToolVersionFacts({
-  tool,
-}: {
-  readonly tool: AgentToolView;
-}): React.ReactElement {
-  const { t } = useTranslation();
-  return (
-    <>
-      <dt className="text-muted-foreground">
-        {t(
-          tool.kind === "browser"
-            ? "agentTools.browserVersion"
-            : "agentTools.version",
-        )}
-      </dt>
-      <dd className="break-words">{tool.installedVersion ?? "—"}</dd>
-      <dt className="text-muted-foreground">
-        {t(
-          tool.kind === "browser"
-            ? "agentTools.browserRevision"
-            : "agentTools.supported",
-        )}
-      </dt>
-      <dd className="break-words">
-        <ToolSupportedVersions tool={tool} />
-      </dd>
-      <dt className="text-muted-foreground">
-        {t(
-          tool.kind === "browser"
-            ? "agentTools.browserTarget"
-            : "agentTools.approved",
-        )}
-      </dt>
-      <dd className="break-words">{tool.approvedVersion ?? "—"}</dd>
-    </>
-  );
-}
-
-/** Shows installation, functional readiness and native activity as distinct facts. */
-export function AgentToolCard({
+// Version, update target and status stand in the row itself and are not repeated here.
+function ToolFacts({
   tool,
 }: {
   readonly tool: AgentToolView;
 }): React.ReactElement {
   const { t } = useTranslation();
   const { formatDateTime } = useRegionFormatter();
-  const fetcher = useFetcher<ToolActionResult>();
-  const isPending = fetcher.state !== "idle";
+  const entry = tool.terminalEntry;
   return (
-    <section
-      className="min-w-0 space-y-3 rounded-lg border border-border bg-surface p-4"
-      aria-label={t(`agentTools.names.${tool.id}`)}
-    >
-      <div className="flex flex-wrap items-start justify-between gap-2">
-        <div>
-          <h3 className="font-semibold">{t(`agentTools.names.${tool.id}`)}</h3>
-          <p className="text-sm text-muted-foreground">
-            {t(`agentTools.kind.${tool.kind}`)}
-          </p>
-        </div>
-        <span className="rounded-md bg-muted px-2 py-1 text-sm">
-          {t(`agentTools.status.${tool.status}`)}
-        </span>
-      </div>
-      <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1 text-sm">
-        <dt className="text-muted-foreground">
-          {t("agentTools.installation")}
-        </dt>
-        <dd>
-          {t(installationLabel(tool.installed))} ·{" "}
-          {t(`agentTools.source.${tool.source ?? "none"}`)}
-        </dd>
-        <ToolVersionFacts tool={tool} />
-        {tool.kind === "browser" ? null : <AgentToolReleaseFacts tool={tool} />}
-        <ToolLocationFacts tool={tool} />
-        <dt className="text-muted-foreground">{t("agentTools.enabled")}</dt>
-        <dd>{t(tool.enabled ? "agentTools.yes" : "agentTools.no")}</dd>
-        <dt className="text-muted-foreground">{t("agentTools.lastCheck")}</dt>
-        <dd>{formatDateTime(tool.lastCheck)}</dd>
-        <dt className="text-muted-foreground">{t("agentTools.processes")}</dt>
-        <dd>{tool.activities.length}</dd>
-      </dl>
-      {tool.update.isNewer && tool.update.target !== null ? (
-        <p className="text-sm text-primary-text">
-          {t("agentTools.updateAvailable")}
-        </p>
-      ) : null}
-      {tool.kind === "browser" ? null : <ToolUpdateFacts tool={tool} />}
-      <p className="text-sm text-muted-foreground">
-        {t(`agentTools.diagnostic.${tool.diagnostic}`)}
-        {tool.dependency
-          ? ` (${t(`agentTools.names.${tool.dependency}`)})`
-          : ""}
-      </p>
-      <ToolActivity tool={tool} />
-      <fetcher.Form
-        method="post"
-        action="/settings/tools"
-        className="flex flex-wrap gap-2"
+    <dl className="grid grid-cols-2 gap-x-10 text-sm">
+      <Fact
+        label={t("agentTools.executable")}
+        title={tool.executable ?? undefined}
       >
-        <input type="hidden" name="tool" value={tool.id} />
-        <input
-          type="hidden"
-          name={AGENT_TOOL_UPDATE_TARGET_FIELD}
-          value={tool.update.target ?? ""}
-        />
-        <AgentToolActions tool={tool} isPending={isPending} />
-        <div className="basis-full">
-          <AgentToolOperation tool={tool} isPending={isPending} />
-        </div>
-      </fetcher.Form>
-      {tool.operation?.action === "rebind" || tool.connections.length > 0 ? (
-        <AgentToolConnections connections={tool.connections} />
+        {tool.executable ? (
+          <code className="pages-selectable">{tool.executable}</code>
+        ) : (
+          "—"
+        )}
+      </Fact>
+      <Fact label={t("agentTools.lastCheck")}>
+        {formatDateTime(tool.lastCheck)}
+      </Fact>
+      <Fact label={t("agentTools.terminalEntry")} title={entry?.path}>
+        {entry
+          ? t(
+              entry.isCurrent
+                ? "agentTools.terminalEntryCurrent"
+                : "agentTools.terminalEntryStale",
+            )
+          : "—"}
+      </Fact>
+      <Fact label={t("agentTools.processes")}>{tool.activities.length}</Fact>
+      <Fact label={t("agentTools.rollback")}>
+        {tool.rollbackRelease ?? "—"}
+      </Fact>
+      <Fact label={t("agentTools.connections.title")}>
+        <AgentToolConnectionsFact tool={tool} />
+      </Fact>
+    </dl>
+  );
+}
+
+// Only problems appear below the facts: a refused click, a failed step, an unhealthy tool, a connection that lost something.
+function ToolProblems({
+  tool,
+  result,
+}: {
+  readonly tool: AgentToolView;
+  readonly result: ToolActionResult | undefined;
+}): React.ReactElement {
+  const { t } = useTranslation();
+  const { operation } = tool;
+  const failedOperation = operation?.state === "failed" ? operation : null;
+  const showsDiagnostic =
+    tool.status !== "ready" &&
+    !QUIET_DIAGNOSTICS.has(tool.diagnostic) &&
+    tool.diagnostic !== failedOperation?.diagnostic;
+  const dependency = tool.dependency
+    ? ` (${t(`agentTools.names.${tool.dependency}`)})`
+    : "";
+  return (
+    <ul className="mt-2 space-y-1 text-xs break-words text-destructive empty:hidden">
+      {result && !result.ok ? (
+        <li>
+          {t(
+            `agentTools.diagnostic.${result.diagnostic ?? "execution_failed"}`,
+          )}
+        </li>
       ) : null}
-      <div aria-live="polite" className="text-sm">
-        <ToolOutcome isPending={isPending} result={fetcher.data} />
+      {failedOperation ? (
+        <li>
+          {t("agentTools.operation.failed", {
+            action: t(`agentTools.actions.${failedOperation.action}`),
+            phase: t(`agentTools.operation.phase.${failedOperation.phase}`),
+          })}
+          {failedOperation.diagnostic
+            ? ` ${t(`agentTools.diagnostic.${failedOperation.diagnostic}`)}`
+            : ""}
+        </li>
+      ) : null}
+      {showsDiagnostic ? (
+        <li>
+          {t(`agentTools.diagnostic.${tool.diagnostic}`)}
+          {dependency}
+        </li>
+      ) : null}
+      <AgentToolConnectionProblems connections={tool.connections} />
+    </ul>
+  );
+}
+
+/**
+ * One tool as a collapsible row: name and source, version, status, at most one main action and the menu "…".
+ * @remarks
+ * The whole row opens and closes its facts; only the action buttons and the
+ * menu do not. Its fetcher is keyed by the tool, so an update that "Alle
+ * aktualisieren" started shows here as well.
+ */
+export function AgentToolCard({
+  tool,
+}: {
+  readonly tool: AgentToolView;
+}): React.ReactElement {
+  const { t } = useTranslation();
+  const [isExpanded, setIsExpanded] = useState(false);
+  const detailsId = useId();
+  const fetcher = useFetcher<ToolActionResult>({
+    key: agentToolFetcherKey(tool.id),
+  });
+  const isPending = fetcher.state !== "idle";
+
+  function handleSubmit(intent: AgentToolIntent): void {
+    void fetcher.submit(agentToolFormData(tool, intent), {
+      method: "post",
+      action: AGENT_TOOLS_ACTION_PATH,
+    });
+  }
+
+  return (
+    <li className="border-t border-border">
+      <div className="relative grid h-12 grid-cols-[0.875rem_minmax(0,1fr)_9rem_12rem_10rem] items-center gap-3 px-4">
+        <button
+          type="button"
+          aria-expanded={isExpanded}
+          aria-controls={isExpanded ? detailsId : undefined}
+          aria-label={t(`agentTools.names.${tool.id}`)}
+          onClick={() => setIsExpanded(!isExpanded)}
+          className="absolute inset-0 cursor-pointer hover:bg-surface-hover focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary"
+        />
+        <ChevronRight
+          aria-hidden="true"
+          className={cn(
+            "pointer-events-none relative size-3.5 text-muted-foreground motion-safe:transition-transform motion-safe:duration-120",
+            isExpanded && "rotate-90",
+          )}
+        />
+        <ToolName tool={tool} result={fetcher.data} />
+        <AgentToolVersion tool={tool} />
+        <ToolStatus status={rowStatusOf(tool, isPending)} />
+        <AgentToolActions
+          tool={tool}
+          isPending={isPending}
+          onSubmit={handleSubmit}
+        />
       </div>
-    </section>
+      {isExpanded ? (
+        <div
+          id={detailsId}
+          className="border-t border-border py-2 pr-4 pl-10.5"
+        >
+          <ToolFacts tool={tool} />
+          <ToolProblems tool={tool} result={fetcher.data} />
+        </div>
+      ) : null}
+    </li>
   );
 }

@@ -8254,32 +8254,16 @@
     "signOut": "Some changes have not been confirmed by the server yet. Signing out deletes them from this browser. Sign out anyway?"
   },
   "agentTools": {
-    "title": "Agent tools & runtimes",
-    "description": "Manage approved tools, check readiness and inspect active sessions. Flow: search for updates, update CLI and adapter, re-bind connections and refresh models. Running sessions keep their version.",
-    "hostHint": "Every action affects only this Pages host and its own managed installations. Operators provide system dependencies. Browser artifacts are stored in the workspace below .pages-artifacts/<session>. Use a separate test instance for browser tests.",
     "browserPermission": "Allow Playwright browser tools (administrator activation required; use a test instance)",
-    "installation": "Installation",
-    "installed": "Installed",
     "missing": "Missing",
-    "version": "Installed version (last check)",
-    "executable": "Executable of new calls",
-    "rollback": "Rollback generation",
+    "executable": "Executable",
+    "rollback": "Fallback version",
     "terminalEntry": "Terminal entry",
-    "terminalEntryCurrent": "Points to the executable of new calls. A terminal that starts this path uses the same approved installation as Pages.",
-    "terminalEntryStale": "Does not point to the active generation yet. The next verified activation or a rollback sets it; until then a terminal using this path does not run the installation of Pages.",
-    "supported": "Supported versions",
-    "approved": "Update target",
-    "enabled": "Enabled",
-    "yes": "Yes",
-    "no": "No",
+    "terminalEntryCurrent": "Current",
+    "terminalEntryStale": "Outdated",
     "lastCheck": "Last check",
-    "processes": "Active processes / sessions",
-    "updateAvailable": "An update is available. “Update” installs it as a checked candidate.",
+    "processes": "Active processes",
     "working": "Operation running…",
-    "success": "Operation completed.",
-    "activity": "Instance {{instance}} · PID {{pid}} · session {{session}}",
-    "authentication": "Connection {{connection}}: {{status}}",
-    "namespace": "Functional namespace probe",
     "names": {
       "node": "Node.js",
       "python": "Python",
@@ -8294,14 +8278,6 @@
       "firefox": "Firefox (optional)",
       "antigravity_acp": "Google Antigravity CLI (agy acp)"
     },
-    "kind": {
-      "runtime": "Runtime",
-      "sandbox": "Sandbox",
-      "agent": "Coding agent",
-      "acp": "ACP adapter",
-      "mcp": "MCP server",
-      "browser": "Browser"
-    },
     "source": {
       "managed": "Pages-managed",
       "system": "System installation",
@@ -8310,13 +8286,14 @@
     },
     "status": {
       "ready": "Ready",
-      "installing": "Installing",
-      "updating": "Updating",
-      "repairing": "Repairing",
+      "installing": "Installing …",
+      "updating": "Updating …",
+      "repairing": "Repairing …",
       "authentication_required": "Sign-in required",
       "missing_dependency": "Missing dependency",
       "unsupported": "Unsupported",
-      "failed": "Failed"
+      "failed": "Failed",
+      "disabled": "Disabled"
     },
     "actions": {
       "install": "Install",
@@ -8363,21 +8340,8 @@
       "integrity_failed": "The downloaded file does not match the checksum of the official source. Nothing was activated; the previous version stays active."
     },
     "unknown": "Not checked yet",
-    "browserVersion": "Browser version",
-    "browserRevision": "Playwright version",
-    "browserTarget": "Approved Playwright version",
-    "activeVersion": "Active version for new sessions",
-    "lastSuccessfulCheck": "Last successful check",
-    "pairedAdapter": "Required adapter",
-    "pairedCli": "Belongs to CLI",
-    "integratedAdapter": "ACP is built into the CLI",
     "checkUpdates": "Search for updates",
-    "checkUpdatesHint": "Reads only version data of the fixed official sources; installs and activates nothing.",
     "release": {
-      "title": "Newest stable version",
-      "target": "Update target",
-      "source": "Official source",
-      "checkedAt": "Version search",
       "state": {
         "not_checked": "Not searched yet",
         "current": "Current",
@@ -8389,11 +8353,7 @@
       }
     },
     "operation": {
-      "title": "Last action",
-      "running": "{{action}} running: {{phase}}",
-      "succeeded": "{{action}} completed",
       "failed": "{{action}} failed in phase “{{phase}}”. The previous version stays usable.",
-      "retry": "Try again: {{action}}",
       "phase": {
         "resolving": "Resolve version",
         "installing_cli": "Install CLI",
@@ -8408,33 +8368,36 @@
       }
     },
     "connections": {
-      "title": "Connections after re-binding",
-      "empty": "No connection uses this tool.",
+      "title": "Connections",
       "status": {
         "ready": "Connected",
         "login_required": "The provider asks for a new sign-in – sign in at the connection under Agents; existing data is kept",
         "failed": "Check failed"
       },
-      "models": "{{count}} models, catalog from {{date}}",
       "stale": "Catalog outdated: the last valid catalog is kept ({{reason}}).",
       "missingModel": "The saved model “{{model}}” is no longer available. Pages does not replace it; choose a model deliberately.",
-      "missingEffort": "The saved reasoning level “{{effort}}” is no longer offered by the model. Pages does not change it.",
-      "accountHint": "New models depend on the account and the provider; a version number alone does not guarantee them."
+      "missingEffort": "The saved reasoning level “{{effort}}” is no longer offered by the model. Pages does not change it."
     },
     "update": {
-      "title": "Update through Pages",
-      "managed": "Updatable: Pages installs the target version separately, checks it and only then activates it for new sessions.",
-      "external": "Managed externally: Pages does not change this installation. “Update” creates Pages' own checked generation next to it, which new Pages starts use.",
-      "unsupported": "No update through Pages: this version is bound to Pages or to the host.",
-      "target": "Checked target",
-      "targetVersion": "{{tool}} {{version}}",
-      "keep": "{{tool}} stays and is checked along",
-      "updateTo": "Update to {{version}}",
-      "current": "The shown target version is already active.",
-      "blocked": "Update blocked: {{reason}}",
-      "accepted": "Update started. Progress and result appear in this row, also after reloading the page."
+      "available": "Update {{version}}",
+      "toVersion": "to {{version}}"
     },
-    "runtimeHint": "Pages-managed starts of sessions and scripts use the active generation. The Pages service itself, system paths and own interpreter profiles stay unchanged."
+    "actionsFor": "Actions for {{tool}}",
+    "retry": "Try again",
+    "lastSearched": "Last searched {{date}}",
+    "updateAll": "Update all ({{count}})",
+    "toolCount_one": "{{count}} tool",
+    "toolCount_other": "{{count}} tools",
+    "groups": {
+      "agents": "Coding agents",
+      "acp": "ACP adapters",
+      "runtime": "Runtime and sandbox",
+      "browser": "Browser and MCP"
+    },
+    "confirm": {
+      "remove": "Remove the managed installation of {{tool}}?",
+      "rollback": "Roll back {{tool}}?"
+    }
   },
   "agentExecution": {
     "error": {

@@ -8254,32 +8254,16 @@
     "signOut": "Einige Änderungen sind noch nicht vom Server bestätigt. Beim Abmelden werden sie aus diesem Browser gelöscht. Trotzdem abmelden?"
   },
   "agentTools": {
-    "title": "Agent-Tools & Laufzeiten",
-    "description": "Freigegebene Tools verwalten, Betriebsbereitschaft prüfen und aktive Sessions einsehen. Ablauf: Updates suchen, CLI und Adapter aktualisieren, Verbindungen neu einbinden und Modelle auffrischen. Laufende Sessions behalten ihre Version.",
-    "hostHint": "Alle Aktionen wirken nur auf diesen Pages-Host und seine eigenen verwalteten Installationen. Systemabhängigkeiten muss der Betreiber bereitstellen. Browser-Artefakte liegen im Workspace unter .pages-artifacts/<Session>. Für Browsertests eine separate Testinstanz verwenden.",
     "browserPermission": "Playwright-Browserwerkzeuge erlauben (Admin-Aktivierung erforderlich; Testinstanz verwenden)",
-    "installation": "Installation",
-    "installed": "Installiert",
     "missing": "Fehlt",
-    "version": "Installierte Version (letzte Prüfung)",
-    "executable": "Ausführbare Datei neuer Aufrufe",
-    "rollback": "Rückfallgeneration",
+    "executable": "Ausführbare Datei",
+    "rollback": "Rückfallversion",
     "terminalEntry": "Terminal-Einstieg",
-    "terminalEntryCurrent": "Zeigt auf die ausführbare Datei neuer Aufrufe. Ein Terminal, das diesen Pfad startet, nutzt dieselbe freigegebene Installation wie Pages.",
-    "terminalEntryStale": "Zeigt noch nicht auf die aktive Generation. Die nächste geprüfte Aktivierung oder ein Rollback setzt ihn; bis dahin nutzt ein Terminal über diesen Pfad nicht die Installation von Pages.",
-    "supported": "Unterstützte Versionen",
-    "approved": "Update-Ziel",
-    "enabled": "Aktiviert",
-    "yes": "Ja",
-    "no": "Nein",
+    "terminalEntryCurrent": "Aktuell",
+    "terminalEntryStale": "Veraltet",
     "lastCheck": "Letzte Prüfung",
-    "processes": "Aktive Prozesse / Sessions",
-    "updateAvailable": "Ein Update ist verfügbar. „Aktualisieren“ installiert es als geprüften Kandidaten.",
+    "processes": "Aktive Prozesse",
     "working": "Aktion läuft…",
-    "success": "Aktion abgeschlossen.",
-    "activity": "Instanz {{instance}} · PID {{pid}} · Session {{session}}",
-    "authentication": "Verbindung {{connection}}: {{status}}",
-    "namespace": "Funktionsprüfung des Namespaces",
     "names": {
       "node": "Node.js",
       "python": "Python",
@@ -8294,14 +8278,6 @@
       "firefox": "Firefox (optional)",
       "antigravity_acp": "Google Antigravity CLI (agy acp)"
     },
-    "kind": {
-      "runtime": "Laufzeit",
-      "sandbox": "Sandbox",
-      "agent": "Coding-Agent",
-      "acp": "ACP-Adapter",
-      "mcp": "MCP-Server",
-      "browser": "Browser"
-    },
     "source": {
       "managed": "Von Pages verwaltet",
       "system": "Systeminstallation",
@@ -8310,13 +8286,14 @@
     },
     "status": {
       "ready": "Betriebsbereit",
-      "installing": "Wird installiert",
-      "updating": "Wird aktualisiert",
-      "repairing": "Wird repariert",
+      "installing": "Wird installiert …",
+      "updating": "Wird aktualisiert …",
+      "repairing": "Wird repariert …",
       "authentication_required": "Anmeldung erforderlich",
       "missing_dependency": "Abhängigkeit fehlt",
       "unsupported": "Nicht unterstützt",
-      "failed": "Fehlgeschlagen"
+      "failed": "Fehlgeschlagen",
+      "disabled": "Deaktiviert"
     },
     "actions": {
       "install": "Installieren",
@@ -8363,21 +8340,8 @@
       "integrity_failed": "Die heruntergeladene Datei stimmt nicht mit der Prüfsumme der offiziellen Quelle überein. Nichts wurde aktiviert; die bisherige Version bleibt aktiv."
     },
     "unknown": "Noch nicht ermittelt",
-    "browserVersion": "Browser-Version",
-    "browserRevision": "Playwright-Version",
-    "browserTarget": "Freigegebene Playwright-Version",
-    "activeVersion": "Aktive Version für neue Sessions",
-    "lastSuccessfulCheck": "Letzte erfolgreiche Prüfung",
-    "pairedAdapter": "Benötigter Adapter",
-    "pairedCli": "Gehört zur CLI",
-    "integratedAdapter": "ACP ist in die CLI eingebaut",
     "checkUpdates": "Updates suchen",
-    "checkUpdatesHint": "Liest nur Versionsdaten der festen offiziellen Quellen; installiert und aktiviert nichts.",
     "release": {
-      "title": "Neueste stabile Version",
-      "target": "Update-Ziel",
-      "source": "Offizielle Quelle",
-      "checkedAt": "Versionssuche",
       "state": {
         "not_checked": "Noch nicht gesucht",
         "current": "Aktuell",
@@ -8389,11 +8353,7 @@
       }
     },
     "operation": {
-      "title": "Letzte Aktion",
-      "running": "{{action}} läuft: {{phase}}",
-      "succeeded": "{{action}} abgeschlossen",
       "failed": "{{action}} fehlgeschlagen in Phase „{{phase}}“. Die bisherige Version bleibt nutzbar.",
-      "retry": "Erneut versuchen: {{action}}",
       "phase": {
         "resolving": "Version auflösen",
         "installing_cli": "CLI installieren",
@@ -8408,33 +8368,36 @@
       }
     },
     "connections": {
-      "title": "Verbindungen nach dem Neueinbinden",
-      "empty": "Keine Verbindung nutzt dieses Tool.",
+      "title": "Verbindungen",
       "status": {
         "ready": "Verbunden",
         "login_required": "Anbieter verlangt neue Anmeldung – unter Agents bei der Verbindung anmelden; bestehende Daten bleiben erhalten",
         "failed": "Prüfung fehlgeschlagen"
       },
-      "models": "{{count}} Modelle, Katalog vom {{date}}",
       "stale": "Katalog veraltet: der letzte gültige Stand bleibt erhalten ({{reason}}).",
       "missingModel": "Gespeichertes Modell „{{model}}“ ist nicht mehr verfügbar. Pages ersetzt es nicht; bitte bewusst ein Modell wählen.",
-      "missingEffort": "Gespeicherte Reasoning-Stufe „{{effort}}“ wird vom Modell nicht mehr angeboten. Pages ändert sie nicht.",
-      "accountHint": "Neue Modelle hängen vom Konto und Anbieter ab; die Versionsnummer allein garantiert sie nicht."
+      "missingEffort": "Gespeicherte Reasoning-Stufe „{{effort}}“ wird vom Modell nicht mehr angeboten. Pages ändert sie nicht."
     },
     "update": {
-      "title": "Update über Pages",
-      "managed": "Updatefähig: Pages installiert die Zielversion getrennt, prüft sie und aktiviert sie erst danach für neue Sessions.",
-      "external": "Extern verwaltet: Pages verändert diese Installation nicht. „Aktualisieren“ legt daneben eine eigene, geprüfte Generation an, die neue Pages-Starts verwenden.",
-      "unsupported": "Kein Update über Pages: Diese Version ist an Pages oder an den Host gebunden.",
-      "target": "Geprüftes Ziel",
-      "targetVersion": "{{tool}} {{version}}",
-      "keep": "{{tool}} bleibt und wird mitgeprüft",
-      "updateTo": "Aktualisieren auf {{version}}",
-      "current": "Die angezeigte Zielversion ist bereits aktiv.",
-      "blocked": "Update gesperrt: {{reason}}",
-      "accepted": "Update gestartet. Fortschritt und Ergebnis erscheinen in dieser Zeile, auch nach einem Neuladen der Seite."
+      "available": "Update {{version}}",
+      "toVersion": "auf {{version}}"
     },
-    "runtimeHint": "Pages-verwaltete Starts von Sessions und Skripten nutzen die aktive Generation. Der Pages-Dienst selbst, Systempfade und eigene Interpreterprofile bleiben unverändert."
+    "actionsFor": "Aktionen für {{tool}}",
+    "retry": "Erneut versuchen",
+    "lastSearched": "Zuletzt gesucht {{date}}",
+    "updateAll": "Alle aktualisieren ({{count}})",
+    "toolCount_one": "{{count}} Tool",
+    "toolCount_other": "{{count}} Tools",
+    "groups": {
+      "agents": "Coding-Agents",
+      "acp": "ACP-Adapter",
+      "runtime": "Laufzeit und Sandbox",
+      "browser": "Browser und MCP"
+    },
+    "confirm": {
+      "remove": "Verwaltete Installation von {{tool}} entfernen?",
+      "rollback": "Version von {{tool}} zurücksetzen?"
+    }
   },
   "agentExecution": {
     "error": {

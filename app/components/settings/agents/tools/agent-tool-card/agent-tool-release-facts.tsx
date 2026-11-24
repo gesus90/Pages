@@ -1,6 +1,6 @@
 import { useTranslation } from "react-i18next";
 
-import { useRegionFormatter } from "@/app/components/common/region-provider";
+import { agentToolTargetVersion } from "../agent-tool-actions";
 
 import type { AgentToolView } from "@/definition/AgentTools";
 
@@ -11,90 +11,63 @@ const PROBLEM_STATES: ReadonlySet<string> = new Set([
   "incompatible",
 ]);
 
-function PairedToolFact({
+// New sessions start the active version; a browser row names the browser's own version.
+function shownVersion(tool: AgentToolView): string {
+  const version =
+    tool.kind === "browser"
+      ? tool.installedVersion
+      : (tool.activeVersion ?? tool.installedVersion);
+  return version ?? "—";
+}
+
+// While an update runs, the version names the release it moves to.
+function versionLine(tool: AgentToolView): string {
+  const target = agentToolTargetVersion(tool);
+  const isUpdating =
+    tool.operation?.state === "running" && tool.operation.action === "update";
+  return isUpdating && target !== null
+    ? `${shownVersion(tool)} → ${target}`
+    : shownVersion(tool);
+}
+
+function ReleaseNote({
   tool,
 }: {
   readonly tool: AgentToolView;
 }): React.ReactElement | null {
   const { t } = useTranslation();
-  if (tool.hasIntegratedAdapter)
+  const version = agentToolTargetVersion(tool);
+  if (tool.operation?.state === "running") return null;
+  if (PROBLEM_STATES.has(tool.release.state))
     return (
-      <>
-        <dt className="text-muted-foreground">
-          {t("agentTools.pairedAdapter")}
-        </dt>
-        <dd>{t("agentTools.integratedAdapter")}</dd>
-      </>
+      <p className="truncate text-xs text-destructive">
+        {t(`agentTools.release.state.${tool.release.state}`)}
+      </p>
     );
-  if (!tool.pairedTool) return null;
+  if (!tool.update.isNewer || version === null) return null;
   return (
-    <>
-      <dt className="text-muted-foreground">
-        {t(
-          tool.kind === "acp"
-            ? "agentTools.pairedCli"
-            : "agentTools.pairedAdapter",
-        )}
-      </dt>
-      <dd>{t(`agentTools.names.${tool.pairedTool}`)}</dd>
-    </>
+    <p className="truncate text-xs font-semibold text-primary">
+      {t("agentTools.update.available", { version })}
+    </p>
   );
 }
 
 /**
- * Shows the active, the newest stable and the target release with their source.
+ * The version column of a tool row with the release an update installs below it.
  * @remarks
- * CLI and adapter each have their own card and versions; a failed or
- * unreachable source is shown as such and never as current.
+ * A failed or unreachable update search is named as such and never reads as
+ * current; while an update runs the line shows the old and the new version.
  */
-export function AgentToolReleaseFacts({
+export function AgentToolVersion({
   tool,
 }: {
   readonly tool: AgentToolView;
 }): React.ReactElement {
-  const { t } = useTranslation();
-  const { formatDateTime } = useRegionFormatter();
-  const { release } = tool;
+  const line = versionLine(tool);
   return (
-    <>
-      <dt className="text-muted-foreground">{t("agentTools.activeVersion")}</dt>
-      <dd className="break-words">{tool.activeVersion ?? "—"}</dd>
-      <PairedToolFact tool={tool} />
-      {release.source ? (
-        <>
-          <dt className="text-muted-foreground">
-            {t("agentTools.release.title")}
-          </dt>
-          <dd className="break-words">
-            {release.latestVersion ?? "—"} ·{" "}
-            <span
-              className={
-                PROBLEM_STATES.has(release.state)
-                  ? "text-destructive"
-                  : undefined
-              }
-            >
-              {t(`agentTools.release.state.${release.state}`)}
-            </span>
-          </dd>
-          <dt className="text-muted-foreground">
-            {t("agentTools.release.target")}
-          </dt>
-          <dd className="break-words">{release.targetVersion ?? "—"}</dd>
-          <dt className="text-muted-foreground">
-            {t("agentTools.release.source")}
-          </dt>
-          <dd className="break-all">{release.source}</dd>
-          <dt className="text-muted-foreground">
-            {t("agentTools.release.checkedAt")}
-          </dt>
-          <dd>{formatDateTime(release.checkedAt)}</dd>
-        </>
-      ) : null}
-      <dt className="text-muted-foreground">
-        {t("agentTools.lastSuccessfulCheck")}
-      </dt>
-      <dd>{formatDateTime(tool.lastSuccessfulCheck)}</dd>
-    </>
+    <div className="pointer-events-none relative min-w-0">
+      <p className="truncate text-sm text-foreground">{line}</p>
+      <ReleaseNote tool={tool} />
+    </div>
   );
 }
