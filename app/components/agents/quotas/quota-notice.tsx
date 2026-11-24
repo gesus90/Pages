@@ -49,6 +49,7 @@ const NOTICE_SCOPES: Readonly<Record<NoticeProvider, string>> = {
   claude_code: "agentsPage.notice",
   codex_cli: "agentsPage.codex.notice",
   antigravity: "agentsPage.antigravity.notice",
+  zai_coding_plan: "agentsPage.zaiCodingPlan.notice",
 };
 
 /**

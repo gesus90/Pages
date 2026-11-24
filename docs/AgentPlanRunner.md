@@ -1145,6 +1145,42 @@ token, and model badges show the catalog name. The context window follows the
 shared rule: a window the ACP adapter confirmed for the same attempt wins over
 the catalog window of the same model, and a missing window reads as unknown.
 
+Under **Agents → Kontingente und Guthaben** every active OpenCode connection
+whose stored key belongs to `zai-coding-plan` and whose usage scope admits the
+reader has its own card "Z.AI Coding Plan" with the connection name, the
+"Z.AI │ Coding Plan" badge and the shared card frame, windows and status line.
+The server reads the connection's own encrypted key, the one OpenCode ACP runs
+with, and sends the model-free `GET https://api.z.ai/api/monitor/usage/quota/limit`
+of the official usage client (`ZaiCodingPlanUsageClient`). The query starts no
+OpenCode process and no model turn and does not touch the files of a running
+session, so it also runs while the connection answers. Neither the key nor the
+answer body reaches the browser or the log; the log names only the HTTP status.
+
+- Each `TOKENS_LIMIT` entry becomes a token window and the `TIME_LIMIT` entry an
+  MCP tool window; the MCP window appears only when the entry names its own
+  length or reset. Other entry types and entries without a used share are left
+  out. The used share is `percentage` (or `currentValue` of `usage` when no
+  share is reported); `usage`, `currentValue` and `remaining` stand as limit,
+  used and remaining counts when reported, and a reported 0 stays 0.
+- Z.AI documents no unit codes. Pages reads `unit` 3 as hours, 6 as weeks and
+  5 as months, as a captured answer shows them for the 5-hour, weekly and MCP
+  windows; any other code reads "Fenster unbekannt". The reset is
+  `nextResetTime` in epoch milliseconds; without it the window reads
+  "Rücksetzzeit nicht gemeldet". Pages derives neither a reset from the query
+  time nor a value from price lists. `data.level` names the plan; without it the
+  card reads "Tarif unbekannt".
+- A missing or rejected key reads "Nicht angemeldet" with a link to the
+  connection. A timeout or provider failure keeps the last answer for the same
+  key with its time ("Stand …") and offers another attempt. The last answer is
+  kept in the server's memory per connection and confirmed key; a restart or a
+  new key starts without figures. A right withdrawn meanwhile hides the card and
+  its kept figures with the next answer.
+- Each answer feeds the shared consumption measurement, so a window with a
+  reported length in hours or weeks and a reset gets the forecast of the other
+  cards; a month window or one without a reset shows no forecast.
+- The card is read on opening, by its retry button and by the page's minute
+  push like every other card; leaving the page ends the push.
+
 The remaining occurrences of the provider in the repository are the retired
 identifiers above, the historical migrations and the frozen migration names
 of the offline transfer command, the `zai_account_type` and `zai_reading`

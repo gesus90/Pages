@@ -65,8 +65,9 @@ export const MARKDOWN_COMPONENTS: Components = {
     <ScrollViewport
       as="pre"
       axis="horizontal"
-      containerClassName="mt-2"
-      className="overflow-x-auto rounded-lg bg-muted p-3 text-xs text-foreground"
+      isShell
+      containerClassName="mt-2 rounded-lg bg-muted"
+      className="overflow-x-auto p-3 text-xs text-foreground"
     >
       {children}
     </ScrollViewport>

@@ -188,7 +188,9 @@ function TerminalAlternative({
       <ScrollViewport
         as="pre"
         axis="horizontal"
-        className="pages-selectable overflow-x-auto rounded-xl bg-muted p-3 text-xs whitespace-pre-wrap break-all"
+        isShell
+        containerClassName="rounded-xl bg-muted"
+        className="pages-selectable overflow-x-auto p-3 text-xs whitespace-pre-wrap break-all"
       >
         {terminalCommand}
       </ScrollViewport>

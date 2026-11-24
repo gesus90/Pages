@@ -8,6 +8,7 @@ import { CodexQuotaCard } from "./codex-quota-card";
 import { OpenRouterQuotaCard } from "./openrouter-quota-card";
 import { QuotaPlaceholderCard } from "./quota-placeholders";
 import { useQuotaCardSort } from "./use-quota-card-sort";
+import { ZaiCodingPlanQuotaCard } from "./zai-coding-plan-quota-card";
 
 import type { ReactNode } from "react";
 import type { QuotaAccount } from "@/definition/AgentQuota";
@@ -68,6 +69,14 @@ const QuotaCardOfConnection = memo(function ConnectionQuotaCard({
   if (account.provider === "codex_cli")
     return (
       <CodexQuotaCard account={account} targetAt={targetAt} {...interaction} />
+    );
+  if (account.provider === "zai_coding_plan")
+    return (
+      <ZaiCodingPlanQuotaCard
+        account={account}
+        targetAt={targetAt}
+        {...interaction}
+      />
     );
   return (
     <ClaudeQuotaCard account={account} targetAt={targetAt} {...interaction} />

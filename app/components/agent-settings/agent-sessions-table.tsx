@@ -156,7 +156,10 @@ export function AgentSessionsTable({
 }: AgentSessionsTableProps): React.ReactElement {
   const { t } = useTranslation();
   return (
-    <HorizontalScrollArea className="rounded-xl border border-border bg-surface">
+    <HorizontalScrollArea
+      isShell
+      className="rounded-xl border border-border bg-surface"
+    >
       <table className="w-full min-w-[56rem] border-collapse text-left text-sm">
         <caption className="sr-only">
           {t("agentSessions.tableLabel", { name: agentName })}

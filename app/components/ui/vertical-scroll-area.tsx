@@ -11,6 +11,8 @@ import type {
 interface VerticalScrollAreaProps {
   readonly children: ReactNode;
   readonly className?: string;
+  /** Makes `className` the clipping shell of a rounded surface. */
+  readonly isShell?: boolean;
   readonly viewportClassName?: string;
   readonly contentClassName?: string;
   readonly fadeClassName?: string;
@@ -30,6 +32,7 @@ interface VerticalScrollAreaProps {
 export function VerticalScrollArea({
   children,
   className,
+  isShell,
   viewportClassName,
   contentClassName,
   fadeClassName,
@@ -43,6 +46,7 @@ export function VerticalScrollArea({
   return (
     <ScrollViewport
       containerClassName={className}
+      isShell={isShell}
       className={viewportClassName}
       fadeClassName={fadeClassName}
       fadeMode={fadeMode}

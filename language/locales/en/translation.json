@@ -9755,7 +9755,8 @@
     "card": {
       "subscription": "claude.ai subscription",
       "antigravity": "Antigravity CLI",
-      "codex": "ChatGPT subscription"
+      "codex": "ChatGPT subscription",
+      "zaiCodingPlan": "Z.AI Coding Plan"
     },
     "openRouter": {
       "subtitle": "OpenRouter · API key",
@@ -9817,7 +9818,8 @@
       "limitReachedNoReset": "{{group}} · {{limit}} reached",
       "reportedCodex": "Reported by Codex · {{time}}",
       "limitReachedGeneral": "Limit reached · back {{moment}}",
-      "limitReachedGeneralNoReset": "Limit reached"
+      "limitReachedGeneralNoReset": "Limit reached",
+      "reportedZaiCodingPlan": "Reported by Z.AI · {{time}}"
     },
     "notice": {
       "noWindows": {
@@ -9970,6 +9972,44 @@
         "signedOut": {
           "title": "This connection is not signed in to ChatGPT.",
           "detail": "Without a sign-in Pages can retrieve neither the plan nor values."
+        }
+      }
+    },
+    "zaiCodingPlan": {
+      "subtitle": "Z.AI Coding Plan · {{plan}}",
+      "plan": "{{plan}} plan",
+      "windowLabel": "{{measure}} · {{window}}",
+      "measure": {
+        "tokens": "Tokens",
+        "mcp": "MCP tools"
+      },
+      "window": {
+        "unknown": "Unknown window",
+        "hours_one": "{{count}} hour",
+        "hours_other": "{{count}} hours",
+        "weeks_one": "{{count}} week",
+        "weeks_other": "{{count}} weeks",
+        "months_one": "{{count}} month",
+        "months_other": "{{count}} months"
+      },
+      "used": "{{used}} of {{limit}} used",
+      "remaining": "{{remaining}} of {{limit}} left",
+      "notice": {
+        "noWindows": {
+          "title": "Z.AI reported no quota windows for this connection.",
+          "detail": "Pages queried successfully."
+        },
+        "skipped": {
+          "title": "Pages did not query this connection.",
+          "detail": "The values appear with the next query."
+        },
+        "failed": {
+          "title": "Pages could not retrieve any values yet.",
+          "detail": "The plan stays unknown until Z.AI reports it."
+        },
+        "signedOut": {
+          "title": "This connection has no valid Coding Plan key.",
+          "detail": "Without a valid key Pages can retrieve neither the plan nor values."
         }
       }
     }

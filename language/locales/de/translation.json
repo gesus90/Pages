@@ -9762,7 +9762,8 @@
     "card": {
       "subscription": "claude.ai-Abo",
       "antigravity": "Antigravity CLI",
-      "codex": "ChatGPT-Abo"
+      "codex": "ChatGPT-Abo",
+      "zaiCodingPlan": "Z.AI Coding Plan"
     },
     "openRouter": {
       "subtitle": "OpenRouter · API-Schlüssel",
@@ -9824,7 +9825,8 @@
       "limitReachedNoReset": "{{group}} · {{limit}} erreicht",
       "reportedCodex": "Von Codex gemeldet · {{time}}",
       "limitReachedGeneral": "Limit erreicht · zurück {{moment}}",
-      "limitReachedGeneralNoReset": "Limit erreicht"
+      "limitReachedGeneralNoReset": "Limit erreicht",
+      "reportedZaiCodingPlan": "Von Z.AI gemeldet · {{time}}"
     },
     "notice": {
       "noWindows": {
@@ -9977,6 +9979,44 @@
         "signedOut": {
           "title": "Für diese Verbindung fehlt die Anmeldung bei ChatGPT.",
           "detail": "Ohne Anmeldung kann Pages weder Tarif noch Werte abrufen."
+        }
+      }
+    },
+    "zaiCodingPlan": {
+      "subtitle": "Z.AI Coding Plan · {{plan}}",
+      "plan": "Tarif {{plan}}",
+      "windowLabel": "{{measure}} · {{window}}",
+      "measure": {
+        "tokens": "Tokens",
+        "mcp": "MCP-Tools"
+      },
+      "window": {
+        "unknown": "Fenster unbekannt",
+        "hours_one": "{{count}} Stunde",
+        "hours_other": "{{count}} Stunden",
+        "weeks_one": "{{count}} Woche",
+        "weeks_other": "{{count}} Wochen",
+        "months_one": "{{count}} Monat",
+        "months_other": "{{count}} Monate"
+      },
+      "used": "{{used}} von {{limit}} genutzt",
+      "remaining": "{{remaining}} von {{limit}} übrig",
+      "notice": {
+        "noWindows": {
+          "title": "Z.AI hat für diese Verbindung keine Kontingentfenster gemeldet.",
+          "detail": "Pages hat erfolgreich abgefragt."
+        },
+        "skipped": {
+          "title": "Pages hat diese Verbindung nicht abgefragt.",
+          "detail": "Die Werte erscheinen bei der nächsten Abfrage."
+        },
+        "failed": {
+          "title": "Pages konnte noch keine Werte abrufen.",
+          "detail": "Der Tarif ist unbekannt, bis Z.AI ihn meldet."
+        },
+        "signedOut": {
+          "title": "Für diese Verbindung fehlt ein gültiger Coding-Plan-Schlüssel.",
+          "detail": "Ohne gültigen Schlüssel kann Pages weder Tarif noch Werte abrufen."
         }
       }
     }

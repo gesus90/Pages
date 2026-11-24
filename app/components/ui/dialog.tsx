@@ -26,7 +26,47 @@ const DIALOG_WIDTHS = {
   lg: "w-[min(38rem,92vw)]",
 } as const;
 
-/** Renders a centered Pages modal and its accessible overlay. */
+// The shell carries radius, fill and shadow and clips the viewport; the
+// scrolling viewport carries none of them, so its scrollbar never paints
+// square over a rounded corner.
+const DIALOG_SHELL_CLASS =
+  "fixed top-1/2 left-1/2 z-50 max-h-[90dvh] -translate-x-1/2 -translate-y-1/2 rounded-2xl bg-surface shadow-panel";
+const DIALOG_VIEWPORT_CLASS = "p-6 outline-none";
+
+/** Size utilities a caller sets; the shell and the viewport both take them. */
+const SIZE_UTILITY = /^(?:min-|max-)?[hw]-/;
+
+/** Surface utilities a caller sets; only the shell takes them. */
+const SURFACE_UTILITY = /^(?:rounded|bg-|shadow|ring)/;
+
+/** The caller's classes of the shell and of the scrolling viewport. */
+interface DialogClassNames {
+  readonly shell: readonly string[];
+  readonly viewport: readonly string[];
+}
+
+/**
+ * Splits a caller's classes between the shell and the viewport.
+ * @param className - The classes a caller passes to `DialogContent`.
+ * @returns Size and surface classes for the shell, all others and the size
+ * classes for the viewport.
+ */
+function splitDialogClassName(className: string | undefined): DialogClassNames {
+  const tokens = className?.split(/\s+/).filter(Boolean) ?? [];
+  return {
+    shell: tokens.filter(
+      (token) => SIZE_UTILITY.test(token) || SURFACE_UTILITY.test(token),
+    ),
+    viewport: tokens.filter((token) => !SURFACE_UTILITY.test(token)),
+  };
+}
+
+/**
+ * Renders a centered Pages modal and its accessible overlay.
+ * @remarks
+ * The modal is a scroll shell: size, radius, fill, ring and shadow classes of
+ * `className` go to the clipping shell, all others to the scrolling viewport.
+ */
 export function DialogContent({
   children,
   className,
@@ -34,6 +74,7 @@ export function DialogContent({
   overlayClassName,
   ...properties
 }: DialogContentProps): React.ReactElement {
+  const classNames = splitDialogClassName(className);
   return (
     <DialogPrimitive.Portal>
       <DialogPrimitive.Overlay
@@ -44,17 +85,14 @@ export function DialogContent({
       />
       <DialogPrimitive.Content asChild {...properties}>
         <ScrollViewport
+          isShell
+          fadeMode="mask"
           containerClassName={cn(
-            "fixed top-1/2 left-1/2 z-50 max-h-[90dvh] -translate-x-1/2 -translate-y-1/2",
+            DIALOG_SHELL_CLASS,
             DIALOG_WIDTHS[size],
-            className
-              ?.split(/\s+/)
-              .filter((token) => /^(?:min-|max-)?[hw]-/.test(token)),
+            classNames.shell,
           )}
-          className={cn(
-            "rounded-2xl bg-surface p-6 shadow-panel outline-none",
-            className,
-          )}
+          className={cn(DIALOG_VIEWPORT_CLASS, classNames.viewport)}
         >
           {children}
         </ScrollViewport>

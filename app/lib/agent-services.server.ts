@@ -19,6 +19,7 @@ import { simulationGuardedFetch } from "@/backend/agents/simulation/SimulatedPla
 import { CatalogHttpClient } from "@/backend/agents/catalog/CatalogHttpClient";
 import { OpenRouterProvider } from "@/backend/agents/providers/OpenRouterProvider";
 import { ProviderHttpClient } from "@/backend/agents/providers/ProviderHttpClient";
+import { ZaiCodingPlanUsageClient } from "@/backend/agents/providers/ZaiCodingPlanUsageClient";
 import { AuthorizationRepository } from "@/backend/database/repositories/AuthorizationRepository";
 import { UserGroupRepository } from "@/backend/database/repositories/UserGroupRepository";
 import { AgentConnectionAccess } from "@/backend/service/agents/AgentConnectionAccess";
@@ -35,6 +36,8 @@ import { CodexQuotaService } from "@/backend/service/agents/CodexQuotaService";
 import { OpenRouterQuotaProbe } from "@/backend/service/agents/OpenRouterQuotaProbe";
 import { OpenRouterQuotaService } from "@/backend/service/agents/OpenRouterQuotaService";
 import { QuotaMeasurementService } from "@/backend/service/agents/QuotaMeasurementService";
+import { ZaiCodingPlanQuotaProbe } from "@/backend/service/agents/ZaiCodingPlanQuotaProbe";
+import { ZaiCodingPlanQuotaService } from "@/backend/service/agents/ZaiCodingPlanQuotaService";
 import { LocalSessions } from "@/backend/agents/local/LocalSessions";
 import { CHAT_REQUEST_TIMEOUT_MS } from "@/backend/service/chat/ChatExecutionLimits";
 import { ChatRequestRegistry } from "@/backend/service/chat/ChatRequestRegistry";
@@ -124,7 +127,8 @@ export interface AgentApplicationServices
 /**
  * The connection scope check, the quota page and the decision model, which
  * share one reading of the groups; the quota page asks Claude, Codex and
- * Antigravity through the CLI runtime and OpenRouter over HTTP.
+ * Antigravity through the CLI runtime, and OpenRouter and the Z.AI Coding
+ * Plan over HTTP.
  */
 function createAccessServices(
   database: Database,
@@ -192,6 +196,18 @@ function createAccessServices(
             new ProviderHttpClient(
               simulationGuardedFetch(currentAgentSimulationMode()),
             ),
+          ),
+        }),
+      }),
+      zaiCodingPlan: new ZaiCodingPlanQuotaService({
+        connections: repository,
+        authorization,
+        groups,
+        probe: new ZaiCodingPlanQuotaProbe({
+          measurements,
+          reader: runtime,
+          client: new ZaiCodingPlanUsageClient(
+            simulationGuardedFetch(currentAgentSimulationMode()),
           ),
         }),
       }),

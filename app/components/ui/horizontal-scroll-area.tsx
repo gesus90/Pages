@@ -7,6 +7,8 @@ import type { ReactNode } from "react";
 interface HorizontalScrollAreaProps {
   readonly children: ReactNode;
   readonly className?: string;
+  /** Makes `className` the clipping shell of a rounded surface. */
+  readonly isShell?: boolean;
   readonly viewportClassName?: string;
   readonly contentClassName?: string;
   readonly viewportRef?: { current: HTMLDivElement | null };
@@ -17,6 +19,7 @@ interface HorizontalScrollAreaProps {
 export function HorizontalScrollArea({
   children,
   className,
+  isShell,
   viewportClassName,
   contentClassName,
   viewportRef,
@@ -33,6 +36,7 @@ export function HorizontalScrollArea({
     <ScrollViewport
       axis="horizontal"
       containerClassName={className}
+      isShell={isShell}
       className={viewportClassName}
       ref={setViewport}
       onViewportMeasure={handleMeasure}

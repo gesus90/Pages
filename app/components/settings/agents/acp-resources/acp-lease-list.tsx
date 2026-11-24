@@ -218,7 +218,10 @@ export function AcpLeaseList({
           ]}
         />
       </div>
-      <VerticalScrollArea className="max-h-[440px] rounded-xl border border-border">
+      <VerticalScrollArea
+        isShell
+        className="max-h-[440px] rounded-xl border border-border"
+      >
         {groups
           .filter(
             (group) =>

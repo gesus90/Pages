@@ -116,8 +116,9 @@ export function WikiHistoryDialog({
           <ScrollViewport
             axis="vertical"
             aria-label={t("wiki.dialog.history.previewLabel")}
-            containerClassName="mt-4 max-h-72"
-            className="overflow-y-auto rounded-xl border border-border p-4"
+            isShell
+            containerClassName="mt-4 max-h-72 rounded-xl border border-border"
+            className="overflow-y-auto p-4"
           >
             <WikiMarkdown source={shown.content} />
           </ScrollViewport>

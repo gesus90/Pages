@@ -586,8 +586,9 @@ function PlanScriptStream({
         axis="both"
         tabIndex={0}
         aria-label={name}
-        containerClassName="max-h-64"
-        className="overflow-auto rounded-md border border-border bg-muted p-2 font-mono text-xs whitespace-pre-wrap wrap-anywhere"
+        isShell
+        containerClassName="max-h-64 rounded-md border border-border bg-muted"
+        className="overflow-auto p-2 font-mono text-xs whitespace-pre-wrap wrap-anywhere"
       >
         {content}
       </ScrollViewport>

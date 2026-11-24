@@ -199,7 +199,10 @@ export function AgentLogbookEntries({
             : t("agentLogbook.emptyFiltered")}
         </p>
       ) : (
-        <HorizontalScrollArea className="rounded-xl border border-border bg-surface">
+        <HorizontalScrollArea
+          isShell
+          className="rounded-xl border border-border bg-surface"
+        >
           <table className="w-full min-w-[56rem] border-collapse text-left text-sm">
             <caption className="sr-only">
               {t("agentLogbook.tableLabel", { name: agentName })}

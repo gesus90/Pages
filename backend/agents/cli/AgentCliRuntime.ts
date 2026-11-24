@@ -1,5 +1,8 @@
 import { AgentError } from "@/backend/error/AgentErrors";
-import { isApiProvider } from "@/definition/AgentConnection";
+import {
+  isApiProvider,
+  ZAI_CODING_PLAN_PROVIDER,
+} from "@/definition/AgentConnection";
 import { logCaughtError } from "@/backend/logging/Logger";
 
 import { AntigravityCli } from "./AntigravityCli";
@@ -8,6 +11,7 @@ import { CodexCli } from "./CodexCli";
 import { CliToolExecution } from "./CliToolExecution";
 import { prepareCliUsageHome } from "./CliUsageHome";
 import { OpenCodeCli } from "./OpenCodeCli";
+import { OpenCodeCredentialStore } from "./OpenCodeCredentialStore";
 
 import type { AgentConnectionRecord } from "@/backend/database/repositories/agent/AgentConnectionRows";
 import type { InstanceSecretCipher } from "@/backend/security/InstanceSecretCipher";
@@ -22,6 +26,7 @@ import type { AgentCredentialStore } from "./AgentCredentialStore";
 import type { ClaudeUsageReading } from "./ClaudeUsageResult";
 import type { CliHome, CliLoginAdapter, CliToolAdapter } from "./CliContracts";
 import type { CodexUsageReading } from "./CodexUsageResult";
+import type { OpenCodeKeyInput } from "./OpenCodeCredentials";
 import type { CliLocator } from "./CliLocator";
 import type { CliProcessRunner } from "./CliProcessRunner";
 
@@ -253,6 +258,43 @@ export class AgentCliRuntime {
     } finally {
       await store.secure(connection.id, connection.provider);
     }
+  }
+
+  /**
+   * Reads the Z.AI Coding Plan key stored with an OpenCode connection.
+   * @param connection - An OpenCode connection with a stored Coding Plan key.
+   * @returns The key, for a server-side quota query only.
+   * @throws {AgentError} `provider_invalid` for another connection,
+   * `cli_not_logged_in` while no key is confirmed, or `api_key_required`
+   * when no Coding Plan key can be read.
+   * @remarks
+   * The key is read from the encrypted file without preparing the home and
+   * without starting OpenCode, so a running session of the connection keeps
+   * its files, modes and process untouched.
+   */
+  public async readZaiCodingPlanKey(
+    connection: AgentConnectionRecord,
+  ): Promise<string> {
+    if (
+      connection.provider !== "opencode" ||
+      connection.cliAccountLabel !== ZAI_CODING_PLAN_PROVIDER
+    )
+      throw new AgentError("provider_invalid");
+    if (connection.cliLoggedInAt === null)
+      throw new AgentError("cli_not_logged_in");
+    const home = this.dependencies.store.paths(connection.id, "opencode");
+    const credentials = new OpenCodeCredentialStore(this.dependencies.cipher);
+    let own: OpenCodeKeyInput | null;
+    try {
+      own = await credentials.readOwn(home);
+    } catch (error: unknown) {
+      if (error instanceof AgentError) throw error;
+      logCaughtError("AgentCliRuntime", error);
+      throw new AgentError("api_key_required");
+    }
+    if (own?.modelProvider !== ZAI_CODING_PLAN_PROVIDER)
+      throw new AgentError("api_key_required");
+    return own.apiKey;
   }
 
   /** Local deletion remains mandatory even if the CLI cannot revoke its remote session. */

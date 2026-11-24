@@ -204,7 +204,9 @@ export function TasksList({
   return (
     <ScrollViewport
       axis="horizontal"
-      className="overflow-x-auto rounded-2xl bg-surface shadow-card"
+      isShell
+      containerClassName="rounded-2xl bg-surface shadow-card"
+      className="overflow-x-auto"
     >
       <table className="w-full text-left text-xs">
         <TasksListHead onSort={handleHeaderClick} />

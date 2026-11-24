@@ -123,7 +123,9 @@ export function WikiHomeView({
         ) : (
           <ScrollViewport
             axis="horizontal"
-            className="pages-scene-veil overflow-x-auto rounded-2xl border border-border"
+            isShell
+            containerClassName="pages-scene-veil rounded-2xl border border-border"
+            className="overflow-x-auto"
           >
             <table className="w-full text-left text-sm">
               <thead className="bg-muted text-xs text-muted-foreground uppercase">

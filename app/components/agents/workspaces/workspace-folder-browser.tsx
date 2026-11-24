@@ -87,7 +87,10 @@ export function WorkspaceFolderBrowser(props: {
         {t("workspaces.folders.description")}
       </DialogDescription>
       <WorkspaceFolderBreadcrumb listing={listing} onOpen={browser.open} />
-      <VerticalScrollArea className="mt-3 h-72 max-h-[40dvh] rounded-xl border border-border bg-surface">
+      <VerticalScrollArea
+        isShell
+        className="mt-3 h-72 max-h-[40dvh] rounded-xl border border-border bg-surface"
+      >
         <WorkspaceFolderList
           listing={listing}
           errorMessage={

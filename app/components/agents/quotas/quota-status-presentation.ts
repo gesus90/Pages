@@ -142,6 +142,7 @@ const REPORTED_TEXT: Readonly<Record<QuotaAccount["provider"], string>> = {
   openrouter: "agentsPage.openRouter.reported",
   codex_cli: "agentsPage.state.reportedCodex",
   antigravity: "agentsPage.state.reportedAntigravity",
+  zai_coding_plan: "agentsPage.state.reportedZaiCodingPlan",
 };
 
 function reportedPresentation(

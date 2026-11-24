@@ -8,6 +8,11 @@ import {
   isCodexWindowExhausted,
   visibleCodexQuotaWindows,
 } from "@/definition/CodexQuota";
+import {
+  isZaiWindowExhausted,
+  visibleZaiQuotaWindows,
+  zaiLimitResetsAt,
+} from "@/definition/ZaiCodingPlanQuota";
 
 import type {
   AntigravityQuotaAccount,
@@ -24,6 +29,10 @@ import type {
   CodexQuotaAccount,
   CodexQuotaWindow,
 } from "@/definition/CodexQuota";
+import type {
+  ZaiCodingPlanQuotaAccount,
+  ZaiCodingPlanQuotaWindow,
+} from "@/definition/ZaiCodingPlanQuota";
 
 /** The notices a card shows in place of windows. */
 export type QuotaNoticeKind = "noWindows" | "skipped" | "failed" | "signedOut";
@@ -258,6 +267,64 @@ export function antigravityCardView(
     limit:
       status.kind === "reported" || status.kind === "stored"
         ? firstAntigravityQuotaLimit(groups)
+        : null,
+  };
+}
+
+/** What the window area of a Z.AI Coding Plan card holds. */
+export type ZaiCodingPlanCardBody =
+  | {
+      readonly kind: "windows";
+      readonly windows: readonly ZaiCodingPlanQuotaWindow[];
+      readonly isStale: boolean;
+    }
+  | { readonly kind: "notice"; readonly notice: QuotaNoticeKind };
+
+/** What a Z.AI Coding Plan card shows at a moment. */
+export interface ZaiCodingPlanCardView {
+  readonly status: ClaudeQuotaStatus;
+  readonly body: ZaiCodingPlanCardBody;
+  /** `null` unless the answer is current and a window is used up. */
+  readonly limit: CodexCardLimit | null;
+}
+
+/**
+ * What a Z.AI Coding Plan card shows at a moment.
+ * @param account - The card as the server answered it.
+ * @param now - The moment of display.
+ * @returns The status line, the window area and the limit the status line names.
+ * @remarks
+ * It follows the Codex card: a window leaves once its reset passed, a
+ * reported card without a window left reads "Keine Fenster gemeldet", and a
+ * missed query keeps the windows of the last answer, marked with its time. A
+ * used-up window adds "Limit erreicht" to the line of a current answer, with
+ * the reset of that window when exactly one is used up.
+ */
+export function zaiCodingPlanCardView(
+  account: ZaiCodingPlanQuotaAccount,
+  now: Date,
+): ZaiCodingPlanCardView {
+  const isStale = isStaleReading(account.status);
+  const windows = isStale
+    ? account.windows
+    : visibleZaiQuotaWindows(account.windows, now);
+  const status: ClaudeQuotaStatus =
+    account.status.kind === "reported" && windows.length === 0
+      ? { kind: "no_windows", at: account.status.at }
+      : account.status;
+  if (status.kind === "signed_out" || windows.length === 0)
+    return {
+      status,
+      body: { kind: "notice", notice: NOTICE_BY_STATUS[status.kind] },
+      limit: null,
+    };
+  return {
+    status,
+    body: { kind: "windows", windows, isStale },
+    limit:
+      (status.kind === "reported" || status.kind === "stored") &&
+      windows.some(isZaiWindowExhausted)
+        ? { resetsAt: zaiLimitResetsAt(windows) }
         : null,
   };
 }

@@ -4,18 +4,21 @@ import { antigravityQuotaAccountSchema } from "@/definition/AntigravityQuota";
 import { claudeQuotaAccountSchema } from "@/definition/ClaudeQuota";
 import { codexQuotaAccountSchema } from "@/definition/CodexQuota";
 import { openRouterQuotaAccountSchema } from "@/definition/OpenRouterQuota";
+import { zaiCodingPlanQuotaAccountSchema } from "@/definition/ZaiCodingPlanQuota";
 
 import type { AntigravityQuotaAccount } from "@/definition/AntigravityQuota";
 import type { ClaudeQuotaAccount } from "@/definition/ClaudeQuota";
 import type { CodexQuotaAccount } from "@/definition/CodexQuota";
 import type { OpenRouterQuotaAccount } from "@/definition/OpenRouterQuota";
+import type { ZaiCodingPlanQuotaAccount } from "@/definition/ZaiCodingPlanQuota";
 
 /** A provider connection card on the Agents page. */
 export type QuotaAccount =
   | ClaudeQuotaAccount
   | CodexQuotaAccount
   | AntigravityQuotaAccount
-  | OpenRouterQuotaAccount;
+  | OpenRouterQuotaAccount
+  | ZaiCodingPlanQuotaAccount;
 
 /**
  * What one query of the Agents page answers.
@@ -41,6 +44,7 @@ export const quotaSnapshotSchema = z.object({
         codexQuotaAccountSchema,
         antigravityQuotaAccountSchema,
         openRouterQuotaAccountSchema,
+        zaiCodingPlanQuotaAccountSchema,
       ]),
     )
     .max(500),

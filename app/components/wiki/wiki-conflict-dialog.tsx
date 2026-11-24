@@ -52,8 +52,9 @@ export function WikiConflictDialog({
             as="pre"
             axis="both"
             aria-label={t("wiki.conflict.differences")}
-            containerClassName="mt-4 max-h-72"
-            className="overflow-auto rounded-lg bg-muted p-3 text-xs"
+            isShell
+            containerClassName="mt-4 max-h-72 rounded-lg bg-muted"
+            className="overflow-auto p-3 text-xs"
           >
             {diffLines(theirs, mine).map((line, index) => (
               <div

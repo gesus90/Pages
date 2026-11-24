@@ -4,6 +4,7 @@ import {
   quotaLookback,
   quotaWindowTiming,
 } from "@/definition/QuotaForecast";
+import { zaiWindowMinutes } from "@/definition/ZaiCodingPlanQuota";
 
 import type {
   MeasuredQuotaWindows,
@@ -18,6 +19,7 @@ import type {
 import type { ClaudeQuotaWindow } from "@/definition/ClaudeQuota";
 import type { CodexQuotaWindow } from "@/definition/CodexQuota";
 import type { QuotaFrame, QuotaPace } from "@/definition/QuotaForecast";
+import type { ZaiCodingPlanQuotaWindow } from "@/definition/ZaiCodingPlanQuota";
 
 interface WindowReading extends QuotaFrame {
   readonly key: string;
@@ -36,6 +38,10 @@ type ProviderReading =
   | {
       readonly provider: "antigravity";
       readonly groups: readonly AntigravityQuotaGroup[];
+    }
+  | {
+      readonly provider: "zai_coding_plan";
+      readonly windows: readonly ZaiCodingPlanQuotaWindow[];
     };
 
 interface MeasurementInput {
@@ -70,6 +76,15 @@ function antigravityReading(
   };
 }
 
+function zaiReading(window: ZaiCodingPlanQuotaWindow): WindowReading {
+  return {
+    key: window.key,
+    used: window.usedPercent,
+    resetsAt: window.resetsAt,
+    durationMinutes: zaiWindowMinutes(window.length),
+  };
+}
+
 function windowReadings(reading: ProviderReading): WindowReading[] {
   switch (reading.provider) {
     case "claude_code":
@@ -80,6 +95,8 @@ function windowReadings(reading: ProviderReading): WindowReading[] {
       return reading.groups.flatMap((group) =>
         group.windows.map((window) => antigravityReading(window, group.name)),
       );
+    case "zai_coding_plan":
+      return reading.windows.map(zaiReading);
   }
 }
 
@@ -245,6 +262,13 @@ function cardWithPace(
             withPace(window, antigravityReading(window, group.name), measured),
           ),
         })),
+      };
+    case "zai_coding_plan":
+      return {
+        ...card,
+        windows: card.windows.map((window) =>
+          withPace(window, zaiReading(window), measured),
+        ),
       };
     case "openrouter":
       return card;

@@ -43,7 +43,9 @@ export function WikiTrashView({
       ) : (
         <ScrollViewport
           axis="horizontal"
-          className="overflow-x-auto rounded-2xl border border-border"
+          isShell
+          containerClassName="rounded-2xl border border-border"
+          className="overflow-x-auto"
         >
           <table className="w-full text-left text-sm">
             <thead className="bg-muted text-xs text-muted-foreground uppercase">

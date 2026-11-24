@@ -34,8 +34,9 @@ export function TeamMemberTable({
   return (
     <ScrollViewport
       axis="horizontal"
-      containerClassName="mt-4"
-      className="overflow-x-auto rounded-2xl bg-surface shadow-card"
+      isShell
+      containerClassName="mt-4 rounded-2xl bg-surface shadow-card"
+      className="overflow-x-auto"
     >
       <table className="w-full min-w-[1100px] table-fixed text-left text-sm">
         <colgroup>

@@ -134,6 +134,11 @@ For frontend work:
 
 Do not introduce a new UI pattern when an existing project pattern already solves the same problem.
 
+Follow the design rules in [`DESIGN.md`](DESIGN.md): theme radii, the
+graduation of inner radii, and rounded scroll surfaces as a clipping shell that
+carries radius, fill, ring and shadow while the scrolling viewport inside keeps
+none of them, so the scrollbar stays inside the rounding.
+
 ---
 
 ## 7. Backend Changes

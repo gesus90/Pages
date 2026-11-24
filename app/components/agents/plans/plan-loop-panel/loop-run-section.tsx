@@ -114,8 +114,9 @@ function IterationRow(props: {
                 <ScrollViewport
                   as="pre"
                   axis="both"
-                  containerClassName="mt-1 max-h-28"
-                  className="overflow-auto rounded-md bg-muted px-2 py-1.5 font-mono text-[11px] leading-4 whitespace-pre-wrap"
+                  isShell
+                  containerClassName="mt-1 max-h-28 rounded-md bg-muted"
+                  className="overflow-auto px-2 py-1.5 font-mono text-[11px] leading-4 whitespace-pre-wrap"
                 >
                   {node.output}
                 </ScrollViewport>
