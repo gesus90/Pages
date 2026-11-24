@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { ModelPicker } from "@/app/components/agents/model-picker";
 import {
   findModelChoice,
+  modelChoiceMark,
   modelChoiceSource,
   modelGroups,
 } from "@/app/components/agents/model-picker/model-catalog";
@@ -126,7 +127,10 @@ function ModelValues(props: {
         choice={
           selected
             ? {
-                mark: selected.group.mark,
+                mark: modelChoiceMark(
+                  selected.choice.model,
+                  selected.group.mark,
+                ),
                 name: selected.choice.label,
                 tool: selected.group.label,
                 source: modelChoiceSource(selected.choice.model, t),

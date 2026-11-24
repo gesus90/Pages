@@ -31,14 +31,19 @@ export function isRetiredProviderId(
  * The native OpenCode provider IDs of a retired provider.
  * @remarks
  * OpenCode ships these providers itself. Their models are neither listed nor
- * run, even when OpenCode still reports them.
+ * OpenCode ships these providers itself. Their models are neither listed nor
+ * run, even when OpenCode still reports them. The Z.AI Coding Plan
+ * (`zai-coding-plan`) is no retired provider: only a connection that stores
+ * its own subscription key for it offers its models, see {@link ZAI_CODING_PLAN_PROVIDER}.
  */
 const RETIRED_OPENCODE_PROVIDERS: readonly string[] = [
   "zai",
-  "zai-coding-plan",
   "zhipuai",
   "zhipuai-coding-plan",
 ];
+
+/** OpenCode's native provider of the Z.AI Coding Plan subscription. */
+export const ZAI_CODING_PLAN_PROVIDER = "zai-coding-plan";
 
 /**
  * Whether a full OpenCode model ID belongs to a retired native provider.
@@ -59,8 +64,17 @@ export function historicalRunnerOf(provider: string): string {
   return isRetiredProviderId(provider) ? "opencode" : provider;
 }
 
-/** Native OpenCode key destinations; a Zen key must never be assigned to OpenRouter. */
-export const OPENCODE_KEY_PROVIDERS = ["opencode", "openrouter"] as const;
+/**
+ * Native OpenCode key destinations in the order the key form offers them.
+ * @remarks
+ * A Zen key must never be assigned to OpenRouter, and a Coding Plan key
+ * never to the regular Z.AI API, which stays retired.
+ */
+export const OPENCODE_KEY_PROVIDERS = [
+  "opencode",
+  "openrouter",
+  ZAI_CODING_PLAN_PROVIDER,
+] as const;
 export type OpenCodeKeyProvider = (typeof OPENCODE_KEY_PROVIDERS)[number];
 
 /** Validates an explicitly selected key destination, without guessing from the key. */
@@ -111,6 +125,39 @@ export function openCodeLinkedModelProvider(connection: {
 /** The native provider of a full OpenCode model ID such as `google/gemini-3.8-flash`. */
 export function openCodeModelProvider(model: string): string {
   return model.split("/")[0];
+}
+
+/**
+ * Whether a full OpenCode model ID belongs to the Z.AI Coding Plan.
+ * @param model - A model ID such as `zai-coding-plan/glm-5.1`.
+ */
+export function isZaiCodingPlanModel(model: string): boolean {
+  return openCodeModelProvider(model) === ZAI_CODING_PLAN_PROVIDER;
+}
+
+/**
+ * Whether a connection offers and may run a model of its catalog.
+ * @param connection - Provider and stored native key provider of the connection.
+ * @param model - The full model ID and whether the catalog proves it free.
+ * @returns For OpenCode connections: a connection that stores a Z.AI Coding
+ * Plan key admits only `zai-coding-plan/` models, every other one only the
+ * free models of OpenCode's own provider. Any other provider admits all.
+ * @remarks
+ * The model choice and the start of a session apply this one rule, so
+ * neither lists nor runs a model of a provider the connection holds no key for.
+ */
+export function isOpenCodeConnectionModel(
+  connection: {
+    readonly provider: AgentProviderId;
+    readonly cliAccountLabel: string | null;
+  },
+  model: { readonly id: string; readonly isFree?: boolean },
+): boolean {
+  if (connection.provider !== "opencode") return true;
+  const nativeProvider = openCodeModelProvider(model.id);
+  if (connection.cliAccountLabel === ZAI_CODING_PLAN_PROVIDER)
+    return nativeProvider === ZAI_CODING_PLAN_PROVIDER;
+  return nativeProvider === OPENCODE_FREE_PROVIDER && model.isFree === true;
 }
 
 /** Where a connection runs, in the order a model choice lists them. */
@@ -323,6 +370,23 @@ export interface AgentConnectionSummary {
     readonly model: AgentCheckSummary | null;
   };
   readonly updatedAt: string;
+}
+
+/**
+ * Whether an OpenCode connection holds a Z.AI Coding Plan subscription key.
+ * @param connection - The connection as the administration shows it.
+ * @returns `true` when the stored native provider or the saved test model names
+ * the Coding Plan. The test model keeps the connection recognizable after a
+ * rejected key cleared its stored provider.
+ */
+export function isZaiCodingPlanConnection(
+  connection: Pick<AgentConnectionSummary, "provider" | "cli" | "testModel">,
+): boolean {
+  return (
+    connection.provider === "opencode" &&
+    (connection.cli?.accountLabel === ZAI_CODING_PLAN_PROVIDER ||
+      connection.testModel?.startsWith(`${ZAI_CODING_PLAN_PROVIDER}/`) === true)
+  );
 }
 
 export interface AgentConnectionInput {

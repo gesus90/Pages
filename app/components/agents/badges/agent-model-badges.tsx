@@ -1,6 +1,6 @@
 import { useTranslation } from "react-i18next";
 
-import { modelBadgeVendor } from "@/definition/AgentModelIdentity";
+import { modelBadgeVendorOf } from "@/definition/AgentModelIdentity";
 
 import { modelBadgeDisplay } from "../model-picker/model-catalog";
 import { FreeBadge } from "./free-badge";
@@ -44,7 +44,7 @@ export function AgentModelBadges({
   readonly isCompactWhenNarrow?: boolean;
 }): React.ReactElement {
   const { t } = useTranslation();
-  const vendor = modelBadgeVendor(model.provider);
+  const vendor = modelBadgeVendorOf(model.provider, model.modelId);
   const isFree = model.isFree === true;
   const { name, source } = modelBadgeDisplay(model, t);
   const free = isFree ? <FreeBadge size="badge" /> : null;

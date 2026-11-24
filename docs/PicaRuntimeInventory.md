@@ -107,7 +107,10 @@ Der frühere direkte Anbieter z.ai ist aus Pages entfernt: kein Adapter, keine
 Verbindungsart, kein Katalog, keine Kontingentkarte und keine Pica-Auswahl.
 Gespeicherte Verbindungen und Auswahlen bleiben als Altbestand lesbar, werden
 aber nie aufgelistet oder ausgeführt; siehe
-[Entfernter Anbieter Z.AI](AgentPlanRunner.md#retired-provider-zai).
+[Entfernter Anbieter Z.AI](AgentPlanRunner.md#retired-provider-zai). Ein
+Z.AI-Coding-Plan-Abo läuft dagegen als eigene OpenCode-Verbindung über ACP und
+ist in Pica wählbar; siehe
+[Z.AI Coding Plan over OpenCode](AgentPlanRunner.md#zai-coding-plan-over-opencode).
 
 ## Historischer Auftragskonflikt
 

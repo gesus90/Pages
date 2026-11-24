@@ -197,8 +197,10 @@
   /* Agent badges: Claude's brand orange, ChatGPT's tile green and
      Antigravity's blue outline the model badge of their tool, the same in
      both palettes. OpenCode's mark has no color of its own, so its outline
-     is a neutral grey per palette, at least 3:1 against the surface. Every
-     reasoning level has its own hue, from grey
+     is a neutral grey per palette, at least 3:1 against the surface. The
+     Z.AI outline of the Coding Plan takes the same grey (7.7:1 light, 6.7:1
+     dark), so the white tile with the Z is the only bright area of its
+     badge. Every reasoning level has its own hue, from grey
      (none) to violet (ultra), its background mixed from the same hue (light
      12 %, dark 18 %). High is yellow so that it stays apart from the orange
      "working" state. */
@@ -207,6 +209,7 @@
   --color-antigravity: #4285f4;
   --color-opencode: #52525b;
   --color-openrouter: #657f00;
+  --color-zai: #52525b;
   --color-reasoning-none: #4b5563;
   --color-reasoning-minimal: #1d4ed8;
   --color-reasoning-low: #4d7c0f;
@@ -724,6 +727,7 @@
     --color-antigravity: #4285f4;
     --color-opencode: #a1a1aa;
     --color-openrouter: #c0f000;
+    --color-zai: #a1a1aa;
     --color-reasoning-none: #c3c9d2;
     --color-reasoning-minimal: #93c5fd;
     --color-reasoning-low: #bef264;

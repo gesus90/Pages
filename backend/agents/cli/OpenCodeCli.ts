@@ -5,10 +5,11 @@ import {
   MODEL_TEST_PROMPT,
   OPENCODE_FREE_PROVIDER,
   openCodeModelProvider,
+  ZAI_CODING_PLAN_PROVIDER,
 } from "@/definition/AgentConnection";
 import { logCaughtError } from "@/backend/logging/Logger";
 
-import { readOpenCodeModels } from "./CliModelCatalog";
+import { readOpenCodeModelList, readOpenCodeModels } from "./CliModelCatalog";
 import { readOpenCodeTest } from "./CliResultParser";
 import {
   OpenCodeCredentialStore,
@@ -35,6 +36,43 @@ const TEST_CONFIGURATION = JSON.stringify({
   share: "disabled",
   autoupdate: false,
 });
+
+/** How long the access check of a Z.AI Coding Plan key waits for Z.AI's answer. */
+const CODING_PLAN_CHECK_TIMEOUT_MS = 20_000;
+
+/**
+ * Z.AI's business codes that prove an exhausted subscription quota.
+ * @remarks
+ * 1113 names a missing balance or resource package, 1308 and 1310 a used-up
+ * usage window. The HTTP status 429 alone proves no exhausted quota, so it
+ * keeps the rate-limit code of the general classification.
+ */
+const CODING_PLAN_QUOTA_CODE = /\\*"code\\*"\s*:\s*\\*"?(?:1113|1308|1310)\b/u;
+
+/**
+ * A Coding Plan model as the subscription offers it.
+ * @remarks
+ * OpenCode's catalog states a price of zero for the Coding Plan because the
+ * subscription pays for it. That is no free model and no per-token price, so
+ * the model carries neither a "Free" mark nor a price.
+ */
+function asSubscriptionModel(model: AgentCatalogModel): AgentCatalogModel {
+  return { ...model, promptPrice: null, completionPrice: null, isFree: false };
+}
+
+/**
+ * Narrows a failed Z.AI Coding Plan turn to an exhausted quota only on Z.AI's own evidence.
+ * @param outcome - The outcome the general OpenCode classification read.
+ * @param output - The redacted output of the turn.
+ * @returns The outcome, with `provider_quota_exhausted` where Z.AI named a quota code.
+ */
+function withCodingPlanQuota(
+  outcome: ProviderCheckOutcome,
+  output: string,
+): ProviderCheckOutcome {
+  if (outcome.ok || !CODING_PLAN_QUOTA_CODE.test(output)) return outcome;
+  return { ok: false, errorCode: "provider_quota_exhausted", detail: {} };
+}
 
 /**
  * Controls the unchanged OpenCode binary with one provider key per connection.
@@ -133,28 +171,63 @@ export class OpenCodeCli implements CliToolAdapter {
     )
       return { ok: false, errorCode: "plan_model_unavailable", detail: {} };
     await requireManagedOpenCodeConfiguration(home);
-    const args = ["run", "--format", "json", "--pure", "-m", selection.model];
-    if (selection.reasoningEffort !== null)
-      args.push("--variant", selection.reasoningEffort);
-    const result = await this.execution.prompt(
-      home,
-      {
-        arguments: args,
-        input: MODEL_TEST_PROMPT,
-        environment: {
-          ...credentials.environmentFor(modelProvider),
-          OPENCODE_CONFIG_CONTENT: TEST_CONFIGURATION,
-        },
-      },
+    return this.runTurn(home, {
+      credentials,
+      selection: { ...selection, model: selection.model },
       signal,
-    );
-    if (result.errorCode)
-      return { ok: false, errorCode: result.errorCode, detail: {} };
-    return readOpenCodeTest(credentials.redact(result.stdout));
+    });
   }
 
   /**
-   * Lists only OpenCode's own free models, independently of stored keys.
+   * Proves the stored key of a Z.AI Coding Plan connection with one short turn.
+   * @param home - The prepared credential folder of the connection.
+   * @param selection - The saved model and effort; a model of another provider is ignored.
+   * @param signal - Deadline of the whole check.
+   * @returns Success with the number of listed models and the model that
+   * answered; for any other key provider success without a model call.
+   * @remarks
+   * The catalog listing alone proves no key, so the check asks the saved
+   * Coding Plan model, or the first listed one, for a single word. A listing
+   * without a usable model fails with `opencode_provider_no_models`. After 20
+   * seconds without an answer the check ends with `check_timeout`; the stored
+   * key stays untouched in every case.
+   */
+  public async checkAccess(
+    home: CliHome,
+    selection: CliModelSelection,
+    signal: AbortSignal,
+  ): Promise<ProviderCheckOutcome> {
+    const credentials = await this.access(home);
+    if (credentials.ownProvider !== ZAI_CODING_PLAN_PROVIDER)
+      return { ok: true, detail: {} };
+    try {
+      return await this.probeCodingPlan(home, {
+        credentials,
+        selection,
+        signal: AbortSignal.any([
+          signal,
+          AbortSignal.timeout(CODING_PLAN_CHECK_TIMEOUT_MS),
+        ]),
+      });
+    } catch (error: unknown) {
+      logCaughtError("OpenCodeCli", error);
+
+      if (!(error instanceof AgentError)) throw error;
+      return {
+        ok: false,
+        errorCode: error.code,
+        detail: { modelProvider: ZAI_CODING_PLAN_PROVIDER },
+      };
+    }
+  }
+
+  /**
+   * Lists OpenCode's own free models, or the models of a Z.AI Coding Plan key.
+   * @remarks
+   * A connection with a Coding Plan key lists only that provider's models,
+   * read with its own key and under their `zai-coding-plan/` IDs; a listing
+   * without a usable model fails with `opencode_provider_no_models`. Every
+   * other connection lists OpenCode's free models, independently of its key.
    */
   public async listModels(
     home: CliHome,
@@ -164,6 +237,17 @@ export class OpenCodeCli implements CliToolAdapter {
     if (!version.ok) throw new AgentError(version.errorCode);
     await requireManagedOpenCodeConfiguration(home);
     const credentials = await this.access(home);
+    if (credentials.ownProvider === ZAI_CODING_PLAN_PROVIDER) {
+      const models = await this.listProvider(home, {
+        credentials,
+        modelProvider: ZAI_CODING_PLAN_PROVIDER,
+        signal,
+        isEmptyAllowed: true,
+      });
+      if (models.length === 0)
+        throw new AgentError("opencode_provider_no_models");
+      return models;
+    }
     const models = await this.listProvider(home, {
       credentials,
       modelProvider: OPENCODE_FREE_PROVIDER,
@@ -195,9 +279,10 @@ export class OpenCodeCli implements CliToolAdapter {
       readonly credentials: CliCredentialAccess;
       readonly modelProvider: string;
       readonly signal: AbortSignal;
+      readonly isEmptyAllowed?: boolean;
     },
   ): Promise<readonly AgentCatalogModel[]> {
-    const { credentials, modelProvider, signal } = request;
+    const { credentials, modelProvider, signal, isEmptyAllowed } = request;
     const result = await this.execution.readCatalog(
       home,
       ["models", modelProvider, "--verbose"],
@@ -215,9 +300,89 @@ export class OpenCodeCli implements CliToolAdapter {
     );
     if (result.errorCode) throw new AgentError(result.errorCode);
     if (result.exitCode !== 0) throw new AgentError("cli_unexpected_output");
-    const models = readOpenCodeModels(credentials.redact(result.stdout));
+    const stdout = credentials.redact(result.stdout);
+    const models =
+      modelProvider === ZAI_CODING_PLAN_PROVIDER
+        ? readOpenCodeModelList(stdout).map(asSubscriptionModel)
+        : readOpenCodeModels(stdout, { isEmptyAllowed });
     if (models.some((model) => !model.id.startsWith(`${modelProvider}/`)))
       throw new AgentError("cli_unexpected_output");
     return models;
+  }
+
+  private async probeCodingPlan(
+    home: CliHome,
+    request: {
+      readonly credentials: CliCredentialAccess;
+      readonly selection: CliModelSelection;
+      readonly signal: AbortSignal;
+    },
+  ): Promise<ProviderCheckOutcome> {
+    const { credentials, selection, signal } = request;
+    await requireManagedOpenCodeConfiguration(home);
+    const models = await this.listProvider(home, {
+      credentials,
+      modelProvider: ZAI_CODING_PLAN_PROVIDER,
+      signal,
+    });
+    if (models.length === 0)
+      return {
+        ok: false,
+        errorCode: "opencode_provider_no_models",
+        detail: { modelProvider: ZAI_CODING_PLAN_PROVIDER },
+      };
+    const saved = models.find((model) => model.id === selection.model);
+    const model = saved ?? models[0];
+    const outcome = await this.runTurn(home, {
+      credentials,
+      selection: {
+        model: model.id,
+        reasoningEffort: saved ? selection.reasoningEffort : null,
+      },
+      signal,
+    });
+    return {
+      ...outcome,
+      detail: {
+        ...outcome.detail,
+        modelProvider: ZAI_CODING_PLAN_PROVIDER,
+        modelCount: models.length,
+        model: model.id,
+      },
+    };
+  }
+
+  private async runTurn(
+    home: CliHome,
+    request: {
+      readonly credentials: CliCredentialAccess;
+      readonly selection: CliModelSelection & { readonly model: string };
+      readonly signal: AbortSignal;
+    },
+  ): Promise<ProviderCheckOutcome> {
+    const { credentials, selection, signal } = request;
+    const modelProvider = openCodeModelProvider(selection.model);
+    const args = ["run", "--format", "json", "--pure", "-m", selection.model];
+    if (selection.reasoningEffort !== null)
+      args.push("--variant", selection.reasoningEffort);
+    const result = await this.execution.prompt(
+      home,
+      {
+        arguments: args,
+        input: MODEL_TEST_PROMPT,
+        environment: {
+          ...credentials.environmentFor(modelProvider),
+          OPENCODE_CONFIG_CONTENT: TEST_CONFIGURATION,
+        },
+      },
+      signal,
+    );
+    if (result.errorCode)
+      return { ok: false, errorCode: result.errorCode, detail: {} };
+    const output = credentials.redact(result.stdout);
+    const outcome = readOpenCodeTest(output);
+    return modelProvider === ZAI_CODING_PLAN_PROVIDER
+      ? withCodingPlanQuota(outcome, output)
+      : outcome;
   }
 }

@@ -41,6 +41,7 @@ const VENDOR_STYLES: Readonly<Record<ModelBadgeVendor, VendorStyle>> = {
     name: "OpenRouter",
     borderClass: "border-openrouter",
   },
+  zai: { mark: "zai", name: "Z.AI", borderClass: "border-zai" },
 };
 
 interface ModelBadgeProps {
@@ -123,7 +124,7 @@ function ModelBadgeFace({
  * radius sits 2 px from the top, bottom and left edge, so the corners run
  * parallel. Anthropic is outlined in Claude's orange, OpenAI in the green of
  * the ChatGPT tile, Antigravity in its blue, OpenCode in its neutral grey,
- * OpenRouter in lime. A known source of the model, such as OpenCode Zen or an
+ * OpenRouter in lime, Z.AI in its near-black tile color. A known source of the model, such as OpenCode Zen or an
  * OpenRouter model's manufacturer, stands in the tooltip and accessible name.
  * A long name is cut with an ellipsis while the tile and the vendor stay whole. The border
  * is always solid; whether the adapter confirmed the model stands in the

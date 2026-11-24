@@ -1,4 +1,5 @@
 import { AgentExecutionError } from "@/backend/error/AgentExecutionErrors";
+import { isOpenCodeConnectionModel } from "@/definition/AgentConnection";
 import { catalogModelChoice } from "@/definition/AgentModelChoice";
 import { supportsModelCatalog } from "@/definition/AgentModelCatalog";
 
@@ -51,7 +52,7 @@ function selectionModels(
   if (!supportsModelCatalog(connection.provider))
     return manualModels(connection);
   return connection.provider === "opencode"
-    ? models.filter((model) => model.id.startsWith("opencode/") && model.isFree)
+    ? models.filter((model) => isOpenCodeConnectionModel(connection, model))
     : models;
 }
 

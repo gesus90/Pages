@@ -1,6 +1,9 @@
 import { isInAgentConnectionScope } from "@/backend/auth/AgentConnectionScopePolicy";
 import { AgentExecutionError } from "@/backend/error/AgentExecutionErrors";
-import { isApiProvider } from "@/definition/AgentConnection";
+import {
+  isApiProvider,
+  isOpenCodeConnectionModel,
+} from "@/definition/AgentConnection";
 import { supportsModelCatalog } from "@/definition/AgentModelCatalog";
 import { resolveClaudeModelAlias } from "@/definition/AgentModelVersion";
 
@@ -95,7 +98,7 @@ function isAvailableConnectionModel(
 ): boolean {
   if (!model && !isManualModelSelection(connection, storedModel)) return false;
   if (connection.provider !== "opencode") return true;
-  return storedModel.startsWith("opencode/") && model?.isFree === true;
+  return model !== undefined && isOpenCodeConnectionModel(connection, model);
 }
 
 /**

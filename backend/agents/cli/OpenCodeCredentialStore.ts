@@ -12,7 +12,10 @@ import path from "node:path";
 
 import { AgentError } from "@/backend/error/AgentErrors";
 import { logCaughtError } from "@/backend/logging/Logger";
-import { OPENCODE_FREE_PROVIDER } from "@/definition/AgentConnection";
+import {
+  OPENCODE_FREE_PROVIDER,
+  ZAI_CODING_PLAN_PROVIDER,
+} from "@/definition/AgentConnection";
 
 import {
   openCodeCredentialFile,
@@ -60,6 +63,20 @@ async function readPrivateFile(file: string): Promise<string | null> {
 }
 
 /**
+ * The native providers a connection may list and run.
+ * @param own - The one key selected for this connection, if any.
+ * @returns OpenCode's free provider and the key's provider; only the key's
+ * provider for a Z.AI Coding Plan key, whose connection is the subscription
+ * alone and offers no free model beside it.
+ */
+function reachableProviders(own: OpenCodeKeyInput | null): string[] {
+  if (own === null) return [OPENCODE_FREE_PROVIDER];
+  if (own.modelProvider === ZAI_CODING_PLAN_PROVIDER)
+    return [ZAI_CODING_PLAN_PROVIDER];
+  return [...new Set([OPENCODE_FREE_PROVIDER, own.modelProvider])];
+}
+
+/**
  * Supplies the connection's own key and the public free provider to an isolated child.
  * @param own - The one key selected for this connection, if any.
  * @returns Process credentials and exact-secret redaction for that key only.
@@ -74,7 +91,7 @@ export function openCodeCredentials(
     apiKey,
   ]);
   return {
-    modelProviders: [...new Set([OPENCODE_FREE_PROVIDER, ...keys.keys()])],
+    modelProviders: reachableProviders(own),
     ownProvider: own?.modelProvider ?? null,
     environmentFor: (modelProvider): Readonly<Record<string, string>> => {
       const apiKey = keys.get(modelProvider);

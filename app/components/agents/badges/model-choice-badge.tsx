@@ -17,6 +17,7 @@ const MARK_STYLES: Readonly<Record<string, MarkStyle>> = {
   antigravity: { borderClass: "border-antigravity", vendor: "Antigravity" },
   opencode: { borderClass: "border-opencode", vendor: "OpenCode" },
   openrouter: { borderClass: "border-openrouter", vendor: "OpenRouter" },
+  zai: { borderClass: "border-zai", vendor: "Z.AI" },
 };
 
 /**
@@ -30,6 +31,7 @@ const TILE_RIM_CLASSES: Readonly<Record<string, string>> = {
 /** The tiles whose radius is 7 px instead of 6 px; static, so Tailwind finds the class. */
 const TILE_RADIUS_CLASSES: Readonly<Record<string, string>> = {
   openrouter: "rounded-[7px]",
+  zai: "rounded-[7px]",
 };
 
 function markStyle(mark: string): MarkStyle | null {
@@ -41,7 +43,7 @@ function markStyle(mark: string): MarkStyle | null {
  * model's badge.
  * @param mark - The mark key of the model's tool; `null` while no model is shown.
  * @returns Claude's orange, the green of the ChatGPT tile, Antigravity's
- * blue, OpenCode's neutral grey, or OpenRouter's lime on the
+ * blue, OpenCode's or Z.AI's neutral grey, or OpenRouter's lime on the
  * surface; every other tool and a missing model keep the neutral field border.
  */
 export function modelChoiceFieldClass(mark: string | null): string {
@@ -84,7 +86,7 @@ export function modelChoiceLabel(choice: ModelChoiceBadgeProps): string {
  * @remarks
  * The field around it is the badge, outlined by
  * {@link modelChoiceFieldClass}, so the content has no border of its own.
- * The tile has a 6 px radius, 7 px for OpenRouter, and stands 6 px before
+ * The tile has a 6 px radius, 7 px for OpenRouter and Z.AI, and stands 6 px before
  * the name in the foreground color. The vendor, such as `Anthropic`, is no part of the
  * visible text; it stands in the tooltip and the accessible name beside the
  * full name, followed by a known source such as `OpenCode Zen`. OpenCode's

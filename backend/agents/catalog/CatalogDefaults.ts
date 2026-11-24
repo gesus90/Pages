@@ -1,3 +1,5 @@
+import { isZaiCodingPlanModel } from "@/definition/AgentConnection";
+
 import type { AgentProviderId } from "@/definition/AgentConnection";
 import type { AgentCatalogModel } from "@/definition/AgentModelCatalog";
 
@@ -18,6 +20,18 @@ function readsText(model: AgentCatalogModel): boolean {
   return model.inputModalities?.includes("text") ?? true;
 }
 
+function defaultOpenRouterModel(
+  models: readonly AgentCatalogModel[],
+): string | null {
+  return (
+    listed(models, OPENROUTER_FREE_ROUTER) ??
+    models.find((model) => model.isFree && readsText(model))?.id ??
+    models.find((model) => isZaiCodingPlanModel(model.id) && readsText(model))
+      ?.id ??
+    null
+  );
+}
+
 /**
  * Picks the model a connection starts with, using only the listed models.
  * @param provider - The connection's provider.
@@ -30,7 +44,9 @@ function readsText(model: AgentCatalogModel): boolean {
  *   entry is the default.
  * - OpenRouter starts with its free router, otherwise its first free model, so
  *   a default never incurs costs. OpenCode reaches OpenRouter as well and starts
- *   with its first free model for the same reason.
+ *   with its first free model for the same reason. An OpenCode connection with
+ *   a Z.AI Coding Plan key lists only subscription models, which the plan
+ *   pays for without a per-token charge, so it starts with the first of them.
  * - Google starts with its "latest Flash" alias when listed.
  * - OpenAI's listing marks no default and also contains models that cannot
  *   chat, so OpenAI gets none and the administrator chooses.
@@ -46,11 +62,7 @@ export function defaultCatalogModel(
       return models.at(0)?.id ?? null;
     case "openrouter":
     case "opencode":
-      return (
-        listed(models, OPENROUTER_FREE_ROUTER) ??
-        models.find((model) => model.isFree && readsText(model))?.id ??
-        null
-      );
+      return defaultOpenRouterModel(models);
     case "google_ai_studio":
       return listed(models, GOOGLE_FLASH_LATEST);
     case "antigravity":

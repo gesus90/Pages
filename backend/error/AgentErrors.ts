@@ -526,6 +526,8 @@ export const AGENT_ERROR_MESSAGES = {
   cli_auth_failed: "The CLI account was rejected. Sign in again.",
   cli_check_failed: "The CLI test failed.",
   cli_unexpected_output: "The CLI returned unexpected output.",
+  opencode_provider_no_models:
+    "OpenCode lists no model of the selected key provider that Pages can run.",
   claude_usage_stale:
     "Claude Code could not reach the usage endpoint and answered with stored figures.",
   login_in_progress: "A login is already running for this connection.",

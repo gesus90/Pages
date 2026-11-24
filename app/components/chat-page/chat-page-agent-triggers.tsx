@@ -6,7 +6,7 @@ import { ModelBadge } from "@/app/components/agents/badges/model-badge";
 import { modelBadgeDisplay } from "@/app/components/agents/model-picker/model-catalog";
 import { cn } from "@/app/lib/cn";
 import { shortModelName } from "@/definition/AgentChatControl";
-import { modelBadgeVendor } from "@/definition/AgentModelIdentity";
+import { modelBadgeVendorOf } from "@/definition/AgentModelIdentity";
 
 import { AccessMark } from "./chat-page-access-badge";
 import { ParticipantAvatar } from "./chat-page-avatar";
@@ -44,7 +44,7 @@ export function ChatModelBadge({
 }): React.ReactElement | null {
   const { t } = useTranslation();
   if (model?.isOverride !== true) return null;
-  const vendor = modelBadgeVendor(model.provider);
+  const vendor = modelBadgeVendorOf(model.provider, model.modelId);
   const { name, source } = modelBadgeDisplay(
     { name: model.name, provider: model.provider, modelId: model.modelId },
     t,

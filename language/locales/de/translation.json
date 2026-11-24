@@ -836,6 +836,7 @@
         "cli_auth_failed": "Das CLI-Konto wurde abgelehnt. Melden Sie sich erneut an.",
         "cli_check_failed": "Der CLI-Test ist fehlgeschlagen.",
         "cli_unexpected_output": "Die CLI hat eine unerwartete Ausgabe geliefert.",
+        "opencode_provider_no_models": "OpenCode listet für den gewählten Schlüsselanbieter kein Modell, das Pages ausführen kann.",
         "claude_usage_stale": "Claude Code hat den Nutzungsendpunkt nicht erreicht und nur gespeicherte Werte geliefert.",
         "login_in_progress": "Für diese Anbindung läuft bereits eine Anmeldung.",
         "login_limit_reached": "Die Höchstzahl gleichzeitiger CLI-Vorgänge oder Anmeldungen ist erreicht. Versuchen Sie es später erneut.",
@@ -1478,6 +1479,31 @@
       "openCodeKeyHint": "Optional: ein eigener Schlüssel nur für diese Verbindung, für OpenCode Zen oder OpenRouter. Er hat für seinen Provider Vorrang vor dem automatisch eingebundenen Schlüssel. Pages speichert ihn mit der Instanzverschlüsselung im privaten Verbindungsordner; er kommt nicht zum Browser zurück.",
       "openCodeKeyStore": "Schlüssel hinterlegen",
       "openCodeKeyReplace": "Schlüssel ersetzen",
+      "openCodeKeyZai": "Abo-Schlüssel für Z.AI Coding Plan",
+      "openCodeKeyZaiHint": "Den Schlüssel findest du in der Übersicht deines Coding Plans bei Z.AI. Er gilt nur für diese Verbindung. Pages speichert ihn verschlüsselt, er kommt nicht zum Browser zurück.",
+      "zaiCheck": {
+        "passed": {
+          "title": "Verbindung geprüft",
+          "text": "Z.AI hat den Schlüssel angenommen.",
+          "textWithModels": "Z.AI hat den Schlüssel angenommen. {{count}} Modelle sind verfügbar."
+        },
+        "rejected": {
+          "title": "Schlüssel abgelehnt",
+          "text": "Z.AI lehnt den Schlüssel ab. Prüfe, ob er aus dem Coding Plan stammt und noch gültig ist. Ein normaler API-Schlüssel genügt hier nicht."
+        },
+        "quota": {
+          "title": "Kontingent aufgebraucht",
+          "text": "Das Kontingent deines Coding Plans ist erschöpft. Der Schlüssel ist gültig, neue Läufe starten, sobald Z.AI es wieder freigibt."
+        },
+        "timeout": {
+          "title": "Z.AI antwortet nicht",
+          "text": "Die Prüfung hat nach 20 Sekunden abgebrochen. Der gespeicherte Schlüssel bleibt erhalten. Versuche es später erneut."
+        },
+        "failed": {
+          "title": "Prüfung fehlgeschlagen",
+          "text": "Die Ursache ist nicht sicher erkennbar. Fehlerkennung: {{code}}"
+        }
+      },
       "run": {
         "title": "Laufoptionen",
         "hint": "Der Timeout gilt auch für API-Agents. Wähle für einen CLI-Agenten einen der angebotenen Berechtigungsmodi. Pica über OpenCode verwendet unabhängig davon ausschließlich die Pages-Toolbrücke.",
@@ -1682,7 +1708,8 @@
       "openCodeProvider": "Schlüsselanbieter für OpenCode",
       "openCodeKeyProvider": {
         "opencode": "OpenCode Console / Zen (opencode)",
-        "openrouter": "OpenRouter (openrouter)"
+        "openrouter": "OpenRouter (openrouter)",
+        "zai-coding-plan": "Z.AI Coding Plan"
       },
       "modelSelection": {
         "model": "Modell",
@@ -1824,6 +1851,25 @@
         "hint": "Ohne Eintrag wird das Modell automatisch zugeordnet. Für ein mehrdeutiges Modell hier die Anthropic-ID aus dem OpenRouter-Katalog eintragen.",
         "model": "Weiteres Claude-Modell",
         "another": "Weiteres Modell zuordnen"
+      },
+      "zaiCodingPlan": {
+        "key": "Abo-Schlüssel für Z.AI Coding Plan",
+        "keyHint": "Den Schlüssel findest du in der Übersicht deines Coding Plans bei Z.AI. Er gilt nur für diese Verbindung. Pages speichert ihn verschlüsselt, er kommt nicht zum Browser zurück.",
+        "check": {
+          "title": "Verbindung prüfen",
+          "description": "Pages startet OpenCode mit dem Schlüssel und lädt die Modelle des Abos.",
+          "passed": "Verbindung geprüft",
+          "passedBody_one": "Z.AI hat den Schlüssel angenommen. {{count}} GLM-Modell ist verfügbar.",
+          "passedBody_other": "Z.AI hat den Schlüssel angenommen. {{count}} GLM-Modelle sind verfügbar.",
+          "rejected": "Schlüssel abgelehnt",
+          "rejectedBody": "Z.AI lehnt den Schlüssel ab. Prüfe, ob er aus dem Coding Plan stammt und noch gültig ist. Ein normaler API-Schlüssel genügt hier nicht.",
+          "quota": "Kontingent aufgebraucht",
+          "quotaBody": "Das Kontingent deines Coding Plans ist erschöpft. Der Schlüssel ist gültig, neue Läufe starten, sobald Z.AI es wieder freigibt.",
+          "timeout": "Z.AI antwortet nicht",
+          "timeoutBody": "Die Prüfung hat nach 20 Sekunden abgebrochen. Der gespeicherte Schlüssel bleibt erhalten. Versuche es später erneut.",
+          "failed": "Prüfung fehlgeschlagen",
+          "failedCode": "Fehlerkennung: {{code}}"
+        }
       }
     },
     "connections": {
@@ -6085,6 +6131,10 @@
         },
         "openrouter": {
           "name": "OpenRouter"
+        },
+        "zai_coding_plan": {
+          "name": "Z.AI",
+          "account": "Coding Plan"
         }
       },
       "manualInput": "Manuell eingegriffen",
@@ -7827,7 +7877,8 @@
       "sources": {
         "opencode": "OpenCode Zen",
         "openrouter": "OpenRouter",
-        "google": "Google"
+        "google": "Google",
+        "zai-coding-plan": "Z.AI Coding Plan"
       },
       "access": {
         "antigravity": "Google-Konto",

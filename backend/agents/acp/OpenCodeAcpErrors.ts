@@ -12,13 +12,13 @@ export function classifyOpenCodeFailure(
   if (/FreeTierError|free tier can only be used/iu.test(text))
     return "opencode_free_tier_refused";
   if (
-    /\b401\b|invalid[ _-]?(?:api[ _-]?)?key|unauthori[sz]ed|authentication[ _-]?(?:error|required)|ProviderAuthError/iu.test(
+    /\b401\b|invalid[ _-]?(?:api[ _-]?)?key|unauthori[sz]ed|authentication[ _-]?(?:error|required)|token[ _-]?(?:expired|incorrect)|ProviderAuthError/iu.test(
       text,
     )
   )
     return isOpenRouter ? "openrouter_auth_failed" : "provider_auth_failed";
   if (
-    /\b402\b|insufficient[ _-]?(?:credits?|funds?|balance|quota)|(?:balance|credits?|quota)[^\n]{0,50}(?:exhausted|depleted|exceeded|zero)|payment required|usage limit/iu.test(
+    /\b402\b|insufficient[ _-]?(?:credits?|funds?|balance|quota)|(?:balance|credits?|quota)[^\n]{0,50}(?:exhausted|depleted|exceeded|zero)|payment required|usage limit|limit[ _-]?exhausted|no resource package/iu.test(
       text,
     )
   )

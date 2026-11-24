@@ -1,6 +1,9 @@
 import { sanitizeCheckDetail } from "@/backend/agents/AgentCheckDetail";
 import { AgentError } from "@/backend/error/AgentErrors";
-import { isApiProvider } from "@/definition/AgentConnection";
+import {
+  isApiProvider,
+  ZAI_CODING_PLAN_PROVIDER,
+} from "@/definition/AgentConnection";
 import { logCaughtError } from "@/backend/logging/Logger";
 
 import {
@@ -22,6 +25,9 @@ import type {
 } from "@/definition/AgentConnection";
 import type { AccountAccess } from "@/definition/Authorization";
 import type { AgentOperationRegistry } from "./AgentOperationRegistry";
+
+/** How long a check of a Z.AI Coding Plan connection waits for Z.AI to answer. */
+const ZAI_CODING_PLAN_CHECK_TIMEOUT_MS = 20_000;
 
 /** CLI checks also use a shared deadline across version, status and optional generation. */
 export interface AgentCliChecker {
@@ -45,6 +51,15 @@ interface CheckDependencies {
   readonly cli: AgentCliChecker;
   readonly operations: AgentOperationRegistry;
   readonly timeout?: (milliseconds: number) => AbortSignal;
+}
+
+function cliCheckTimeout(
+  connection: AgentConnectionRecord,
+  kind: AgentCheckKind,
+): number {
+  if (connection.cliAccountLabel === ZAI_CODING_PLAN_PROVIDER)
+    return ZAI_CODING_PLAN_CHECK_TIMEOUT_MS;
+  return kind === "model" ? 45_000 : 25_000;
 }
 
 /** Executes only explicit checks and persists their bounded, secret-free results. */
@@ -103,7 +118,7 @@ export class AgentCheckService {
       return cli.check(
         connection,
         kind,
-        this.timeout(kind === "model" ? 45_000 : 25_000),
+        this.timeout(cliCheckTimeout(connection, kind)),
       );
     }
     const testModel =
@@ -169,9 +184,16 @@ export class AgentCheckService {
         (connection.provider === "opencode" &&
           outcome.errorCode === "provider_auth_failed"))
     ) {
+      // The rejected OpenCode key stays stored for its explicit provider, so the label keeps naming it.
       await this.dependencies.repository.setCliAccount(
         connection.id,
-        { loggedInAt: null, label: null },
+        {
+          loggedInAt: null,
+          label:
+            connection.provider === "opencode"
+              ? connection.cliAccountLabel
+              : null,
+        },
         actor.userId,
       );
     }

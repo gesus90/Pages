@@ -14,6 +14,7 @@ import chatgptUrl from "@/assets/providers/logo-chatgpt.png?no-inline";
 import claudeUrl from "@/assets/providers/logo-claude.png?no-inline";
 import opencodeUrl from "@/assets/providers/logo-opencode.svg?no-inline";
 import openrouterUrl from "@/assets/providers/logo-openrouter.png?no-inline";
+import zaiUrl from "@/assets/providers/logo-zai.svg?no-inline";
 
 /** The common frame of every mark: a 20 × 20 tile with a 5 px radius. */
 const TILE_CLASS =
@@ -42,6 +43,7 @@ const TOOL_MARKS: Readonly<Record<string, ToolMarkImage>> = {
     imageClassName: "object-contain",
   },
   openrouter: { src: openrouterUrl },
+  zai: { src: zaiUrl },
 };
 
 /**
@@ -66,7 +68,7 @@ export function ToolMark({
   mark,
   className,
 }: {
-  /** A key such as `claude`, `openai`, `opencode`, `openrouter` or `antigravity`. */
+  /** A key such as `claude`, `openai`, `opencode`, `openrouter`, `zai` or `antigravity`. */
   readonly mark: string;
   readonly className?: string;
 }): React.ReactElement {

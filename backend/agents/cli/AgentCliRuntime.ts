@@ -113,17 +113,16 @@ export class AgentCliRuntime {
       const version = await adapter.version(home, signal);
       if (!version.ok) return version;
       const status = await adapter.readStatus(home, signal);
-      const outcome =
-        kind === "model" && status.outcome.ok
-          ? await adapter.runTest(
-              home,
-              {
-                model: connection.testModel,
-                reasoningEffort: connection.reasoningEffort,
-              },
-              signal,
-            )
-          : status.outcome;
+      const selection = {
+        model: connection.testModel,
+        reasoningEffort: connection.reasoningEffort,
+      };
+      let outcome = status.outcome;
+      if (kind === "model" && status.outcome.ok)
+        outcome = await adapter.runTest(home, selection, signal);
+      // A Z.AI Coding Plan key is proven by a short turn; other keys keep the status read.
+      else if (status.outcome.ok && adapter instanceof OpenCodeCli)
+        outcome = await adapter.checkAccess(home, selection, signal);
       await this.dependencies.store.secure(connection.id, connection.provider);
       return {
         ...outcome,

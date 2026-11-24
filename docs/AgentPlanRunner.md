@@ -1032,15 +1032,49 @@ a qualifying connection the assignment stays and reports Model unavailable;
 
 ### Retired provider: Z.AI
 
-Z.AI is no longer an agent provider. Pages offers no connection, key entry,
-account type, model, quota card, badge or speech model for it, and OpenCode's
-own `zai`, `zai-coding-plan`, `zhipuai` and `zhipuai-coding-plan` models are
-neither listed nor run. A request to create a connection with the provider ID
+Z.AI is no longer an agent provider. Pages offers no direct connection,
+account type, quota card or speech model for it, and OpenCode's own `zai`,
+`zhipuai` and `zhipuai-coding-plan` models are neither listed nor run. The
+Z.AI Coding Plan is the one exception, described below. A request to create a connection with the provider ID
 `zai` is refused as an unsupported provider. Existing Z.AI connections stay in
 the database, but every connection read leaves them out
 (`AgentConnectionRepository.list` and `find`), so a request to check, change,
 delete or use one reports a missing connection, no catalog refresh visits it
 and nothing runs on it.
+
+### Z.AI Coding Plan over OpenCode
+
+A named OpenCode connection can hold a Z.AI Coding Plan subscription key.
+In the OpenCode key form the key provider "Z.AI Coding Plan" follows OpenCode
+Zen and OpenRouter; the explicit choice is stored with the connection on the
+server (the native provider `zai-coding-plan`) and never guessed from the key.
+One connection holds exactly one key, so two connections keep separate
+subscriptions and replacing or removing a key changes only its own connection.
+
+- The key is encrypted by the existing OpenCode credential store and reaches
+  only the isolated child of this connection, as the native credential of
+  `zai-coding-plan`; no other provider and no other connection receives it.
+- The catalog refresh lists `opencode models zai-coding-plan` with that key and
+  keeps the IDs with their `zai-coding-plan/` prefix. Subscription models are
+  neither free nor priced per token. A listing without a matching model is an
+  incomplete catalog.
+- The model choice and the start of a session apply one rule
+  (`isOpenCodeConnectionModel`): such a connection admits only
+  `zai-coding-plan/` models, every other OpenCode connection only the free
+  models of OpenCode's own provider. The start also requires the native
+  provider among the connection's credentials, so a stored model ID of another
+  connection or provider is refused. Access scope, runner and connection
+  checks are the shared ones; nothing falls back to another connection or to
+  pay-per-token billing.
+- A connection check of such a connection waits 20 seconds. The result names a
+  rejected key, an exhausted quota only when the provider states it (HTTP 429
+  alone is a rate limit), no answer within 20 seconds (the stored key stays),
+  or an unclear failure with its error code. The catalog and connection check
+  and the ACP run of a model are separate evidence.
+- A console shows the badge "Z.AI | Coding Plan" for these models. The context
+  window of an attempt comes from the ACP usage report of that attempt, and
+  only without one from the catalog entry of the same model; without either the
+  window is shown as unknown.
 
 Saved plans, templates, automations, agent assignments and chat settings that
 still name such a connection keep loading. A plan node of it reads "Model or
@@ -1052,6 +1086,41 @@ Their identifiers are recognized only through `RETIRED_PROVIDER_IDS` and
 `historicalRunnerOf` in `definition/AgentConnection.ts`. The encrypted keys of
 the old connections are not touched; removing those rows is a separate,
 explicitly approved operation on live data.
+
+### Z.AI Coding Plan over OpenCode
+
+An OpenCode connection can hold a Z.AI Coding Plan subscription key. The key
+form lists the provider "Z.AI Coding Plan" (`zai-coding-plan`) as its third
+entry after OpenCode Zen and OpenRouter; the choice is explicit, never guessed
+from the key, and is stored with the encrypted key in the connection's private
+credential folder. One connection holds exactly one key, so storing, replacing
+or removing it changes only that connection.
+
+Such a connection lists and runs only OpenCode's native `zai-coding-plan`
+provider: its catalog is read with `opencode models zai-coding-plan` and the
+connection's own key, the model IDs keep the `zai-coding-plan/` prefix, and
+OpenCode's free models are not offered beside it. The models carry neither a
+price nor a "Free" mark because the subscription pays for them; the first
+listed model becomes the connection's default. Catalog, model test and ACP
+start check the same rule: a `zai-coding-plan/…` model runs only on the
+connection whose own key belongs to that provider, and the key reaches the
+isolated process only as `OPENCODE_AUTH_CONTENT` for that one provider. There
+is no fallback to another connection or to a per-token provider. A catalog
+without a usable model fails with `opencode_provider_no_models`.
+
+"Verbindung prüfen" lists the Coding Plan models and asks the saved, or else
+the first listed, model for one word. The result names the available models,
+a rejected key (HTTP 401), an exhausted quota only on Z.AI's own business
+codes 1113, 1308 or 1310 (HTTP 429 alone stays a rate limit), or no answer
+within 20 seconds (`check_timeout`); any other cause reads "Prüfung
+fehlgeschlagen" with its error code. The stored key stays in place in every
+case. The catalog check and an actual ACP run are separate evidence.
+
+Sessions of a Coding Plan model run on the runner `opencode`; the console
+reads the provider badge "Z.AI │ Coding Plan" with the Z tile in the `zai`
+token, and model badges show the catalog name. The context window follows the
+shared rule: a window the ACP adapter confirmed for the same attempt wins over
+the catalog window of the same model, and a missing window reads as unknown.
 
 The remaining occurrences of the provider in the repository are the retired
 identifiers above, the historical migrations and the frozen migration names

@@ -4,11 +4,17 @@ import { Button } from "@/app/components/ui/button";
 import { DialogClose } from "@/app/components/ui/dialog";
 import { SidePanelContent } from "@/app/components/ui/side-panel";
 import { VerticalScrollArea } from "@/app/components/ui/vertical-scroll-area";
-import { isLoginActive } from "@/definition/AgentConnection";
+import {
+  isLoginActive,
+  isZaiCodingPlanConnection,
+} from "@/definition/AgentConnection";
 
 import { AgentAlert } from "./agent-alert";
 import { AgentCatalogControls } from "./agent-catalog-controls";
-import { AgentCheckResults } from "./agent-check-results";
+import {
+  AgentCheckResults,
+  CodingPlanCheckResult,
+} from "./agent-check-results";
 import { AgentCliLogin } from "./agent-cli-login";
 import { AgentFormFields } from "./agent-form-fields";
 import { readBlockingAgents } from "./use-agent-actions";
@@ -43,19 +49,36 @@ function hasRunningLogin(
   );
 }
 
+/** The access check of a Coding Plan proves its key with Z.AI, so it reads as a connection check. */
+function authActionKey(
+  connection: AgentConnectionSummary,
+  isCodingPlan: boolean,
+): string {
+  if (isCodingPlan) return "settings.agents.zaiCodingPlan.check.title";
+  return connection.cli
+    ? "settings.agents.checkLogin"
+    : "settings.agents.checkAccess";
+}
+
 function AgentChecks({
   connection,
+  catalog,
   disabled,
   isChecking,
   onCommand,
 }: {
   readonly connection: AgentConnectionSummary;
+  readonly catalog: AgentModelCatalog | undefined;
   readonly disabled: boolean;
   readonly isChecking: boolean;
   readonly onCommand: AgentCommandHandler;
 }): React.ReactElement {
   const { t } = useTranslation();
   const authHint = connection.cli ? "cliAuthHint" : "apiAuthHint";
+  const isCodingPlan = isZaiCodingPlanConnection(connection);
+  const zaiCodingPlan = isCodingPlan
+    ? { modelCount: catalog?.models.length ?? null }
+    : null;
   return (
     <section className="space-y-3">
       <h3 className="text-sm font-semibold">{t("settings.agents.checks")}</h3>
@@ -68,11 +91,7 @@ function AgentChecks({
           isPending={isChecking}
           onClick={() => onCommand(connection, "auth")}
         >
-          {t(
-            connection.cli
-              ? "settings.agents.checkLogin"
-              : "settings.agents.checkAccess",
-          )}
+          {t(authActionKey(connection, isCodingPlan))}
         </Button>
         <Button
           type="button"
@@ -97,15 +116,23 @@ function AgentChecks({
           {t("settings.agents.modelRequiredHint")}
         </p>
       ) : null}
-      <AgentCheckResults
-        kind="auth"
-        check={connection.checks.auth}
-        isCli={Boolean(connection.cli)}
-      />
+      {isCodingPlan ? (
+        <CodingPlanCheckResult
+          check={connection.checks.auth}
+          catalog={catalog}
+        />
+      ) : (
+        <AgentCheckResults
+          kind="auth"
+          check={connection.checks.auth}
+          isCli={Boolean(connection.cli)}
+        />
+      )}
       <AgentCheckResults
         kind="model"
         check={connection.checks.model}
         isCli={Boolean(connection.cli)}
+        zaiCodingPlan={zaiCodingPlan}
       />
     </section>
   );
@@ -295,6 +322,7 @@ export function AgentConnectionPanel({
             />
             <AgentChecks
               connection={connection}
+              catalog={catalog}
               disabled={isDisabled || isCliMissing}
               isChecking={actions.pendingIntent === "run-check"}
               onCommand={onCommand}

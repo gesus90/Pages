@@ -81,6 +81,12 @@ const PROVIDER_BADGES: Readonly<Record<string, ProviderBadgeLook>> = {
     nameKey: "plans.console.providerBadge.openrouter.name",
     accountKey: "plans.modelPicker.access.openrouter",
   },
+  zai_coding_plan: {
+    mark: "zai",
+    borderClass: "border-zai",
+    nameKey: "plans.console.providerBadge.zai_coding_plan.name",
+    accountKey: "plans.console.providerBadge.zai_coding_plan.account",
+  },
 };
 
 /**
@@ -89,15 +95,17 @@ const PROVIDER_BADGES: Readonly<Record<string, ProviderBadgeLook>> = {
  */
 const OPENCODE_LINKED_PREFIXES: Readonly<Record<string, string>> = {
   "openrouter/": "openrouter",
+  "zai-coding-plan/": "zai_coding_plan",
 };
 
 /**
  * The provider badge a node shows in the header, chosen by the way it runs.
  * @remarks
- * An OpenRouter model runs through the runner `opencode`, so the runner
- * alone cannot name the badge: a model with the prefix `openrouter/` on that
- * runner reads „OpenRouter │ API-Key“, any other model on it, such as an
- * OpenCode Zen model, keeps the OpenCode badge. The decision needs no
+ * OpenRouter and Z.AI Coding Plan models run through the runner `opencode`,
+ * so the runner alone cannot name the badge: a model with the prefix
+ * `openrouter/` on that runner reads „OpenRouter │ API-Key“, one with
+ * `zai-coding-plan/` reads „Z.AI │ Coding Plan“, any other model on it, such
+ * as an OpenCode Zen model, keeps the OpenCode badge. The decision needs no
  * loaded model data: any of the model values the node has is enough.
  * @param runner - The runner of the node, such as `opencode`.
  * @param models - Every model value known of the node; absent ones are skipped.
@@ -131,7 +139,8 @@ export function hasProviderBadge(provider: string): boolean {
  * Claude Code reads „Claude Code │ Claude-Abo“ in `claude`, Codex reads
  * „Codex │ ChatGPT-Abo“ in `chatgpt` with the ChatGPT tile, Antigravity reads
  * „Antigravity CLI │ Google-Konto“ in `antigravity` with the white arch tile,
- * OpenCode and OpenRouter ("OpenRouter │ API-Key") follow in their own tokens. When
+ * OpenCode, OpenRouter ("OpenRouter │ API-Key") and the Z.AI Coding Plan
+ * ("Z.AI │ Coding Plan", white Z tile in `zai`) follow in their own tokens. When
  * the header is narrow, only the account is cut with "…"; tile and tool name
  * stay whole. The 18 px tile
  * with a 5 px radius sits 2 px from the top, bottom and left edge of the

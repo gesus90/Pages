@@ -17,6 +17,7 @@ import {
 } from "./badges/model-choice-badge";
 import {
   findModelChoice,
+  modelChoiceMark,
   modelChoiceSource,
   modelGroups,
   savedSelection,
@@ -181,7 +182,7 @@ function badgeChoice(
   const { t } = context;
   if (selected)
     return {
-      mark: selected.group.mark,
+      mark: modelChoiceMark(selected.choice.model, selected.group.mark),
       name: selected.choice.label,
       tool: selected.group.label,
       source: modelChoiceSource(selected.choice.model, t),

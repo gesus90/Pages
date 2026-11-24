@@ -303,9 +303,29 @@ function isListedOpenCodeModel(entry: Record<string, unknown>): boolean {
  * The global model filter leaves out models that are not active or that
  * generate images, video or audio, and the models of a provider Pages
  * retired. IDs Pages cannot store unchanged, such as aliases with a `~` after
- * the provider, are left out instead of failing the list.
+ * the provider, are left out instead of failing the list. An empty list is a
+ * failure unless the caller allows it, as a subscription listing does.
  */
 export function readOpenCodeModels(
+  stdout: string,
+  options: { readonly isEmptyAllowed?: boolean } = {},
+): readonly AgentCatalogModel[] {
+  const models = readOpenCodeModelList(stdout);
+  if (models.length === 0 && options.isEmptyAllowed !== true)
+    throw unexpected();
+  return models;
+}
+
+/**
+ * Reads `opencode models <provider> --verbose` like {@link readOpenCodeModels}, but keeps an empty result.
+ * @param stdout - The listing printed by the CLI.
+ * @returns The listed models; empty when the provider lists none Pages can run.
+ * @throws {AgentError} `cli_unexpected_output` for a malformed entry or too many models.
+ * @remarks
+ * A subscription provider such as the Z.AI Coding Plan names a listing
+ * without a usable model as its own result instead of an unexpected output.
+ */
+export function readOpenCodeModelList(
   stdout: string,
 ): readonly AgentCatalogModel[] {
   const models: AgentCatalogModel[] = [];
@@ -328,6 +348,5 @@ export function readOpenCodeModels(
     models.push(readOpenCodeModel(match[1], entry));
     if (models.length > MAXIMUM_OPENCODE_MODELS) throw unexpected();
   }
-  if (models.length === 0) throw unexpected();
   return models;
 }

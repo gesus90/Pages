@@ -1,5 +1,6 @@
 import {
   AGENT_PROVIDERS,
+  isZaiCodingPlanModel,
   OPENCODE_FREE_PROVIDER,
   openCodeModelProvider,
 } from "@/definition/AgentConnection";
@@ -212,6 +213,22 @@ export function modelBadgeDisplay(
     name: isFree === true ? withoutTrailingFree(name) : name,
     source: translate ? openCodeSourceName(provider, modelId, translate) : null,
   };
+}
+
+/**
+ * The tile of a chosen model in a closed model field.
+ * @param model - The chosen model.
+ * @param groupMark - The mark of the tool the model is listed under.
+ * @returns The Z of Z.AI for a Coding Plan model of an OpenCode connection,
+ * whose badge names the subscription; the tool's mark otherwise.
+ */
+export function modelChoiceMark(
+  model: PageAgentModel,
+  groupMark: string,
+): string {
+  return model.provider === "opencode" && isZaiCodingPlanModel(model.model)
+    ? "zai"
+    : groupMark;
 }
 
 /** The source of a listed model in the plan's closed model field. */

@@ -7,6 +7,7 @@ import { HorizontalScrollArea } from "@/app/components/ui/horizontal-scroll-area
 import { AGENT_PROVIDERS } from "@/definition/AgentConnection";
 
 import { AgentCheckTime } from "./agent-check-time";
+import { isZaiCodingPlanConnection } from "./agent-opencode-key";
 import { AgentRowMenu } from "./agent-row-menu";
 import { AgentStatus, latestAgentCheck } from "./agent-status";
 import { connectionMark, ProviderIcon } from "./provider-icon";
@@ -105,6 +106,31 @@ export function AgentConnectionsCard({
   );
 }
 
+/** The name of a connection, with the Z tile before a Z.AI Coding Plan connection. */
+function ConnectionNameCell({
+  connection,
+  onEdit,
+}: {
+  readonly connection: AgentConnectionSummary;
+  readonly onEdit: (connection: AgentConnectionSummary) => void;
+}): React.ReactElement {
+  return (
+    <th scope="row" className="px-3 py-3">
+      <Button
+        variant="ghost"
+        size="xs"
+        className="max-w-64 justify-start truncate"
+        onClick={() => onEdit(connection)}
+      >
+        {isZaiCodingPlanConnection(connection) ? (
+          <ProviderIcon provider="zai" />
+        ) : null}
+        {connection.name}
+      </Button>
+    </th>
+  );
+}
+
 function AgentConnectionsTable({
   connections,
   disabled,
@@ -144,16 +170,7 @@ function AgentConnectionsTable({
               key={connection.id}
               className="border-b border-border/60 last:border-0"
             >
-              <th scope="row" className="px-3 py-3">
-                <Button
-                  variant="ghost"
-                  size="xs"
-                  className="max-w-64 justify-start truncate"
-                  onClick={() => onEdit(connection)}
-                >
-                  {connection.name}
-                </Button>
-              </th>
+              <ConnectionNameCell connection={connection} onEdit={onEdit} />
               <td className="px-3 py-3 whitespace-nowrap">
                 <span className="inline-flex items-center gap-2">
                   <ProviderIcon

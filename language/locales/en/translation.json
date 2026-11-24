@@ -836,6 +836,7 @@
         "cli_auth_failed": "The CLI account was rejected. Sign in again.",
         "cli_check_failed": "The CLI test failed.",
         "cli_unexpected_output": "The CLI returned unexpected output.",
+        "opencode_provider_no_models": "OpenCode lists no model of the selected key provider that Pages can run.",
         "claude_usage_stale": "Claude Code could not reach the usage endpoint and answered with stored figures.",
         "login_in_progress": "A login is already running for this connection.",
         "login_limit_reached": "The CLI process or login limit was reached. Try again later.",
@@ -1478,6 +1479,31 @@
       "openCodeKeyHint": "Optional: a key for this connection only, for OpenCode Zen or OpenRouter. For its provider it takes precedence over the automatically registered key. Pages stores it with the instance encryption in the private connection folder; it never returns to the browser.",
       "openCodeKeyStore": "Store key",
       "openCodeKeyReplace": "Replace key",
+      "openCodeKeyZai": "Subscription key for Z.AI Coding Plan",
+      "openCodeKeyZaiHint": "You find the key in the overview of your Coding Plan at Z.AI. It applies to this connection only. Pages stores it encrypted; it never returns to the browser.",
+      "zaiCheck": {
+        "passed": {
+          "title": "Connection checked",
+          "text": "Z.AI accepted the key.",
+          "textWithModels": "Z.AI accepted the key. {{count}} models are available."
+        },
+        "rejected": {
+          "title": "Key rejected",
+          "text": "Z.AI rejects the key. Check that it comes from the Coding Plan and is still valid. A regular API key is not enough here."
+        },
+        "quota": {
+          "title": "Quota used up",
+          "text": "The quota of your Coding Plan is exhausted. The key is valid; new runs start as soon as Z.AI releases it again."
+        },
+        "timeout": {
+          "title": "Z.AI does not answer",
+          "text": "The check stopped after 20 seconds. The stored key is kept. Try again later."
+        },
+        "failed": {
+          "title": "Check failed",
+          "text": "The cause cannot be identified reliably. Error code: {{code}}"
+        }
+      },
       "run": {
         "title": "Run options",
         "hint": "The timeout also applies to API agents. Choose one of the offered permission modes for a CLI agent. Pica over OpenCode independently keeps its Pages tool bridge only.",
@@ -1682,7 +1708,8 @@
       "openCodeProvider": "Key provider for OpenCode",
       "openCodeKeyProvider": {
         "opencode": "OpenCode Console / Zen (opencode)",
-        "openrouter": "OpenRouter (openrouter)"
+        "openrouter": "OpenRouter (openrouter)",
+        "zai-coding-plan": "Z.AI Coding Plan"
       },
       "modelSelection": {
         "model": "Model",
@@ -1824,6 +1851,25 @@
         "hint": "Models are matched automatically. Set an explicit Anthropic ID from the OpenRouter catalog when a model is ambiguous.",
         "model": "Another Claude model",
         "another": "Map another model"
+      },
+      "zaiCodingPlan": {
+        "key": "Subscription key for Z.AI Coding Plan",
+        "keyHint": "You find the key in the overview of your Coding Plan at Z.AI. It applies to this connection only. Pages stores it encrypted; it never returns to the browser.",
+        "check": {
+          "title": "Check connection",
+          "description": "Pages starts OpenCode with the key and loads the models of the subscription.",
+          "passed": "Connection checked",
+          "passedBody_one": "Z.AI accepted the key. {{count}} GLM model is available.",
+          "passedBody_other": "Z.AI accepted the key. {{count}} GLM models are available.",
+          "rejected": "Key rejected",
+          "rejectedBody": "Z.AI rejects the key. Check that it comes from the Coding Plan and is still valid. A regular API key does not work here.",
+          "quota": "Quota used up",
+          "quotaBody": "The quota of your Coding Plan is exhausted. The key is valid; new runs start as soon as Z.AI releases it again.",
+          "timeout": "Z.AI does not answer",
+          "timeoutBody": "The check stopped after 20 seconds. The stored key is kept. Try again later.",
+          "failed": "Check failed",
+          "failedCode": "Error code: {{code}}"
+        }
       }
     },
     "connections": {
@@ -6085,6 +6131,10 @@
         },
         "openrouter": {
           "name": "OpenRouter"
+        },
+        "zai_coding_plan": {
+          "name": "Z.AI",
+          "account": "Coding Plan"
         }
       },
       "manualInput": "Manually intervened",
@@ -7827,7 +7877,8 @@
       "sources": {
         "opencode": "OpenCode Zen",
         "openrouter": "OpenRouter",
-        "google": "Google"
+        "google": "Google",
+        "zai-coding-plan": "Z.AI Coding Plan"
       },
       "access": {
         "antigravity": "Google account",

@@ -1,3 +1,4 @@
+import { isZaiCodingPlanModel } from "./AgentConnection";
 import { parseClaudeModelId } from "./AgentModelVersion";
 
 import type { AgentProviderId } from "./AgentConnection";
@@ -21,10 +22,11 @@ export type ReasoningBadgeLevel = (typeof REASONING_BADGE_LEVELS)[number];
  * The vendor or tool a shared model badge names beside its tile.
  * @remarks
  * Antigravity, OpenCode and OpenRouter name the connection's execution
- * route while offering models from several vendors.
+ * route while offering models from several vendors. `zai` names the Z.AI
+ * Coding Plan, whose models run through an OpenCode connection.
  */
 export type ModelBadgeVendor =
-  "anthropic" | "openai" | "antigravity" | "opencode" | "openrouter";
+  "anthropic" | "openai" | "antigravity" | "opencode" | "openrouter" | "zai";
 
 /**
  * The providers whose models carry the shared model badge, with their vendor.
@@ -37,6 +39,7 @@ const MODEL_BADGE_VENDORS: Readonly<Record<string, ModelBadgeVendor>> = {
   antigravity: "antigravity",
   opencode: "opencode",
   openrouter: "openrouter",
+  zai_coding_plan: "zai",
 };
 
 /**
@@ -65,6 +68,22 @@ export function modelBadgeVendor(
   return Object.hasOwn(MODEL_BADGE_VENDORS, provider)
     ? (MODEL_BADGE_VENDORS[provider] ?? null)
     : null;
+}
+
+/**
+ * The vendor of a model's shared badge, from its connection and its model ID.
+ * @param provider - The provider of the model's connection, such as `opencode`; `null` when it is gone.
+ * @param modelId - The full model ID, such as `zai-coding-plan/glm-5.1`; `null` or absent when unknown.
+ * @returns `zai` for a Z.AI Coding Plan model of an OpenCode connection,
+ * otherwise the vendor of the provider, see {@link modelBadgeVendor}.
+ */
+export function modelBadgeVendorOf(
+  provider: string | null,
+  modelId: string | null | undefined,
+): ModelBadgeVendor | null {
+  if (provider === "opencode" && modelId && isZaiCodingPlanModel(modelId))
+    return "zai";
+  return modelBadgeVendor(provider);
 }
 
 /**
