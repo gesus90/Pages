@@ -10,7 +10,7 @@ export interface ShellData {
   readonly user: User;
   readonly canViewProjects: boolean;
   readonly canViewUsers: boolean;
-  /** How the user wants dates and times shown. */
+  /** How the user wants dates, times and costs shown. */
   readonly region: RegionPreferences;
   /** Company name and logo of the instance. */
   readonly branding: InstanceBranding;

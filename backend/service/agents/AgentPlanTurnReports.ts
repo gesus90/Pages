@@ -11,6 +11,12 @@ import type { AgentPlanStepProgressService } from "./AgentPlanStepProgressServic
 import type { AgentPlanTasks } from "./AgentPlanTasks";
 import type { PlanSessionTurn } from "@/backend/agents/AgentPlanExecution";
 
+/** How the turn reached Pages, as the runner of the step bound it. */
+export interface PlanTurnBinding {
+  /** Whether the session of the turn actually received the Pages MCP tools. */
+  readonly usesMcp: boolean;
+}
+
 /** The assessment of a finished turn and what the node hands on. */
 export interface PlanTurnAssessment {
   /** `null` when the turn failed technically, so there is nothing to assess. */
@@ -66,12 +72,18 @@ export class AgentPlanTurnReports {
    * Ends the reporting of a finished turn, then assesses it.
    * @remarks
    * The slot closes first, also for a failed turn, so nothing can change what
-   * gets assessed.
+   * gets assessed. An Antigravity turn with Pages MCP owes its own work list
+   * also when it closes with a text report instead of `report_step_result`:
+   * `agy acp` keeps no native task list, so without that obligation a closing
+   * `pages-report` passed with zero of zero todos and an empty terminal list.
+   * The open obligation sends the turn back to the same session, which then
+   * names the missing list.
    */
   public async assess(
     node: NodeRun,
     turn: Pick<PlanSessionTurn, "output" | "failure" | "errorCode">,
     terms: AgentPlanSessionTerms,
+    binding: PlanTurnBinding = { usesMcp: false },
   ): Promise<PlanTurnAssessment> {
     const stepReport = await this.close(node);
     const output = sanitizePlanOutput(planStepOutput(turn.output, stepReport));
@@ -84,6 +96,8 @@ export class AgentPlanTurnReports {
         userId: node.run.userId,
         projectId: node.snapshot.plan.projectId,
         provider: node.step.provider,
+        requiresWorkList:
+          binding.usesMcp && node.step.provider === "antigravity",
         ...(node.record?.attemptId
           ? {
               progress: {

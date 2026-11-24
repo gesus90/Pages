@@ -33,6 +33,7 @@ import { legacySessionHistory } from "./AgentSessionLegacyHistory";
 
 import type { AcpSessionListener } from "@/backend/agents/acp/AcpChat";
 import type { AntigravityPriceCatalog } from "./AntigravityPriceCatalog";
+import type { EcbReferenceRate } from "./EcbReferenceRate";
 import type { SessionCatalogReader } from "./AgentSessionModelIdentity";
 import type { PlanSessionTurn } from "@/backend/agents/AgentPlanExecution";
 import type { AgentPlanRun } from "@/definition/AgentPlan";
@@ -112,6 +113,8 @@ export interface AgentSessionServiceDependencies {
   readonly clock?: () => string;
   readonly saveUsage?: (usage: AgentSessionTurnUsage) => Promise<void>;
   readonly priceCatalog?: Pick<AntigravityPriceCatalog, "calculate">;
+  /** The ECB rate the terminal converts a session cost into the chosen currency with. */
+  readonly referenceRate?: Pick<EcbReferenceRate, "current">;
   readonly pricing?: OpenRouterPricing;
   /** The catalog of a connection, which names the models of the badges. */
   readonly catalog?: SessionCatalogReader;
@@ -520,16 +523,19 @@ export class AgentSessionService {
     run: AgentPlanRun,
     key: AgentSessionKey,
     turns: readonly AgentSessionTurnUsage[],
-  ): Promise<Pick<AgentSessionView, "antigravity">> {
+  ): Promise<Pick<AgentSessionView, "antigravity" | "referenceRate">> {
     if (runner !== "antigravity") return {};
-    return {
-      antigravity: await antigravityUsage({
+    // Both may read the network once a day; neither waits for the other.
+    const [antigravity, referenceRate] = await Promise.all([
+      antigravityUsage({
         turns,
         attemptId: key.attemptId,
         ...antigravityAttempts(run, key.stepId),
         catalog: this.dependencies.priceCatalog,
       }),
-    };
+      this.dependencies.referenceRate?.current() ?? null,
+    ]);
+    return { antigravity, referenceRate };
   }
 
   private record(start: AgentSessionStart): AgentSessionRecorder {

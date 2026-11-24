@@ -36,7 +36,7 @@ interface AssessmentScope {
   readonly userId: string;
   readonly projectId: string;
   readonly provider: AgentProviderId;
-  /** A report through Pages MCP, whose contract always asks for an own work list. */
+  /** A report through Pages MCP, or the closing turn of an Antigravity session with Pages MCP; both contracts ask for an own work list. */
   readonly requiresWorkList?: boolean;
 }
 

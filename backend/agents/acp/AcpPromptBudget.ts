@@ -4,7 +4,10 @@ import { CLI_LINE_LIMIT_BYTES } from "@/backend/agents/cli/CliSessionProcess";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { logEvent } from "@/backend/logging/Logger";
 
-import type { ContentBlock } from "@agentclientprotocol/sdk";
+import type {
+  AgentRequestParamsByMethod,
+  ContentBlock,
+} from "@agentclientprotocol/sdk";
 
 /** Room for envelope fields the SDK may add beyond `jsonrpc`, `id`, `method` and `params`. */
 const ENVELOPE_RESERVE_BYTES = 1024;
@@ -117,7 +120,7 @@ export function acpPromptParams(
   sessionId: string,
   prompt: ContentBlock[],
   provider: string,
-): { readonly sessionId: string; readonly prompt: ContentBlock[] } {
+): AgentRequestParamsByMethod["session/prompt"] {
   const params = { sessionId, prompt };
   requireAcpMessageBudget(
     { method: methods.agent.session.prompt, params },

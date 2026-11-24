@@ -740,6 +740,12 @@
       "timezone": "Zeitzone",
       "timezoneNotSet": "Nicht festgelegt",
       "dateFormat": "Datumsformat",
+      "currency": "Währung",
+      "currencies": {
+        "EUR": "Euro (EUR)",
+        "USD": "US-Dollar (USD)"
+      },
+      "currencyHint": "Die Währung gilt für die Anzeige von Kosten. Die Abrechnung beim Anbieter ändert sich nicht.",
       "weekStart": "Wochenstart",
       "weekStartMonday": "Montag",
       "weekStartSunday": "Sonntag",
@@ -6173,7 +6179,25 @@
             "cacheReadTokens": "Cache gelesen",
             "cacheWriteTokens": "Cache geschrieben",
             "afterTurn": "nach dem Zug",
-            "costEstimate": "Kosten · Schätzung"
+            "costEstimate": "Kosten · Schätzung",
+            "cost": {
+              "label": "Kosten",
+              "unknown": "unbekannt",
+              "approximately": "ca. {{amount}}",
+              "estimateLead": "Geschätzt",
+              "estimateDetail": "aus Katalogpreis, Stand {{priceAsOf}}, {{model}}: {{amount}}",
+              "noConversion": "Keine Umrechnung",
+              "convertedLead": "Umgerechnet",
+              "convertedDetail": "mit Kurs {{rate}} (EZB, {{date}})",
+              "unconvertedLead": "Nicht umgerechnet:",
+              "unconvertedDetail": "Es liegt kein gültiger Kurs vor.",
+              "unknownLead": "Unbekannt",
+              "unknownReason": {
+                "incomplete": "Der Anbieter meldet keinen Betrag, und die Nutzungsdaten sind unvollständig.",
+                "cacheCounting": "Der Anbieter meldet keinen Betrag, und die Cache-Zählung ist nicht belegt.",
+                "price": "Der Anbieter meldet keinen Betrag, und für dieses Modell ist kein Preisstand belegt."
+              }
+            }
           }
         },
         "toolKind": {

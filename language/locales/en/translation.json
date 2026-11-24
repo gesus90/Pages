@@ -740,6 +740,12 @@
       "timezone": "Time zone",
       "timezoneNotSet": "Not set",
       "dateFormat": "Date format",
+      "currency": "Currency",
+      "currencies": {
+        "EUR": "Euro (EUR)",
+        "USD": "US dollar (USD)"
+      },
+      "currencyHint": "The currency applies to how costs are shown. Billing at the provider does not change.",
       "weekStart": "Start of week",
       "weekStartMonday": "Monday",
       "weekStartSunday": "Sunday",
@@ -6173,7 +6179,25 @@
             "cacheReadTokens": "Cache read",
             "cacheWriteTokens": "Cache written",
             "afterTurn": "after the turn",
-            "costEstimate": "Cost · estimate"
+            "costEstimate": "Cost · estimate",
+            "cost": {
+              "label": "Cost",
+              "unknown": "unknown",
+              "approximately": "approx. {{amount}}",
+              "estimateLead": "Estimated",
+              "estimateDetail": "from the catalog price as of {{priceAsOf}}, {{model}}: {{amount}}",
+              "noConversion": "No conversion",
+              "convertedLead": "Converted",
+              "convertedDetail": "at {{rate}} (ECB, {{date}})",
+              "unconvertedLead": "Not converted:",
+              "unconvertedDetail": "No valid exchange rate is available.",
+              "unknownLead": "Unknown",
+              "unknownReason": {
+                "incomplete": "The provider reports no amount, and the usage data is incomplete.",
+                "cacheCounting": "The provider reports no amount, and the cache counting is not verified.",
+                "price": "The provider reports no amount, and no price is on record for this model."
+              }
+            }
           }
         },
         "toolKind": {

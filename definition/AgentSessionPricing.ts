@@ -38,3 +38,18 @@ export interface AntigravityUsageView {
   readonly step: AntigravityUsageTotal;
   readonly run: AntigravityUsageTotal;
 }
+
+/**
+ * The euro reference rate of the US dollar the ECB published for one working
+ * day.
+ * @remarks
+ * The ECB quotes how many US dollars one euro buys. Pages keeps the last
+ * valid rate with its day, so on a weekend or after a failed read the
+ * terminal converts with the rate of the latest working day and names it.
+ */
+export interface EuroDollarReferenceRate {
+  /** US dollars for one euro, such as `1.0963`. */
+  readonly usdPerEur: number;
+  /** The ECB working day of the rate, `YYYY-MM-DD`. */
+  readonly date: string;
+}

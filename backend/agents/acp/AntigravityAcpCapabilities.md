@@ -132,7 +132,10 @@ a process environment, never the process argument list.
 `agy acp` offers no task list tool and sends no ACP `plan` update. A plan node
 with Pages tools keeps its own work list in the `plan` field of
 `update_step_progress`, which the read-only profile approves like every Pages
-tool; a session without Pages tools gets no work list rules.
+tool; a session without Pages tools gets no work list rules. A closing
+`pages-report` text does not replace that list: with Pages tools bound, the
+assessment after the turn keeps the missing list open and sends the turn back
+to the same session, as `report_step_result` refuses `done` without it.
 
 `agy acp` lists the tools of an MCP server only on demand, behind its own
 tool search (the model capability `supports_deferred_tool_loading`; the
@@ -207,15 +210,18 @@ separate from the occupancy. Their input leaves out the cache reads, and
 `totalTokens` is input + cache reads + output; `usage_update` names no `cost`.
 While a prompt of a local plan session runs, Pages reads the finished model
 calls from the CLI's own conversation store of that session
-(`antigravity-acp/conversations/<session id>.db`, table `gen_metadata`) and
-shows their sum as the turn's live count; the prompt response replaces it.
+(`antigravity-acp/conversations/<session id>.db`, table `gen_metadata`) every
+second and shows their sum as the turn's live count; the prompt response
+replaces it. The CLI writes a call's row just after the call's `usage_update`,
+so a reading at that update alone would always miss the latest call.
 The measurement is described under "Session usage of an Antigravity attempt"
 in [the session notes](../../service/agents/sessions/PageAgentCliSessions.md).
 
 A separate mathematical OpenRouter comparison covers captured ACP usage, with
 explicit gaps and subscription charges kept separate. The plan terminal shows
 the attempt's counts in the block "Verbrauch" and an estimate only as the row
-"Kosten · Schätzung". The reduced implementation, targeted tests and deferred
+"Kosten · Schätzung", in the account's display currency; without an estimate
+the row reads "unbekannt". The reduced implementation, targeted tests and deferred
 live/historical-price evidence are documented in
 [the accounting handoff](../../../docs/PAGE-368.md).
 

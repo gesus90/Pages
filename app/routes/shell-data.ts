@@ -34,7 +34,7 @@ async function readShell(
 
   const services = await getApplicationServices();
   const navigation = await services.administrationService.navigation(user.id);
-  const { dateFormat, timezone } =
+  const { dateFormat, timezone, currency } =
     await services.settingsService.getUserSettings(user.id);
   const branding = await services.instanceSettingsService.getBranding();
   const canViewProjects = await services.permissionService.allows(
@@ -50,7 +50,7 @@ async function readShell(
     branding,
     canViewProjects,
     canViewUsers: navigation.canViewUsers,
-    region: { dateFormat, timezone },
+    region: { dateFormat, timezone, currency },
     user,
     authorizationVersion: `${navigation.version}:pica:${pica.revision}`,
     account: navigation.account,

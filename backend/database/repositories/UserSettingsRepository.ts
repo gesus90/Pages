@@ -15,6 +15,8 @@ export interface StoredUserSettings {
   readonly timezone: string | null;
   readonly dateFormat: string | null;
   readonly weekStart: string | null;
+  /** Absent in older callers; `null` keeps the default. */
+  readonly currency?: string | null;
   readonly notifyEmail: boolean | null;
   readonly notifyDesktop: boolean | null;
   readonly notifyMentions: boolean | null;
@@ -174,7 +176,8 @@ export class UserSettingsRepository {
             notify_due_dates,
             notify_weekly_summary,
             theme,
-            notify_calendar_invitations
+            notify_calendar_invitations,
+            currency
         FROM user_settings
         WHERE user_id = $user_id;
       `,
@@ -211,6 +214,7 @@ export class UserSettingsRepository {
             notify_weekly_summary,
             theme,
             notify_calendar_invitations,
+            currency,
             updated_at
         )
         VALUES (
@@ -227,6 +231,7 @@ export class UserSettingsRepository {
             $notify_weekly_summary,
             $theme,
             $notify_calendar_invitations,
+            $currency,
             utc_now()
         )
         ON CONFLICT (user_id) DO UPDATE SET
@@ -242,6 +247,7 @@ export class UserSettingsRepository {
             notify_weekly_summary = excluded.notify_weekly_summary,
             theme = excluded.theme,
             notify_calendar_invitations = excluded.notify_calendar_invitations,
+            currency = excluded.currency,
             updated_at = excluded.updated_at;
       `,
       {
@@ -258,6 +264,7 @@ export class UserSettingsRepository {
         notify_weekly_summary: settings.notifyWeeklySummary ?? null,
         theme: settings.theme,
         notify_calendar_invitations: settings.notifyCalendarInvitations ?? null,
+        currency: settings.currency ?? null,
       },
     );
   }
@@ -296,6 +303,7 @@ export class UserSettingsRepository {
         11,
         "notify_calendar_invitations",
       ),
+      currency: readNullableTextColumn(row, 12, "currency"),
     };
   }
 }

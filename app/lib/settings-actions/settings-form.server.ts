@@ -1,6 +1,7 @@
 import {
   DEFAULT_USER_SETTINGS,
   USER_NOTIFICATION_KEYS,
+  isUserCurrency,
   isUserDateFormat,
   isUserTheme,
   isUserTimezone,
@@ -42,6 +43,7 @@ export function parseSettingsForm(formData: FormData): UserSettings | null {
   const theme = formData.get("theme");
   const timezone = formData.get("timezone");
   const dateFormat = formData.get("dateFormat");
+  const currency = formData.get("currency");
   const weekStart = formData.get("weekStart");
 
   if (
@@ -50,6 +52,7 @@ export function parseSettingsForm(formData: FormData): UserSettings | null {
     typeof timezone !== "string" ||
     (timezone !== "" && !isUserTimezone(timezone)) ||
     !isUserDateFormat(dateFormat) ||
+    !isUserCurrency(currency) ||
     !isUserWeekStart(weekStart)
   ) {
     return null;
@@ -66,6 +69,7 @@ export function parseSettingsForm(formData: FormData): UserSettings | null {
     theme,
     timezone: timezone === "" ? null : timezone,
     dateFormat,
+    currency,
     weekStart,
     notifications,
   };

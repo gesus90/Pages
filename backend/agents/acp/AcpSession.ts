@@ -434,10 +434,11 @@ export class AcpSession implements PlanSession {
           Boolean(this.context.request.resumeSessionId),
         );
         this.antigravityCalls?.begin(sessionId);
-        return this.connection.agent.request(
+        const answer = this.connection.agent.request(
           methods.agent.session.prompt,
           acpPromptParams(sessionId, next, this.context.driver.provider),
         );
+        return this.antigravityCalls?.follow(answer) ?? answer;
       },
       settled: async () => {
         await this.picaCodex?.cancelTurn();

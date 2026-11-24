@@ -5,7 +5,17 @@ import { ModelBadge } from "@/app/components/agents/badges/model-badge";
 import { ReasoningBadge } from "@/app/components/agents/badges/reasoning-badge";
 import { RunBranchBadge } from "@/app/components/agents/badges/run-branch-badge";
 import { modelBadgeDisplay } from "@/app/components/agents/model-picker/model-catalog";
+import {
+  useDisplayCurrency,
+  useRegionFormatter,
+} from "@/app/components/common/region-provider";
+import { Tooltip } from "@/app/components/ui/tooltip";
 import { cn } from "@/app/lib/cn";
+import {
+  displayCost,
+  formatConversionRate,
+  formatCostAmount,
+} from "@/app/lib/cost-currency";
 import { modelBadgeVendor } from "@/definition/AgentModelIdentity";
 import { PLAN_BLOCKER_RETRIES } from "@/definition/AgentPlanRetry";
 
@@ -23,12 +33,18 @@ import { formatClock } from "./console-time";
 import { ConsoleTodoList } from "./console-todo-list";
 import { useNow } from "./use-terminal-surface";
 
+import type { DisplayedCost } from "@/app/lib/cost-currency";
 import type { AgentPlanStepResult } from "@/definition/AgentPlan";
 import type { AgentSessionView } from "@/definition/AgentSessionJournal";
-import type { AntigravityUsageTotal } from "@/definition/AgentSessionPricing";
+import type {
+  AgentPriceGap,
+  AntigravityUsageTotal,
+  EuroDollarReferenceRate,
+} from "@/definition/AgentSessionPricing";
 
 const SIDEBAR_KEY = "plans.console.terminal.sidebar";
 const USAGE_KEY = `${SIDEBAR_KEY}.usage`;
+const COST_KEY = `${USAGE_KEY}.cost`;
 
 /**
  * The rows of the block "Verbrauch" in their fixed order, one per count
@@ -44,13 +60,35 @@ const USAGE_ROWS = [
 /** The value of a count that has not been reported yet. */
 const NOT_REPORTED = "–";
 
-/** An estimate keeps up to four decimals, so a cent fraction of a short session stays visible. */
-const ESTIMATE_FORMAT: Intl.NumberFormatOptions = {
-  style: "currency",
-  currency: "USD",
-  minimumFractionDigits: 2,
-  maximumFractionDigits: 4,
-};
+/**
+ * Why no cost is known, in the order the hint names it: missing counts
+ * first, then an unverified cache counting, then a missing price.
+ */
+type UnknownCostReason = "incomplete" | "cacheCounting" | "price";
+
+/** One line of the cost hint: a bold lead, its detail, or both. */
+interface CostHintLine {
+  readonly lead?: string;
+  readonly detail?: string;
+}
+
+/** What a cost text and its hint are formatted with. */
+interface CostFormat {
+  readonly language: string;
+  readonly formatDate: (value: string | null) => string;
+  readonly t: ReturnType<typeof useTranslation>["t"];
+}
+
+/** What the cost row shows and what its hint says. */
+interface CostRowContent {
+  readonly label: string;
+  readonly text: string;
+  readonly isUnknown: boolean;
+  /** Line 1 of the hint: where the amount comes from, with the original amount. */
+  readonly source: CostHintLine;
+  /** Line 2 of the hint: the conversion with rate and day, or why there is none. */
+  readonly conversion: CostHintLine;
+}
 
 interface ConsoleSidebarProps {
   readonly step: AgentPlanStepResult;
@@ -243,27 +281,179 @@ function UsageRow({
   );
 }
 
+/** The reason an unknown cost names; see {@link UnknownCostReason}. */
+function unknownCostReason(gaps: readonly AgentPriceGap[]): UnknownCostReason {
+  if (gaps.includes("tokens") || gaps.includes("attempt")) return "incomplete";
+  if (gaps.includes("cache_semantics")) return "cacheCounting";
+  return "price";
+}
+
+/** The cost in the chosen currency; a converted amount reads „ca.“, one without a rate keeps its code. */
+function costText(cost: DisplayedCost, format: CostFormat): string {
+  switch (cost.kind) {
+    case "original":
+      return formatCostAmount(cost.original, format.language, "symbol");
+    case "converted":
+      return format.t(`${COST_KEY}.approximately`, {
+        amount: formatCostAmount(cost.shown, format.language, "symbol"),
+      });
+    case "unconverted":
+      return formatCostAmount(cost.original, format.language, "code");
+  }
+}
+
+/** Line 2 of the hint: the rate and its ECB day, no conversion, or the missing rate. */
+function conversionLine(cost: DisplayedCost, format: CostFormat): CostHintLine {
+  const { t } = format;
+  switch (cost.kind) {
+    case "original":
+      return { detail: t(`${COST_KEY}.noConversion`) };
+    case "converted":
+      return {
+        lead: t(`${COST_KEY}.convertedLead`),
+        detail: t(`${COST_KEY}.convertedDetail`, {
+          rate: formatConversionRate(cost.rate, format.language),
+          date: format.formatDate(cost.rate.date),
+        }),
+      };
+    case "unconverted":
+      return {
+        lead: t(`${COST_KEY}.unconvertedLead`),
+        detail: t(`${COST_KEY}.unconvertedDetail`),
+      };
+  }
+}
+
+/**
+ * The content of the cost row in the currency the user chose.
+ * @remarks
+ * Antigravity reports no charged amount with a billing status, so the row
+ * shows the catalog estimate in US dollars, converted where a valid ECB
+ * rate exists, or „unbekannt“; a missing amount is never shown as 0.
+ */
+function useCostRowContent(
+  usage: AntigravityUsageTotal,
+  referenceRate: EuroDollarReferenceRate | null,
+): CostRowContent {
+  const { t, i18n } = useTranslation();
+  const currency = useDisplayCurrency();
+  const { formatDate } = useRegionFormatter();
+  if (usage.amountUsd === null)
+    return {
+      label: t(`${COST_KEY}.label`),
+      text: t(`${COST_KEY}.unknown`),
+      isUnknown: true,
+      source: { lead: t(`${COST_KEY}.unknownLead`) },
+      conversion: {
+        detail: t(`${COST_KEY}.unknownReason.${unknownCostReason(usage.gaps)}`),
+      },
+    };
+  const format: CostFormat = { language: i18n.language, formatDate, t };
+  const cost = displayCost(
+    { amount: usage.amountUsd, currency: "USD" },
+    currency,
+    referenceRate,
+  );
+  const unknown = t(`${SIDEBAR_KEY}.unknown`);
+  const priceDays = new Set(usage.priceAsOf.map((day) => formatDate(day)));
+  return {
+    label: t(`${USAGE_KEY}.costEstimate`),
+    text: costText(cost, format),
+    isUnknown: false,
+    source: {
+      lead: t(`${COST_KEY}.estimateLead`),
+      detail: t(`${COST_KEY}.estimateDetail`, {
+        priceAsOf: [...priceDays].join(", ") || unknown,
+        model: usage.priceModels.join(", ") || unknown,
+        amount: formatCostAmount(cost.original, i18n.language, "code"),
+      }),
+    },
+    conversion: conversionLine(cost, format),
+  };
+}
+
+/** One line of the cost hint; the lead is bold. */
+function CostHintText({
+  line,
+}: {
+  readonly line: CostHintLine;
+}): React.ReactElement {
+  return (
+    <span className="block">
+      {line.lead ? (
+        <strong className="font-semibold">{line.lead}</strong>
+      ) : null}
+      {line.lead && line.detail ? " " : null}
+      {line.detail ?? null}
+    </span>
+  );
+}
+
+/**
+ * The row "Kosten" of the block "Verbrauch".
+ * @remarks
+ * The label names the source: „Kosten · Schätzung“ for a catalog estimate,
+ * „Kosten“ while no amount is known. The hint shows after the pointer
+ * rested 1.5 s on the value, or at once on keyboard focus.
+ */
+function CostRow({
+  usage,
+  referenceRate,
+}: {
+  readonly usage: AntigravityUsageTotal;
+  readonly referenceRate: EuroDollarReferenceRate | null;
+}): React.ReactElement {
+  const content = useCostRowContent(usage, referenceRate);
+  return (
+    <SidebarRow label={content.label}>
+      <Tooltip
+        className="min-w-0 shrink"
+        isFloating
+        content={
+          <span className="flex flex-col gap-1 whitespace-normal wrap-anywhere">
+            <CostHintText line={content.source} />
+            <CostHintText line={content.conversion} />
+          </span>
+        }
+      >
+        {(tooltipId) => (
+          <span
+            tabIndex={0}
+            aria-describedby={tooltipId}
+            data-console-cost=""
+            className={cn(
+              "block min-w-0 truncate rounded-sm tabular-nums focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none",
+              content.isUnknown && "text-agent-console-muted",
+            )}
+          >
+            {content.text}
+          </span>
+        )}
+      </Tooltip>
+    </SidebarRow>
+  );
+}
+
 /**
  * The block "Verbrauch": the tokens the selected attempt's session
- * processed, summed over its turns.
+ * processed, summed over its turns, and their cost.
  * @remarks
- * The four rows stand from the start, so the session block below does not
- * move when the counts arrive. A reported 0 stays 0. The counts are the
- * adapter's own; Pages adds no cache count to the input. Antigravity reports
- * no charge, so a cost row appears only with an estimate from a catalog
- * price, which needs complete counts of every turn.
+ * The four count rows and the cost row stand from the start, so the session
+ * block below does not move when the counts arrive. A reported 0 stays 0.
+ * The counts are the adapter's own; Pages adds no cache count to the input.
  */
 function UsageSection({
   usage,
   isAfterTurn,
+  referenceRate,
 }: {
   readonly usage: AntigravityUsageTotal;
   readonly isAfterTurn: boolean;
+  readonly referenceRate: EuroDollarReferenceRate | null;
 }): React.ReactElement {
   const { t, i18n } = useTranslation();
   const title = t(`${USAGE_KEY}.title`);
   const numbers = new Intl.NumberFormat(i18n.language);
-  const currency = new Intl.NumberFormat(i18n.language, ESTIMATE_FORMAT);
   return (
     <section aria-label={title} data-console-usage="" className="min-w-0">
       <div className="flex items-baseline justify-between gap-3">
@@ -285,12 +475,7 @@ function UsageSection({
             />
           );
         })}
-        {usage.amountUsd === null ? null : (
-          <UsageRow
-            label={t(`${USAGE_KEY}.costEstimate`)}
-            value={currency.format(usage.amountUsd)}
-          />
-        )}
+        <CostRow usage={usage} referenceRate={referenceRate} />
       </dl>
     </section>
   );
@@ -367,6 +552,7 @@ export function ConsoleSidebar(props: ConsoleSidebarProps): React.ReactElement {
         <UsageSection
           usage={props.view.antigravity.attempt}
           isAfterTurn={isWaitingForTurnEnd(props.step, props.view)}
+          referenceRate={props.view.referenceRate ?? null}
         />
       ) : null}
       <SessionSection {...props} />

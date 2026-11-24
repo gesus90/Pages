@@ -331,6 +331,8 @@ export class AgentSessionRecorder implements AcpSessionListener {
    * @remarks
    * The count is written under the same attempt and turn as the prompt's
    * answer later, so the answer's sum replaces it instead of adding to it.
+   * A usage entry follows the stored count, so the open terminal reads the
+   * new count while the prompt still runs.
    */
   public readonly antigravityCalls = (calls: AntigravityPromptCalls): void => {
     const attempt = this.attempt;
@@ -338,12 +340,19 @@ export class AgentSessionRecorder implements AcpSessionListener {
     const turn = this.turn();
     this.liveAntigravity = { attemptId: attempt.key.attemptId, turn, calls };
     const usage = antigravityCallUsage(attempt, turn, calls, this.clock());
-    this.enqueue(() =>
-      (
+    this.enqueue(async () => {
+      await (
         this.dependencies.saveUsage ??
         this.dependencies.store.saveTurnUsage.bind(this.dependencies.store)
-      )(usage),
-    );
+      )(usage);
+      await this.dependencies.journal.append(usage.attemptId, [
+        {
+          kind: "usage",
+          turn,
+          text: `Antigravity usage read from ${calls.calls} model call(s)`,
+        },
+      ]);
+    });
   };
 
   /** Captures native message usage as OpenCode updates each model step. */

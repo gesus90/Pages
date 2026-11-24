@@ -1,6 +1,9 @@
 import { getPagesRuntime } from "@/backend/runtime/PagesRuntime";
 
-import { createPriceCatalog } from "./agent-plan-pricing.server";
+import {
+  createPriceCatalog,
+  createReferenceRate,
+} from "./agent-plan-pricing.server";
 
 import { accountClaudeUsage } from "@/backend/service/agents/sessions/ClaudeUsageAccounting";
 import { canProcessRuns } from "@/backend/runtime/RunsMode";
@@ -46,6 +49,7 @@ export async function createPageAgentSessions(
     runs,
     store,
     priceCatalog: createPriceCatalog(runtime.configFile.path),
+    referenceRate: createReferenceRate(runtime.configFile.path),
     pricing,
     saveUsage: (usage) =>
       usage.provider === "claude_code"

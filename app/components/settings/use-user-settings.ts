@@ -23,6 +23,7 @@ function createSettingsFormData(settings: UserSettings): FormData {
   formData.set("theme", settings.theme);
   formData.set("timezone", settings.timezone ?? "");
   formData.set("dateFormat", settings.dateFormat);
+  formData.set("currency", settings.currency);
   formData.set("weekStart", settings.weekStart);
 
   for (const key of USER_NOTIFICATION_KEYS) {

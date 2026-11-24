@@ -60,7 +60,9 @@ export async function runPlanTodoTurns(
       turn = { ...turn, failure: "cancelled" };
     if (node.record) node.record = withTurn(node.record, turn);
     await dependencies.sessions?.settle(node.record, turn);
-    const result = await dependencies.reports.assess(node, turn, terms);
+    const result = await dependencies.reports.assess(node, turn, terms, {
+      usesMcp: input.usesMcp,
+    });
     const assessed = result.assessed;
     await dependencies.save({
       acceptance: assessed?.acceptance ?? null,

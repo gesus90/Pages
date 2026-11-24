@@ -1,9 +1,14 @@
 import { createContext, useContext, useSyncExternalStore } from "react";
 
 import { formatDate, formatDateTime } from "@/app/lib/region-format";
+import { DEFAULT_USER_SETTINGS, isUserCurrency } from "@/definition/Settings";
 
 import type { RegionFormat } from "@/app/lib/region-format";
-import type { UserDateFormat, UserTimezone } from "@/definition/Settings";
+import type {
+  UserCurrency,
+  UserDateFormat,
+  UserTimezone,
+} from "@/definition/Settings";
 import type { ReactNode } from "react";
 
 /** The region choices of the signed-in user. */
@@ -11,6 +16,11 @@ export interface RegionPreferences {
   /** Chosen time zone, or `null` for the one of the browser. */
   readonly timezone: UserTimezone | null;
   readonly dateFormat: UserDateFormat;
+  /**
+   * The currency costs are shown in; missing in answers kept from before the
+   * currency choice, which show US dollars.
+   */
+  readonly currency?: UserCurrency;
 }
 
 /** Formats dates and times the way the signed-in user chose. */
@@ -67,6 +77,18 @@ export function useRegionFormat(): RegionFormat {
   );
 
   return { dateFormat, timeZone: timezone ?? browserTimeZone };
+}
+
+/**
+ * Returns the currency the signed-in user wants costs shown in.
+ * @remarks
+ * Accounts without a choice, and answers kept from before the choice
+ * existed, keep the US dollar display.
+ */
+export function useDisplayCurrency(): UserCurrency {
+  const { currency } = useContext(RegionContext);
+
+  return isUserCurrency(currency) ? currency : DEFAULT_USER_SETTINGS.currency;
 }
 
 /**

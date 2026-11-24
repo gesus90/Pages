@@ -7,17 +7,88 @@ import {
 } from "@/app/components/settings/settings-layout";
 import { Select } from "@/app/components/ui/select";
 import { formatTimezoneOffset } from "@/app/lib/timezone";
-import { USER_DATE_FORMATS, USER_TIMEZONES } from "@/definition/Settings";
+import {
+  USER_CURRENCIES,
+  USER_DATE_FORMATS,
+  USER_TIMEZONES,
+} from "@/definition/Settings";
 import { LANGUAGE } from "@/language/Language";
 
 import type { UserSettings, UserTimezone } from "@/definition/Settings";
+
+/** The hint below a selector, 12/400 in the muted color. */
+const ROW_HINT_CLASS = "-mt-2 text-xs leading-relaxed text-muted-foreground";
 
 interface RegionCardProps {
   readonly settings: UserSettings;
   readonly onChange: (patch: Partial<UserSettings>) => void;
 }
 
-/** Renders the language, time zone, date format, and week start selectors. */
+/** The currency costs are shown in, with the hint that billing stays as it is. */
+function CurrencyRow({
+  settings,
+  onChange,
+}: RegionCardProps): React.ReactElement {
+  const { t } = useTranslation();
+
+  return (
+    <>
+      <ControlRow label={t("settings.region.currency")}>
+        <Select
+          ariaLabel={t("settings.region.currency")}
+          className="w-full"
+          onValueChange={(currency) => onChange({ currency })}
+          options={USER_CURRENCIES.map((currency) => ({
+            value: currency,
+            label: t(`settings.region.currencies.${currency}`),
+          }))}
+          value={settings.currency}
+        />
+      </ControlRow>
+      <p className={ROW_HINT_CLASS}>{t("settings.region.currencyHint")}</p>
+    </>
+  );
+}
+
+/** The first day of the week, with the hint that planning does not use it yet. */
+function WeekStartRow({
+  settings,
+  onChange,
+}: RegionCardProps): React.ReactElement {
+  const { t } = useTranslation();
+
+  return (
+    <>
+      <ControlRow label={t("settings.region.weekStart")}>
+        <Select
+          ariaLabel={t("settings.region.weekStart")}
+          className="w-full"
+          onValueChange={(weekStart) => onChange({ weekStart })}
+          options={[
+            {
+              value: "monday",
+              label: t("settings.region.weekStartMonday"),
+            },
+            {
+              value: "sunday",
+              label: t("settings.region.weekStartSunday"),
+            },
+          ]}
+          value={settings.weekStart}
+        />
+      </ControlRow>
+      <p className={ROW_HINT_CLASS}>{t("settings.region.weekStartPending")}</p>
+    </>
+  );
+}
+
+/**
+ * Renders the language, time zone, date format, currency, and week start
+ * selectors.
+ * @remarks
+ * The currency changes only how costs are shown; a provider's billing stays
+ * as it is.
+ */
 export function RegionCard({
   settings,
   onChange,
@@ -90,27 +161,8 @@ export function RegionCard({
             value={settings.dateFormat}
           />
         </ControlRow>
-        <ControlRow label={t("settings.region.weekStart")}>
-          <Select
-            ariaLabel={t("settings.region.weekStart")}
-            className="w-full"
-            onValueChange={(weekStart) => onChange({ weekStart })}
-            options={[
-              {
-                value: "monday",
-                label: t("settings.region.weekStartMonday"),
-              },
-              {
-                value: "sunday",
-                label: t("settings.region.weekStartSunday"),
-              },
-            ]}
-            value={settings.weekStart}
-          />
-        </ControlRow>
-        <p className="-mt-2 text-xs leading-relaxed text-muted-foreground">
-          {t("settings.region.weekStartPending")}
-        </p>
+        <CurrencyRow settings={settings} onChange={onChange} />
+        <WeekStartRow settings={settings} onChange={onChange} />
       </div>
     </SettingsCard>
   );

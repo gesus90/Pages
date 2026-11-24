@@ -6,6 +6,7 @@ import { logCaughtError } from "@/backend/logging/Logger";
 
 import { ANTIGRAVITY_APP_DATA_DIRECTORY } from "./AntigravityAcpLaunch";
 
+import type { PromptResponse } from "@agentclientprotocol/sdk";
 import type { AcpSessionContext } from "./AcpSessionContracts";
 
 /** A conversation of `agy acp` is named by its ACP session id. */
@@ -13,6 +14,16 @@ const SESSION_ID_PATTERN = /^[0-9a-f-]{36}$/i;
 
 /** How long a read waits for the CLI's own write lock before it skips one reading. */
 const READ_TIMEOUT_MS = 100;
+
+/**
+ * How often the calls of a running prompt are read.
+ * @remarks
+ * `agy acp` writes the row of a model call about 0.1 s after the call's
+ * `usage_update`, so a reading at that update always misses the call that
+ * just ended; a command the model then waits for can delay the next update
+ * by minutes.
+ */
+const POLL_INTERVAL_MS = 1_000;
 
 /** Protobuf wire types the conversation store uses. */
 const WIRE_VARINT = 0;
@@ -263,7 +274,9 @@ export function readAntigravityCalls(
  * store, named by the session id, holds one row per finished model call
  * while the prompt runs. The rows that exist before a prompt is sent belong
  * to earlier prompts and attempts; only later rows count, each call once by
- * its request id. Between prompts nothing is read, so a late reading never
+ * its request id. While the prompt request is open the rows are read every
+ * {@link POLL_INTERVAL_MS} and at each `usage_update`, and each changed sum
+ * is reported once. Between prompts nothing is read, so a late reading never
  * counts for the next prompt. A failed read skips that reading only.
  */
 export class AntigravityTurnCalls {
@@ -275,6 +288,7 @@ export class AntigravityTurnCalls {
   private baseline: number | null = null;
   private reported = "";
   private hasLoggedFailure = false;
+  private timer: ReturnType<typeof setInterval> | null = null;
 
   public constructor(
     configDirectory: string,
@@ -285,14 +299,19 @@ export class AntigravityTurnCalls {
   }
 
   /**
-   * Notes the calls that exist before a prompt is sent.
+   * Notes the calls that exist before a prompt is sent and reads the later ones until the prompt answers.
    * @param sessionId - The ACP session the prompt is sent to.
    */
   public begin(sessionId: string): void {
+    this.stop();
     if (this.sessionId !== sessionId) this.lastIndex = -1;
     this.sessionId = sessionId;
     this.reported = "";
     this.baseline = this.read(this.lastIndex)?.lastIndex ?? null;
+    if (this.baseline === null) return;
+    this.timer = setInterval(() => this.poll(), POLL_INTERVAL_MS);
+    // A reading never keeps the service alive.
+    this.timer.unref();
   }
 
   /** Reports the calls of the running prompt when their sum changed. */
@@ -307,10 +326,43 @@ export class AntigravityTurnCalls {
     this.report(sum);
   }
 
+  /**
+   * Keeps reading the calls of the prompt until its request settles.
+   * @param answer - The open `session/prompt` request; a closed connection rejects it.
+   * @returns The prompt's answer; a failed prompt keeps the calls it finished and reads no more.
+   */
+  public async follow(
+    answer: Promise<PromptResponse>,
+  ): Promise<PromptResponse> {
+    try {
+      return await answer;
+    } catch (error: unknown) {
+      this.finish();
+      throw error;
+    } finally {
+      this.stop();
+    }
+  }
+
   /** Reads the calls of the prompt that ended a last time; later calls belong to the next prompt. */
   public finish(): void {
+    this.stop();
     this.observe();
     this.baseline = null;
+  }
+
+  private stop(): void {
+    if (this.timer !== null) clearInterval(this.timer);
+    this.timer = null;
+  }
+
+  /** One regular reading; outside a notification no handler would catch its failure. */
+  private poll(): void {
+    try {
+      this.observe();
+    } catch (error: unknown) {
+      logCaughtError("AntigravityTurnCalls", error);
+    }
   }
 
   private read(

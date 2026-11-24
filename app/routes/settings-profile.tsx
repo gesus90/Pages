@@ -82,7 +82,8 @@ function isSettingsLoaderData(value: unknown): value is SettingsLoaderData {
 
 /** The personal settings, kept per account and rights. */
 const SETTINGS_PROFILE_STATE: LocalStateRouteKind<SettingsLoaderData> = {
-  schemaVersion: 3,
+  // Version 4 adds the currency; a kept answer without it would save an invalid form.
+  schemaVersion: 4,
   isPayload: isSettingsLoaderData,
   isCurrent: (profile) => isCurrentLocalStateAudience(profile.audience),
   ownerOf: (profile) => profile.audience.userId,

@@ -56,6 +56,14 @@ import type {
 
 const MAXIMUM_PROBLEMS = 50;
 
+/**
+ * The todo that stands for a missing own work list; a completion gate, never agent work.
+ * @remarks
+ * A correction turn names it among the open todos, so an agent may report it.
+ * Only the stored list proves it, so a claim on it changes nothing.
+ */
+export const WORK_LIST_OBLIGATION_ID = "PAGES_PLAN";
+
 /** The obligation of an attempt that never sent its own work list. */
 const MISSING_WORK_LIST =
   "Send your own work list before you report done: call update_step_progress with plan, one concrete entry per work step of this step, every finished entry done.";
@@ -274,9 +282,11 @@ export class AgentPlanStepProgressService {
       contractOf(slot.termsJson),
     );
     const order = contract.todos.map((todo) => todo.id);
-    const unknown = parsed.data.todos.filter(
-      (todo) => !order.includes(todo.id),
+    // Refusing the gate would also drop the list sent with it, the only proof it asks for.
+    const reported = parsed.data.todos.filter(
+      (todo) => todo.id !== WORK_LIST_OBLIGATION_ID,
     );
+    const unknown = reported.filter((todo) => !order.includes(todo.id));
     if (unknown.length > 0)
       throw rejection(
         "INVALID_REQUEST",
@@ -287,7 +297,7 @@ export class AgentPlanStepProgressService {
         ),
       );
     const earlier = await this.progress.find(runId, slot.stepId);
-    await this.checkTicketTodos(identity, contract, parsed.data.todos);
+    await this.checkTicketTodos(identity, contract, reported);
     const updatedAt = this.clock();
     const ownPlan = await this.saveOwnPlan(slot, parsed.data.plan, updatedAt);
     // The effective contract mirrors the own list; read after the new list is
@@ -301,7 +311,7 @@ export class AgentPlanStepProgressService {
     const states = new Map(
       readTodoState(earlier).todos.map((todo) => [todo.id, todo.status]),
     );
-    for (const todo of parsed.data.todos)
+    for (const todo of reported)
       if (states.get(todo.id) !== "done") states.set(todo.id, todo.status);
     const todos = effective.todos.map((todo): AgentPlanStepProgressTodo => ({
       id: todo.id,
@@ -402,7 +412,7 @@ export class AgentPlanStepProgressService {
       isCurrent ? earlier.todos.map((todo) => [todo.id, todo.status]) : [],
     );
     const todos = contract.todos
-      .filter((todo) => todo.id !== "PAGES_PLAN")
+      .filter((todo) => todo.id !== WORK_LIST_OBLIGATION_ID)
       .map((todo) => ({
         ...todo,
         ...(!todo.ticket && statuses.get(todo.id) === "done"
@@ -422,7 +432,7 @@ export class AgentPlanStepProgressService {
       todos: [
         ...current.todos,
         {
-          id: "PAGES_PLAN",
+          id: WORK_LIST_OBLIGATION_ID,
           text: obligation,
           ticket: null,
           agent: true,

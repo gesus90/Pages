@@ -15,6 +15,7 @@ import { AGENT_RUN_REACHES } from "@/definition/McpAuthorization";
 import { sanitizeArtifactText } from "./AgentPlanOutput";
 import { describePlanIssue } from "./AgentPlanRetryNotice";
 import { AgentPlanStepAssessment } from "./AgentPlanStepAssessment";
+import { WORK_LIST_OBLIGATION_ID } from "./AgentPlanStepProgressService";
 
 import type { AgentProviderId } from "@/definition/AgentConnection";
 import type {
@@ -119,8 +120,10 @@ function identifierProblems(
   const criteria = report.criteria.map((criterion) => criterion.id);
   const knownTodos = contract.todos.map((todo) => todo.id);
   const knownCriteria = contract.criteria.map((criterion) => criterion.id);
+  // A correction turn names the gate; once the list is stored, the contract no longer holds it.
+  const claimedTodos = todos.filter((id) => id !== WORK_LIST_OBLIGATION_ID);
   return [
-    ...todos
+    ...claimedTodos
       .filter((id) => !knownTodos.includes(id))
       .map(
         (id) =>

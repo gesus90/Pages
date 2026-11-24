@@ -277,18 +277,30 @@ output). A Gemini 4 Neon conversation of 24.11.2026 has the same layout:
 100,000 cache reads, so the Neon input also leaves out the cache reads. The
 store names no verified cache write count.
 
+The CLI writes the row of a call about 0.1 s after the call's `usage_update`
+and its tool call. Measured on 24.11.2026 with `agy acp` 1.5.16 and
+`gemini-4-hydrogen` (reasoning `low`): at each `usage_update` of a prompt with
+three file reads the row of the call that had just ended was not readable yet,
+and appeared within the next quarter second. A reading at `usage_update` alone
+therefore always lags one call behind, and a command the model waits for
+delays the next update and with it the count by minutes.
+
 A local plan session notes the last row before it sends each prompt. While the
-prompt runs, every `usage_update` makes Pages read the rows after that one,
-read-only and only numbers, sum each call once by its `request_id` and store
-the sum under the same attempt and turn as the prompt's answer later. The
-cache write and the total stay missing there and the turn counts as partial,
-so no estimate is formed from it. When the prompt answers with `usage`, that
-sum replaces the live count, because both are stored under the same attempt
-and turn; a history entry says whether the answer matches the sum of the
-calls. Without `usage` in the answer the calls stand as the turn's count.
-Between prompts nothing is read, and the rows of earlier prompts, attempts and
-reconnections never count again. A runner job reports the counts only with
-the prompt's answer.
+`session/prompt` request is open, Pages reads the rows after that one every
+second and at every `usage_update`, read-only and only numbers, sums each call
+once by its `request_id` and stores a changed sum under the same attempt and
+turn as the prompt's answer later. A history entry of kind `usage` follows each
+stored sum, so the open terminal reads the new count within its usual refresh
+while the prompt runs. The regular reading ends when the prompt answers, fails
+or its connection closes; a failed prompt keeps the calls read until then. The
+cache write and the total stay missing in a live count and the turn counts as
+partial, so no estimate is formed from it. When the prompt answers with
+`usage`, that sum replaces the live count, because both are stored under the
+same attempt and turn; a history entry says whether the answer matches the sum
+of the calls. Without `usage` in the answer the calls stand as the turn's
+count. Between prompts nothing is read, and the rows of earlier prompts,
+attempts and reconnections never count again. A runner job reports the counts
+only with the prompt's answer.
 
 #### Terminal sidebar
 
@@ -297,10 +309,24 @@ Ausgabe, Cache gelesen and Cache geschrieben, each the attempt's sum over its
 turns. A count not reported yet reads "–", a reported 0 reads "0"; the rows
 stand from the start, so the block "Session" does not move when counts arrive.
 For a runner job the title reads "nach dem Zug" while the turn runs. A cost row
-"Kosten · Schätzung" appears only with an estimate from the daily OpenRouter
+stands from the start as well. With an estimate from the daily OpenRouter
 catalogue, which exists only when every turn of the attempt reported all four
 counts and the catalogue prices the model, including its cache reads and
-writes. The reported total stays stored for technical checks and is not shown.
+writes, it reads "Kosten · Schätzung". Without an estimate it reads "Kosten"
+and "unbekannt", never 0. The reported total stays stored for technical checks
+and is not shown. Antigravity reports no charged amount with a billing status,
+so the row never shows a provider amount.
+
+The estimate is shown in the currency the account chose under Settings →
+Sprache & Region: US dollars until a choice is saved, or euros converted with
+the ECB reference rate and marked "ca.". Without a valid rate the US dollar
+amount stands with its code "USD". A reported 0 stays 0. The hint of the value,
+shown after 1.5 s or at once on keyboard focus, names the source with model,
+price date and original amount on line 1, and the conversion with rate and ECB
+day on line 2. The server reads the ECB rate at most every six hours, an hour
+after a failed read, keeps the last valid rate with its working day in
+`ecb-reference-rate.json` of the Pages data directory and reuses it on weekends
+and after failed reads; a rate older than seven days counts as missing.
 
 ### Measured source of the context of a Claude Code CLI job
 
@@ -755,7 +781,14 @@ refused with the missing list named, so the agent can still send it; until
 then a progress call without `plan` names it in `notice`, and every other
 Pages answer of the step carries the same `notice` beside its result
 (`PagesAgentApiService.withPendingNotice`), so a model that never calls the
-progress tool reads it with its first Pages call. The list is stored through
+progress tool reads it with its first Pages call. An Antigravity turn with
+Pages MCP owes the list also when it closes with a `pages-report` text
+instead of `report_step_result`: the assessment after the turn
+(`AgentPlanTurnReports.assess`) keeps the obligation `PAGES_PLAN` open
+instead of accepting zero of zero todos, so the corrective turn asks the same
+session for the missing list. A progress or result call that names
+`PAGES_PLAN` itself is not refused for it; only the stored list fulfils it.
+The list is stored through
 the report slot of the running attempt
 (`AgentPlanAgentTodoRepository.saveReported`), so a first report that arrives
 before a runner-owned session has written its attempt is not lost, and a

@@ -34,6 +34,25 @@ export function isUserWeekStart(value: unknown): value is UserWeekStart {
   );
 }
 
+/** Currencies a user can select for showing costs. */
+export const USER_CURRENCIES = ["EUR", "USD"] as const;
+
+/**
+ * A currency a user can select for showing costs, as ISO 4217 code.
+ * @remarks
+ * The choice changes only the display: an amount keeps its original currency
+ * and is converted with the ECB reference rate where one is valid.
+ */
+export type UserCurrency = (typeof USER_CURRENCIES)[number];
+
+/** Narrows an unknown value to a supported user currency. */
+export function isUserCurrency(value: unknown): value is UserCurrency {
+  return (
+    typeof value === "string" &&
+    (USER_CURRENCIES as readonly string[]).includes(value)
+  );
+}
+
 /** Time zones a user can select for rendering dates. */
 export const USER_TIMEZONES = [
   "Europe/Berlin",
@@ -104,6 +123,8 @@ export interface UserSettings {
   readonly theme: UserTheme;
   readonly timezone: UserTimezone | null;
   readonly dateFormat: UserDateFormat;
+  /** The currency costs are shown in; US dollars until the user chooses one. */
+  readonly currency: UserCurrency;
   readonly weekStart: UserWeekStart;
   readonly notifications: UserNotifications;
 }
@@ -114,6 +135,7 @@ export const DEFAULT_USER_SETTINGS: UserSettings = {
   theme: "system",
   timezone: null,
   dateFormat: "DD.MM.YYYY",
+  currency: "USD",
   weekStart: "monday",
   notifications: {
     assignments: true,

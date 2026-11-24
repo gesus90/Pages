@@ -16,7 +16,10 @@ import type {
   AgentSessionKey,
   AgentSessionState,
 } from "./AgentSessionEvents.js";
-import type { AntigravityUsageView } from "./AgentSessionPricing";
+import type {
+  AntigravityUsageView,
+  EuroDollarReferenceRate,
+} from "./AgentSessionPricing";
 import type { AgentSessionRunBranch } from "./AgentPlanRunBranch";
 import type {
   AgentModelIdentity,
@@ -262,6 +265,11 @@ export interface AgentSessionView {
   };
   /** Captured Antigravity usage, independent of the subscription invoice. */
   readonly antigravity?: AntigravityUsageView;
+  /**
+   * The last valid ECB rate the terminal converts the session cost with;
+   * `null` without a valid rate, absent for providers without a cost row.
+   */
+  readonly referenceRate?: EuroDollarReferenceRate | null;
   /** OpenRouter messages in every iteration of this run. */
   readonly openRouterRunTotal?: AgentSessionUsageTotal | null;
   /** A run step exists without native usage, including an active step before its first report. */

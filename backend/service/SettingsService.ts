@@ -1,5 +1,6 @@
 import {
   DEFAULT_USER_SETTINGS,
+  isUserCurrency,
   isUserDateFormat,
   isUserTheme,
   isUserTimezone,
@@ -72,6 +73,7 @@ export class SettingsService {
     const defaults = DEFAULT_USER_SETTINGS;
 
     return {
+      currency: pickValid(stored?.currency, isUserCurrency, defaults.currency),
       dateFormat: pickValid(
         stored?.dateFormat,
         isUserDateFormat,
@@ -103,6 +105,7 @@ export class SettingsService {
       theme: settings.theme,
       timezone: settings.timezone,
       dateFormat: settings.dateFormat,
+      currency: settings.currency,
       weekStart: settings.weekStart,
       notifyEmail: settings.notifications.email,
       notifyDesktop: settings.notifications.desktop,
