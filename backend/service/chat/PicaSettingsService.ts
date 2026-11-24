@@ -39,6 +39,7 @@ import type { ModelConsumerRefusal } from "@/definition/AgentModelConsumers";
 const REFUSAL_ERRORS: Readonly<
   Record<ModelConsumerRefusal, AgentExecutionErrorCode>
 > = {
+  openCodeNotFree: "modelUnavailable",
   noChatAdapter: "picaModelSelectionRequired",
   noChat: "picaModelUnsupported",
   zenToolsMissing: "picaZenUnsupported",

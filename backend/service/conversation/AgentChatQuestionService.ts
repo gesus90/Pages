@@ -142,8 +142,11 @@ function mayAnswer(
  * @remarks
  * Both are messages of the agent in the conversation of its chat, sent like
  * any message of the agent, so muting and notifications apply as for an
- * answer; their prefixes keep them from asking another agent to answer. A
- * question waits for one answer, the time limit or the end of its round.
+ * answer. An interim message that names agents of a group with @ asks them,
+ * like any message the agent chose to send; the answers of the agents follow
+ * from its announcement (see {@link ConversationAgentReplies}). Without an @
+ * it asks nobody, and a question never asks another agent. A question waits
+ * for one answer, the time limit or the end of its round.
  * In a direct chat the person answers; in a group the person who addressed
  * the agent, otherwise every human member. Agents never answer. The first
  * answer locks the card.

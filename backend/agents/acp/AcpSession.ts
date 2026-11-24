@@ -15,6 +15,7 @@ import { createAcpSessionState, readAcpUpdate } from "./AcpEvents";
 import { reportAcpPlanActivity } from "./AcpPlanActivity";
 import { CodexThreadUsage } from "./CodexThreadUsage";
 import { AcpTurnControl, PROGRESS_INTERVAL_MS } from "./AcpTurnControl";
+import { acpBackgroundCommands } from "./AcpBackgroundCommands";
 import { registerClaudeUsage } from "./ClaudeAcpUsage";
 import { readClaudeQuotaWindow, registerClaudeQuota } from "./ClaudeAcpQuota";
 import { AcpMcpReadiness } from "./AcpMcpReadiness";
@@ -118,6 +119,8 @@ export class AcpSession implements PlanSession {
   private readonly mcpReadiness: AcpMcpReadiness;
   private readonly codexUsage: CodexThreadUsage | null;
   private readonly picaCodex: PicaCodexRequests | null;
+  /** The commands a plan turn waits for after the agent ended its prompt; `null` without such an adapter. */
+  private readonly background: ReturnType<typeof acpBackgroundCommands>;
   private closing: Promise<PlanSessionClosed> | null = null;
   /** The inputs and interruptions of a person in the running turn. */
   private readonly control = new AcpTurnControl(() =>
@@ -163,6 +166,7 @@ export class AcpSession implements PlanSession {
         () => this.state.sessionId,
         () => this.control.isPrompting,
       ) ?? null;
+    this.background = acpBackgroundCommands(context, this.state);
     this.observer = context.observer;
     this.turnSignal = context.signal;
     describeAcpSession(this.state, context);
@@ -442,6 +446,7 @@ export class AcpSession implements PlanSession {
         await this.synchronizeNativeUsage();
         await this.context.listener?.drained?.();
       },
+      awaitBackground: this.background?.settle,
     });
     await this.codexUsage?.finish(response.usage ?? null);
     this.reportPromptUsage(response.usage ?? null, sessionId);
@@ -560,6 +565,7 @@ export class AcpSession implements PlanSession {
     if (update.sessionUpdate === "config_option_update")
       this.configurationOptions = update.configOptions;
     readAcpUpdate(this.state, update, this.context.profile.reportedOptions);
+    this.background?.receive(update);
     this.recordClaudeQuota(update);
     if (this.context.driver.provider === "opencode") {
       const failure = openCodeToolFailure(

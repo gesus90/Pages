@@ -5,6 +5,7 @@ const SETTINGS_AREAS = [
   "/settings/profile",
   "/settings/connections",
   "/settings/system",
+  "/settings/tools",
   "/settings/agents",
 ] as const;
 
@@ -12,7 +13,7 @@ const SETTINGS_AREAS = [
 export type SettingsArea = (typeof SETTINGS_AREAS)[number];
 
 /**
- * The settings area an address belongs to, such as the agents area for its tools page.
+ * The settings area an address belongs to, such as the agents area for its subpages.
  * @param pathname - The path of the address.
  * @returns The area, or `null` outside the settings areas.
  */

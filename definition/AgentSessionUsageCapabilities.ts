@@ -24,7 +24,11 @@ export interface AcpUsageCapability {
  * From the capability notes next to the drivers: claude-agent-acp reports
  * input without cache and a total of all four counts; codex-acp reports each
  * prompt, whether its input contains cached input is not verified; OpenCode
- * reports only the last model step of a turn.
+ * reports only the last model step of a turn. `agy acp` reports each prompt
+ * as the sum of all its model calls; its input leaves out the cache reads,
+ * and its total is input, cache reads and output, each counted once. Its own
+ * conversation transcript and the reports of following prompts in the same
+ * native session confirm both.
  */
 export const ACP_USAGE_CAPABILITIES: Readonly<
   Record<AcpProviderId, AcpUsageCapability>
@@ -41,8 +45,8 @@ export const ACP_USAGE_CAPABILITIES: Readonly<
   },
   antigravity: {
     counting: "per_prompt",
-    inputIncludesCache: null,
-    isPartial: true,
+    inputIncludesCache: false,
+    isPartial: false,
   },
   opencode: {
     counting: "per_prompt",

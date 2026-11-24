@@ -1,8 +1,8 @@
 import { z } from "zod";
 
-import { isAgentProvider } from "./AgentConnection";
+import { isAgentProvider, isModelProviderGroup } from "./AgentConnection";
 
-import type { AgentProviderId } from "./AgentConnection";
+import type { AgentProviderId, ModelProviderGroup } from "./AgentConnection";
 
 /**
  * What a person can learn about the model list of one connection.
@@ -20,6 +20,12 @@ export interface ConnectionCatalogStatus {
   readonly connectionId: string;
   readonly connectionName: string;
   readonly provider: AgentProviderId;
+  /**
+   * The provider group a model choice lists the connection under, where it is
+   * not the provider: the Z.AI Coding Plan for an OpenCode connection with a
+   * subscription key. Absent for a connection listed under its provider.
+   */
+  readonly group?: ModelProviderGroup;
   readonly state: ConnectionCatalogState;
   /** When the last listing ended, successful or not; `null` before the first one. */
   readonly lastAttemptAt: string | null;
@@ -46,6 +52,7 @@ export interface ModelCatalogStatuses {
 }
 
 const providerSchema = z.custom<AgentProviderId>(isAgentProvider);
+const groupSchema = z.custom<ModelProviderGroup>(isModelProviderGroup);
 
 /** Validates what the catalog status route answered before a model choice uses it. */
 export const modelCatalogStatusesSchema = z.object({
@@ -54,6 +61,7 @@ export const modelCatalogStatusesSchema = z.object({
       connectionId: z.string(),
       connectionName: z.string(),
       provider: providerSchema,
+      group: groupSchema.optional(),
       state: z.enum(["loaded", "empty", "failed", "unverified"]),
       lastAttemptAt: z.string().nullable(),
       modelCount: z.number().int().nonnegative(),

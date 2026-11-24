@@ -1,7 +1,7 @@
 import {
   AGENT_PROVIDERS,
-  OPENCODE_FREE_PROVIDER,
-  openCodeModelProvider,
+  isFreeOpenCodeZenModel,
+  isZaiCodingPlanModel,
 } from "./AgentConnection";
 
 import { hasHostTools } from "./AgentEmployee";
@@ -46,8 +46,12 @@ export type AgentModelConsumer =
  *   of group chats need.
  * - `decisionOnly`: the model gives decisions; it neither chats nor
  *   works on a plan node, whatever else its catalog states.
+ * - `openCodeNotFree`: the model of an OpenCode connection of this instance
+ *   is neither an OpenCode Zen model its catalog proves free nor a Z.AI
+ *   Coding Plan model, so no place lists or runs it.
  */
 export type ModelConsumerRefusal =
+  | "openCodeNotFree"
   | "noChatAdapter"
   | "noChat"
   | "zenToolsMissing"
@@ -80,6 +84,7 @@ type ConsumerModel = Pick<
   | "isTranscriptionOnly"
   | "isDecisionCapable"
   | "isSimulation"
+  | "runnerRoute"
 >;
 
 /**
@@ -134,8 +139,31 @@ export function isZenToolModel(
 ): boolean {
   return (
     model.provider === "opencode" &&
-    openCodeModelProvider(model.model) === OPENCODE_FREE_PROVIDER &&
-    model.isFree === true
+    isFreeOpenCodeZenModel({ id: model.model, isFree: model.isFree })
+  );
+}
+
+/**
+ * Whether a model of an OpenCode connection of this instance is outside what
+ * such a connection offers: neither a free OpenCode Zen model nor a Z.AI
+ * Coding Plan model.
+ * @param model - Provider, model ID, free mark and route of a catalog model.
+ * @returns `true` for a model with a price or without a stated price; `false`
+ * for every other provider and for the inventory of a remote runner, whose
+ * host holds its own providers.
+ */
+export function isUnofferedOpenCodeModel(
+  model: Pick<
+    ConsumerModel,
+    "provider" | "model" | "isFree" | "isSimulation" | "runnerRoute"
+  >,
+): boolean {
+  return (
+    model.provider === "opencode" &&
+    model.runnerRoute === undefined &&
+    model.isSimulation !== true &&
+    !isZaiCodingPlanModel(model.model) &&
+    !isFreeOpenCodeZenModel({ id: model.model, isFree: model.isFree })
   );
 }
 
@@ -249,7 +277,10 @@ const CONSUMER_RULES: Readonly<
  * {@link AGENT_PROVIDERS} releases its models for Pica without any change to
  * a model choice. The server applies the same rules before it saves
  * or runs a model. The choice lists no refused model and names the reason only
- * for a saved one; a listed model is no grant of use.
+ * for a saved one; a listed model is no grant of use. Before the rule of the
+ * place, a model of an OpenCode connection must be a free OpenCode Zen model
+ * or a Z.AI Coding Plan model ({@link isUnofferedOpenCodeModel}), so no place
+ * offers or accepts an OpenCode model with a price or an unknown price.
  * @param consumer - The place that chooses the model.
  * @param model - Provider, model ID and catalog traits of the model.
  * @param context - Access level of an agent employee.
@@ -260,6 +291,7 @@ export function modelConsumerRefusal(
   model: ConsumerModel,
   context: ModelConsumerContext = {},
 ): ModelConsumerRefusal | null {
+  if (isUnofferedOpenCodeModel(model)) return "openCodeNotFree";
   return CONSUMER_RULES[consumer](model, context);
 }
 

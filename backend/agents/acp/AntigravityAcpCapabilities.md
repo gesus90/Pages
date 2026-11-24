@@ -136,19 +136,55 @@ tool; a session without Pages tools gets no work list rules.
 
 Plan turns, streaming, continuation, targeted session resume, deadlines,
 instance-wide leases and confirmed process cleanup use the shared ACP engine.
-Unconfirmed cleanup retains the connection lock. ACP usage is kept as reported;
-unreported prices remain unknown and token counts exclude delegated work.
+Unconfirmed cleanup retains the connection lock.
+
+`run_command` takes the model's own `WaitMsBeforeAsync` and
+`NotificationTimeoutSeconds`. A command that outlasts that wait runs on in the
+background: its tool call stays `in_progress`, and the model may end the prompt
+with `end_turn` and a message that it waits. `agy acp` reports the end later,
+outside any prompt, as a `completed` or `failed` update of the same tool call
+with the exit code in `rawOutput.exit_code`, and then wakes the model on its
+own. At the notification timeout it also wakes the model while the command
+still runs, without an update of the tool call. `session/cancel` and
+`session/close` end a background command, which is then reported as `failed`
+without an exit code; a refused command is reported as `failed` at once.
+
+Pages used to end the turn at that `end_turn`. The plan then judged a step
+whose command still ran, found no closing report and failed it, and the
+closeout ended the command together with the session. A plan turn now waits
+after `end_turn` until no command of the terminal tool runs on. It then
+continues the same native session with a note that names each command and its
+exit code, and the turn ends only with the answer to that note; the closing
+report is checked after it, so success is never judged before the observed
+end. A command that ended just before the prompt's answer, with no activity of
+the agent after its end, counts as well. The session events record
+`turn waits for … background command(s)`, `tool <command> completed exit <code>`
+and `turn continues after … background command(s) ended`; the server log
+records `acp.background_command.waiting` and `acp.background_command.ended`
+with status, exit code and the number still running. Stop and the node's
+deadline end the wait at once; the turn ends as cancelled or timed out, and the
+PID namespace ends the command. A turn with a refused request does not wait.
+During the wait no prompt runs, so a person's input is refused as inactive.
+Pica chats keep ending their turn at `end_turn`. The remote runner's own
+Antigravity worker is not changed by this. ACP usage is kept as reported;
+unreported prices remain unknown. Delegated work of a YOLO session in another
+native conversation has not been measured.
 
 The model selectors carry no context window, so the catalog states none.
 `agy acp` names the window itself in every `usage_update` (`size`, 1,048,576
 for Gemini 4 Hydrogen) together with the current occupancy (`used`). Its only
 report before the prompt (`used` 0) arrives before the model is confirmed and
 is not attributed to the attempt, so the console reads "unknown" until the
-first report of the prompt. The token counts of the prompt response are
-cumulative over the model calls of a turn and stay separate from the occupancy.
+first report of the prompt. The token counts of the prompt response are the
+sum of the model calls of that prompt, not of the native session, and stay
+separate from the occupancy. Their input leaves out the cache reads, and
+`totalTokens` is input + cache reads + output; `usage_update` names no `cost`.
+The measurement is described under "Session usage of an Antigravity attempt"
+in [the session notes](../../service/agents/sessions/PageAgentCliSessions.md).
 
 A separate mathematical OpenRouter comparison covers captured ACP usage, with
-explicit gaps and subscription charges kept separate. The reduced
+explicit gaps and subscription charges kept separate. The plan terminal shows
+it per attempt in the block "Sitzungsverbrauch". The reduced
 implementation, targeted tests and deferred live/historical-price evidence are
 documented in [the accounting handoff](../../../docs/PAGE-368.md).
 

@@ -11,7 +11,7 @@ import { saveLastChat } from "./chat-view-requests";
 import { useChatActivity } from "./use-chat-activity";
 import { useOlderHistory } from "./use-older-history";
 import { useOpenedHistory } from "./use-opened-history";
-import { useLiveChat } from "./live/use-live-chat";
+import { useLiveChat, withoutEndedJobs } from "./live/use-live-chat";
 import { useConversationStream } from "./live/use-conversation-stream";
 
 import type { ChatLastChat } from "@/definition/ConversationContent";
@@ -569,7 +569,10 @@ function hasStoredOlderHistory(
  * stored conversation with a person or of a group, whose other
  * members see it live. Answers arrive over `conversations.v1` while they are
  * written; the page reads its data again when an answer ended,
- * never at fixed intervals. Opening a conversation with unread messages
+ * never at fixed intervals. An agent of a group shows as answering by the
+ * job it runs: the end of that job hides it at once, also in a reading from
+ * the moments after, while another job of the same agent and every other
+ * answering agent keep showing. Opening a conversation with unread messages
  * marks it read.
  */
 export function useChatPage(
@@ -590,22 +593,24 @@ export function useChatPage(
   const sender = useFetcher();
 
   const found = searchLists(lists, query);
-  const opened = openConversation(lists, selection);
+  const asRead = openConversation(lists, selection);
   useRememberedChat(
-    opened ? selection : null,
+    asRead ? selection : null,
     directory.viewPreferences?.lastChat,
   );
-  const controls = useAgentControls(opened);
+  const controls = useAgentControls(asRead);
   const historyId = selection?.id ?? "";
   const pending = pendingMessage(sender.formData, selection);
   const history = useOpenedHistory(directory, historyId);
-  const conversation = storedConversation(opened);
+  const conversation = storedConversation(asRead);
   const older = useOlderHistory(
     conversation?.id ?? null,
     history.messages,
     hasStoredOlderHistory(directory, historyId, history.isLoaded),
   );
   const stream = useConversationStream({ storedMessages: older.messages });
+  // A job that told its end no longer answers, whatever the reading still says.
+  const opened = withoutEndedJobs(asRead, stream.state);
   const mute = useMute(conversation);
   const messages = pending ? [...older.messages, pending] : older.messages;
   const answering = answeringState(opened, pending !== null);

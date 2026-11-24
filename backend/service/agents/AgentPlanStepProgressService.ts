@@ -282,29 +282,41 @@ export class AgentPlanStepProgressService {
       );
     const earlier = await this.progress.find(runId, slot.stepId);
     await this.checkTicketTodos(identity, contract, parsed.data.todos);
-    const states = new Map(
-      readTodoState(earlier).todos.map((todo) => [todo.id, todo.status]),
-    );
-    for (const todo of parsed.data.todos)
-      if (states.get(todo.id) !== "done") states.set(todo.id, todo.status);
-    const todos = contract.todos.map((todo): AgentPlanStepProgressTodo => ({
-      id: todo.id,
-      status: todo.checked ? "done" : (states.get(todo.id) ?? "open"),
-    }));
-    const activity = parsed.data.activity
-      ? sanitizeArtifactText(parsed.data.activity)
-      : (earlier?.activity ?? null);
     const updatedAt = this.clock();
     const ownPlan = await this.saveOwnPlan(
       slot.attemptId,
       parsed.data.plan,
       updatedAt,
     );
+    // The effective contract mirrors the own list; read after the new list is
+    // stored, the receipt and the saved state never lag one call behind it.
+    const effective = ownPlan.plan
+      ? await this.current(
+          { runId, stepId: slot.stepId, attemptId: slot.attemptId },
+          contractOf(slot.termsJson),
+        )
+      : contract;
+    const states = new Map(
+      readTodoState(earlier).todos.map((todo) => [todo.id, todo.status]),
+    );
+    for (const todo of parsed.data.todos)
+      if (states.get(todo.id) !== "done") states.set(todo.id, todo.status);
+    const todos = effective.todos.map((todo): AgentPlanStepProgressTodo => ({
+      id: todo.id,
+      status: todo.checked ? "done" : (states.get(todo.id) ?? "open"),
+    }));
+    const activity = parsed.data.activity
+      ? sanitizeArtifactText(parsed.data.activity)
+      : (earlier?.activity ?? null);
     await this.progress.save({
       runId,
       stepId: slot.stepId,
       attemptId: slot.attemptId,
-      todosJson: JSON.stringify({ ...readTodoState(earlier), contract, todos }),
+      todosJson: JSON.stringify({
+        ...readTodoState(earlier),
+        contract: effective,
+        todos,
+      }),
       activity,
       updatedAt,
     });

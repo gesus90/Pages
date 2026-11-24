@@ -868,13 +868,22 @@ color. A saved model that the node can no longer use, such as one that cannot
 call the tools of an agent plan, reads "Modell nicht nutzbar" there and names
 its reason in the tooltip; it is neither replaced nor offered as a new choice.
 Its panel starts with a search field and lists the target's models under
-collapsible tools in a fixed order (Claude Code, Codex, Antigravity, OpenCode,
-OpenRouter, then other API connections), each header naming the access
-and model count. OpenRouter is an independent agent provider with the
-catalog of its own API connections and model IDs without an added runtime
-prefix. OpenCode lists only its own free `opencode/…` models, including when its connection has
-an explicitly stored key. Pages never attaches keys from other API connections
-to an OpenCode connection. Rows show the short catalog name without
+collapsible provider groups in a fixed order (Claude Code, Codex, Antigravity,
+OpenCode, Z.AI Coding Plan, OpenRouter, then other API connections), each
+header naming the access and model count. OpenRouter is an independent agent
+provider with the catalog of its own API connections and model IDs without an
+added runtime prefix. The Z.AI Coding Plan is a provider group of its own with
+the Z tile: it holds exactly the `zai-coding-plan/…` models of the OpenCode
+connections that store a Coding Plan key, and such a connection stands there
+even while it lists no model. The group OpenCode lists only OpenCode Zen
+models (`opencode/…`) whose catalog states a prompt and completion price of
+exactly zero, including when its connection has an explicitly stored key; a
+model with a price or without a stated price is neither offered nor accepted
+for a new choice on the server (`modelConsumerRefusal`,
+`isOpenCodeConnectionModel`). The search keeps both groups apart: a Coding
+Plan model does not carry OpenCode's name in its search text. Pages never
+attaches keys from other API connections to an OpenCode connection. The
+OpenCode inventory of a remote runner is the host's own and keeps its models. Rows show the short catalog name without
 a trailing "Free". A green Free badge marks only a model whose catalog states a
 prompt and completion price of exactly zero for that very variant; a missing
 price is never free. Only chat models are listed: text in, text out, no image,
@@ -1075,6 +1084,20 @@ subscriptions and replacing or removing a key changes only its own connection.
   window of an attempt comes from the ACP usage report of that attempt, and
   only without one from the catalog entry of the same model; without either the
   window is shown as unknown.
+- Every model choice lists these models as the provider group "Z.AI Coding
+  Plan", apart from OpenCode. A chosen model shows the Z tile in its field,
+  and the model badge of a chat head and of an answer reads "Z.AI Coding
+  Plan" with the catalog name. Connection and model stay the stored pair of
+  connection ID and `zai-coding-plan/…` model ID, so saving and reloading
+  never changes the group.
+- A saved choice the connection does not admit stays stored and is marked as
+  unavailable with its reason: OpenCode offers only free OpenCode Zen models,
+  a Coding Plan connection runs only Coding Plan models, or the saved
+  connection holds no subscription key for a Coding Plan model. The server
+  refuses to save or start it; no other model, provider or billing is used.
+  The saved model of an OpenCode connection itself follows the same rule:
+  changing it to a model the connection does not offer and testing an earlier
+  saved one fail with `opencode_model_not_offered`.
 
 Saved plans, templates, automations, agent assignments and chat settings that
 still name such a connection keep loading. A plan node of it reads "Model or
@@ -1739,6 +1762,8 @@ Die native Planpflicht für Codex gilt nur, wenn für den aktuellen Versuch ein 
 Für Schritte mit einem Meldeweg fordert der gemeinsame Laufvertrag zu Beginn konkrete, überprüfbare To-dos. Agenten melden Fortschritt, Änderungen und Blockaden sofort, bei längerer Arbeit mindestens alle fünf Minuten. Vor dem Abschluss aktualisieren sie die Liste und begründen offene Punkte. Mit Pages-MCP aktualisiert `update_step_progress` die zugewiesenen IDs. Die eigene Arbeitsliste meldet der Agent im Feld `plan` desselben Werkzeugs (Status `open`, `active`, `done` oder `failed`; `pending`, `in_progress` und `completed` aus den eingebauten Aufgabenlisten gelten als `open`, `active` und `done`, wie OpenCode sie sendet, auch im Feld `todos`; eine mitgeschickte `priority` wird ignoriert): konkrete Arbeitsschritte statt des Node-Namens, bei festen Nodes aus dem Auftrag abgeleitet oder eine vorgegebene Checkliste übernommen, bei Ticket-Nodes je Ticket aus Ziel, Anforderungen und Abnahmekriterien. Der Vertrag fasst diese Regeln im eigenen Abschnitt „Your work list“ vor den Arbeitsregeln zusammen: Die Liste kommt vor dem ersten Befehl mit offenen Einträgen und dem ersten in Arbeit, nach jedem erledigten Eintrag sofort erneut, und der Abschlussbericht ist kein Eintrag, weil seine Prüfung jeden Eintrag erledigt verlangt. Claude Code bietet in `claude -p` keine eigene Aufgabenliste an und meldet die Liste deshalb nur über `plan`. Antigravity (`agy acp` 1.5.9) hat kein Aufgabenlisten-Werkzeug und sendet keine ACP-Plan-Ereignisse; es meldet die Liste nur über `plan`, und eine Sitzung ohne Pages-MCP erhält keine Regeln für eine eigene Liste. OpenCode (auch mit OpenRouter-Modellen) führt die Liste oft in seinem eigenen Werkzeug `todowrite`, das sein ACP-Adapter (1.18.34) nur als Tool-Aufruf meldet; Pages übernimmt dessen Liste als Plan des Versuchs, und „Lesend“ erlaubt `todowrite`, weil es nichts am Host ändert. Pages speichert sie wie einen nativen Plan in der Liste des laufenden Versuchs; der jüngste Bericht beider Wege gilt, Wiederholungen erzeugen keine doppelten Einträge. Hat ein Versuch nie eine eigene Liste gemeldet, lehnt `report_step_result` einen Bericht `done` ab und nennt die fehlende Liste, damit der Agent sie nachreicht; ein Fortschrittsaufruf ohne `plan` nennt sie bis dahin im Feld `notice` der Antwort. Die Bewertung nach dem Zug bleibt unverändert. Ein Aufruf mit `todos: []` und einer kurzen `activity` meldet den Arbeitsstand auch bei leerer Checkliste. Eine Blockade steht in `activity`, während das betroffene To-do als aktiv gemeldet ist.
 
 Schritte ohne Pages-MCP verwenden die native Aufgabenliste, sofern der Runner und die gewählte Berechtigungsstufe sie anbieten. Die Konsole zeigt die Zeit der jüngsten tatsächlichen Meldung an.
+
+Terminal, Laufleiste und deren Detailansicht lesen dieselbe Liste eines Nodes. Zuerst steht die eigene Arbeitsliste des laufenden Versuchs. Bis sie eintrifft, stehen die To-dos des Auftrags dort, also die Aufgabenzeilen der Anweisung und die Checklisten der gebundenen Tickets; ohne solche To-dos stehen die Abnahmekriterien dort. Eine Liste eines früheren Versuchs und eine Beobachtung eines anderen Versuchs zählen nicht. Ein mehrfach gemeldeter Eintrag erscheint einmal, die serverseitige Pflicht zur eigenen Liste nie. Ohne Eintrag melden Terminal und Laufleiste gleich „Keine TODOs“; der Node-Name bleibt die Überschrift und erscheint nie als Eintrag. „Letzte Aktivität“ der Laufleiste zählt wie das Terminal Aktivitätsmeldungen von `update_step_progress`, die eigene Liste und strukturierte ACP-Pläne. So zeigt auch Antigravity, das keine ACP-Plan-Ereignisse sendet, seine Meldungszeit. Die Antwort von `update_step_progress` führt eine mit demselben Aufruf gesendete Liste bereits in `todos`.
 
 Stop beendet einen Codex-Prozessrahmen bereits mit dem ersten Signal per SIGKILL. Ein gestoppter Codex-Lauf kann weder über Fortsetzen noch über den Recovery-Zugang wiederaufgenommen werden. Nach einem Endzustand schickt Start unmittelbar einen neuen Lauf ab; dessen bestehende Ressourcenbereinigung übernimmt alte Besitzer. Andere Provider behalten ihre bisherigen Fortsetzungs- und Bestätigungsregeln.
 

@@ -1,4 +1,5 @@
 import type { AgentAnswerModel } from "./AgentChatControl";
+import type { ConversationAnswerJob } from "./ConversationAnswerJob";
 import type { VirtualToolUse } from "./VirtualChat";
 
 /**
@@ -9,6 +10,8 @@ import type { VirtualToolUse } from "./VirtualChat";
  * counts from 1 within that answer, so a client that receives a part twice,
  * for example once in a snapshot after a reconnect and once as an event,
  * keeps it once. After `answer_end` the stored message holds the answer.
+ * An answer in a stored conversation names the job it is written in, and
+ * every such job tells its end, also one that wrote no part.
  * Thought parts reach only the readers allowed to see them: the person of a
  * direct chat, the owner of a group.
  */
@@ -46,6 +49,12 @@ export interface LiveAnswerHead {
   readonly at: string;
   /** ISO time the server began this answer. */
   readonly answerStartedAt?: string;
+  /**
+   * The job the answer is written in, in a stored conversation: the same one
+   * the page's reading names for an agent that answers. A direct chat with an
+   * agent names none.
+   */
+  readonly job?: ConversationAnswerJob;
 }
 
 /** One tool call of an answer. */

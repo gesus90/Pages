@@ -1,9 +1,11 @@
+import { Wrench } from "lucide-react";
 import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { Link, useFetcher, useLoaderData, useRevalidator } from "react-router";
+import { useFetcher, useLoaderData, useRevalidator } from "react-router";
 
 import { useLocalStateRoute } from "@/app/components/common/use-local-state-route";
 import { AgentToolCard } from "@/app/components/settings/agents/tools/agent-tool-card";
+import { SettingsSectionHeader } from "@/app/components/settings/settings-layout";
 import { Button } from "@/app/components/ui/button";
 import {
   isCurrentLocalStateAudience,
@@ -87,7 +89,7 @@ function UpdateSearch(): React.ReactElement {
   return (
     <fetcher.Form
       method="post"
-      action="/settings/agents/tools"
+      action="/settings/tools"
       className="flex flex-wrap items-center gap-3"
     >
       <Button
@@ -106,7 +108,7 @@ function UpdateSearch(): React.ReactElement {
   );
 }
 
-/** Renders the system-admin tool inventory with cached status polling and bounded actions. */
+/** Renders the Tools settings area: the system-admin tool inventory with cached status polling and bounded actions. */
 export default function SettingsAgentToolsRoute(): React.ReactElement {
   const { tools } = useLocalStateRoute(
     useLoaderData<typeof clientLoader>(),
@@ -122,14 +124,11 @@ export default function SettingsAgentToolsRoute(): React.ReactElement {
   }, [revalidate]);
   return (
     <div className="space-y-4">
-      <Link
-        className="text-sm text-primary-text hover:underline"
-        to="/settings/agents"
-      >
-        {t("agentTools.back")}
-      </Link>
+      <SettingsSectionHeader
+        icon={<Wrench className="size-4" aria-hidden="true" />}
+        title={t("agentTools.title")}
+      />
       <div className="space-y-1">
-        <h2 className="text-xl font-semibold">{t("agentTools.title")}</h2>
         <p className="text-sm text-muted-foreground">
           {t("agentTools.description")}
         </p>

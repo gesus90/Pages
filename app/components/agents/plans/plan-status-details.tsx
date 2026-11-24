@@ -13,7 +13,7 @@ import {
 } from "./plan-status";
 import { PlanStatusConfiguration } from "./plan-status-configuration";
 import { isPlanDecisionResult, PlanStatusHistory } from "./plan-status-history";
-import { agentTodoSummary } from "./plan-agent-todo-model";
+import { stepTodoList } from "./plan-agent-todo-model";
 import { TodoRow } from "./plan-status-todos";
 import { PlanStatusRetry, PlanStatusStop } from "./plan-status-retry";
 import { PlanRemoteHistory } from "./plan-remote-history";
@@ -370,7 +370,8 @@ function PlanStatusAgentTodos({
   readonly step: AgentPlanStepResult;
 }): React.ReactElement {
   const { t } = useTranslation();
-  const agent = agentTodoSummary(step);
+  const agent = stepTodoList(step);
+  const isListed = agent.total > 0;
   const heading = t("plans.progress.agentTodos.heading");
   return (
     <section
@@ -380,7 +381,7 @@ function PlanStatusAgentTodos({
     >
       <div className="flex shrink-0 items-baseline justify-between gap-2">
         <h3 className="text-sm leading-5 font-semibold">{heading}</h3>
-        {agent.isReported ? (
+        {isListed ? (
           <span className="text-xs text-muted-foreground tabular-nums">
             {t("plans.progress.agentTodos.count", {
               done: agent.done,
@@ -389,7 +390,7 @@ function PlanStatusAgentTodos({
           </span>
         ) : null}
       </div>
-      {agent.isReported ? (
+      {isListed ? (
         <ScrollViewport
           as="ul"
           axis="vertical"
@@ -398,10 +399,7 @@ function PlanStatusAgentTodos({
           className="overscroll-contain py-1"
         >
           {agent.todos.map((todo) => (
-            <TodoRow
-              key={todo.id}
-              item={{ id: todo.id, text: todo.text, status: todo.status }}
-            />
+            <TodoRow key={todo.id} item={todo} />
           ))}
         </ScrollViewport>
       ) : (

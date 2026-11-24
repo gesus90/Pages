@@ -35,7 +35,7 @@ import type { Route } from "./+types/settings";
 
 /** The settings frame as its endpoint answers it. */
 export interface SettingsLayoutData {
-  /** Whether the navigation lists the admin areas System and Agents. */
+  /** Whether the navigation lists the admin areas System, Tools and Agents. */
   readonly canViewSystem: boolean;
   readonly audience: LocalStateAudience;
 }

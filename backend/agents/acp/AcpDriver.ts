@@ -157,6 +157,13 @@ export interface AcpDriver {
    * a turn whose end the client never learns. codex-acp has no such option.
    */
   readonly steeringMeta: Readonly<Record<string, unknown>> | null;
+  /**
+   * The terminal tool can move a command into the background: the prompt
+   * ends with `end_turn` while the command runs on, and the adapter reports
+   * its end later as an update of the same tool call. A plan turn then waits
+   * for that end instead of ending; absent counts as no.
+   */
+  readonly runsCommandsInBackground?: boolean;
   /** Whether `initialize` came from an adapter version Pages verified. */
   isSupportedAdapter(
     agent: Implementation | null | undefined,

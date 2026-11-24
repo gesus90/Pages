@@ -1,6 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { Bot } from "lucide-react";
-import { Link, useLoaderData, useSearchParams } from "react-router";
+import { useLoaderData, useSearchParams } from "react-router";
 
 import { useLocalStateRoute } from "@/app/components/common/use-local-state-route";
 import { AdminModeRequired } from "@/app/components/settings/admin-mode-required";
@@ -192,12 +192,6 @@ export default function SettingsAgentsRoute(): React.ReactElement {
         settings={result.pica.settings}
         models={result.pica.models}
       />
-      <Link
-        className="inline-flex rounded-lg border border-border bg-surface px-3 py-2 text-sm font-medium text-primary-text hover:bg-surface-hover"
-        to="/settings/agents/tools"
-      >
-        {t("agentTools.title")}
-      </Link>
     </div>
   ) : (
     <AdminModeRequired description={t("settings.agents.adminModeRequired")} />

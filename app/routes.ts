@@ -458,13 +458,16 @@ function settingsRoutes(routes: RouteBuilder): RouteConfigEntry[] {
             browser: "routes/settings-system.tsx",
             server: "routes/settings-system-server.ts",
           }),
+          ...page("tools", {
+            browser: "routes/settings-agent-tools.tsx",
+            server: "routes/settings-agent-tools-server.ts",
+          }),
           ...page("agents", {
             browser: "routes/settings-agents.tsx",
             server: "routes/settings-agents-server.ts",
           }),
           ...page("agents/tools", {
-            browser: "routes/settings-agent-tools.tsx",
-            server: "routes/settings-agent-tools-server.ts",
+            browser: "routes/settings-agent-tools-redirect.ts",
           }),
         ],
       },

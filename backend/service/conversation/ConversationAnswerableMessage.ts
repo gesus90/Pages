@@ -1,21 +1,38 @@
+import { CONVERSATION_AGENT_INTERIM_PREFIX } from "@/definition/AgentChatQuestion";
 import { CONVERSATION_AGENT_SEND_PREFIX } from "@/definition/Conversation";
 
 import type { ConversationMessage } from "@/definition/Conversation";
 import type { ConversationEvent } from "./ConversationEvents";
 
 /**
- * Whether a message asks for an answer: one a person wrote, or one an agent
- * chose to send. The answer of an agent asks nobody, so two agents
- * never answer each other on their own.
+ * Whether an interim message of an agent names members with @.
+ * @remarks
+ * Such a message hands the agents it names the matter it speaks of, as a
+ * message the agent chose to send does. An interim message without an @ stays
+ * a quiet note of progress that asks nobody.
+ */
+export function isInterimMention(message: ConversationMessage): boolean {
+  return (
+    message.clientMessageId.startsWith(CONVERSATION_AGENT_INTERIM_PREFIX) &&
+    message.mentions.length > 0
+  );
+}
+
+/**
+ * Whether a message asks for an answer: one a person wrote, one an agent
+ * chose to send, or an interim message of an agent that names members with @.
+ * The answer of an agent asks nobody, so two agents never answer each other
+ * on their own.
  */
 export function isAskingMessage(message: ConversationMessage): boolean {
   return (
     message.sender.kind === "human" ||
-    message.clientMessageId.startsWith(CONVERSATION_AGENT_SEND_PREFIX)
+    message.clientMessageId.startsWith(CONVERSATION_AGENT_SEND_PREFIX) ||
+    isInterimMention(message)
   );
 }
 
-/** The message of a person, or one an agent chose to send, whose text is known now; `null` for every other change. */
+/** The message that asks for an answer and whose text is known now; `null` for every other change. */
 export function answerableMessage(
   event: ConversationEvent,
 ): ConversationMessage | null {

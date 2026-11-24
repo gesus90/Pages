@@ -33,20 +33,17 @@ export async function loader({
 
   const serverSettings = await createServerSettingsService({ services });
 
-  const [port, branding, wikiSettings, chatSettings, logging] =
-    await Promise.all([
-      serverSettings.readPort(),
-      services.instanceSettingsService.getBranding(),
-      services.wikiService.getSettings(),
-      services.chatSettingsService.administration(user),
-      serverSettings.readLogging(user),
-    ]);
+  const [port, branding, wikiSettings, logging] = await Promise.all([
+    serverSettings.readPort(),
+    services.instanceSettingsService.getBranding(),
+    services.wikiService.getSettings(),
+    serverSettings.readLogging(user),
+  ]);
 
   return {
     access: "granted",
     audience: await readLocalStateAudience(services, user),
     branding,
-    chatSettings,
     logging,
     port,
     wikiSettings,

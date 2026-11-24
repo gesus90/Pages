@@ -74,6 +74,7 @@ const ERROR_CLASSES: Readonly<Record<AgentErrorCode, AgentPlanBlockerClass>> = {
   opencode_acp_session_failed: "infrastructure",
   opencode_free_tier_refused: "open",
   opencode_provider_no_models: "open",
+  opencode_model_not_offered: "open",
   plan_json_invalid: "form",
   plan_number_invalid: "form",
   plan_run_unavailable: "open",

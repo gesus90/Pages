@@ -310,7 +310,7 @@ export class AgentSessionService {
       ...(await this.antigravityView(
         attempt.record.runner,
         run,
-        key.stepId,
+        key,
         runTurns,
       )),
       openRouterRunTotal,
@@ -518,14 +518,15 @@ export class AgentSessionService {
   private async antigravityView(
     runner: string,
     run: AgentPlanRun,
-    stepId: string,
+    key: AgentSessionKey,
     turns: readonly AgentSessionTurnUsage[],
   ): Promise<Pick<AgentSessionView, "antigravity">> {
     if (runner !== "antigravity") return {};
     return {
       antigravity: await antigravityUsage({
         turns,
-        ...antigravityAttempts(run, stepId),
+        attemptId: key.attemptId,
+        ...antigravityAttempts(run, key.stepId),
         catalog: this.dependencies.priceCatalog,
       }),
     };

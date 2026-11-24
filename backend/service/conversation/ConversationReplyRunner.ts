@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+
 import { AgentJobAnswerError } from "@/backend/error/AgentJobAnswerError";
 import { redactCredentials } from "@/backend/security/AgentTextSafety";
 import { AgentEmployeeError } from "@/backend/error/AgentEmployeeError";
@@ -19,6 +21,7 @@ import { postConversationReply } from "./ConversationReplyPosting";
 import type { LiveAnswerSink } from "./ConversationLiveAnswer";
 import type { ConversationTargetState } from "@/backend/database/repositories/conversation/ConversationRoundRepository";
 import type { AgentMessageQueue } from "@/definition/AgentSessionLimits";
+import type { ConversationAnswerJob } from "@/definition/ConversationAnswerJob";
 import type {
   ConversationMessage,
   ConversationNotice,
@@ -71,12 +74,18 @@ function defaultWait(milliseconds: number): Promise<void> {
  * several agents answer side by side. An answer that waits for the earlier
  * answer of the same agent, or for a free place among the limits of
  * concurrent sessions, shows as queued until it begins, and a member can
- * stop the running answer of one agent.
+ * stop the running answer of one agent. Every run of an answer is a job of
+ * its own, which the working agent and the parts of its live answer name, so
+ * a reader ends the state of exactly that job with its end.
  */
 export class ConversationReplyRunner {
   private readonly dependencies: ConversationReplyRunnerDependencies;
   private readonly queues = new Map<string, Promise<unknown>>();
-  private readonly working = new Map<string, Set<string>>();
+  /** The job each answering agent runs, by conversation and agent. */
+  private readonly working = new Map<
+    string,
+    Map<string, ConversationAnswerJob>
+  >();
   /** Waiting answers by conversation, keyed by answered message and agent. */
   private readonly queued = new Map<
     string,
@@ -104,7 +113,14 @@ export class ConversationReplyRunner {
 
   /** The agents that are answering in a conversation now. */
   public workingAgentIds(conversationId: string): string[] {
-    return [...(this.working.get(conversationId) ?? [])];
+    return [...this.workingJobs(conversationId).keys()];
+  }
+
+  /** The job each agent that is answering in a conversation runs now, by agent. */
+  public workingJobs(
+    conversationId: string,
+  ): ReadonlyMap<string, ConversationAnswerJob> {
+    return this.working.get(conversationId) ?? new Map();
   }
 
   /**
@@ -338,8 +354,10 @@ export class ConversationReplyRunner {
     const controllerKey = `${job.round.conversation.id}:${job.agentId}`;
     const controller = new AbortController();
     this.controllers.set(controllerKey, controller);
-    this.setWorking(job, true);
-    const liveAnswer = await openReplyLiveAnswer(this.dependencies, job);
+    // A repeated answer to the same message is told apart as a job of its own.
+    const jobId = randomUUID();
+    this.setWorking(job, jobId);
+    const liveAnswer = await openReplyLiveAnswer(this.dependencies, job, jobId);
     try {
       let posted: { readonly message: ConversationMessage | null } | undefined;
       const text = await this.askWhenFree(job, agentUser, {
@@ -386,7 +404,7 @@ export class ConversationReplyRunner {
       if (this.controllers.get(controllerKey) === controller)
         this.controllers.delete(controllerKey);
       this.unmarkQueued(job);
-      this.setWorking(job, false);
+      this.setWorking(job, null);
     }
   }
 
@@ -643,20 +661,23 @@ export class ConversationReplyRunner {
     );
   }
 
-  private setWorking(job: ConversationReplyJob, isWorking: boolean): void {
+  /** Notes the run of the job as the agent's work in the conversation; `null` ends it. */
+  private setWorking(job: ConversationReplyJob, jobId: string | null): void {
     const conversationId = job.round.conversation.id;
-    const agents = this.working.get(conversationId) ?? new Set<string>();
-    if (isWorking) agents.add(job.agentId);
-    else agents.delete(job.agentId);
+    const agents =
+      this.working.get(conversationId) ??
+      new Map<string, ConversationAnswerJob>();
+    if (jobId === null) agents.delete(job.agentId);
+    else agents.set(job.agentId, { roundId: job.round.originMessageId, jobId });
     if (agents.size === 0) this.working.delete(conversationId);
     else this.working.set(conversationId, agents);
-    if (!isWorking) this.releaseIdleWaiters(conversationId, agents);
+    if (jobId === null) this.releaseIdleWaiters(conversationId, agents);
     this.dependencies.publisher.publish(changedEvent(conversationId));
     this.dependencies.events.publish({
       kind: "typing",
       conversationId,
       participantId: job.agentId,
-      isTyping: isWorking,
+      isTyping: jobId !== null,
       recipientIds: job.round.memberIds,
     });
   }
@@ -664,7 +685,7 @@ export class ConversationReplyRunner {
   /** Lets the messages go on whose agents no longer answer in the conversation. */
   private releaseIdleWaiters(
     conversationId: string,
-    working: ReadonlySet<string>,
+    working: ReadonlyMap<string, ConversationAnswerJob>,
   ): void {
     const waiters = this.idleWaiters.get(conversationId);
     if (!waiters) return;

@@ -1,10 +1,10 @@
 import { useTranslation } from "react-i18next";
 
-import { agentTodoSummary } from "./plan-agent-todo-model";
+import { stepTodoList } from "./plan-agent-todo-model";
 import { PlanStatusDonut } from "./plan-status-donut";
 
 import type { AgentPlanStepResult } from "@/definition/AgentPlan";
-import type { AgentTodoSummary } from "./plan-agent-todo-model";
+import type { StepTodoList } from "./plan-agent-todo-model";
 
 interface TodoCountProps {
   readonly step: AgentPlanStepResult | undefined;
@@ -13,12 +13,12 @@ interface TodoCountProps {
 const COUNT_CLASS =
   "ml-auto flex shrink-0 items-center gap-1.75 border-l border-border pl-3 @2xl/status:ml-0";
 
-/** The TODO list the agent reported: the one in progress and "x von y erledigt". */
+/** The listed TODOs of the node: the one in progress and "x von y erledigt". */
 function AgentTodoCount({
   step,
   agent,
 }: TodoCountProps & {
-  readonly agent: AgentTodoSummary;
+  readonly agent: StepTodoList;
 }): React.ReactElement {
   const { t } = useTranslation();
   const count = t("plans.progress.agentTodos.count", {
@@ -59,7 +59,7 @@ function AgentTodoCount({
   );
 }
 
-/** What an agent step without a reported list says, instead of a count. */
+/** What a node without any listed TODO says, instead of a count; the terminal says the same. */
 function NoAgentTodos({ step }: TodoCountProps): React.ReactElement {
   const { t } = useTranslation();
   const label = t("plans.progress.agentTodos.empty");
@@ -85,13 +85,14 @@ function NoAgentTodos({ step }: TodoCountProps): React.ReactElement {
  * The selected node's TODO progress, immediately before the existing runtime clock.
  *
  * @remarks
- * Counts the assignment and structured agent plans together, including before
- * the agent reports progress. An empty assignment is shown explicitly.
+ * Counts the list the terminal shows: the agent's own list of the current
+ * attempt, until then the assignment. A node without either says so
+ * explicitly instead of counting its own name.
  */
 export function PlanStatusTodoCount({
   step,
 }: TodoCountProps): React.ReactElement {
-  const agent = agentTodoSummary(step);
-  if (agent.isReported) return <AgentTodoCount step={step} agent={agent} />;
+  const agent = stepTodoList(step);
+  if (agent.total > 0) return <AgentTodoCount step={step} agent={agent} />;
   return <NoAgentTodos step={step} />;
 }

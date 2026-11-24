@@ -225,6 +225,9 @@ export const ANTIGRAVITY_ACP_DRIVER: AcpDriver = {
     sessionFailed: "antigravity_acp_session_failed",
   },
   steeringMeta: null,
+  // `run_command` hands a command that outlasts `WaitMsBeforeAsync` to the
+  // background, and the model may end its prompt while the command runs on.
+  runsCommandsInBackground: true,
   isSupportedAdapter: isSupportedAntigravityAcp,
   profile: (mode, purpose) => {
     if (purpose === "observer") return OBSERVER_PROFILE;

@@ -1,4 +1,4 @@
-import { Bot, Plug, Server, UserRound } from "lucide-react";
+import { Bot, Plug, Server, UserRound, Wrench } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
 
@@ -9,7 +9,7 @@ import { useMarkedSettingsArea } from "./use-settings-area";
 import type { ReactNode } from "react";
 
 interface SettingsNavigationProps {
-  /** Whether the system area is listed. */
+  /** Whether the admin areas System, Tools and Agents are listed. */
   readonly canViewSystem: boolean;
 }
 
@@ -80,6 +80,15 @@ export function SettingsNavigation({
           to="/settings/system"
         >
           {t("settings.navigation.system")}
+        </SettingsNavigationLink>
+      ) : null}
+      {canViewSystem ? (
+        <SettingsNavigationLink
+          icon={<Wrench className="size-4 text-primary" aria-hidden="true" />}
+          isCurrent={area === "/settings/tools"}
+          to="/settings/tools"
+        >
+          {t("settings.navigation.tools")}
         </SettingsNavigationLink>
       ) : null}
       {canViewSystem ? (

@@ -229,10 +229,43 @@ Context occupancy and token counts are separate values:
 | Claude Code (`claude-agent-acp`) | per prompt                                                 | no; total = input + output + cache read + cache write | no                                | last top-level message, cache included | estimate, process total             | resume (transcript on disk)    |
 | Codex (`codex-acp`), plans       | native cumulative deltas reconciled with ACP prompt deltas | yes                                                   | missing reports marked incomplete | context only, never accounting         | OpenRouter equivalent, subscription | load (replays history), resume |
 | OpenCode (native ACP)            | per prompt                                                 | not verified (`null`)                                 | yes (last model step only)        | reported by the release source         | estimate, session total             | resume                         |
+| Antigravity (`agy acp`)          | per prompt, summed over the prompt's model calls           | no; total = input + cache read + output               | no                                | `used`/`size` of each `usage_update`   | none reported; OpenRouter estimate  | targeted session resume        |
 
 A later surface can show `112k In (3.6m Cache Read) · 1.2k Out` from
 `inputTokens`, `cacheReadTokens` and `outputTokens`; for Claude the cache is
 not part of the input. Codex plan input includes cache; the remaining providers keep their existing counting.
+
+### Session usage of an Antigravity attempt
+
+`agy acp` answers each `session/prompt` with `usage` carrying `inputTokens`,
+`cachedReadTokens`, `cachedWriteTokens`, `outputTokens`, `thoughtTokens` and
+`totalTokens`. The counts are the sum of all model calls of that prompt; the
+next prompt of the same native session reports only its own calls. The input
+leaves out the cache reads, and `totalTokens` is input + cache reads + output.
+Measured on 21.11.2026 with `gemini-4-hydrogen` (reasoning `low`): one prompt
+with two model calls reported input 31,092, cache read 26,633, cache write 0,
+output 196, thought 127 and total 57,921; the CLI's own conversation
+transcript lists input 28,682 + 2,410, cache read 0 + 26,633 and output
+181 + 15 for the two calls. In a Pica session the second prompt reported
+input 2,906, cache read 33,127 and output 71, exactly its own model call. The
+cache write count is a reported 0 and stays 0. Pages stores the turn once per
+attempt and turn, also when the runner sends the reading again with its
+terminal receipt, and sums the turns of the attempt; a cache count is never
+added to the input or the total.
+
+`usage_update` carries only `used` and `size`: the occupancy of the window,
+which replaces the previous reading and is never summed. It names no `cost`.
+Antigravity therefore delivers no charged amount and no billing status; a
+connection signs in with a Google account and its usage counts against that
+account's quota. The terminal sidebar shows the attempt's summed counts in the
+block "Sitzungsverbrauch" below "Kontext", "Berechnet" as not available and,
+apart from it, an estimated equivalent from the daily OpenRouter catalogue
+with the priced catalogue entry and its date. The estimate exists only when
+every turn of the attempt reported all four counts and the catalogue prices
+the model, including its cache reads and writes; otherwise the block names
+the reason. `thoughtTokens` is reported but not stored, because whether the
+output count already contains it is not verified. Delegated work of a YOLO
+session in another native conversation has not been measured.
 
 ### Measured source of the context of a Claude Code CLI job
 
@@ -614,7 +647,12 @@ the input as the next prompt of the same native session; the turn of the
 node ends only with a prompt that ends without waiting input. Strg+C and
 Escape interrupt the running prompt; the turn then waits up to five minutes
 for the next input and otherwise ends as cancelled. The route checks the
-right to run the plan for every input.
+right to run the plan for every input. For an adapter whose terminal tool
+moves commands into the background (Antigravity), a prompt that ends with
+`end_turn` while such a command runs on does not end the turn either: the turn
+waits for the command's end and continues with a note naming its exit code
+(see [Antigravity ACP](../../../agents/acp/AntigravityAcpCapabilities.md)).
+During that wait no prompt runs, so an input is refused as inactive.
 
 ### Live progress and usage
 

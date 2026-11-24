@@ -289,7 +289,7 @@ export function AgentToolCard({
       <ToolActivity tool={tool} />
       <fetcher.Form
         method="post"
-        action="/settings/agents/tools"
+        action="/settings/tools"
         className="flex flex-wrap gap-2"
       >
         <input type="hidden" name="tool" value={tool.id} />

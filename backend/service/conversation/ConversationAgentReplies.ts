@@ -9,15 +9,18 @@ import {
 import {
   answerableMessage,
   isAskingMessage,
+  isInterimMention,
 } from "./ConversationAnswerableMessage";
 import { isAgentChainPaused } from "./ConversationAgentChain";
 import { reopenFailedAnswer } from "./ConversationAnswerRetry";
 import {
   logPausedHandoff,
+  logPausedInterim,
   logRoundLimit,
   logStartFailure,
   logUnanswerable,
 } from "./ConversationReplyLogs";
+import { replyContextMessageIds } from "./ConversationResumeContext";
 import { ConversationReplyRunner } from "./ConversationReplyRunner";
 import { ConversationRoundFollowUps } from "./ConversationRoundFollowUps";
 import { chosenDelivery, mentionDelivery } from "./ConversationDeliveryIntents";
@@ -35,6 +38,7 @@ import type { ConversationReplySettingsRepository } from "@/backend/database/rep
 import type { ConversationRoundRepository } from "@/backend/database/repositories/conversation/ConversationRoundRepository";
 import type { PagesEvent } from "@/backend/service/events/PagesEventPublisher";
 import type { AgentMessageQueue } from "@/definition/AgentSessionLimits";
+import type { ConversationAnswerJob } from "@/definition/ConversationAnswerJob";
 import type { ConversationMessage } from "@/definition/Conversation";
 import type { ConversationReplySettings } from "@/definition/ConversationDecision";
 import type { ConversationAttachment } from "@/definition/ConversationContent";
@@ -69,9 +73,6 @@ export interface ConversationAgentTurn {
   readonly attachments: readonly ConversationAttachment[];
   readonly throughSequence: number;
 }
-
-/** The most messages a resumed hand-over reads since the agent's last message. */
-const RESUME_CONTEXT_MESSAGES = 50;
 
 /** One answer an agent is asked for. */
 export interface ConversationAgentRequest {
@@ -252,7 +253,9 @@ function isAgentMember(
  * and a restart start nothing twice. Agents start a round only with a message
  * they chose to send; it asks exactly the agents it mentions, or
  * the partner of a direct conversation, and a conversation paused after a
- * chain of agent messages gets no answer.
+ * chain of agent messages gets no answer. An interim message of an agent in a
+ * group asks the agents it mentions with @ the same way, each once and under
+ * the same pause; without an @, and in a direct conversation, it asks nobody.
  * Every agent answers in its own session of the conversation, so
  * several agents answer side by side. A message that waits for the earlier
  * answer of the same agent, or for a free place among the limits of
@@ -321,9 +324,11 @@ export class ConversationAgentReplies {
       });
   }
 
-  /** The agents that are answering in a conversation now. */
-  public workingAgentIds(conversationId: string): string[] {
-    return this.replies.workingAgentIds(conversationId);
+  /** The job each agent that is answering in a conversation runs now, by agent. */
+  public workingJobs(
+    conversationId: string,
+  ): ReadonlyMap<string, ConversationAnswerJob> {
+    return this.replies.workingJobs(conversationId);
   }
 
   /**
@@ -434,6 +439,11 @@ export class ConversationAgentReplies {
       logUnanswerable(message, sender ? "no_membership" : "no_sender");
       return;
     }
+    if (
+      isInterimMention(message) &&
+      !(await this.mayAsk(message, conversation))
+    )
+      return;
     const round: ConversationRound = {
       originMessageId: message.id,
       conversation,
@@ -566,6 +576,22 @@ export class ConversationAgentReplies {
     });
   }
 
+  /**
+   * Whether the @ of an interim message of an agent may start the agents it
+   * names: only in a group, and not while the agents wrote the most they may
+   * in a row. The message is stored in either case.
+   */
+  private async mayAsk(
+    message: ConversationMessage,
+    conversation: Pick<ConversationRecord, "id" | "kind">,
+  ): Promise<boolean> {
+    if (conversation.kind !== "group") return false;
+    const isPaused =
+      (await this.dependencies.guard?.isPaused(conversation.id)) ?? false;
+    if (isPaused) logPausedInterim(message);
+    return !isPaused;
+  }
+
   private receive(event: ConversationEvent): void {
     const message = answerableMessage(event);
     if (!message) return;
@@ -614,7 +640,11 @@ export class ConversationAgentReplies {
       triggerMessageId: request.triggerMessageId,
       reason: request.reason,
       isFollowUp: request.isFollowUp,
-      contextMessageIds: await this.contextOf(round, request),
+      contextMessageIds: await replyContextMessageIds(
+        this.dependencies,
+        { ...round, conversationId: round.conversation.id },
+        request,
+      ),
       ...(request.deliveryIntent === undefined
         ? {}
         : { delivery: request.deliveryIntent }),
@@ -646,35 +676,6 @@ export class ConversationAgentReplies {
     } catch (error: unknown) {
       logCaughtError(COMPONENT, error);
     }
-  }
-
-  /**
-   * The messages a continuation reads besides the history: a batch gets the
-   * round replies since its question, a resumed hand-over every message since
-   * the agent's last one. Both are read after the claim, so nothing bundled
-   * meanwhile is missing.
-   */
-  private async contextOf(
-    round: ConversationRound,
-    request: ReplyRequest,
-  ): Promise<readonly string[] | undefined> {
-    if (request.isFollowUp)
-      return this.dependencies.rounds.followUps.context(
-        round.originMessageId,
-        request.triggerMessageId,
-      );
-    if (request.handoff !== "paused") return undefined;
-    const newestFirst = await this.dependencies.messages.history(
-      round.conversation.id,
-      null,
-      RESUME_CONTEXT_MESSAGES,
-    );
-    const since = [];
-    for (const message of newestFirst) {
-      if (message.senderId === request.agentId) break;
-      if (message.notice === null) since.push(message.id);
-    }
-    return since.reverse();
   }
 
   /**

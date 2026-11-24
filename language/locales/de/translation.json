@@ -518,24 +518,6 @@
           "general": "Die Wiki-Einstellungen konnten nicht gespeichert werden."
         }
       },
-      "chat": {
-        "title": "Chat-Assistent Pica",
-        "description": "Ergänzende Anweisung des globalen Chats.",
-        "instruction": "Ergänzende Anweisung (Markdown, optional)",
-        "instructionDefault": "Keine Ergänzung gespeichert. Pica arbeitet nur mit den geschützten Vorgaben aus SOUL.md und AGENTS.md.",
-        "instructionCustom": "Eine Ergänzung ist aktiv.",
-        "instructionHint": "Sie gilt ab der nächsten Nachricht und steht unter den geschützten Vorgaben von Pica (SOUL.md, AGENTS.md) und den festen Regeln von Pages (Rechte der Person, Aktionen). Sie kann diese weder ändern noch aufheben; die geschützten Vorgaben lassen sich hier nicht bearbeiten.",
-        "modelHint": "Aktivierung, Zugang, Modell und Reasoning legen Sie in der festen Pica-Karte fest:",
-        "modelLink": "Einstellungen › Agents",
-        "save": "Chat-Einstellungen speichern",
-        "reset": "Ergänzung entfernen",
-        "saved": "Gespeichert.",
-        "error": {
-          "invalidSetting": "Bitte eine Grenze von 1 bis 512 MB und eine Ergänzung mit höchstens 20.000 Zeichen angeben.",
-          "credentialsInText": "Die Ergänzung darf keine Zugangsdaten enthalten.",
-          "general": "Die Einstellungen konnten nicht gespeichert werden."
-        }
-      },
       "logging": {
         "title": "Serverlogging",
         "description": "Instanzweite Aufbewahrung der täglichen Betriebslogs. Änderungen gelten sofort.",
@@ -772,6 +754,7 @@
       "label": "Einstellungsbereiche",
       "personal": "Persönlich",
       "system": "System",
+      "tools": "Tools",
       "agents": "Agents",
       "connections": "Verbindungen"
     },
@@ -837,6 +820,7 @@
         "cli_check_failed": "Der CLI-Test ist fehlgeschlagen.",
         "cli_unexpected_output": "Die CLI hat eine unerwartete Ausgabe geliefert.",
         "opencode_provider_no_models": "OpenCode listet für den gewählten Schlüsselanbieter kein Modell, das Pages ausführen kann.",
+        "opencode_model_not_offered": "Eine OpenCode-Verbindung bietet nur OpenCode-Zen-Modelle an, die ihr Katalog als kostenlos ausweist, oder die Modelle ihres Z.AI-Coding-Plan-Schlüssels. Das Modell wurde weder gespeichert noch ausgeführt, und es wurde kein anderes Modell verwendet.",
         "claude_usage_stale": "Claude Code hat den Nutzungsendpunkt nicht erreicht und nur gespeicherte Werte geliefert.",
         "login_in_progress": "Für diese Anbindung läuft bereits eine Anmeldung.",
         "login_limit_reached": "Die Höchstzahl gleichzeitiger CLI-Vorgänge oder Anmeldungen ist erreicht. Versuchen Sie es später erneut.",
@@ -1719,6 +1703,7 @@
         "refusal": {
           "connectionUnavailable": "Anbindung ist ausgeschaltet.",
           "accessUnverified": "Zugang der Anbindung ist nicht verifiziert.",
+          "openCodeNotFree": "OpenCode bietet nur OpenCode-Zen-Modelle an, die der Katalog als kostenlos ausweist. Dieses Modell ist kostenpflichtig oder ohne Preisangabe und wird nicht ausgeführt.",
           "noChatAdapter": "Dieser Provider hat keinen Chat-Adapter für diese Verwendung.",
           "noChat": "Dieses Modell kann keinen Chat mit den Pages-Werkzeugen führen.",
           "employeeToolsMissing": "Dieses freie OpenCode-Modell benötigt Host-Werkzeuge. Für diesen Agent die Zugriffsstufe Arbeitsplatz oder YOLO wählen.",
@@ -1920,22 +1905,6 @@
         "retry": "Erneut versuchen"
       },
       "loading": "Verbindungen werden geladen"
-    },
-    "embedDomains": {
-      "title": "Einbetten im Chat",
-      "description": "Seiten dieser Domains lassen sich in jeder Unterhaltung direkt im Chat anzeigen. Pages selbst und lokale Vorschauen sind immer erlaubt; weitere Domains geben Mitglieder je Unterhaltung frei.",
-      "loading": "Domains werden geladen …",
-      "empty": "Keine Domain für alle Unterhaltungen freigegeben.",
-      "list": "Für alle Unterhaltungen freigegebene Domains",
-      "hostName": "Hostname",
-      "placeholder": "docs.example.org",
-      "release": "Freigeben",
-      "remove": "Entfernen",
-      "removeDomain": "Freigabe für {{domain}} entfernen",
-      "error": {
-        "invalid": "Das ist kein gültiger Hostname. Gib nur den Namen ein, zum Beispiel docs.example.org – ohne https://, Pfad oder Port.",
-        "failed": "Die Domains konnten nicht geladen oder gespeichert werden. Versuch es noch einmal."
-      }
     }
   },
   "users": {
@@ -6196,7 +6165,30 @@
           "access": "Zugriff",
           "branch": "Branch",
           "workspace": "Arbeitsplatz",
-          "restarts": "Neustarts"
+          "restarts": "Neustarts",
+          "usage": {
+            "title": "Sitzungsverbrauch",
+            "input": "Eingabe",
+            "inputWithoutCache": "Eingabe ohne Cache",
+            "inputWithCache": "Eingabe inkl. Cache",
+            "cacheReadTokens": "Aus Cache gelesen",
+            "cacheWriteTokens": "In Cache geschrieben",
+            "outputTokens": "Ausgabe",
+            "totalTokens": "Gesamt",
+            "charged": "Berechnet",
+            "estimate": "Schätzwert",
+            "estimateValue": "≈ {{amount}}",
+            "unavailable": "nicht verfügbar",
+            "estimateBasis": "Schätzung nach OpenRouter-Preis für {{models}}, Stand {{dates}}. Kein berechneter Betrag.",
+            "notDelivered": "Antigravity liefert keinen berechneten Betrag und keinen Abrechnungsstatus; die Nutzung läuft über das Kontingent des Google-Kontos.",
+            "gap": {
+              "attempt": "Dieser Versuch hat noch keinen Verbrauch gemeldet.",
+              "tokens": "Unvollständig: Nicht jede Runde hat alle Zählungen gemeldet; die Summen enthalten nur gemeldete Werte. Keine Schätzung.",
+              "cache_semantics": "Keine Schätzung: Die Cache-Zählung ist nicht belegt.",
+              "model": "Keine Schätzung: Für das Modell ist kein Preis bekannt.",
+              "price": "Keine Schätzung: Kein Preisstand verfügbar."
+            }
+          }
         },
         "toolKind": {
           "read": "Datei lesen",
@@ -7870,6 +7862,7 @@
         "codex_cli": "Codex",
         "opencode": "OpenCode",
         "openrouter": "OpenRouter",
+        "zai_coding_plan": "Z.AI Coding Plan",
         "openai": "OpenAI API",
         "anthropic": "Anthropic API",
         "google_ai_studio": "Google AI Studio"
@@ -7889,7 +7882,8 @@
         "openai": "API-Key",
         "anthropic": "API-Key",
         "google_ai_studio": "API-Key",
-        "opencodeFree": "Free-Modelle"
+        "opencodeFree": "Free-Modelle",
+        "zai_coding_plan": "Abo"
       },
       "accessCount_one": "{{count}} Zugang",
       "accessCount_other": "{{count}} Zugänge",
@@ -7917,7 +7911,12 @@
         "reason": {
           "modelGone": "Die Verbindung liefert das Modell nicht mehr.",
           "connectionGone": "Die Verbindung ist entfernt oder nicht mehr freigegeben.",
-          "denied": "Dieses Konto darf die Verbindung nicht nutzen."
+          "denied": "Dieses Konto darf die Verbindung nicht nutzen.",
+          "openCode": {
+            "notFree": "OpenCode bietet nur OpenCode-Zen-Modelle an, die der Katalog als kostenlos ausweist. Dieses Modell ist dort nicht als kostenlos gelistet und wird nicht ausgeführt; es wurde kein anderes Modell eingesetzt.",
+            "codingPlanOnly": "Diese Verbindung hält einen Z.AI-Coding-Plan-Schlüssel und führt nur Modelle des Z.AI Coding Plan aus. Es wurde kein anderes Modell eingesetzt.",
+            "codingPlanKeyMissing": "Dieses Modell gehört zum Z.AI Coding Plan, die gespeicherte OpenCode-Verbindung hält aber keinen Abo-Schlüssel dafür. Es wurde keine andere Verbindung eingesetzt."
+          }
         }
       },
       "status": {
@@ -8270,7 +8269,6 @@
   },
   "agentTools": {
     "title": "Agent-Tools & Laufzeiten",
-    "back": "Zurück zu Agents",
     "description": "Freigegebene Tools verwalten, Betriebsbereitschaft prüfen und aktive Sessions einsehen. Ablauf: Updates suchen, CLI und Adapter aktualisieren, Verbindungen neu einbinden und Modelle auffrischen. Laufende Sessions behalten ihre Version.",
     "hostHint": "Alle Aktionen wirken nur auf diesen Pages-Host und seine eigenen verwalteten Installationen. Systemabhängigkeiten muss der Betreiber bereitstellen. Browser-Artefakte liegen im Workspace unter .pages-artifacts/<Session>. Für Browsertests eine separate Testinstanz verwenden.",
     "browserPermission": "Playwright-Browserwerkzeuge erlauben (Admin-Aktivierung erforderlich; Testinstanz verwenden)",

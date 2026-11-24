@@ -25,6 +25,22 @@ export function logPausedHandoff(
   });
 }
 
+/** The @ of an interim message woke nobody because the chain of agent messages is used up. */
+export function logPausedInterim(message: ConversationMessage): void {
+  logEvent({
+    level: "info",
+    event: "conversation.agent_reply.paused",
+    component: COMPONENT,
+    message:
+      "The @ of an interim message started nobody: the agents wrote the most they may in a row.",
+    metadata: {
+      conversationId: message.conversationId,
+      messageId: message.id,
+      reason: "agent_streak",
+    },
+  });
+}
+
 /** The limit of contributions without @ of a round held back a further answer. */
 export function logRoundLimit(round: ConversationRound, agentId: string): void {
   logEvent({

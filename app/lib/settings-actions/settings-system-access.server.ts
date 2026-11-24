@@ -22,11 +22,11 @@ export function canSeeSystemSettings(account: AccountAccess): boolean {
 }
 
 /**
- * Tells whether the settings navigation lists the admin areas System and Agents.
+ * Tells whether the settings navigation lists the admin areas System, Tools and Agents.
  * @param account - Current account facts.
  * @returns Whether the account works in the active admin mode right now.
  * @remarks
- * Following the active mode lets a mode switch show or hide both entries with
+ * Following the active mode lets a mode switch show or hide these entries with
  * the next revalidation; the areas still check access on every request.
  */
 export function listsAdminSettings(account: AccountAccess): boolean {

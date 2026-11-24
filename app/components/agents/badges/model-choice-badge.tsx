@@ -17,7 +17,7 @@ const MARK_STYLES: Readonly<Record<string, MarkStyle>> = {
   antigravity: { borderClass: "border-antigravity", vendor: "Antigravity" },
   opencode: { borderClass: "border-opencode", vendor: "OpenCode" },
   openrouter: { borderClass: "border-openrouter", vendor: "OpenRouter" },
-  zai: { borderClass: "border-zai", vendor: "Z.AI" },
+  zai: { borderClass: "border-zai", vendor: "Z.AI Coding Plan" },
 };
 
 /**
@@ -43,8 +43,8 @@ function markStyle(mark: string): MarkStyle | null {
  * model's badge.
  * @param mark - The mark key of the model's tool; `null` while no model is shown.
  * @returns Claude's orange, the green of the ChatGPT tile, Antigravity's
- * blue, OpenCode's or Z.AI's neutral grey, or OpenRouter's lime on the
- * surface; every other tool and a missing model keep the neutral field border.
+ * blue, OpenCode's neutral grey, the grey of the Z.AI Coding Plan's own
+ * token, or OpenRouter's lime on the surface; every other tool and a missing model keep the neutral field border.
  */
 export function modelChoiceFieldClass(mark: string | null): string {
   const style = mark === null ? null : markStyle(mark);

@@ -31,7 +31,6 @@ export function isRetiredProviderId(
  * The native OpenCode provider IDs of a retired provider.
  * @remarks
  * OpenCode ships these providers itself. Their models are neither listed nor
- * OpenCode ships these providers itself. Their models are neither listed nor
  * run, even when OpenCode still reports them. The Z.AI Coding Plan
  * (`zai-coding-plan`) is no retired provider: only a connection that stores
  * its own subscription key for it offers its models, see {@link ZAI_CODING_PLAN_PROVIDER}.
@@ -136,6 +135,117 @@ export function isZaiCodingPlanModel(model: string): boolean {
 }
 
 /**
+ * The provider group of the Z.AI Coding Plan in a model choice.
+ * @remarks
+ * The subscription runs through an OpenCode connection, but a model choice
+ * lists it as a provider of its own beside OpenCode and OpenRouter.
+ */
+export const ZAI_CODING_PLAN_GROUP = "zai_coding_plan";
+
+/**
+ * The provider group a model stands under in a model choice.
+ * @remarks
+ * Every provider is its own group. The Z.AI Coding Plan is the one group that
+ * is no provider: its connection is an OpenCode connection with a
+ * subscription key.
+ */
+export type ModelProviderGroup = AgentProviderId | typeof ZAI_CODING_PLAN_GROUP;
+
+/** Narrows an untrusted group identifier to the known provider groups. */
+export function isModelProviderGroup(
+  value: unknown,
+): value is ModelProviderGroup {
+  return value === ZAI_CODING_PLAN_GROUP || isAgentProvider(value);
+}
+
+/**
+ * The provider group of one model of a connection.
+ * @param provider - The provider of the model's connection.
+ * @param model - The full model ID, such as `zai-coding-plan/glm-5.1`.
+ * @returns The Z.AI Coding Plan group for a `zai-coding-plan/` model of an
+ * OpenCode connection, otherwise the provider itself.
+ */
+export function modelProviderGroup(
+  provider: AgentProviderId,
+  model: string,
+): ModelProviderGroup {
+  return provider === "opencode" && isZaiCodingPlanModel(model)
+    ? ZAI_CODING_PLAN_GROUP
+    : provider;
+}
+
+/**
+ * The provider group of a connection, also of one that lists no model.
+ * @param connection - Provider and stored native key provider of the connection.
+ * @returns The Z.AI Coding Plan group for an OpenCode connection that stores
+ * a Coding Plan key, otherwise the provider itself.
+ */
+export function connectionProviderGroup(connection: {
+  readonly provider: AgentProviderId;
+  readonly cliAccountLabel: string | null;
+}): ModelProviderGroup {
+  return connection.provider === "opencode" &&
+    connection.cliAccountLabel === ZAI_CODING_PLAN_PROVIDER
+    ? ZAI_CODING_PLAN_GROUP
+    : connection.provider;
+}
+
+/**
+ * Whether a model is an OpenCode Zen model its catalog proves free.
+ * @param model - The full model ID and whether the catalog states a price of zero.
+ * @returns `false` for a model of another native provider and for a model
+ * with a price or without a stated price.
+ */
+export function isFreeOpenCodeZenModel(model: {
+  readonly id: string;
+  readonly isFree?: boolean;
+}): boolean {
+  return (
+    openCodeModelProvider(model.id) === OPENCODE_FREE_PROVIDER &&
+    model.isFree === true
+  );
+}
+
+/**
+ * Why an OpenCode connection neither offers nor runs a model.
+ * - `codingPlanOnly`: the connection stores a Z.AI Coding Plan key and runs
+ *   only `zai-coding-plan/` models.
+ * - `codingPlanKeyMissing`: the model belongs to the Z.AI Coding Plan, but the
+ *   connection stores no key of that subscription.
+ * - `notFree`: the model is no OpenCode Zen model its catalog proves free; it
+ *   has a price, states none or belongs to another native provider.
+ */
+export type OpenCodeModelRefusal =
+  "codingPlanOnly" | "codingPlanKeyMissing" | "notFree";
+
+/**
+ * Why a connection neither offers nor runs a model of its catalog.
+ * @param connection - Provider and stored native key provider of the connection.
+ * @param model - The full model ID and whether the catalog proves it free.
+ * @returns The reason for an OpenCode connection; `null` for an admitted
+ * model and for every other provider.
+ * @remarks
+ * A connection that stores a Z.AI Coding Plan key admits only
+ * `zai-coding-plan/` models. Every other OpenCode connection admits only the
+ * OpenCode Zen models its catalog proves free, whatever key it stores, so no
+ * selection reaches a model with a price or an unknown price.
+ */
+export function openCodeModelRefusal(
+  connection: {
+    readonly provider: AgentProviderId;
+    readonly cliAccountLabel: string | null;
+  },
+  model: { readonly id: string; readonly isFree?: boolean },
+): OpenCodeModelRefusal | null {
+  if (connection.provider !== "opencode") return null;
+  const isCodingPlanModel = isZaiCodingPlanModel(model.id);
+  if (connection.cliAccountLabel === ZAI_CODING_PLAN_PROVIDER)
+    return isCodingPlanModel ? null : "codingPlanOnly";
+  if (isCodingPlanModel) return "codingPlanKeyMissing";
+  return isFreeOpenCodeZenModel(model) ? null : "notFree";
+}
+
+/**
  * Whether a connection offers and may run a model of its catalog.
  * @param connection - Provider and stored native key provider of the connection.
  * @param model - The full model ID and whether the catalog proves it free.
@@ -144,7 +254,8 @@ export function isZaiCodingPlanModel(model: string): boolean {
  * free models of OpenCode's own provider. Any other provider admits all.
  * @remarks
  * The model choice and the start of a session apply this one rule, so
- * neither lists nor runs a model of a provider the connection holds no key for.
+ * neither lists nor runs a model of a provider the connection holds no key
+ * for. {@link openCodeModelRefusal} names the reason of a refusal.
  */
 export function isOpenCodeConnectionModel(
   connection: {
@@ -153,11 +264,7 @@ export function isOpenCodeConnectionModel(
   },
   model: { readonly id: string; readonly isFree?: boolean },
 ): boolean {
-  if (connection.provider !== "opencode") return true;
-  const nativeProvider = openCodeModelProvider(model.id);
-  if (connection.cliAccountLabel === ZAI_CODING_PLAN_PROVIDER)
-    return nativeProvider === ZAI_CODING_PLAN_PROVIDER;
-  return nativeProvider === OPENCODE_FREE_PROVIDER && model.isFree === true;
+  return openCodeModelRefusal(connection, model) === null;
 }
 
 /** Where a connection runs, in the order a model choice lists them. */

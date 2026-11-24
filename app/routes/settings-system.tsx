@@ -17,7 +17,6 @@ import { sendToBackend } from "@/app/lib/backend-request";
 import type { LocalStateRouteKind } from "@/app/components/common/use-local-state-route";
 import type { LocalStateAudience } from "@/app/lib/local-state/local-state-audience";
 import type { WithLocalState } from "@/app/lib/local-state/local-state-loader";
-import type { ChatAdministration } from "@/definition/Chat";
 import type { LoggingStatus } from "@/definition/Logging";
 import type { InstanceBranding } from "@/definition/Instance";
 import type { WikiSettings } from "@/definition/Wiki";
@@ -35,8 +34,6 @@ export type SettingsSystemLoaderData =
       };
       readonly branding: InstanceBranding;
       readonly wikiSettings: WikiSettings;
-      /** Supplementary instruction of the chat agent. */
-      readonly chatSettings: ChatAdministration;
       readonly audience: LocalStateAudience;
     }
   | { readonly access: "adminModeRequired" };
@@ -52,8 +49,6 @@ function isSettingsSystemLoaderData(
   if (value.access === "adminModeRequired") return true;
   return (
     value.access === "granted" &&
-    "chatSettings" in value &&
-    typeof value.chatSettings === "object" &&
     "audience" in value &&
     isLocalStateAudience(value.audience)
   );
@@ -66,8 +61,8 @@ function isSettingsSystemLoaderData(
  * administrator data; the request for the admin mode is not kept.
  */
 const SETTINGS_SYSTEM_STATE: LocalStateRouteKind<SettingsSystemLoaderData> = {
-  // 2: without the status of the former "Status" card.
-  schemaVersion: 2,
+  // 3: without the chat instruction of the former Pica card.
+  schemaVersion: 3,
   isPayload: isSettingsSystemLoaderData,
   isCurrent: (system) =>
     system.access === "granted" && isCurrentLocalStateAudience(system.audience),
@@ -112,7 +107,6 @@ export default function SettingsSystemRoute(): React.ReactElement {
   return loaderData.access === "granted" ? (
     <SystemSection
       branding={loaderData.branding}
-      chatSettings={loaderData.chatSettings}
       logging={loaderData.logging}
       port={loaderData.port}
       wikiSettings={loaderData.wikiSettings}

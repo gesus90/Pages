@@ -88,7 +88,7 @@ type SayParameters = z.infer<typeof SAY_SCHEMA>;
 type AskParameters = z.infer<typeof ASK_SCHEMA>;
 
 const SAY_DESCRIPTION =
-  'Write a short interim message to your chat now, without ending your round, e.g. what you are working on ("Bin dran, Tests laufen …"). Your final answer still follows as usual. Use it sparingly for longer work; never for the final answer.';
+  'Write a short interim message to your chat now, without ending your round, e.g. what you are working on ("Bin dran, Tests laufen …"). Your final answer still follows as usual. Use it sparingly for longer work; never for the final answer. In a group, an agent you name with @username in it is asked by this message right away, as by a message you send to a chat; without an @ it asks nobody.';
 
 const ASK_DESCRIPTION = `Ask the people of your chat 1 to 3 questions with 2 to 4 answer buttons each and wait for the answer; your round continues with it. Put your recommended answer at index \`recommended\` (it is shown first and highlighted); \`multiple\` allows several answers. People can always answer in free text instead. Without an answer within \`timeoutMinutes\` (default ${String(AGENT_QUESTION_TIMEOUT_DEFAULT_MINUTES)}) continue at your own discretion and say so. To confirm a consequential step Pages held back with CONFIRMATION_REQUIRED, ask exactly one question whose recommended option performs it (e.g. "Löschen") next to one that cancels it ("Abbrechen"), and pass the held-back \`tool\` and \`parameters\` unchanged as \`confirms\`; if the person chooses it, repeat the identical call.`;
 

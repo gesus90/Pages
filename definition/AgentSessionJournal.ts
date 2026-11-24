@@ -16,7 +16,7 @@ import type {
   AgentSessionKey,
   AgentSessionState,
 } from "./AgentSessionEvents.js";
-import type { AntigravityUsageTotal } from "./AgentSessionPricing";
+import type { AntigravityUsageView } from "./AgentSessionPricing";
 import type { AgentSessionRunBranch } from "./AgentPlanRunBranch";
 import type {
   AgentModelIdentity,
@@ -261,10 +261,7 @@ export interface AgentSessionView {
     readonly run: OpenCodeUsageTotal;
   };
   /** Captured Antigravity usage, independent of the subscription invoice. */
-  readonly antigravity?: {
-    readonly step: AntigravityUsageTotal;
-    readonly run: AntigravityUsageTotal;
-  };
+  readonly antigravity?: AntigravityUsageView;
   /** OpenRouter messages in every iteration of this run. */
   readonly openRouterRunTotal?: AgentSessionUsageTotal | null;
   /** A run step exists without native usage, including an active step before its first report. */

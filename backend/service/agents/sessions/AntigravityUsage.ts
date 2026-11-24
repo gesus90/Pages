@@ -6,6 +6,7 @@ import type {
   AgentPriceGap,
   AgentSessionEstimate,
   AntigravityUsageTotal,
+  AntigravityUsageView,
 } from "@/definition/AgentSessionPricing";
 
 interface PricedTurn {
@@ -44,15 +45,22 @@ function tokenTotals(
   };
 }
 
-function total(
+/** The distinct non-empty values in order of first appearance. */
+function distinct(values: readonly (string | null)[]): readonly string[] {
+  return [...new Set(values.flatMap((value) => (value ? [value] : [])))];
+}
+
+/** Why the turns cannot carry an estimate; empty when every turn and attempt is fully priced. */
+function priceGaps(
   turns: readonly PricedTurn[],
   attempts: ReadonlySet<string>,
-): AntigravityUsageTotal {
+): ReadonlySet<AgentPriceGap> {
   const usages = turns.map((turn) => turn.usage);
-  const tokens = sumTurnUsage(usages)[0];
   const gaps = new Set<AgentPriceGap>(
     turns.flatMap((turn) => (turn.price.gap ? [turn.price.gap] : [])),
   );
+  // A turn the adapter counted only in part prices only part of the work.
+  if (usages.some((usage) => usage.isPartial)) gaps.add("tokens");
   if (
     !turns.length ||
     [...attempts].some(
@@ -60,37 +68,42 @@ function total(
     )
   )
     gaps.add("attempt");
+  return gaps;
+}
+
+function total(
+  turns: readonly PricedTurn[],
+  attempts: ReadonlySet<string>,
+): AntigravityUsageTotal {
+  const tokens = sumTurnUsage(turns.map((turn) => turn.usage))[0];
+  const gaps = priceGaps(turns, attempts);
   return {
     ...tokenTotals(tokens),
     isPartial: (tokens?.isPartial ?? true) || gaps.size > 0,
     turns: turns.length,
     reasoningTokens: null,
     amountUsd: totalAmount(turns, gaps),
-    priceAsOf: [
-      ...new Set(
-        turns.flatMap((turn) =>
-          turn.price.priceAsOf ? [turn.price.priceAsOf] : [],
-        ),
-      ),
-    ],
+    priceAsOf: distinct(turns.map((turn) => turn.price.priceAsOf)),
+    priceModels: distinct(turns.map((turn) => turn.price.modelId)),
     gaps: [...gaps],
   };
 }
 
 /**
- * Projects each ACP turn once into step and run totals, across loop attempts.
- * Catalogue estimates concern captured work only; missing attempts invalidate the amount.
+ * Projects each ACP turn once into attempt, step and run totals, across loop attempts.
+ * @remarks
+ * Every turn counts once, however often its report was stored. Catalogue
+ * estimates concern captured work only; a missing attempt or a partly
+ * counted turn invalidates the amount.
  */
 export async function antigravityUsage(input: {
   readonly turns: readonly AgentSessionTurnUsage[];
+  readonly attemptId: string;
   readonly stepAttempts: ReadonlySet<string>;
   readonly runAttempts: ReadonlySet<string>;
   readonly confirmedModels?: ReadonlyMap<string, string>;
   readonly catalog?: Pick<AntigravityPriceCatalog, "calculate">;
-}): Promise<{
-  readonly step: AntigravityUsageTotal;
-  readonly run: AntigravityUsageTotal;
-}> {
+}): Promise<AntigravityUsageView> {
   const unique = input.turns
     .filter((turn) => turn.provider === "antigravity")
     .reduce<readonly AgentSessionTurnUsage[]>(
@@ -113,6 +126,10 @@ export async function antigravityUsage(input: {
     })),
   );
   return {
+    attempt: total(
+      priced.filter((turn) => turn.usage.attemptId === input.attemptId),
+      new Set([input.attemptId]),
+    ),
     step: total(
       priced.filter((turn) => input.stepAttempts.has(turn.usage.attemptId)),
       input.stepAttempts,

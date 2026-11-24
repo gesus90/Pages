@@ -179,8 +179,7 @@ export function createChatDirectory(parts: {
     conversations: conversations.conversationReader,
     isWorking: (agent, sessionId) => sessions.isWorking(agent, sessionId),
     toolCalls: (agent, sessionId) => sessions.toolCalls(agent, sessionId),
-    workingAgentIds: (conversationId) =>
-      replies.workingAgentIds(conversationId),
+    workingJobs: (conversationId) => replies.workingJobs(conversationId),
     oversight: conversations.conversationOversight,
     guard: conversations.conversationAgentGuard,
     queuedMessages: (conversationId) => replies.queuedMessages(conversationId),

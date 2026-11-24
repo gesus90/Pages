@@ -5,6 +5,11 @@ import { useTranslation } from "react-i18next";
 import { Tooltip } from "@/app/components/ui/tooltip";
 import { cn } from "@/app/lib/cn";
 import {
+  openCodeModelRefusal,
+  ZAI_CODING_PLAN_GROUP,
+  ZAI_CODING_PLAN_PROVIDER,
+} from "@/definition/AgentConnection";
+import {
   consumerRunsProvider,
   modelConsumerRefusal,
 } from "@/definition/AgentModelConsumers";
@@ -34,6 +39,7 @@ import { ToolMark } from "./model-picker/tool-mark";
 import { useCatalogStatuses } from "./model-picker/use-catalog-statuses";
 import { useModelPicker } from "./model-picker/use-model-picker";
 
+import type { OpenCodeModelRefusal } from "@/definition/AgentConnection";
 import type { AgentEmployeeAccess } from "@/definition/AgentEmployee";
 import type { AgentModelConsumer } from "@/definition/AgentModelConsumers";
 import type { PageAgentModel } from "@/definition/PageAgent";
@@ -357,8 +363,8 @@ function SavedModelNote(props: {
  * Pica, agent profiles, the plan editor, page agents and every other place
  * that assigns a model use this choice with the same projection
  * ({@link modelGroups}) and the same fixed measures, so equal models look,
- * group and search the same everywhere. Models are grouped by tool, such as
- * Claude Code, OpenCode or OpenRouter. Rows show the short model name,
+ * group and search the same everywhere. Models are grouped by provider, such
+ * as Claude Code, OpenCode, Z.AI Coding Plan or OpenRouter. Rows show the short model name,
  * because the execution target stands once above the choice. The choice
  * reports the model's full selection key, never its display name, so
  * connection, provider and route stay exactly those of the listed model. The
@@ -398,7 +404,14 @@ export function ModelPicker(props: ModelPickerProps): React.ReactElement {
   const labelId = `${useId()}-label`;
   const valueStyle = props.valueStyle ?? "detail";
   const savedId = savedModelId(props, saved);
-  const reason = savedReason(refusals.get(props.value), catalog, t);
+  const reason = savedReason(
+    {
+      refusal: refusals.get(props.value),
+      openCode: savedOpenCodeRefusal(saved, props.connections, catalog),
+    },
+    catalog,
+    t,
+  );
   const choice =
     valueStyle === "badge"
       ? badgeChoice(findModelChoice(groups, props.value), props, { t, reason })
@@ -492,18 +505,52 @@ function placeStatuses(
   );
 }
 
+// Why an OpenCode connection does not offer the saved model, by the rule the
+// server applies: only free OpenCode Zen models, or only Coding Plan models
+// for a connection with that key. `null` for every other connection. The
+// place's own connections name the saved one before the viewer's.
+function savedOpenCodeRefusal(
+  saved: ReturnType<typeof savedSelection>,
+  own: readonly ConnectionCatalogStatus[] | undefined,
+  catalog: CatalogStatusState,
+): OpenCodeModelRefusal | null {
+  if (saved === null) return null;
+  const { connectionId, model } = saved;
+  const status = [
+    ...(own ?? []),
+    ...(catalog.statuses?.connections ?? []),
+  ].find((entry) => entry.connectionId === connectionId);
+  if (status?.provider !== "opencode") return null;
+  return openCodeModelRefusal(
+    {
+      provider: status.provider,
+      cliAccountLabel:
+        status.group === ZAI_CODING_PLAN_GROUP
+          ? ZAI_CODING_PLAN_PROVIDER
+          : null,
+    },
+    { id: model },
+  );
+}
+
 // Why a saved model is gone: the place's own refusal, otherwise what the
-// connection's relation to this account says.
+// connection's relation to this account says, otherwise the rule of its
+// OpenCode connection.
 function savedReason(
-  refusal: string | undefined,
+  causes: {
+    readonly refusal: string | undefined;
+    readonly openCode: OpenCodeModelRefusal | null;
+  },
   catalog: CatalogStatusState,
   t: TFunction,
 ): string {
-  if (refusal !== undefined) return refusal;
+  if (causes.refusal !== undefined) return causes.refusal;
   const relation = catalog.statuses?.savedConnection;
   if (relation === "missing")
     return t("plans.modelPicker.saved.reason.connectionGone");
   if (relation === "denied") return t("plans.modelPicker.saved.reason.denied");
+  if (causes.openCode !== null)
+    return t(`plans.modelPicker.saved.reason.openCode.${causes.openCode}`);
   return t("plans.modelPicker.saved.reason.modelGone");
 }
 

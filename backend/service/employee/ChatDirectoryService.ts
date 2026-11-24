@@ -43,6 +43,7 @@ import type { ConversationReplyMode } from "@/definition/ConversationDecision";
 import type { User } from "@/definition/User";
 import type { AgentChatQuestionService } from "@/backend/service/conversation/AgentChatQuestionService";
 import type { AgentMessageQueue } from "@/definition/AgentSessionLimits";
+import type { ConversationAnswerJob } from "@/definition/ConversationAnswerJob";
 import type { ChatAgentHistoryDependencies } from "./ChatAgentHistory";
 import type { ChatConversations } from "./ChatConversationView";
 import type { ToolDetailsQuery } from "./ChatToolDetails";
@@ -99,8 +100,10 @@ export interface ChatDirectoryDependencies extends ChatAgentHistoryDependencies 
     ConversationReader,
     "views" | "history" | "agentAnswer"
   >;
-  /** The agents answering in a stored conversation now. */
-  readonly workingAgentIds?: (conversationId: string) => readonly string[];
+  /** The job each agent answering in a stored conversation runs now, by agent. */
+  readonly workingJobs?: (
+    conversationId: string,
+  ) => ReadonlyMap<string, ConversationAnswerJob>;
   /** The messages of a stored conversation whose answer waits. */
   readonly queuedMessages?: (
     conversationId: string,
@@ -616,17 +619,20 @@ export class ChatDirectoryService {
     }));
   }
 
-  /** The agents answering in a group now, with their names. */
+  /** The agents answering in a group now, with their names and the job each one runs. */
   private workingAgents(
     groupId: string,
     accounts: ReadonlyMap<string, AccountFacts>,
-  ): { readonly id: string; readonly name: string }[] {
-    return (this.dependencies.workingAgentIds?.(groupId) ?? []).flatMap(
-      (id) => {
-        const facts = accounts.get(id);
-        return facts ? [{ id, name: facts.user.displayName }] : [];
-      },
-    );
+  ): {
+    readonly id: string;
+    readonly name: string;
+    readonly job: ConversationAnswerJob;
+  }[] {
+    const jobs = this.dependencies.workingJobs?.(groupId);
+    return [...(jobs ?? [])].flatMap(([id, job]) => {
+      const facts = accounts.get(id);
+      return facts ? [{ id, name: facts.user.displayName, job }] : [];
+    });
   }
 
   /** Every account but the person's own, with what the page names it by. */

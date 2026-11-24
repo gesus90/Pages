@@ -1,11 +1,12 @@
 import {
   AGENT_PROVIDERS,
-  isZaiCodingPlanModel,
+  modelProviderGroup,
   OPENCODE_FREE_PROVIDER,
   openCodeModelProvider,
+  ZAI_CODING_PLAN_GROUP,
 } from "@/definition/AgentConnection";
 
-import type { AgentProviderId } from "@/definition/AgentConnection";
+import type { ModelProviderGroup } from "@/definition/AgentConnection";
 import type { ConnectionCatalogStatus } from "@/definition/AgentModelCatalogStatus";
 import type { PageAgentModel } from "@/definition/PageAgent";
 import type { TFunction } from "i18next";
@@ -15,17 +16,24 @@ const NAME_ORDER = new Intl.Collator(undefined, {
   sensitivity: "base",
 });
 
-/** The tools every model choice lists first, in this order; others follow by name. */
-const TOOL_ORDER: readonly AgentProviderId[] = [
+/**
+ * The provider groups every model choice lists first, in this order; others
+ * follow by name. The Z.AI Coding Plan follows OpenCode, which runs it.
+ */
+const TOOL_ORDER: readonly ModelProviderGroup[] = [
   "claude_code",
   "codex_cli",
   "antigravity",
   "opencode",
+  ZAI_CODING_PLAN_GROUP,
   "openrouter",
 ];
 
 /** OpenCode's own models first, then those of other linked providers. */
 const OPENCODE_SOURCE_ORDER = [OPENCODE_FREE_PROVIDER];
+
+/** The tile of the Z.AI Coding Plan group, which no provider registers. */
+const ZAI_CODING_PLAN_MARK = "zai";
 
 /** The execution target of models on this host. */
 const LOCAL_TARGET = "local";
@@ -69,7 +77,10 @@ export interface ModelSource {
   readonly status: ConnectionCatalogStatus | null;
 }
 
-/** One tool, such as Claude Code or OpenRouter, on one execution target, with its sources and models. */
+/**
+ * One provider group, such as Claude Code, OpenRouter or the Z.AI Coding
+ * Plan, on one execution target, with its sources and models.
+ */
 export interface ModelGroup {
   readonly key: string;
   readonly label: string;
@@ -105,7 +116,8 @@ interface SourceDraft {
 
 interface GroupDraft {
   readonly key: string;
-  readonly tool: AgentProviderId;
+  /** The provider group: a provider, or the Z.AI Coding Plan of an OpenCode connection. */
+  readonly tool: ModelProviderGroup;
   /** The remote target's name; `null` on this host. */
   readonly targetName: string | null;
   readonly models: PageAgentModel[];
@@ -144,21 +156,35 @@ function targetKey(model: PageAgentModel): string {
 }
 
 /**
- * The name of a tool, from the provider registry, for its group header.
- * @param provider - The provider of the tool's connections.
+ * The name of a provider group for its group header.
+ * @param group - The provider of the group's connections, or the Z.AI Coding Plan.
  * @param translate - Translates the registered names.
- * @returns The short tool name, such as "Codex"; a provider without one keeps
- * its registered connection name.
+ * @returns The short name, such as "Codex" or "Z.AI Coding Plan"; a provider
+ * without one keeps its registered connection name.
  */
 export function modelToolLabel(
-  provider: AgentProviderId,
+  group: ModelProviderGroup,
   translate: TFunction,
 ): string {
-  return translate(`plans.modelPicker.tools.${provider}`, {
-    defaultValue: translate(AGENT_PROVIDERS[provider].labelKey, {
-      defaultValue: provider,
+  if (group === ZAI_CODING_PLAN_GROUP)
+    return translate(`plans.modelPicker.tools.${ZAI_CODING_PLAN_GROUP}`);
+  return translate(`plans.modelPicker.tools.${group}`, {
+    defaultValue: translate(AGENT_PROVIDERS[group].labelKey, {
+      defaultValue: group,
     }),
   });
+}
+
+function groupMark(group: ModelProviderGroup): string {
+  return group === ZAI_CODING_PLAN_GROUP
+    ? ZAI_CODING_PLAN_MARK
+    : AGENT_PROVIDERS[group].mark;
+}
+
+function isCodingPlanChoice(model: PageAgentModel): boolean {
+  return (
+    modelProviderGroup(model.provider, model.model) === ZAI_CODING_PLAN_GROUP
+  );
 }
 
 function openCodeSourceLabel(source: string, translate: TFunction): string {
@@ -173,7 +199,9 @@ function openCodeSourceLabel(source: string, translate: TFunction): string {
  * @param provider - The provider or runner of the model, such as `opencode`; `null` when the connection is gone.
  * @param modelId - The full model ID, such as `opencode/big-pickle`.
  * @param translate - Translates the source names.
- * @returns `null` for a provider other than OpenCode and for an ID that names no source.
+ * @returns `null` for a provider other than OpenCode, for an ID that names no
+ * source and for a Z.AI Coding Plan model, whose badge names its provider
+ * group itself.
  */
 export function openCodeSourceName(
   provider: string | null,
@@ -182,6 +210,7 @@ export function openCodeSourceName(
 ): string | null {
   if (provider !== "opencode" || modelId === null || !modelId.includes("/"))
     return null;
+  if (modelProviderGroup(provider, modelId) !== provider) return null;
   return openCodeSourceLabel(openCodeModelProvider(modelId), translate);
 }
 
@@ -218,17 +247,15 @@ export function modelBadgeDisplay(
 /**
  * The tile of a chosen model in a closed model field.
  * @param model - The chosen model.
- * @param groupMark - The mark of the tool the model is listed under.
+ * @param listedMark - The mark of the group the model is listed under.
  * @returns The Z of Z.AI for a Coding Plan model of an OpenCode connection,
- * whose badge names the subscription; the tool's mark otherwise.
+ * whose badge names the subscription; the group's mark otherwise.
  */
 export function modelChoiceMark(
   model: PageAgentModel,
-  groupMark: string,
+  listedMark: string,
 ): string {
-  return model.provider === "opencode" && isZaiCodingPlanModel(model.model)
-    ? "zai"
-    : groupMark;
+  return isCodingPlanChoice(model) ? ZAI_CODING_PLAN_MARK : listedMark;
 }
 
 /** The source of a listed model in the plan's closed model field. */
@@ -246,12 +273,13 @@ export function modelChoiceSource(
   ).source;
 }
 
-// OpenCode models name their upstream provider; other providers name the connection.
+// OpenCode models name their upstream provider; every other group, the Z.AI
+// Coding Plan included, names the connection.
 function sourceOf(
   model: PageAgentModel,
   translate: TFunction,
 ): Omit<SourceDraft, "models"> {
-  if (model.provider === "opencode") {
+  if (modelProviderGroup(model.provider, model.model) === "opencode") {
     const provider = openCodeModelProvider(model.model);
     return { key: provider, name: openCodeSourceLabel(provider, translate) };
   }
@@ -260,7 +288,7 @@ function sourceOf(
 }
 
 function compareSources(
-  tool: AgentProviderId,
+  tool: ModelProviderGroup,
 ): (first: SourceDraft, second: SourceDraft) => number {
   if (tool !== "opencode")
     return (first, second) => NAME_ORDER.compare(first.name, second.name);
@@ -311,10 +339,22 @@ function groupContext(
 
 // OpenCode names its upstream sources instead of one kind of access.
 function modelAccess(model: PageAgentModel, translate: TFunction): string {
-  if (model.provider === "opencode") return "";
-  return translate(`plans.modelPicker.access.${model.provider}`, {
+  const group = modelProviderGroup(model.provider, model.model);
+  if (group === "opencode") return "";
+  return translate(`plans.modelPicker.access.${group}`, {
     defaultValue: "",
   });
+}
+
+// The provider a model's search text names: the Z.AI Coding Plan stands apart
+// from OpenCode, so a search for either never finds the other's models.
+function searchProviderName(
+  model: PageAgentModel,
+  translate: TFunction,
+): string {
+  return isCodingPlanChoice(model)
+    ? ""
+    : translate(AGENT_PROVIDERS[model.provider].labelKey);
 }
 
 function choicesOf(
@@ -347,7 +387,7 @@ function choicesOf(
         source.name,
         model.connectionName ?? "",
         model.targetName ?? "",
-        translate(AGENT_PROVIDERS[model.provider].labelKey),
+        searchProviderName(model, translate),
         model.isFree === true
           ? `free ${translate("plans.modelPicker.free")}`
           : "",
@@ -392,7 +432,7 @@ function buildGroup(draft: GroupDraft, options: ModelGroupOptions): ModelGroup {
     key: draft.key,
     label,
     context,
-    mark: AGENT_PROVIDERS[draft.tool].mark,
+    mark: groupMark(draft.tool),
     count: models.length,
     catalogTotal: sources.reduce(
       (sum, source) => sum + (source.status?.modelCount ?? 0),
@@ -415,7 +455,7 @@ function sourceStatus(
   );
 }
 
-function toolRank(tool: AgentProviderId): number {
+function toolRank(tool: ModelProviderGroup): number {
   const index = TOOL_ORDER.indexOf(tool);
   return index === -1 ? TOOL_ORDER.length : index;
 }
@@ -448,15 +488,16 @@ function addEmptyConnections(
   );
   for (const status of options.statuses ?? []) {
     if (listedConnections.has(status.connectionId)) continue;
-    const draft = drafts.get(status.provider) ?? {
-      key: status.provider,
-      tool: status.provider,
+    const tool = status.group ?? status.provider;
+    const draft = drafts.get(tool) ?? {
+      key: tool,
+      tool,
       targetName: null,
       models: [],
       emptyConnections: [],
     };
     draft.emptyConnections.push(status);
-    drafts.set(status.provider, draft);
+    drafts.set(tool, draft);
   }
 }
 
@@ -468,15 +509,19 @@ function addEmptyConnections(
  * models look, group and search the same everywhere. Groups come from the
  * tools the catalog lists, never from a fixed list, and take their names and
  * marks from the provider registry: Claude Code, Codex, Antigravity,
- * OpenCode and OpenRouter first, in this order. Each provider keeps its
- * own models, including another access to the same upstream model. The place
+ * OpenCode, the Z.AI Coding Plan and OpenRouter first, in this order. Each
+ * provider keeps its own models, including another access to the same
+ * upstream model. The `zai-coding-plan/` models of an OpenCode connection
+ * form the provider group Z.AI Coding Plan with its own tile, so the group
+ * OpenCode holds no subscription model, and a Coding Plan connection without
+ * a listed model stands in that group as well. The place
  * passes only the models it can use, so the list and its search hold no
  * other. Models of a remote target never share a group with this host's.
  *
  * @param models - The models the place may offer.
  * @param options - Translation, the chosen model and the catalog states.
- * @returns One group per target and tool that offers at least one model or
- * holds a connection the place may use.
+ * @returns One group per target and provider group that offers at least one
+ * model or holds a connection the place may use.
  */
 export function modelGroups(
   models: readonly PageAgentModel[],
@@ -488,7 +533,7 @@ export function modelGroups(
   for (const model of unique.values()) {
     if (model.isSimulation) continue;
     const target = targetKey(model);
-    const tool = model.provider;
+    const tool = modelProviderGroup(model.provider, model.model);
     const key = target === LOCAL_TARGET ? tool : `${target}:${tool}`;
     const draft = drafts.get(key) ?? {
       key,

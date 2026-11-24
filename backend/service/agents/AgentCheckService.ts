@@ -2,6 +2,7 @@ import { sanitizeCheckDetail } from "@/backend/agents/AgentCheckDetail";
 import { AgentError } from "@/backend/error/AgentErrors";
 import {
   isApiProvider,
+  isOpenCodeConnectionModel,
   ZAI_CODING_PLAN_PROVIDER,
 } from "@/definition/AgentConnection";
 import { logCaughtError } from "@/backend/logging/Logger";
@@ -115,6 +116,12 @@ export class AgentCheckService {
   ): Promise<ProviderCheckOutcome> {
     const { repository, cipher, providers, cli } = this.dependencies;
     if (!isApiProvider(connection.provider)) {
+      if (kind === "model" && !(await this.isOfferedTestModel(connection)))
+        return {
+          ok: false,
+          errorCode: "opencode_model_not_offered",
+          detail: {},
+        };
       return cli.check(
         connection,
         kind,
@@ -144,6 +151,27 @@ export class AgentCheckService {
       },
       signal,
     );
+  }
+
+  /**
+   * Whether a model test may run the saved model of a CLI connection.
+   * @remarks
+   * An OpenCode connection runs only a model its stored catalog lists and it
+   * offers: an OpenCode Zen model the catalog proves free, or a Coding Plan
+   * model for a connection with that key. An earlier saved model with a
+   * price or without a stated price is not called. A missing model is
+   * reported by the CLI check itself.
+   */
+  private async isOfferedTestModel(
+    connection: AgentConnectionRecord,
+  ): Promise<boolean> {
+    const model = connection.testModel;
+    if (connection.provider !== "opencode" || model === null) return true;
+    const catalog = await this.dependencies.repository
+      .catalogs()
+      .find(connection.id);
+    const entry = catalog.models.find((candidate) => candidate.id === model);
+    return entry !== undefined && isOpenCodeConnectionModel(connection, entry);
   }
 
   private requireTestModel(model: string | null): string {

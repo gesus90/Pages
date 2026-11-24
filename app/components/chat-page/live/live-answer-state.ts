@@ -1,4 +1,5 @@
 import type { AgentAnswerModel } from "@/definition/AgentChatControl";
+import type { ConversationAnswerJob } from "@/definition/ConversationAnswerJob";
 import type {
   LiveAnswerChatKind,
   LiveAnswerDelivery,
@@ -26,6 +27,8 @@ export interface LiveAnswerView {
   readonly tools: readonly LiveAnswerTool[];
   readonly end: LiveAnswerEnd | null;
   readonly model?: AgentAnswerModel;
+  /** The job the answer is written in; a direct chat with an agent names none. */
+  readonly job?: ConversationAnswerJob;
   /** The message that replaced this answer has already appeared in history. */
   readonly hasAppearedInHistory?: boolean;
 }
@@ -108,6 +111,7 @@ function emptyView(head: LiveAnswerHead): LiveAnswerView {
     thought: null,
     tools: [],
     end: null,
+    ...(head.job === undefined ? {} : { job: head.job }),
   };
 }
 
@@ -334,6 +338,29 @@ export function endedByMessage(
   for (const view of views)
     if (view.end?.messageId) result.set(view.end.messageId, view);
   return result;
+}
+
+/**
+ * Whether a job of an agent ended, as a part or a snapshot of its answer or
+ * its stored message told: with an answer, a failure or a stop.
+ * @remarks
+ * The reading of the page names who answers, and a reading from the moments
+ * after an answer still names its agent. The end of exactly that job settles
+ * it; another job of the same agent has not ended.
+ * @param views - The answers of the opened chat.
+ * @param job - The job the reading of the page names as running.
+ */
+export function hasJobEnded(
+  views: readonly LiveAnswerView[],
+  job: ConversationAnswerJob,
+): boolean {
+  return views.some(
+    (view) =>
+      view.end !== null &&
+      view.job !== undefined &&
+      view.job.roundId === job.roundId &&
+      view.job.jobId === job.jobId,
+  );
 }
 
 /**

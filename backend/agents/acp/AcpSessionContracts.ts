@@ -55,6 +55,7 @@ export interface AcpSessionContext {
     | "isSupportedAdapter"
     | "steeringMeta"
     | "mcpCapabilities"
+    | "runsCommandsInBackground"
   >;
   readonly profile: AcpSessionProfile;
   readonly request: AcpSessionRequest;

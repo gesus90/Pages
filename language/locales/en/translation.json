@@ -518,24 +518,6 @@
           "general": "The wiki settings could not be saved."
         }
       },
-      "chat": {
-        "title": "Chat assistant Pica",
-        "description": "Supplementary instruction of the global chat.",
-        "instruction": "Supplementary instruction (Markdown, optional)",
-        "instructionDefault": "No supplement saved. Pica works with the protected instructions from SOUL.md and AGENTS.md alone.",
-        "instructionCustom": "A supplement is active.",
-        "instructionHint": "It applies from the next message on and ranks below the protected instructions of Pica (SOUL.md, AGENTS.md) and the fixed rules of Pages (rights of the person, actions). It can neither change nor override them; the protected instructions cannot be edited here.",
-        "modelHint": "Set activation, connection, model and reasoning in the fixed Pica card:",
-        "modelLink": "Settings › Agents",
-        "save": "Save chat settings",
-        "reset": "Remove supplement",
-        "saved": "Saved.",
-        "error": {
-          "invalidSetting": "Please enter a limit from 1 to 512 MB and a supplement of at most 20,000 characters.",
-          "credentialsInText": "The supplement must not contain credentials.",
-          "general": "The settings could not be saved."
-        }
-      },
       "logging": {
         "title": "Server logging",
         "description": "Instance-wide retention of daily operational logs. Changes take effect immediately.",
@@ -772,6 +754,7 @@
       "label": "Settings areas",
       "personal": "Personal",
       "system": "System",
+      "tools": "Tools",
       "agents": "Agents",
       "connections": "Connections"
     },
@@ -837,6 +820,7 @@
         "cli_check_failed": "The CLI test failed.",
         "cli_unexpected_output": "The CLI returned unexpected output.",
         "opencode_provider_no_models": "OpenCode lists no model of the selected key provider that Pages can run.",
+        "opencode_model_not_offered": "An OpenCode connection offers only the OpenCode Zen models its catalog lists as free, or the models of its Z.AI Coding Plan key. The model was neither saved nor run, and no other model was used.",
         "claude_usage_stale": "Claude Code could not reach the usage endpoint and answered with stored figures.",
         "login_in_progress": "A login is already running for this connection.",
         "login_limit_reached": "The CLI process or login limit was reached. Try again later.",
@@ -1719,6 +1703,7 @@
         "refusal": {
           "connectionUnavailable": "The connection is switched off.",
           "accessUnverified": "The connection's access is not verified.",
+          "openCodeNotFree": "OpenCode offers only the OpenCode Zen models its catalog lists as free. This model has a price or states none and is not run.",
           "noChatAdapter": "This provider has no chat adapter for this consumer.",
           "noChat": "This model cannot chat with Pages tools.",
           "employeeToolsMissing": "This free OpenCode model requires host tools. Choose Workspace or YOLO access for this agent.",
@@ -1920,22 +1905,6 @@
         "retry": "Try again"
       },
       "loading": "Loading connections"
-    },
-    "embedDomains": {
-      "title": "Embedding in chat",
-      "description": "Pages from these domains can be shown right in the chat of every conversation. Pages itself and local previews are always allowed; members release further domains per conversation.",
-      "loading": "Loading domains …",
-      "empty": "No domain released for all conversations.",
-      "list": "Domains released for all conversations",
-      "hostName": "Host name",
-      "placeholder": "docs.example.org",
-      "release": "Release",
-      "remove": "Remove",
-      "removeDomain": "Remove the release for {{domain}}",
-      "error": {
-        "invalid": "This is not a valid host name. Enter the name only, for example docs.example.org – without https://, a path or a port.",
-        "failed": "The domains could not be loaded or saved. Please try again."
-      }
     }
   },
   "users": {
@@ -6196,7 +6165,30 @@
           "access": "Access",
           "branch": "Branch",
           "workspace": "Workspace",
-          "restarts": "Restarts"
+          "restarts": "Restarts",
+          "usage": {
+            "title": "Session usage",
+            "input": "Input",
+            "inputWithoutCache": "Input without cache",
+            "inputWithCache": "Input incl. cache",
+            "cacheReadTokens": "Read from cache",
+            "cacheWriteTokens": "Written to cache",
+            "outputTokens": "Output",
+            "totalTokens": "Total",
+            "charged": "Charged",
+            "estimate": "Estimated equivalent",
+            "estimateValue": "≈ {{amount}}",
+            "unavailable": "not available",
+            "estimateBasis": "Estimate from the OpenRouter price of {{models}}, as of {{dates}}. Not a charged amount.",
+            "notDelivered": "Antigravity reports no charged amount and no billing status; usage counts against the quota of the Google account.",
+            "gap": {
+              "attempt": "This attempt has not reported any usage yet.",
+              "tokens": "Incomplete: not every turn reported all counts; the sums contain only reported values. No estimate.",
+              "cache_semantics": "No estimate: the cache counting is not verified.",
+              "model": "No estimate: no price is known for the model.",
+              "price": "No estimate: no price list is available."
+            }
+          }
         },
         "toolKind": {
           "read": "Read file",
@@ -7870,6 +7862,7 @@
         "codex_cli": "Codex",
         "opencode": "OpenCode",
         "openrouter": "OpenRouter",
+        "zai_coding_plan": "Z.AI Coding Plan",
         "openai": "OpenAI API",
         "anthropic": "Anthropic API",
         "google_ai_studio": "Google AI Studio"
@@ -7889,7 +7882,8 @@
         "openai": "API key",
         "anthropic": "API key",
         "google_ai_studio": "API key",
-        "opencodeFree": "Free models"
+        "opencodeFree": "Free models",
+        "zai_coding_plan": "Subscription"
       },
       "accessCount_one": "{{count}} access",
       "accessCount_other": "{{count}} accesses",
@@ -7917,7 +7911,12 @@
         "reason": {
           "modelGone": "The connection no longer delivers the model.",
           "connectionGone": "The connection was removed or is no longer released.",
-          "denied": "This account may not use the connection."
+          "denied": "This account may not use the connection.",
+          "openCode": {
+            "notFree": "OpenCode offers only the OpenCode Zen models its catalog lists as free. This model is not listed as free there and is not run; no other model was used.",
+            "codingPlanOnly": "This connection holds a Z.AI Coding Plan key and runs only models of the Z.AI Coding Plan. No other model was used.",
+            "codingPlanKeyMissing": "This model belongs to the Z.AI Coding Plan, but the saved OpenCode connection holds no subscription key for it. No other connection was used."
+          }
         }
       },
       "status": {
@@ -8270,7 +8269,6 @@
   },
   "agentTools": {
     "title": "Agent tools & runtimes",
-    "back": "Back to Agents",
     "description": "Manage approved tools, check readiness and inspect active sessions. Flow: search for updates, update CLI and adapter, re-bind connections and refresh models. Running sessions keep their version.",
     "hostHint": "Every action affects only this Pages host and its own managed installations. Operators provide system dependencies. Browser artifacts are stored in the workspace below .pages-artifacts/<session>. Use a separate test instance for browser tests.",
     "browserPermission": "Allow Playwright browser tools (administrator activation required; use a test instance)",

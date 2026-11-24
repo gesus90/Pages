@@ -21,6 +21,7 @@ import type { AgentChatSessionBrief } from "./AgentChatSession";
 import type { AgentAnswerModel, AgentChatModelLabel } from "./AgentChatControl";
 import type { AgentMessageQueue } from "./AgentSessionLimits";
 import type { ConversationNotice } from "./Conversation";
+import type { ConversationAnswerJob } from "./ConversationAnswerJob";
 import type {
   ChatEmbedDomains,
   ChatViewPreferences,
@@ -104,10 +105,15 @@ export interface VirtualGroup {
   readonly lastActivityAt: string;
   /** The names of the agents answering in the group now. */
   readonly workingAgentNames?: readonly string[];
-  /** The agents answering in the group now, each of which can be stopped alone. */
+  /**
+   * The agents answering in the group now, each of which can be stopped
+   * alone, with the job each one runs: the page stops showing an agent once
+   * the parts of its answer told the end of that job.
+   */
   readonly workingAgents?: readonly {
     readonly id: string;
     readonly name: string;
+    readonly job?: ConversationAnswerJob;
   }[];
   /** Whether the group is marked confidential: its agents share and learn nothing from it. */
   readonly isConfidential?: boolean;

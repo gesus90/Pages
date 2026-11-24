@@ -4,134 +4,18 @@ import { useTranslation } from "react-i18next";
 import { ScrollViewport } from "@/app/components/ui/scroll-viewport";
 import { Tooltip } from "@/app/components/ui/tooltip";
 import { cn } from "@/app/lib/cn";
-import { sessionAttemptId } from "@/definition/AgentSessionJournal";
 
+import { stepReportedAt, stepTodoList } from "../plan-agent-todo-model";
 import { SIDEBAR_TITLE_CLASS } from "./console-sidebar-parts";
 import { formatSecondTime } from "./console-time";
 
 import type { AgentPlanStepResult } from "@/definition/AgentPlan";
-import type { AgentPlanContractItem } from "@/definition/AgentPlanSession";
 import type { AgentPlanProgressItem } from "@/definition/AgentPlanProgress";
+import type { StepTodo } from "../plan-agent-todo-model";
 
 /** Length of the fade at the lower edge of the list, in px. */
 const LIST_FADE_PX = 34;
 const BOTTOM_EDGE = ["bottom"] as const;
-/** Step states in which the session no longer works on an entry it left in progress. */
-const INTERRUPTED_STEP_STATUSES: ReadonlySet<AgentPlanStepResult["status"]> =
-  new Set(["failed", "cancelled", "paused"]);
-
-/** One console entry; an interrupted entry keeps the failure mark but says why. */
-interface ConsoleTodo extends AgentPlanProgressItem {
-  readonly isInterrupted?: boolean;
-}
-
-/** The native list of the attempt the session runs now; a list of an earlier attempt never counts. */
-function currentAgentTodos(
-  step: AgentPlanStepResult,
-): AgentPlanStepResult["agentTodos"] | null {
-  const list = step.agentTodos;
-  if (!list) return null;
-  const session = step.session;
-  if (session && sessionAttemptId(session, step.id) !== list.attemptId)
-    return null;
-  return list;
-}
-
-function latestTodoReport(step: AgentPlanStepResult): string | null {
-  const times = [
-    step.progress?.activity?.reportedAt,
-    currentAgentTodos(step)?.updatedAt,
-    step.session?.activity?.reportedAt,
-  ].filter((time): time is string => Number.isFinite(Date.parse(time ?? "")));
-  times.sort((first, second) => Date.parse(second) - Date.parse(first));
-  return times[0] ?? null;
-}
-
-/** The contract entries as console entries, with their kept completion. */
-function contractEntries(
-  items: readonly AgentPlanContractItem[],
-): readonly AgentPlanProgressItem[] {
-  return items.map((item): AgentPlanProgressItem => ({
-    id: item.id,
-    contractId: item.id,
-    text: item.text,
-    status: item.checked ? "done" : "open",
-  }));
-}
-
-/** The state of the step itself, for its title as the only entry; a failure needs a report, so it stays open. */
-function stepEntryStatus(
-  step: AgentPlanStepResult,
-): AgentPlanProgressItem["status"] {
-  if (step.status === "succeeded") return "done";
-  if (step.status === "running") return "active";
-  return "open";
-}
-
-/**
- * The entries the console lists; never empty.
- * @remarks
- * The agent's own structured plan comes first. An empty native list hides
- * nothing: the todos of the current assignment and attempt stand instead,
- * which hold the task lines of the instruction and the checklist of the
- * bound tickets. Then the acceptance criteria of the contract. Without any
- * of them the title of the step is the only entry, so the list always
- * says what the step works on.
- */
-function displayedTodos(step: AgentPlanStepResult): readonly ConsoleTodo[] {
-  const native = currentAgentTodos(step);
-  if (native && native.todos.length > 0)
-    return withInterruptions(step, native.todos);
-  const progress = currentProgressTodos(step);
-  if (progress.length > 0) return progress;
-  const contract = step.session?.contract;
-  if (contract && contract.todos.length > 0)
-    return contractEntries(contract.todos);
-  if (contract && contract.criteria.length > 0)
-    return contractEntries(contract.criteria);
-  return [
-    {
-      id: `step-${step.id}`,
-      text: step.name,
-      status: stepEntryStatus(step),
-    },
-  ];
-}
-
-/**
- * Marks the entries an ended attempt left in progress as interrupted.
- * @remarks
- * A failed, cancelled or paused step works on nothing any more, so an entry
- * still in progress would claim live work that no longer happens.
- */
-function withInterruptions(
-  step: AgentPlanStepResult,
-  todos: readonly AgentPlanProgressItem[],
-): readonly ConsoleTodo[] {
-  if (!INTERRUPTED_STEP_STATUSES.has(step.status)) return todos;
-  return todos.map((todo): ConsoleTodo =>
-    todo.status === "active"
-      ? { ...todo, status: "failed", isInterrupted: true }
-      : todo,
-  );
-}
-
-/** The live todo states of the current attempt; an observation of another attempt is left out. */
-function currentProgressTodos(
-  step: AgentPlanStepResult,
-): readonly AgentPlanProgressItem[] {
-  const progress = step.progress;
-  if (!progress) return [];
-  const observed = progress.scope?.attemptId ?? null;
-  const session = step.session;
-  if (
-    observed !== null &&
-    session &&
-    sessionAttemptId(session, step.id) !== observed
-  )
-    return [];
-  return progress.todos;
-}
 
 /**
  * One entry: exactly one line of 28 px, the mark, then the text cut with „…“.
@@ -143,7 +27,7 @@ function currentProgressTodos(
 function ConsoleTodoRow({
   todo,
 }: {
-  readonly todo: ConsoleTodo;
+  readonly todo: StepTodo;
 }): React.ReactElement {
   const { t } = useTranslation();
   const text = todo.contractId ? `${todo.contractId} ${todo.text}` : todo.text;
@@ -212,10 +96,13 @@ function ConsoleTodoHeading({
 /**
  * The console's TODO block: the title, "done / total", the heading and the entries.
  * @remarks
- * The list is never empty, see {@link displayedTodos}. It takes the room
- * between the title and the blocks below; when it is longer than that room,
- * only the list scrolls and fades out over its last 34 px. What the agent
- * does now, when it named it, stands as one muted line below the entries.
+ * The entries are the list of {@link stepTodoList}, which the run bar counts
+ * too. Without any entry the block says so in the words of the run bar; the
+ * node name stays the heading and never stands in for an entry. The list takes
+ * the room between the title and the blocks below; when it is longer than
+ * that room, only the list scrolls and fades out over its last 34 px. What
+ * the agent does now, when it named it, stands as one muted line below the
+ * entries.
  */
 export function ConsoleTodoList({
   step,
@@ -226,11 +113,10 @@ export function ConsoleTodoList({
   readonly activity: string | null;
 }): React.ReactElement {
   const { t, i18n } = useTranslation();
-  const todos = displayedTodos(step);
-  const isNative = (currentAgentTodos(step)?.todos.length ?? 0) > 0;
-  const done = todos.filter((todo) => todo.status === "done").length;
+  const list = stepTodoList(step);
+  const isNative = list.source === "agent";
   const heading = t("plans.console.terminal.sidebar.todos");
-  const reportedAt = latestTodoReport(step);
+  const reportedAt = stepReportedAt(step);
   return (
     <section
       aria-label={heading}
@@ -239,31 +125,42 @@ export function ConsoleTodoList({
     >
       <div className="flex items-baseline justify-between gap-2">
         <h3 className={SIDEBAR_TITLE_CLASS}>{heading}</h3>
-        <span
-          data-todo-count=""
-          className="text-[13px] text-agent-console-muted tabular-nums"
-        >
-          {t("plans.console.terminal.sidebar.todoCount", {
-            done,
-            total: todos.length,
-          })}
-        </span>
+        {list.total > 0 ? (
+          <span
+            data-todo-count=""
+            className="text-[13px] text-agent-console-muted tabular-nums"
+          >
+            {t("plans.console.terminal.sidebar.todoCount", {
+              done: list.done,
+              total: list.total,
+            })}
+          </span>
+        ) : null}
       </div>
       <ConsoleTodoHeading step={step} />
-      <ScrollViewport
-        as="ul"
-        key={isNative ? "agent" : "assignment"}
-        data-agent-todo-list={isNative ? "" : undefined}
-        fadeMode="mask"
-        fadeEdges={BOTTOM_EDGE}
-        fadeBottom={LIST_FADE_PX}
-        containerClassName="mt-1.5 max-h-56 min-[680px]:max-h-none min-[680px]:flex-1"
-        className="min-w-0"
-      >
-        {todos.map((todo) => (
-          <ConsoleTodoRow key={todo.id} todo={todo} />
-        ))}
-      </ScrollViewport>
+      {list.total > 0 ? (
+        <ScrollViewport
+          as="ul"
+          key={isNative ? "agent" : "assignment"}
+          data-agent-todo-list={isNative ? "" : undefined}
+          fadeMode="mask"
+          fadeEdges={BOTTOM_EDGE}
+          fadeBottom={LIST_FADE_PX}
+          containerClassName="mt-1.5 max-h-56 min-[680px]:max-h-none min-[680px]:flex-1"
+          className="min-w-0"
+        >
+          {list.todos.map((todo) => (
+            <ConsoleTodoRow key={todo.id} todo={todo} />
+          ))}
+        </ScrollViewport>
+      ) : (
+        <p
+          data-todo-empty=""
+          className="mt-1.5 text-[13px] text-agent-console-muted min-[680px]:flex-1"
+        >
+          {t("plans.progress.agentTodos.empty")}
+        </p>
+      )}
       {activity ? (
         <p
           title={activity}

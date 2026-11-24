@@ -10,7 +10,7 @@ import { getApplicationServices } from "./services.server";
 import type { MiddlewareFunction } from "react-router";
 
 const CORE_PATH =
-  /^(?:\/settings\/(?:system|agents|agent-tools)(?:\/|$)|\/settings-api\/(?:system|agents|agent-tools|runners|interpreters|embed-domains|ticket-assets)(?:\/|$)|\/agents\/workspaces\/remote(?:\/|$)|\/api\/mcp\/v1\/(?:remote-connections|remote-workspaces|storage)(?:\/|$)|\/storage(?:-api|\/|$)|\/setup(?:\/|$))/u;
+  /^(?:\/settings\/(?:system|tools|agents|agent-tools)(?:\/|$)|\/settings-api\/(?:system|agents|agent-tools|runners|interpreters|embed-domains|ticket-assets)(?:\/|$)|\/agents\/workspaces\/remote(?:\/|$)|\/api\/mcp\/v1\/(?:remote-connections|remote-workspaces|storage)(?:\/|$)|\/storage(?:-api|\/|$)|\/setup(?:\/|$))/u;
 
 /** Audits the verified management account across UI and paired HTTP clients and hides core-system endpoints. */
 export const managementRequestMiddleware: MiddlewareFunction = async (

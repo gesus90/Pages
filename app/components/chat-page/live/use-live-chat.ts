@@ -4,6 +4,7 @@ import {
   activityOf,
   answersOfChat,
   endedByMessage,
+  hasJobEnded,
   shownLiveAnswers,
 } from "./live-answer-state";
 
@@ -56,6 +57,39 @@ export function liveChatOf(opened: OpenedConversation | null): LiveChat | null {
   return participant.conversationId
     ? { chatKind: "conversation", chatId: participant.conversationId }
     : null;
+}
+
+/**
+ * The opened group without the agents whose job ended.
+ * @remarks
+ * The end of an answer arrives as a part of `conversations.v1` before the
+ * server ends the agent's work, and a reading of the page from between the
+ * two still names the agent as answering. The job tells them apart: the end
+ * of exactly the named job removes the agent, while an agent with another
+ * job, and every other agent, keeps answering.
+ * @param opened - The opened entry as the page read it.
+ * @param state - What the page knows of the answers being written.
+ * @returns The same entry while every named job runs.
+ */
+export function withoutEndedJobs(
+  opened: OpenedConversation | null,
+  state: LiveAnswerState,
+): OpenedConversation | null {
+  if (opened?.kind !== "group") return opened;
+  const named = opened.group.workingAgents ?? [];
+  const views = answersOfChat(state, liveChatOf(opened));
+  const working = named.filter(
+    (agent) => agent.job === undefined || !hasJobEnded(views, agent.job),
+  );
+  if (working.length === named.length) return opened;
+  return {
+    ...opened,
+    group: {
+      ...opened.group,
+      workingAgents: working,
+      workingAgentNames: working.map((agent) => agent.name),
+    },
+  };
 }
 
 /** The agents the loaded page names as working, before any part arrived. */

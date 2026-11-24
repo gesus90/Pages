@@ -1,5 +1,8 @@
 import { AgentExecutionError } from "@/backend/error/AgentExecutionErrors";
-import { isOpenCodeConnectionModel } from "@/definition/AgentConnection";
+import {
+  connectionProviderGroup,
+  isOpenCodeConnectionModel,
+} from "@/definition/AgentConnection";
 import { catalogModelChoice } from "@/definition/AgentModelChoice";
 import { supportsModelCatalog } from "@/definition/AgentModelCatalog";
 
@@ -131,7 +134,9 @@ function catalogState(
  * the order of the administration.
  * @remarks
  * Reads stored catalogs only; no provider is asked. The model count is the
- * number of models the connection offers before a place filters them.
+ * number of models the connection offers before a place filters them. An
+ * OpenCode connection with a Z.AI Coding Plan key names that provider group,
+ * so a model choice lists it apart from OpenCode even without a model.
  */
 export async function connectionCatalogStatuses(
   connections: AgentConnectionRepository,
@@ -144,10 +149,12 @@ export async function connectionCatalogStatuses(
       continue;
     const catalog = await connections.catalogs().find(connection.id);
     const isVerified = await isAccessVerified(connections, connection.id);
+    const group = connectionProviderGroup(connection);
     statuses.push({
       connectionId: connection.id,
       connectionName: connection.name,
       provider: connection.provider,
+      ...(group === connection.provider ? {} : { group }),
       state: catalogState(catalog, isVerified),
       lastAttemptAt: catalog.attemptedAt,
       modelCount: selectionModels(connection, catalog.models).length,

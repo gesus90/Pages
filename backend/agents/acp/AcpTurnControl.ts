@@ -22,6 +22,14 @@ export interface AcpTurnDrive {
   readonly isClosing: () => boolean;
   /** A prompt a person's input cut short ended; the turn goes on. */
   readonly continued: (response: PromptResponse) => Promise<void>;
+  /**
+   * Waits after a prompt ended with `end_turn` until no command the agent
+   * left running in the background runs on.
+   * @returns The note that continues the turn, or `null` when none ran on.
+   */
+  readonly awaitBackground?: (
+    signal: AbortSignal,
+  ) => Promise<ContentBlock[] | null>;
 }
 
 /** What became of an input for the running turn. */
@@ -42,6 +50,9 @@ export type AcpTurnInput =
  * native session; the turn of the node ends only when a prompt ends without
  * waiting input. An interruption cancels the running prompt and waits up to
  * five minutes for the next input; without one, the turn ends as cancelled.
+ * A prompt that ends with `end_turn` while a command of the agent still runs
+ * in the background does not end the turn either: the turn waits for that
+ * command and continues with the note of its end.
  */
 export class AcpTurnControl {
   private readonly cancel: () => Promise<void>;
@@ -97,9 +108,9 @@ export class AcpTurnControl {
     };
     let response = await send(drive.first);
     for (
-      let next = await this.next(response.stopReason, drive.signal);
+      let next = await this.following(response.stopReason, drive);
       next !== null && !drive.isClosing();
-      next = await this.next(response.stopReason, drive.signal)
+      next = await this.following(response.stopReason, drive)
     ) {
       await drive.continued(response);
       response = await send(next);
@@ -157,6 +168,20 @@ export class AcpTurnControl {
       signal.addEventListener("abort", done, { once: true });
     });
     return this.pending.length > 0 && !signal.aborted ? this.take() : null;
+  }
+
+  /**
+   * The next prompt of the turn: a person's waiting input first, then the
+   * note on commands that ran on in the background after a completed prompt.
+   */
+  private async following(
+    stopReason: StopReason,
+    drive: AcpTurnDrive,
+  ): Promise<ContentBlock[] | null> {
+    const input = await this.next(stopReason, drive.signal);
+    if (input !== null || stopReason !== "end_turn" || drive.isClosing())
+      return input;
+    return (await drive.awaitBackground?.(drive.signal)) ?? null;
   }
 
   private queue(prompt: readonly ContentBlock[]): AcpTurnInput {

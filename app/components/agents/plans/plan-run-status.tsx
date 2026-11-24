@@ -9,6 +9,7 @@ import { allPlanRunResults } from "@/definition/AgentPlanLoopResults";
 import { isActivePlanRun } from "@/definition/AgentPlanRunState";
 
 import { PlanInvocationNote } from "./plan-jump/plan-jump-run";
+import { stepReportedAt } from "./plan-agent-todo-model";
 import { PlanStartFailure } from "./plan-start-failure";
 import { PlanStatusHeader } from "./plan-status-header";
 import { PlanStatusDetails } from "./plan-status-details";
@@ -303,11 +304,17 @@ function PlanStatusOutlook({
   );
 }
 
+/**
+ * The newest report of any node of the run, from the same sources as the terminal.
+ * @remarks
+ * Antigravity sends no structured ACP plan; its progress calls and its own
+ * list are its only reports, so they count here as well.
+ */
 function lastActivityAt(run: AgentPlanRun): string | null {
   const reported = allPlanRunResults(run)
-    .map((step) => step.session?.activity?.reportedAt)
-    .filter((time): time is string => typeof time === "string")
-    .sort();
+    .map((step) => stepReportedAt(step))
+    .filter((time): time is string => time !== null);
+  reported.sort((first, second) => Date.parse(first) - Date.parse(second));
   return reported.at(-1) ?? null;
 }
 

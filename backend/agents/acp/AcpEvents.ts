@@ -3,6 +3,7 @@ import { AgentError } from "@/backend/error/AgentErrors";
 import { noteSessionEvent } from "@/backend/agents/cli/CliSessionEvents";
 import { acpProviderFailure } from "@/backend/agents/AgentProviderFailure";
 
+import { readAcpExitCode } from "./AcpBackgroundCommands";
 import { findAcpSelectOption } from "./AcpConfigOptions";
 import { PAGES_MCP_SERVER } from "./AcpLaunch";
 
@@ -108,8 +109,11 @@ function readTool(
   if (state.tools.size > 512) throw new AgentError("acp_output_overflow");
   if (title === MCP_STARTUP_TITLE && call.status === "failed")
     state.isMcpUnavailable = true;
-  if (call.status === "completed" || call.status === "failed")
-    noteSessionEvent(state.events, `tool ${title} ${call.status}`);
+  if (call.status !== "completed" && call.status !== "failed") return;
+  // The exit code tells how a command ended, also one that ran on in the background.
+  const exitCode = readAcpExitCode(call);
+  const exit = exitCode === null ? "" : ` exit ${exitCode}`;
+  noteSessionEvent(state.events, `tool ${title} ${call.status}${exit}`);
 }
 
 /**

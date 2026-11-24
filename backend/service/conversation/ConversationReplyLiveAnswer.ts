@@ -11,14 +11,17 @@ const COMPONENT = "ConversationAgentReplies";
 /**
  * Opens the live answer of a job for the members: every member sees its text
  * and tools, its thoughts only the person of a direct conversation or the
- * creator of a group.
+ * creator of a group. Every part names the run of the job, as the reading of
+ * the chat page does for the agent that answers.
  * @param dependencies - The stream of live answers; absent opens none.
  * @param job - The answer that begins.
+ * @param jobId - This run of the job.
  * @returns The open live answer, or `undefined` without a stream.
  */
 export async function openReplyLiveAnswer(
   dependencies: Pick<ConversationReplyRunnerDependencies, "answerStream">,
   job: ConversationReplyJob,
+  jobId: string,
 ): Promise<LiveAnswerSink | undefined> {
   const stream = dependencies.answerStream;
   if (!stream) return undefined;
@@ -43,5 +46,6 @@ export async function openReplyLiveAnswer(
     recipientIds,
     thoughtRecipientIds,
     isTurnStored: false,
+    job: { roundId: job.round.originMessageId, jobId },
   });
 }

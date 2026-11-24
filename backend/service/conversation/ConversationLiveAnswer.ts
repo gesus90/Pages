@@ -4,6 +4,7 @@ import { openRouterCatalogId } from "@/definition/AgentModelIdentity";
 
 import type { AgentAnswerModel } from "@/definition/AgentChatControl";
 import type { ChatJobEvent, ChatSteerStatus } from "@/definition/ChatJob";
+import type { ConversationAnswerJob } from "@/definition/ConversationAnswerJob";
 import type {
   LiveAnswerChatKind,
   LiveAnswerDelivery,
@@ -33,6 +34,12 @@ export interface LiveAnswerTarget {
    * agent; otherwise the caller ends the answer with the stored message.
    */
   readonly isTurnStored: boolean;
+  /**
+   * The job of the agent the answer is written in, which every part names
+   * and whose end is always told; absent, as in a direct chat with an agent,
+   * names none.
+   */
+  readonly job?: ConversationAnswerJob;
   /**
    * Keeps the model of the run with a stored answer, so its head reads the
    * same after a reload; absent keeps nothing.
@@ -130,7 +137,9 @@ function toolDetails(
  * credentials masked; thoughts are collected the same way here. A thought
  * goes only to {@link LiveAnswerTarget.thoughtRecipientIds}. A direct chat
  * ends an answer with every stored turn; a group ends it once the caller
- * stored the reply. The last state stays readable for a client that
+ * stored the reply. An answer of a job names that job in every part, and a
+ * job that ends before its first part still tells its end, so a reader never
+ * keeps it as answering. The last state stays readable for a client that
  * connects later, until the stream forgets it.
  */
 export class ConversationLiveAnswer implements LiveAnswerSink {
@@ -261,6 +270,12 @@ export class ConversationLiveAnswer implements LiveAnswerSink {
 
   /** Ends the open answers of the job. */
   public finish(end: LiveAnswerEnd): void {
+    // A job that wrote no part, such as one stopped while it waited, ends too.
+    if (this.states.size === 0 && this.target.job !== undefined)
+      this.states.set(
+        this.turnKey(this.currentTurn),
+        this.createState(this.currentTurn),
+      );
     for (const state of this.states.values()) this.finishState(state, end);
   }
 
@@ -482,8 +497,18 @@ export class ConversationLiveAnswer implements LiveAnswerSink {
     const known = this.states.get(key);
     if (known) return known;
     this.currentTurn = turn;
+    const state = this.createState(turn);
+    this.states.set(key, state);
+    this.publish(
+      { type: "answer_snapshot", data: this.snapshot(state, false) },
+      this.target.recipientIds,
+    );
+    return state;
+  }
+
+  private createState(turn: number): AnswerState {
     const startedAt = this.host.now().toISOString();
-    const state: AnswerState = {
+    return {
       answerId: this.host.createId(),
       startedAt,
       seq: 1,
@@ -498,12 +523,6 @@ export class ConversationLiveAnswer implements LiveAnswerSink {
       pendingThought: "",
       thoughtTimer: undefined,
     };
-    this.states.set(key, state);
-    this.publish(
-      { type: "answer_snapshot", data: this.snapshot(state, false) },
-      this.target.recipientIds,
-    );
-    return state;
   }
 
   private next(
@@ -516,12 +535,14 @@ export class ConversationLiveAnswer implements LiveAnswerSink {
   }
 
   private partHead(state: AnswerState): LiveAnswerHead {
+    const { job } = this.target;
     return {
       ...this.head,
       answerId: state.answerId,
       seq: state.seq,
       at: state.lastAt,
       answerStartedAt: state.startedAt,
+      ...(job === undefined ? {} : { job }),
     };
   }
 

@@ -7,6 +7,7 @@ import {
   AGENT_PROVIDERS,
   isAgentProvider,
   isApiProvider,
+  isOpenCodeConnectionModel,
 } from "@/definition/AgentConnection";
 import {
   GLOBAL_CONNECTION_SCOPE,
@@ -128,6 +129,10 @@ export class AgentConnectionService {
       // A new connection has no catalog yet, so no effort can be confirmed.
       if (validated.reasoningEffort !== null)
         throw new AgentError("reasoning_effort_unsupported");
+      // Nor can a model of a new OpenCode connection be proven free or part
+      // of a subscription; its catalog names the first model later.
+      if (provider === "opencode" && validated.testModel !== null)
+        throw new AgentError("opencode_model_not_offered");
       const { repository, cipher } = this.dependencies;
       if ((await repository.count()) >= 50)
         throw new AgentError("connection_limit_reached");
@@ -192,6 +197,8 @@ export class AgentConnectionService {
       const isModelUnchanged =
         validated.testModel === connection.testModel &&
         validated.reasoningEffort === connection.reasoningEffort;
+      if (validated.testModel !== connection.testModel)
+        await this.requireOfferedModel(connection, validated.testModel);
       if (!isModelUnchanged)
         await this.requireListedEffort(
           id,
@@ -256,6 +263,25 @@ export class AgentConnectionService {
         await cli.cleanup(actor, connection);
       await repository.remove(id);
     });
+  }
+
+  /**
+   * Accepts a newly chosen model of an OpenCode connection only when the
+   * stored catalog lists it and the connection offers it: an OpenCode Zen
+   * model the catalog proves free, or a Coding Plan model for a connection
+   * with that key. A model with a price or without a stated price is refused.
+   */
+  private async requireOfferedModel(
+    connection: AgentConnectionRecord,
+    model: string | null,
+  ): Promise<void> {
+    if (connection.provider !== "opencode" || model === null) return;
+    const catalog = await this.dependencies.repository
+      .catalogs()
+      .find(connection.id);
+    const entry = catalog.models.find((candidate) => candidate.id === model);
+    if (!entry || !isOpenCodeConnectionModel(connection, entry))
+      throw new AgentError("opencode_model_not_offered");
   }
 
   /** Accepts only an effort the stored catalog lists for exactly the selected model. */

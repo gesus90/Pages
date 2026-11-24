@@ -528,6 +528,8 @@ export const AGENT_ERROR_MESSAGES = {
   cli_unexpected_output: "The CLI returned unexpected output.",
   opencode_provider_no_models:
     "OpenCode lists no model of the selected key provider that Pages can run.",
+  opencode_model_not_offered:
+    "An OpenCode connection offers only the OpenCode Zen models its catalog lists as free, or the models of its Z.AI Coding Plan key. The model was neither saved nor run, and no other model was used.",
   claude_usage_stale:
     "Claude Code could not reach the usage endpoint and answered with stored figures.",
   login_in_progress: "A login is already running for this connection.",
