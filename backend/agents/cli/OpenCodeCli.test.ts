@@ -15,6 +15,7 @@ import type { CliToolExecution } from "@/backend/agents/cli/CliToolExecution";
 const h = vi.hoisted(() => ({
   requireConfiguration: vi.fn(),
   readModels: vi.fn(),
+  readModelList: vi.fn(),
   readTest: vi.fn(),
   readOwn: vi.fn(),
   remove: vi.fn(),
@@ -29,6 +30,7 @@ vi.mock("@/backend/agents/acp/OpenCodeAcpConfiguration", () => ({
 }));
 vi.mock("@/backend/agents/cli/CliModelCatalog", () => ({
   readOpenCodeModels: h.readModels,
+  readOpenCodeModelList: h.readModelList,
 }));
 vi.mock("@/backend/agents/cli/CliResultParser", () => ({
   readOpenCodeTest: h.readTest,
@@ -260,7 +262,9 @@ it("lists only the free models of the free provider", async () => {
       },
     },
   );
-  expect(h.readModels).toHaveBeenCalledWith("redacted:list");
+  expect(h.readModels).toHaveBeenCalledWith("redacted:list", {
+    isEmptyAllowed: undefined,
+  });
 });
 
 it("fails the model list on an unsupported version", async () => {
@@ -305,4 +309,165 @@ it("removes the stored key on logout and reports a failure", async () => {
     detail: {},
   });
   expect(h.logCaught).toHaveBeenCalledOnce();
+});
+
+const ZAI = "zai-coding-plan";
+const SUPPORTED = {
+  ok: true,
+  detail: { cliVersion: SUPPORTED_OPENCODE_VERSION },
+};
+
+/** Lets the connection own a Z.AI Coding Plan key. */
+function useCodingPlanKey(): void {
+  h.credentials.mockReturnValue({
+    ...access,
+    ownProvider: ZAI,
+    modelProviders: [ZAI],
+  });
+}
+
+/** Makes the catalog list the given Coding Plan models. */
+function listCodingPlanModels(ids: readonly string[]): void {
+  execution.version.mockResolvedValue(SUPPORTED);
+  execution.readCatalog.mockResolvedValue({ exitCode: 0, stdout: "list" });
+  h.readModelList.mockReturnValue(
+    ids.map((id) => ({
+      id,
+      isFree: true,
+      promptPrice: 1,
+      completionPrice: 2,
+    })),
+  );
+}
+
+it("lists the subscription models of a Coding Plan key without prices", async () => {
+  useCodingPlanKey();
+  listCodingPlanModels([`${ZAI}/glm`]);
+  expect(await cli().listModels(HOME, SIGNAL)).toEqual([
+    {
+      id: `${ZAI}/glm`,
+      isFree: false,
+      promptPrice: null,
+      completionPrice: null,
+    },
+  ]);
+  expect(h.readModelList).toHaveBeenCalledWith("redacted:list");
+});
+
+it("fails the Coding Plan list without a model", async () => {
+  useCodingPlanKey();
+  listCodingPlanModels([]);
+  await expect(cli().listModels(HOME, SIGNAL)).rejects.toEqual(
+    new AgentError("opencode_provider_no_models"),
+  );
+});
+
+it("confirms a key of another provider without a model call", async () => {
+  expect(
+    await cli().checkAccess(
+      HOME,
+      { model: null, reasoningEffort: null },
+      SIGNAL,
+    ),
+  ).toEqual({ ok: true, detail: {} });
+  expect(execution.prompt).not.toHaveBeenCalled();
+});
+
+it("proves a Coding Plan key with the saved model", async () => {
+  useCodingPlanKey();
+  listCodingPlanModels([`${ZAI}/a`, `${ZAI}/b`]);
+  execution.prompt.mockResolvedValue({ stdout: "out" });
+  h.readTest.mockReturnValue({ ok: true, detail: {} });
+  expect(
+    await cli().checkAccess(
+      HOME,
+      { model: `${ZAI}/b`, reasoningEffort: "high" },
+      SIGNAL,
+    ),
+  ).toEqual({
+    ok: true,
+    detail: { modelProvider: ZAI, modelCount: 2, model: `${ZAI}/b` },
+  });
+  expect(execution.prompt.mock.calls.at(-1)?.[1].arguments).toContain("high");
+});
+
+it("proves a Coding Plan key with the first model when none is saved", async () => {
+  useCodingPlanKey();
+  listCodingPlanModels([`${ZAI}/a`]);
+  execution.prompt.mockResolvedValue({ stdout: "out" });
+  h.readTest.mockReturnValue({ ok: true, detail: {} });
+  const result = await cli().checkAccess(
+    HOME,
+    { model: "other/x", reasoningEffort: "high" },
+    SIGNAL,
+  );
+  expect(result.detail).toMatchObject({ model: `${ZAI}/a` });
+  expect(execution.prompt.mock.calls.at(-1)?.[1].arguments).not.toContain(
+    "--variant",
+  );
+});
+
+it("marks a Coding Plan quota code as an exhausted quota", async () => {
+  useCodingPlanKey();
+  listCodingPlanModels([`${ZAI}/a`]);
+  execution.prompt.mockResolvedValue({ stdout: '{"code":1308}' });
+  h.readTest.mockReturnValue({
+    ok: false,
+    errorCode: "cli_rate_limited",
+    detail: {},
+  });
+  expect(
+    await cli().checkAccess(
+      HOME,
+      { model: null, reasoningEffort: null },
+      SIGNAL,
+    ),
+  ).toMatchObject({ ok: false, errorCode: "provider_quota_exhausted" });
+  execution.prompt.mockResolvedValue({ stdout: "plain" });
+  expect(
+    await cli().checkAccess(
+      HOME,
+      { model: null, reasoningEffort: null },
+      SIGNAL,
+    ),
+  ).toMatchObject({ ok: false, errorCode: "cli_rate_limited" });
+});
+
+it("reports a Coding Plan check without a listed model", async () => {
+  useCodingPlanKey();
+  listCodingPlanModels([]);
+  expect(
+    await cli().checkAccess(
+      HOME,
+      { model: null, reasoningEffort: null },
+      SIGNAL,
+    ),
+  ).toEqual({
+    ok: false,
+    errorCode: "opencode_provider_no_models",
+    detail: { modelProvider: ZAI },
+  });
+});
+
+it("reports an agent error of a Coding Plan check and rethrows others", async () => {
+  useCodingPlanKey();
+  listCodingPlanModels([`${ZAI}/a`]);
+  execution.readCatalog.mockResolvedValueOnce({
+    errorCode: "cli_not_logged_in",
+  });
+  expect(
+    await cli().checkAccess(
+      HOME,
+      { model: null, reasoningEffort: null },
+      SIGNAL,
+    ),
+  ).toEqual({
+    ok: false,
+    errorCode: "cli_not_logged_in",
+    detail: { modelProvider: ZAI },
+  });
+  execution.readCatalog.mockRejectedValueOnce(new Error("boom"));
+  await expect(
+    cli().checkAccess(HOME, { model: null, reasoningEffort: null }, SIGNAL),
+  ).rejects.toThrow("boom");
 });

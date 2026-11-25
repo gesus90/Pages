@@ -6,6 +6,17 @@ const mocks = vi.hoisted(() => ({
   saveTurnUsage: vi.fn(async () => undefined),
   account: vi.fn<Call>(async () => undefined),
   reading: vi.fn(async () => undefined),
+  saveOpenCode: vi.fn<Call>(async () => undefined),
+  openCodeDatabase: vi.fn<(database: unknown) => void>(),
+}));
+vi.mock("../agent/OpenCodeUsageRepository", () => ({
+  OpenCodeUsageRepository: class {
+    public readonly save = mocks.saveOpenCode;
+
+    public constructor(database: unknown) {
+      mocks.openCodeDatabase(database);
+    }
+  },
 }));
 vi.mock("../agent/AgentPlanAgentTodoRepository", () => ({
   AgentPlanAgentTodoRepository: class {
@@ -255,5 +266,121 @@ it("maps OpenRouter onto the OpenCode counters", async () => {
 
   expect(mocks.saveTurnUsage).toHaveBeenCalledWith(
     expect.objectContaining({ provider: "openrouter" }),
+  );
+});
+
+it("totals a Claude observation a runner before the ledger sent as a message", async () => {
+  const text = JSON.stringify({
+    inputTokens: 10,
+    outputTokens: 5,
+    cacheReadTokens: 0,
+    isInterim: true,
+    claudeObservation: {
+      sessionId: "s",
+      id: "runner:1",
+      kind: "message",
+      models: [],
+    },
+  });
+
+  await progress(
+    transactionOf([["claude_code", "m", "running", null, null]]),
+    eventOf("usage", text),
+  );
+
+  expect(mocks.account).toHaveBeenCalledWith(
+    expect.anything(),
+    expect.objectContaining({
+      isPartial: true,
+      claudeObservation: {
+        sessionId: "s",
+        id: "runner:1",
+        kind: "total",
+        models: [],
+      },
+    }),
+  );
+});
+
+describe("OpenCode model steps", () => {
+  const message = {
+    id: "m1",
+    sessionId: "s1",
+    model: "p/m",
+    inputTokens: 10,
+    outputTokens: 5,
+    reasoningTokens: 0,
+    cacheReadTokens: 0,
+    cacheWriteTokens: null,
+    costUsd: 0.5,
+  };
+  const text = JSON.stringify({ openCodeMessage: message });
+
+  it("drops a step that breaks the contract", async () => {
+    const transaction = transactionOf([]);
+
+    await progress(
+      transaction,
+      eventOf("usage", JSON.stringify({ openCodeMessage: { id: "" } })),
+    );
+
+    expect(transaction.query).not.toHaveBeenCalled();
+    expect(mocks.saveOpenCode).not.toHaveBeenCalled();
+  });
+
+  it("ignores a step of an unknown attempt", async () => {
+    await progress(transactionOf([]), eventOf("usage", text));
+
+    expect(mocks.saveOpenCode).not.toHaveBeenCalled();
+    expect(mocks.saveTurnUsage).not.toHaveBeenCalled();
+  });
+
+  it("ignores a step of another provider", async () => {
+    await progress(
+      transactionOf([["claude_code", null]]),
+      eventOf("usage", text),
+    );
+
+    expect(mocks.saveOpenCode).not.toHaveBeenCalled();
+  });
+
+  it("leaves a step another attempt owns as it is", async () => {
+    await progress(transactionOf([["opencode", "a2"]]), eventOf("usage", text));
+
+    expect(mocks.saveOpenCode).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { provider: "opencode", owner: null, turn: undefined, expected: 1 },
+    { provider: "openrouter", owner: "a1", turn: 3, expected: 3 },
+  ])(
+    "stores a step of $provider",
+    async ({ provider, owner, turn, expected }) => {
+      const transaction = transactionOf([[provider, owner]]);
+
+      await progress(
+        transaction,
+        eventOf("usage", text),
+        turn === undefined ? {} : { turn },
+      );
+
+      expect(mocks.saveOpenCode).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: "m1",
+          attemptId: "a1",
+          turn: expected,
+          reportedAt: AT,
+        }),
+      );
+      expect(mocks.saveTurnUsage).not.toHaveBeenCalled();
+      const database = mocks.openCodeDatabase.mock.calls[0]?.[0] as {
+        transaction: (
+          work: (access: DatabaseTransaction) => Promise<boolean>,
+        ) => Promise<boolean>;
+      };
+      expect(
+        await database.transaction(async (access) => access === transaction),
+      ).toBe(true);
+    },
   );
 });

@@ -137,3 +137,22 @@ it("reads the session and its descendants in message order", () => {
     ["m2", 2],
   ]);
 });
+
+it("skips a model step that has reported nothing yet", () => {
+  const zeros = {
+    cost: 0,
+    tokens: { input: 0, output: 0, reasoning: 0, cache: { read: 0, write: 0 } },
+  };
+  const read = (parts: object): ReturnType<typeof readOpenCodeMessage> =>
+    readOpenCodeMessage({
+      id: "m",
+      session_id: "s",
+      data: assistant({ ...zeros, ...parts }),
+    });
+  expect(read({})).toBeNull();
+  expect(read({ finish: "stop" })).toMatchObject({ id: "m" });
+  expect(read({ tokens: { ...zeros.tokens, total: 0 } })).toMatchObject({
+    id: "m",
+  });
+  expect(read({ cost: 0.1 })).toMatchObject({ id: "m" });
+});

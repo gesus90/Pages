@@ -14,6 +14,7 @@ type ProjectedName =
   | "announced"
   | "update"
   | "openCodeMessages"
+  | "antigravityCalls"
   | "prompted"
   | "claudeUsage"
   | "closed"
@@ -47,6 +48,7 @@ function createFixture(): {
       order.push("update");
     }),
     openCodeMessages: vi.fn<AgentSessionRecorder["openCodeMessages"]>(),
+    antigravityCalls: vi.fn<AgentSessionRecorder["antigravityCalls"]>(),
     prompted: vi.fn<AgentSessionRecorder["prompted"]>(),
     claudeUsage: vi.fn<AgentSessionRecorder["claudeUsage"]>(),
     closed: vi.fn<AgentSessionRecorder["closed"]>(),
@@ -166,4 +168,40 @@ it("propagates a failed OpenCode projection", async () => {
   projections.drained.mockRejectedValueOnce(failure);
   listener.openCodeMessages([], "/pricing", "free", {});
   await expect(listener.drained()).rejects.toBe(failure);
+});
+
+it("persists Antigravity calls in order without a frame", async () => {
+  const { listener, projections, append } = createFixture();
+  const calls = {
+    calls: 2,
+    inputTokens: 3,
+    outputTokens: 4,
+    cacheReadTokens: 5,
+  };
+  listener.antigravityCalls(calls);
+  await listener.drained();
+  expect(projections.antigravityCalls).toHaveBeenCalledWith(calls);
+  expect(append).not.toHaveBeenCalled();
+});
+
+it("keeps the first Antigravity failure after a later call succeeded", async () => {
+  const { listener, projections } = createFixture();
+  const first = new Error("first");
+  projections.antigravityCalls
+    .mockImplementationOnce(() => {
+      throw first;
+    })
+    .mockImplementationOnce(() => {
+      throw new Error("later");
+    });
+  const calls = {
+    calls: 1,
+    inputTokens: 0,
+    outputTokens: 0,
+    cacheReadTokens: 0,
+  };
+  listener.antigravityCalls(calls);
+  listener.antigravityCalls(calls);
+  listener.antigravityCalls(calls);
+  await expect(listener.drained()).rejects.toBe(first);
 });

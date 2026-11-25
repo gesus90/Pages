@@ -208,6 +208,26 @@ it("hands the data and Codex homes only to their providers", () => {
   expect(h.session.mock.calls[2][2]).toMatchObject({ codexHome: undefined });
 });
 
+it("hands the Antigravity data home only to a plan session", () => {
+  openCliAcpSession(contextOf({ driver: driverOf("antigravity") }));
+  openCliAcpSession(
+    contextOf({
+      driver: driverOf("antigravity"),
+      input: sessionInput({ chat: {} }),
+    }),
+  );
+  openCliAcpSession(contextOf({ driver: driverOf("opencode") }));
+  expect(h.session.mock.calls[0][2]).toMatchObject({
+    antigravityDataHome: "/config",
+  });
+  expect(h.session.mock.calls[1][2]).toMatchObject({
+    antigravityDataHome: undefined,
+  });
+  expect(h.session.mock.calls[2][2]).toMatchObject({
+    antigravityDataHome: undefined,
+  });
+});
+
 it("prepares Pica for a chat and for a plan session", async () => {
   h.selectNative.mockReturnValue("native");
   h.codexBundle.mockResolvedValue("bundle");

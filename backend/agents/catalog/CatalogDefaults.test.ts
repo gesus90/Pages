@@ -56,6 +56,24 @@ describe("defaultCatalogModel", () => {
     },
   );
 
+  it.each(["openrouter", "opencode"] as const)(
+    "starts %s with the first Z.AI Coding Plan text model when nothing is free",
+    (provider) => {
+      expect(
+        defaultCatalogModel(provider, [
+          model("paid"),
+          model("zai-coding-plan/speech", { inputModalities: ["audio"] }),
+          model("zai-coding-plan/glm-5.1"),
+        ]),
+      ).toBe("zai-coding-plan/glm-5.1");
+      expect(
+        defaultCatalogModel(provider, [
+          model("zai-coding-plan/speech", { inputModalities: ["audio"] }),
+        ]),
+      ).toBeNull();
+    },
+  );
+
   it("starts Google with its latest Flash alias when listed", () => {
     expect(
       defaultCatalogModel("google_ai_studio", [

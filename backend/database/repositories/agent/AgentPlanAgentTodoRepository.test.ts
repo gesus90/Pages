@@ -99,3 +99,25 @@ it("saves the list of a swarm worker", async () => {
     updated_at: "now",
   });
 });
+
+it.each([
+  { name: "stores", rows: [["a1"]], expected: true },
+  { name: "keeps a newer list instead of", rows: [], expected: false },
+])("$name the list a report slot filed", async ({ rows, expected }) => {
+  const { repository, query } = database(rows);
+
+  expect(
+    await repository.saveReported(
+      { runId: "r1", stepId: "s1", attemptId: "a1" },
+      [],
+      "now",
+    ),
+  ).toBe(expected);
+  expect(query.mock.calls[0]?.[1]).toEqual({
+    run_id: "r1",
+    step_id: "s1",
+    attempt_id: "a1",
+    todos_json: "[]",
+    updated_at: "now",
+  });
+});

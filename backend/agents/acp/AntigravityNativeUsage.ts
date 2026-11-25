@@ -77,12 +77,12 @@ function readVarint(
 ): { readonly value: number; readonly next: number } | null {
   let value = 0;
   let scale = 1;
-  for (let index = offset; index < bytes.length && index < offset + 10;) {
-    const byte = bytes[index] ?? 0;
+  let next = offset;
+  for (const byte of bytes.subarray(offset, offset + 10)) {
     value += (byte & 0x7f) * scale;
     scale *= 128;
-    index += 1;
-    if (byte < 0x80) return { value, next: index };
+    next += 1;
+    if (byte < 0x80) return { value, next };
   }
   return null;
 }
@@ -282,7 +282,7 @@ export function readAntigravityCalls(
 export class AntigravityTurnCalls {
   private readonly configDirectory: string;
   private readonly report: (calls: AntigravityPromptCalls) => void;
-  private sessionId: string | null = null;
+  private sessionId = "";
   /** The last row read so far, so a prompt start reads only the rows since. */
   private lastIndex = -1;
   private baseline: number | null = null;
@@ -368,7 +368,6 @@ export class AntigravityTurnCalls {
   private read(
     afterIndex: number,
   ): ReturnType<typeof readAntigravityCalls> | null {
-    if (this.sessionId === null) return null;
     try {
       const read = readAntigravityCalls(
         this.configDirectory,

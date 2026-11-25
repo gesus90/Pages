@@ -25,6 +25,7 @@ const mocks = vi.hoisted(() => {
     AntigravityCli: make("antigravity"),
     OpenCodeCli: make("opencode"),
     CliToolExecution: make("execution"),
+    readOwn: vi.fn(),
   };
 });
 
@@ -43,6 +44,11 @@ vi.mock("@/backend/agents/cli/OpenCodeCli", () => ({
 }));
 vi.mock("@/backend/agents/cli/CliToolExecution", () => ({
   CliToolExecution: mocks.CliToolExecution,
+}));
+vi.mock("@/backend/agents/cli/OpenCodeCredentialStore", () => ({
+  OpenCodeCredentialStore: class {
+    public readOwn = mocks.readOwn;
+  },
 }));
 vi.mock("@/backend/agents/cli/CliUsageHome", () => ({
   prepareCliUsageHome: mocks.prepareCliUsageHome,
@@ -406,4 +412,68 @@ it("leaves a bound context alone and rejects API providers on cleanup", async ()
   await expect(
     runtimeOf().cleanup(connection({ provider: "openai" })),
   ).rejects.toMatchObject({ code: "provider_invalid" });
+});
+
+it("proves a stored OpenCode key through the access check", async () => {
+  const checkAccess = vi.fn().mockResolvedValue({ ok: true, detail: { c: 1 } });
+  mocks.behavior.checkAccess = checkAccess;
+  adapter.readStatus.mockResolvedValue({
+    outcome: { ok: true, detail: { status: "s" } },
+  });
+  const outcome = await runtimeOf().check(
+    connection({ provider: "opencode" }),
+    "auth",
+    SIGNAL,
+  );
+  expect(checkAccess).toHaveBeenCalledWith(
+    HOME,
+    { model: "model-a", reasoningEffort: "high" },
+    SIGNAL,
+  );
+  expect(outcome.detail).toEqual({ c: 1, status: "s", version: "1" });
+  delete mocks.behavior.checkAccess;
+});
+
+const CODING_PLAN = connection({
+  provider: "opencode",
+  cliAccountLabel: "zai-coding-plan",
+});
+
+it("reads the Coding Plan key without preparing the home", async () => {
+  mocks.readOwn.mockResolvedValue({
+    modelProvider: "zai-coding-plan",
+    apiKey: "secret",
+  });
+  expect(await runtimeOf().readZaiCodingPlanKey(CODING_PLAN)).toBe("secret");
+  expect(store.prepare).not.toHaveBeenCalled();
+});
+
+it("refuses a Coding Plan key read of another or logged-out connection", async () => {
+  await expect(runtimeOf().readZaiCodingPlanKey(connection())).rejects.toEqual(
+    new AgentError("provider_invalid"),
+  );
+  await expect(
+    runtimeOf().readZaiCodingPlanKey({ ...CODING_PLAN, cliLoggedInAt: null }),
+  ).rejects.toEqual(new AgentError("cli_not_logged_in"));
+});
+
+it("reports an unreadable or foreign Coding Plan key", async () => {
+  const agentError = new AgentError("secret_unavailable");
+  mocks.readOwn.mockRejectedValueOnce(agentError);
+  await expect(runtimeOf().readZaiCodingPlanKey(CODING_PLAN)).rejects.toBe(
+    agentError,
+  );
+  mocks.readOwn.mockRejectedValueOnce(new Error("io"));
+  await expect(runtimeOf().readZaiCodingPlanKey(CODING_PLAN)).rejects.toEqual(
+    new AgentError("api_key_required"),
+  );
+  expect(mocks.logCaughtError).toHaveBeenCalled();
+  mocks.readOwn.mockResolvedValueOnce({ modelProvider: "google", apiKey: "k" });
+  await expect(runtimeOf().readZaiCodingPlanKey(CODING_PLAN)).rejects.toEqual(
+    new AgentError("api_key_required"),
+  );
+  mocks.readOwn.mockResolvedValueOnce(null);
+  await expect(runtimeOf().readZaiCodingPlanKey(CODING_PLAN)).rejects.toEqual(
+    new AgentError("api_key_required"),
+  );
 });

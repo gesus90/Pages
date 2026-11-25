@@ -232,3 +232,12 @@ it("removes managed and legacy credentials", async () => {
   expect(await readdir(directory)).toEqual([]);
   await store.remove(home);
 });
+
+it("supplies only the Coding Plan provider for a Coding Plan key", () => {
+  const credentials = openCodeCredentials({
+    modelProvider: "zai-coding-plan",
+    apiKey: "secret-key",
+  });
+  expect(credentials.modelProviders).toEqual(["zai-coding-plan"]);
+  expect(credentials.ownProvider).toBe("zai-coding-plan");
+});

@@ -2,7 +2,22 @@ import { beforeEach, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   write: vi.fn(async () => undefined),
-  account: vi.fn(async () => undefined),
+  account: vi.fn<(...parameters: unknown[]) => Promise<undefined>>(
+    async () => undefined,
+  ),
+  codexDatabase: vi.fn<(...parameters: unknown[]) => void>(),
+  saveCodex: vi.fn<(...parameters: unknown[]) => Promise<undefined>>(
+    async () => undefined,
+  ),
+}));
+vi.mock("../agent/CodexPlanUsageRepository", () => ({
+  CodexPlanUsageRepository: class {
+    public readonly save = mocks.saveCodex;
+
+    public constructor(database: unknown) {
+      mocks.codexDatabase(database);
+    }
+  },
 }));
 vi.mock("../agent/AgentSessionUsageWriter", () => ({
   writeAgentSessionUsage: mocks.write,
@@ -17,6 +32,12 @@ import type { DatabaseTransaction } from "@/backend/database/Database";
 import type { AgentPlanStepResult } from "@/definition/AgentPlan";
 
 const TRANSACTION = {} as unknown as DatabaseTransaction;
+
+function transactionOf(rows: unknown[][]): DatabaseTransaction {
+  return {
+    query: vi.fn(async () => rows),
+  } as unknown as DatabaseTransaction;
+}
 const USAGE = {
   inputTokens: 10,
   outputTokens: 5,
@@ -53,6 +74,7 @@ function step(overrides: {
 beforeEach(() => {
   mocks.write.mockClear();
   mocks.account.mockClear();
+  mocks.saveCodex.mockClear();
 });
 
 it("writes the reading of a native provider", async () => {
@@ -128,4 +150,56 @@ it("skips a terminal without any reading", async () => {
 
   expect(mocks.write).not.toHaveBeenCalled();
   expect(mocks.account).not.toHaveBeenCalled();
+});
+
+it("hands the transaction to the Claude accounting as its own", async () => {
+  await persistRunnerSessionUsage(TRANSACTION, step({}));
+
+  const database = mocks.account.mock.calls[0]?.[0] as {
+    transaction: (
+      work: (access: DatabaseTransaction) => Promise<boolean>,
+    ) => Promise<boolean>;
+  };
+  expect(
+    await database.transaction(async (access) => access === TRANSACTION),
+  ).toBe(true);
+});
+
+it("values a Codex turn with the connection of its attempt", async () => {
+  const transaction = transactionOf([["c1", "g1"]]);
+
+  await persistRunnerSessionUsage(transaction, step({ runner: "codex_cli" }));
+
+  expect(mocks.saveCodex).toHaveBeenCalledWith(
+    expect.objectContaining({
+      attemptId: "a1",
+      provider: "codex_cli",
+      codex: { connectionId: "c1", agentId: "g1", report: null },
+    }),
+  );
+  expect(mocks.write).not.toHaveBeenCalled();
+  const database = mocks.codexDatabase.mock.calls[0]?.[0] as {
+    transaction: (
+      work: (access: DatabaseTransaction) => Promise<boolean>,
+    ) => Promise<boolean>;
+  };
+  expect(
+    await database.transaction(async (access) => access === transaction),
+  ).toBe(true);
+});
+
+it.each([
+  { name: "an attempt without a stored row", rows: [] as unknown[][] },
+  { name: "a row without a connection", rows: [[null, null]] },
+])("values a Codex turn of $name without identity", async ({ rows }) => {
+  await persistRunnerSessionUsage(
+    transactionOf(rows),
+    step({ runner: "codex_cli" }),
+  );
+
+  expect(mocks.saveCodex).toHaveBeenCalledWith(
+    expect.objectContaining({
+      codex: { connectionId: "", agentId: "", report: null },
+    }),
+  );
 });

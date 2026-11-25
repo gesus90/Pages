@@ -71,7 +71,7 @@ it("finds the design theme", async () => {
 });
 
 it("reads the complete settings row", async () => {
-  const row = ["de", "UTC", "iso", "mon", 1, 0, null, 1, 0, 1, "t", 0];
+  const row = ["de", "UTC", "iso", "mon", 1, 0, null, 1, 0, 1, "t", 0, "EUR"];
   await expect(
     repositoryOf([row]).repository.findByUserId("u"),
   ).resolves.toEqual({
@@ -87,6 +87,7 @@ it("reads the complete settings row", async () => {
     notifyDueDates: false,
     notifyWeeklySummary: true,
     notifyCalendarInvitations: false,
+    currency: "EUR",
   });
   await expect(repositoryOf().repository.findByUserId("u")).resolves.toBeNull();
 });
@@ -106,6 +107,7 @@ it("replaces the complete settings row", async () => {
     notifyDueDates: true,
     notifyWeeklySummary: false,
     notifyCalendarInvitations: true,
+    currency: "EUR",
   };
   await repository.upsert("u", full);
   await repository.upsert("u", {
@@ -127,6 +129,7 @@ it("replaces the complete settings row", async () => {
     expect.objectContaining({
       notify_email: true,
       notify_calendar_invitations: true,
+      currency: "EUR",
     }),
   );
   expect(execute).toHaveBeenNthCalledWith(
@@ -135,6 +138,7 @@ it("replaces the complete settings row", async () => {
     expect.objectContaining({
       notify_email: null,
       notify_calendar_invitations: null,
+      currency: null,
     }),
   );
 });

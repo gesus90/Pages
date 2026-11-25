@@ -120,6 +120,16 @@ describe("tool calls", () => {
     expect(state.events.at(-1)).toBe("tool Read completed");
   });
 
+  it("notes the exit code of a command that ended", () => {
+    const state = createAcpSessionState();
+    readAcpUpdate(
+      state,
+      toolUpdate("1", { status: "completed", rawOutput: { exit_code: 3 } }),
+      FIELDS,
+    );
+    expect(state.events.at(-1)).toBe("tool tool completed exit 3");
+  });
+
   it("names an unknown untitled tool", () => {
     const state = createAcpSessionState();
     readAcpUpdate(state, toolUpdate("9"), FIELDS);
