@@ -79,9 +79,19 @@ const MENU_ACTIONS: readonly AgentToolAction[] = [
 const CONFIRMED_ACTIONS: readonly AgentToolIntent[] = ["remove", "rollback"];
 const MENU_ITEM_CLASS = "min-h-9";
 
+// A missing runtime has no version an update could compare, so Pages installs the searched release as its own.
+function runtimeActions(tool: AgentToolView): readonly AgentToolAction[] {
+  const hasSearchedRelease = tool.update.targetVersions.some(
+    (entry) => entry.id === tool.id && entry.version !== null,
+  );
+  return tool.installed === false && hasSearchedRelease
+    ? [...RUNTIME_ACTIONS, "install"]
+    : RUNTIME_ACTIONS;
+}
+
 function managedActions(tool: AgentToolView): readonly AgentToolAction[] {
   if (INSTALLABLE.includes(tool.id)) return MANAGED_ACTIONS;
-  return RUNTIMES.includes(tool.id) ? RUNTIME_ACTIONS : [];
+  return RUNTIMES.includes(tool.id) ? runtimeActions(tool) : [];
 }
 
 function actionsOf(tool: AgentToolView): readonly AgentToolAction[] {

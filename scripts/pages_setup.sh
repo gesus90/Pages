@@ -444,12 +444,22 @@ cat > "$antigravity_context_temporary" <<'ANTIGRAVITYCONTEXT'
 __PAGES_RUNNER_ANTIGRAVITY_CONTEXT__
 ANTIGRAVITYCONTEXT
 mv -f -- "$antigravity_context_temporary" "$runner_directory/antigravity-context.mjs"
+antigravity_usage_temporary=$(mktemp "$runner_directory/.antigravity-usage.XXXXXX")
+cat > "$antigravity_usage_temporary" <<'ANTIGRAVITYUSAGE'
+__PAGES_RUNNER_ANTIGRAVITY_USAGE__
+ANTIGRAVITYUSAGE
+mv -f -- "$antigravity_usage_temporary" "$runner_directory/antigravity-usage.mjs"
 
 opencode_temporary=$(mktemp "$runner_directory/.opencode.XXXXXX")
 cat > "$opencode_temporary" <<'OPENCODE'
 __PAGES_RUNNER_OPENCODE__
 OPENCODE
 mv -f -- "$opencode_temporary" "$runner_directory/opencode.mjs"
+opencode_usage_temporary=$(mktemp "$runner_directory/.opencode-usage.XXXXXX")
+cat > "$opencode_usage_temporary" <<'OPENCODEUSAGE'
+__PAGES_RUNNER_OPENCODE_USAGE__
+OPENCODEUSAGE
+mv -f -- "$opencode_usage_temporary" "$runner_directory/opencode-usage.mjs"
 live_temporary=$(mktemp "$runner_directory/.live.XXXXXX")
 cat > "$live_temporary" <<'LIVE'
 __PAGES_RUNNER_LIVE__

@@ -86,6 +86,7 @@ function pricedUsage(
           0,
         ),
     isPartial:
+      usage.isPartial ||
       usage.claudeObservation?.kind === "prompt" ||
       priced.length === 0 ||
       priced.some((model) =>
@@ -106,7 +107,28 @@ function formatRate(value: number): string {
   return value.toFixed(12).replace(/0+$/u, "").replace(/\.$/u, "");
 }
 
-/** Applies a native observation once, allocates its increment and freezes the first price of each model. */
+/**
+ * Whether stored counters were allocated from a session ledger.
+ * @remarks
+ * Counters without an observation name no native session. They are the
+ * running sum of their turn, as a runner job reports it while the turn runs.
+ */
+function isLedgerAllocation(accounting: ClaudeAccounting): boolean {
+  return accounting.sessionId !== "";
+}
+
+/**
+ * Applies a native observation once, allocates its increment and freezes the first price of each model.
+ * @param database - The database of the session journal.
+ * @param usage - The counters of one attempt and turn, with or without an observation.
+ * @remarks
+ * Counters without an observation replace the running sum stored for the
+ * same attempt and turn, so an interim reading and the counters of the turn
+ * end count once. They never replace counters a session ledger allocated,
+ * and an observation replaces a running sum instead of adding to it. An
+ * interim reading stays a partial turn until the counters of its end
+ * replace it.
+ */
 export async function accountClaudeUsage(
   database: AgentSessionDatabase,
   usage: AgentSessionTurnUsage,
@@ -121,17 +143,17 @@ export async function accountClaudeUsage(
     const sessionId = observation?.sessionId ?? `prompt:${usage.attemptId}`;
     const ledger = await repository.lock(sessionId);
     const previous = await sessions.findTurnUsage(usage.attemptId, usage.turn);
-    if (!observation && previous?.claudeAccounting) return;
+    const allocated =
+      previous?.claudeAccounting &&
+      isLedgerAllocation(previous.claudeAccounting)
+        ? previous.claudeAccounting
+        : undefined;
+    if (!observation && allocated) return;
     const next = observation
       ? applyClaudeObservation(ledger, observation)
       : ledger;
     if (observation && next === ledger) return;
-    const models = observedModels(
-      usage,
-      ledger,
-      next,
-      previous?.claudeAccounting,
-    );
+    const models = observedModels(usage, ledger, next, allocated);
     const frozen = (await sessions.listAttemptUsage(usage.attemptId)).flatMap(
       (entry) => entry.claudeAccounting?.models ?? [],
     );

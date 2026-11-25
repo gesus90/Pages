@@ -1,10 +1,11 @@
-import { receiveUsage } from "./usage.mjs";
+import { createClaudeUsageReader, receiveUsage } from "./usage.mjs";
 import {
   createClaudeSessionReader,
   prepareClaudeSession,
   receiveClaudeSession,
 } from "./claude-session.mjs";
 import {
+  codexTurnUsage,
   createCodexSessionReader,
   finishCodexSession,
   pollCodexSession,
@@ -20,6 +21,19 @@ const MAXIMUM_CALL_TITLE = 600;
 const MAXIMUM_CALL_IDENTITY = 200;
 const MAXIMUM_OPEN_CODE_TOOL_FIELD = 200;
 const CALL_WINDOW = 256;
+/** The titles of OpenCode's own task list tool in its ACP tool calls: the tool name until the call ended, then `N todos`. */
+const TODO_LIST_TOOL = /^(?:todowrite|\d+ todos)$/u;
+/** The plan status of each state of OpenCode's task list, with the Pages names a model may write there. */
+const TODO_LIST_STATUSES = {
+  pending: "pending",
+  in_progress: "in_progress",
+  completed: "completed",
+  cancelled: "failed",
+  open: "pending",
+  active: "in_progress",
+  done: "completed",
+  failed: "failed",
+};
 const MODEL_NAME = /^[A-Za-z0-9._:@~/[\]-]{1,200}$/u;
 
 function textEnd(bytes, start, limit) {
@@ -383,6 +397,53 @@ async function readAcpContext(event, state) {
     });
 }
 
+/** The list of a call of OpenCode's own task list: its input while it runs, the metadata of its result once it ended. */
+function todoListEntries(update) {
+  const todos = update.rawInput?.todos ?? update.rawOutput?.metadata?.todos;
+  if (!Array.isArray(todos)) return [];
+  return todos.flatMap((todo) => {
+    if (typeof todo?.content !== "string" || typeof todo.status !== "string")
+      return [];
+    if (!todo.content.trim()) return [];
+    const status = Object.hasOwn(TODO_LIST_STATUSES, todo.status)
+      ? TODO_LIST_STATUSES[todo.status]
+      : todo.status;
+    return [{ content: todo.content, status }];
+  });
+}
+
+/**
+ * Projects a call of OpenCode's own task list onto the plan of the job.
+ * OpenCode's ACP adapter sends no `plan` update for `todowrite`, only tool
+ * calls of the kind `other` whose input holds the complete list. The list
+ * replaces the tool lines of the call, as on the Pages host, so the terminal
+ * and the run bar read it like the list of `update_step_progress`. A list the
+ * call already reported is not sent again, and a failed call changed none.
+ * @returns Whether the update belongs to a call of the task list.
+ */
+async function readOpenCodeTodoList(state, update) {
+  if (!update) return false;
+  const identity = callIdentity(update.toolCallId);
+  if (update.sessionUpdate === "tool_call") {
+    if (update.kind !== "other" || !TODO_LIST_TOOL.test(update.title ?? ""))
+      return false;
+    // A call without an identity has no later update that could be told apart.
+    if (identity) state.todoLists.add(identity);
+    if (state.todoLists.size > CALL_WINDOW)
+      state.todoLists.delete(state.todoLists.values().next().value);
+  } else if (
+    update.sessionUpdate !== "tool_call_update" ||
+    !state.todoLists.has(identity)
+  )
+    return false;
+  if (["completed", "failed"].includes(update.status))
+    state.todoLists.delete(identity);
+  const entries = update.status === "failed" ? [] : todoListEntries(update);
+  if (entries.length && !isDuplicate(state, `todo-list:${identity}`, entries))
+    await planNote(state, entries);
+  return true;
+}
+
 async function readOpenCode(event, state) {
   if (event.type === "pages.configuration") {
     if (typeof event.model === "string")
@@ -400,6 +461,8 @@ async function readOpenCode(event, state) {
   // The ACP wrapper projects complete messages so redaction precedes splitting.
   if (update?.sessionUpdate === "agent_message")
     return note(state, "agent_message", update.text);
+  if (state.tool === "opencode" && (await readOpenCodeTodoList(state, update)))
+    return;
   if (update?.sessionUpdate === "tool_call")
     return openCodeCall(state, "tool_started", update);
   if (update?.sessionUpdate === "tool_call_update")
@@ -442,13 +505,14 @@ export function createLiveHistory(command, redact, emit) {
   const state = {
     seen: new Map(),
     calls: new Map(),
+    todoLists: new Set(),
     hasPartialText: false,
     redact,
     emit,
     isManaged: Boolean(command.managed),
     progressVersion: command.progressVersion,
     tool: command.program.route?.tool,
-    usageMessages: new Map(),
+    claudeUsage: createClaudeUsageReader(command),
     claudeSession: createClaudeSessionReader(),
     codexSession: codexSessionReader(command),
   };
@@ -479,6 +543,10 @@ export function createLiveHistory(command, redact, emit) {
     },
     async poll() {
       await pollCodexSession(state.codexSession, state.emit);
+    },
+    /** The tokens of the job's own turn among the thread counters of a Codex turn end. */
+    turnUsage(usage) {
+      return codexTurnUsage(state.codexSession, usage);
     },
     async finish() {
       await finishCodexSession(state.codexSession, state.emit);

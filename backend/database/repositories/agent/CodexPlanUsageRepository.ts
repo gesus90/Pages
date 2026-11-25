@@ -80,7 +80,11 @@ function buildTurnUsageRecord(
     ...tokens,
     totalTokens,
     reasoningTokens: tokens.reasoningTokens,
-    isPartial: usage.isPartial || before?.isPartial === true,
+    // Counts without a thread report replace the stored ones, as the end of
+    // a turn replaces its interim reading, so only their own flag holds.
+    isPartial:
+      usage.isPartial ||
+      (Boolean(usage.codex?.report) && before?.isPartial === true),
     accounting: {
       price,
       costUsd: codexTokenCost(tokens, price),

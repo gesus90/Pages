@@ -33,6 +33,8 @@ export async function loader({
       services,
       context.get(authenticatedUserContext),
     );
+    // Awaits only the kept settings; the inventory of every tool runs on behind the answer.
+    await services.agentToolManagerService.start([], "all");
     return routeData(
       {
         tools: services.agentToolManagerService.list(actor),

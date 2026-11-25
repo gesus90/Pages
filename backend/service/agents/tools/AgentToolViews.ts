@@ -1,8 +1,11 @@
+import { AgentAccessDeniedError } from "@/backend/error/AgentErrors";
+
 import { isAgentToolInstallable, pairedCli } from "./AgentToolRegistry";
 
 import type {
   AgentToolActivity,
   AgentToolConnectionView,
+  AgentToolDiagnostic,
   AgentToolId,
   AgentToolOperationView,
   AgentToolReleaseView,
@@ -98,6 +101,34 @@ function versionFacts(
     updateAvailable:
       isAgentToolInstallable(tool) && release.state === "update_available",
   };
+}
+
+/** Combines supervisor leases with live runner processes without duplicating a process ID. */
+export function mergeAgentToolActivities(
+  pinned: readonly AgentToolActivity[],
+  processes: readonly AgentToolActivity[],
+): readonly AgentToolActivity[] {
+  return [
+    ...pinned,
+    ...processes.filter(
+      (activity) =>
+        !pinned.some((lease) => lease.processId === activity.processId),
+    ),
+  ];
+}
+
+/** Maps an unexpected tool failure into a safe fixed diagnostic code. */
+export function agentToolFailureDiagnostic(
+  error: unknown,
+): AgentToolDiagnostic {
+  if (error instanceof AgentAccessDeniedError) return "permission_denied";
+  if (
+    error instanceof Error &&
+    "code" in error &&
+    (error.code === "EACCES" || error.code === "EPERM")
+  )
+    return "permission_denied";
+  return "installation_failed";
 }
 
 /** Builds the secret-free operator view of one tool from its cached facts. */

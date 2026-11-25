@@ -17,6 +17,7 @@ import type {
   AgentSessionState,
 } from "./AgentSessionEvents.js";
 import type {
+  AgentSessionUsageEstimate,
   AntigravityUsageView,
   EuroDollarReferenceRate,
 } from "./AgentSessionPricing";
@@ -258,13 +259,52 @@ export interface AgentSessionView {
   readonly claudeUsage?: ClaudeUsageSummary;
   /** Sums of every attempt of this node in the run, without counting a turn twice. */
   readonly nodeTotals?: readonly AgentSessionUsageTotal[];
-  /** Native message totals, present only for OpenCode sessions. */
+  /**
+   * Native message totals; present only for sessions that run on OpenCode,
+   * those of an OpenRouter connection included.
+   */
   readonly openCode?: {
     readonly step: OpenCodeUsageTotal;
     readonly run: OpenCodeUsageTotal;
   };
   /** Captured Antigravity usage, independent of the subscription invoice. */
   readonly antigravity?: AntigravityUsageView;
+  /**
+   * The tokens the selected Codex attempt processed and their estimate,
+   * independent of the subscription; present only for Codex sessions.
+   * @remarks
+   * The counts are the turns' own, without the tokens the thread had used
+   * before the attempt, and apart from the context occupancy. While a turn
+   * runs they are its latest interim reading; the counts of its end replace
+   * it. The input contains the cache reads.
+   */
+  readonly codexAttemptUsage?: AgentSessionUsageEstimate;
+  /**
+   * The tokens the selected Claude Code attempt processed and their
+   * estimate, independent of the subscription; present only for Claude Code
+   * sessions.
+   * @remarks
+   * Input, cache reads and cache writes are counted apart, and apart from
+   * the context occupancy. While a turn runs the counts are its latest
+   * interim reading, in which an answer of a subagent names only the output
+   * counted when it began; the totals of the turn's result replace it.
+   */
+  readonly claudeAttemptUsage?: AgentSessionUsageEstimate;
+  /**
+   * The tokens the model steps of the selected OpenCode attempt processed
+   * and their amount; present only for sessions that run on OpenCode, those
+   * of an OpenRouter connection included.
+   * @remarks
+   * The counts are the sums of the native assistant messages of the session
+   * and its sub-sessions, one message per model step, each stored once. The
+   * input leaves out the cache reads, the output contains the reasoning, and
+   * both stand apart from the context occupancy. A step reports its counts
+   * when it ends; until then it adds nothing, and without a finished step
+   * every count is `null`. The amount is the cost OpenCode reported, a
+   * confirmed zero of a free model, or a catalog estimate, named by
+   * `amountSource`.
+   */
+  readonly openCodeAttemptUsage?: AgentSessionUsageEstimate;
   /**
    * The last valid ECB rate the terminal converts the session cost with;
    * `null` without a valid rate, absent for providers without a cost row.

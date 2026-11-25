@@ -1,4 +1,8 @@
-import { READ_ANNOTATIONS, DESTRUCTIVE_ANNOTATIONS } from "./ToolDefinition.js";
+import {
+  READ_ANNOTATIONS,
+  DESTRUCTIVE_ANNOTATIONS,
+  stringChoice,
+} from "./ToolDefinition.js";
 import type { Tool } from "@modelcontextprotocol/server";
 
 const ticketId = { type: "string", minLength: 1, maxLength: 200 } as const;
@@ -29,7 +33,7 @@ export const PLAN_WORK_SAVE_TOOL = {
     type: "object",
     properties: {
       ticketId,
-      action: { enum: ["scope", "confirm"] },
+      action: stringChoice(["scope", "confirm"]),
       expectedRevision: { type: "integer", minimum: 0 },
       requirementsHash: text,
       contentHash: text,

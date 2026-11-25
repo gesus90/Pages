@@ -1,8 +1,14 @@
 import { beforeEach, expect, it, vi } from "vitest";
 
-const mocks = vi.hoisted(() => ({ write: vi.fn(async () => undefined) }));
+const mocks = vi.hoisted(() => ({
+  write: vi.fn(async () => undefined),
+  account: vi.fn(async () => undefined),
+}));
 vi.mock("../agent/AgentSessionUsageWriter", () => ({
   writeAgentSessionUsage: mocks.write,
+}));
+vi.mock("@/backend/service/agents/sessions/ClaudeUsageAccounting", () => ({
+  accountClaudeUsage: mocks.account,
 }));
 
 import { persistRunnerSessionUsage } from "./RunnerSessionUsage";
@@ -44,12 +50,15 @@ function step(overrides: {
   } as unknown as AgentPlanStepResult;
 }
 
-beforeEach(() => mocks.write.mockClear());
+beforeEach(() => {
+  mocks.write.mockClear();
+  mocks.account.mockClear();
+});
 
 it("writes the reading of a native provider", async () => {
   await persistRunnerSessionUsage(
     TRANSACTION,
-    step({ endedAt: "2026-01-01T00:00:00.000Z" }),
+    step({ runner: "opencode", endedAt: "2026-01-01T00:00:00.000Z" }),
   );
 
   expect(mocks.write).toHaveBeenCalledWith(
@@ -57,15 +66,36 @@ it("writes the reading of a native provider", async () => {
     expect.objectContaining({
       attemptId: "a1",
       turn: 1,
-      provider: "claude_code",
+      provider: "opencode",
       model: "m",
       reportedAt: "2026-01-01T00:00:00.000Z",
     }),
   );
+  expect(mocks.account).not.toHaveBeenCalled();
+});
+
+it("values the reading of a Claude turn through its accounting", async () => {
+  await persistRunnerSessionUsage(
+    TRANSACTION,
+    step({ endedAt: "2026-01-01T00:00:00.000Z" }),
+  );
+
+  expect(mocks.account).toHaveBeenCalledWith(
+    expect.anything(),
+    expect.objectContaining({
+      attemptId: "a1",
+      turn: 1,
+      provider: "claude_code",
+      model: "m",
+      inputTokens: 10,
+      reportedAt: "2026-01-01T00:00:00.000Z",
+    }),
+  );
+  expect(mocks.write).not.toHaveBeenCalled();
 });
 
 it("stamps the current time without an end time", async () => {
-  await persistRunnerSessionUsage(TRANSACTION, step({ runner: "codex_cli" }));
+  await persistRunnerSessionUsage(TRANSACTION, step({ runner: "antigravity" }));
 
   expect(mocks.write).toHaveBeenCalledTimes(1);
 });
@@ -81,6 +111,7 @@ it("skips steps without a terminal, an attempt or a native provider", async () =
   );
 
   expect(mocks.write).not.toHaveBeenCalled();
+  expect(mocks.account).not.toHaveBeenCalled();
 });
 
 it("skips a terminal without any reading", async () => {
@@ -96,4 +127,5 @@ it("skips a terminal without any reading", async () => {
   );
 
   expect(mocks.write).not.toHaveBeenCalled();
+  expect(mocks.account).not.toHaveBeenCalled();
 });

@@ -66,6 +66,8 @@ const TOOL_GROUPS: readonly ToolGroupDefinition[] = [
 
 // "Alle aktualisieren" appears only when it saves more than one click.
 const MIN_TOOLS_FOR_UPDATE_ALL = 2;
+const POLL_ACTIVE_MS = 1_000;
+const POLL_IDLE_MS = 5_000;
 
 function isAgentToolsData(value: unknown): value is AgentToolsData {
   return (
@@ -80,8 +82,8 @@ function isAgentToolsData(value: unknown): value is AgentToolsData {
 
 /** The tool inventory, kept per account and rights, the admin mode included. */
 const SETTINGS_AGENT_TOOLS_STATE: LocalStateRouteKind<AgentToolsData> = {
-  // 4: tools name their update capability and the checked target an update click binds to.
-  schemaVersion: 4,
+  // 5: release states distinguish unknown versions and missing tools from available updates.
+  schemaVersion: 5,
   isPayload: isAgentToolsData,
   isCurrent: (inventory) => isCurrentLocalStateAudience(inventory.audience),
   ownerOf: (inventory) => inventory.audience.userId,
@@ -292,12 +294,16 @@ export default function SettingsAgentToolsRoute(): React.ReactElement {
   );
   const { t } = useTranslation();
   const { revalidate } = useRevalidator();
+  const hasPendingWork = tools.some(
+    (tool) => tool.installed === null || tool.operation?.state === "running",
+  );
+  const pollIntervalMs = hasPendingWork ? POLL_ACTIVE_MS : POLL_IDLE_MS;
   useEffect(() => {
     const timer = setInterval(() => {
       void revalidate();
-    }, 5000);
+    }, pollIntervalMs);
     return () => clearInterval(timer);
-  }, [revalidate]);
+  }, [pollIntervalMs, revalidate]);
   return (
     <div className="space-y-3">
       <SettingsSectionHeader

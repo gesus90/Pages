@@ -53,9 +53,10 @@ export class JobOutput extends Writable {
       binding,
       { recordAligned: true },
     );
+    const turnUsage = (usage) => this.#history.turnUsage(usage);
     this.#terminal =
       command.program.kind === "cli"
-        ? new CliTerminalResult(command, redact)
+        ? new CliTerminalResult(command, redact, turnUsage)
         : null;
     this.#history = createLiveHistory(command, redact, async (event) => {
       this.#eventSequence += 1;

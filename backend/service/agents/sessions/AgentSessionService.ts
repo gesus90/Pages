@@ -4,6 +4,7 @@ import { logCaughtError } from "@/backend/logging/Logger";
 
 import {
   describeSessionModel,
+  isOpenCodeRunner,
   listSessionAttempts,
   requireSessionAttempt,
   sessionStart,
@@ -11,19 +12,23 @@ import {
 import {
   antigravityAttempts,
   nodeAttemptIds,
+  openCodeUsageView,
   openRouterRunSummary,
-  runOpenCodeAttemptIds,
+  selectedAttemptUsage,
 } from "./AgentSessionRunUsage";
 import { decideContinuation } from "./AgentSessionContinuation";
 import { antigravityUsage } from "./AntigravityUsage";
 import { AgentSessionRecorder } from "./AgentSessionRecorder";
-import { sumOpenCodeUsage } from "./OpenCodeUsage";
 import {
   UNKNOWN_CONTEXT,
   claudeNodeUsage,
   sumTurnUsage,
   withCatalogContextWindow,
 } from "./AgentSessionUsage";
+import type {
+  OpenCodeViewSelection,
+  SelectedAttemptUsage,
+} from "./AgentSessionRunUsage";
 import type { OpenRouterPricing } from "./OpenRouterPricing";
 import { checkSessionWorkspace } from "./AgentSessionWorkspace";
 import { readViewWorkspace } from "./AgentSessionViewWorkspace";
@@ -269,11 +274,6 @@ export class AgentSessionService {
     const nodeAttempts = nodeAttemptIds(key.attemptId, attempt.record);
     const isLive = this.live.has(key.attemptId) && isRunActive(run);
     const state = this.state(run, attempt, stored);
-    const openCode = await this.openCodeSessionSummary(
-      run,
-      attempt.record.runner,
-      nodeAttempts,
-    );
     const { openRouterRunTotal, isOpenRouterRunIncomplete } =
       openRouterRunSummary(run, runTurns);
     const model = describeSessionModel(attempt.record, stored);
@@ -309,13 +309,18 @@ export class AgentSessionService {
       nodeTotals: sumTurnUsage(
         runTurns.filter((turn) => nodeAttempts.has(turn.attemptId)),
       ),
-      ...(openCode ? { openCode } : {}),
+      ...(await this.openCodeView(run, attempt.record.runner, {
+        attemptId: key.attemptId,
+        nodeAttempts,
+        isRunning: state === "running",
+      })),
       ...(await this.antigravityView(
         attempt.record.runner,
         run,
         key,
         runTurns,
       )),
+      ...(await this.attemptUsageView(attempt.record.runner, key, turns)),
       openRouterRunTotal,
       isOpenRouterRunIncomplete,
       continuation: await this.continuationOf(run, attempt, isLive),
@@ -482,22 +487,23 @@ export class AgentSessionService {
     });
   }
 
-  private async openCodeSessionSummary(
+  /** The native usage of an OpenCode session and the rate its amount is converted with. */
+  private async openCodeView(
     run: AgentPlanRun,
     runner: AgentSessionView["provider"],
-    nodeAttempts: ReadonlySet<string>,
-  ): Promise<AgentSessionView["openCode"] | undefined> {
-    if (runner !== "opencode") return undefined;
-    const openCodeMessages =
+    selection: OpenCodeViewSelection,
+  ): Promise<
+    Pick<
+      AgentSessionView,
+      "openCode" | "openCodeAttemptUsage" | "referenceRate"
+    >
+  > {
+    if (!isOpenCodeRunner(runner)) return {};
+    const messages =
       (await this.dependencies.store.listRunOpenCodeMessages?.(run.id)) ?? [];
     return {
-      step: sumOpenCodeUsage(
-        openCodeMessages.filter((message) =>
-          nodeAttempts.has(message.attemptId),
-        ),
-        nodeAttempts,
-      ),
-      run: sumOpenCodeUsage(openCodeMessages, runOpenCodeAttemptIds(run)),
+      ...openCodeUsageView(run, messages, selection),
+      referenceRate: (await this.dependencies.referenceRate?.current()) ?? null,
     };
   }
 
@@ -536,6 +542,20 @@ export class AgentSessionService {
       this.dependencies.referenceRate?.current() ?? null,
     ]);
     return { antigravity, referenceRate };
+  }
+
+  /** The usage of a Codex or Claude Code attempt and the rate its estimate is converted with. */
+  private async attemptUsageView(
+    runner: string,
+    key: AgentSessionKey,
+    turns: readonly AgentSessionTurnUsage[],
+  ): Promise<SelectedAttemptUsage & Pick<AgentSessionView, "referenceRate">> {
+    const usage = selectedAttemptUsage(runner, turns, key.attemptId);
+    if (!usage) return {};
+    return {
+      ...usage,
+      referenceRate: (await this.dependencies.referenceRate?.current()) ?? null,
+    };
   }
 
   private record(start: AgentSessionStart): AgentSessionRecorder {

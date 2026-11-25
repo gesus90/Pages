@@ -1,7 +1,4 @@
-import {
-  AgentAccessDeniedError,
-  AgentError,
-} from "@/backend/error/AgentErrors";
+import { AgentError } from "@/backend/error/AgentErrors";
 import { requireAgentAdministrator } from "@/backend/service/agents/AgentServiceAccess";
 
 import {
@@ -9,6 +6,14 @@ import {
   agentToolCombination,
   resolvePublishedCombination,
 } from "./AgentToolCombinations";
+import {
+  AgentToolExclusiveQueue,
+  agentToolDependencyClosure,
+  inspectAgentTool,
+  publishedAgentToolLocation,
+  rollbackAgentTool,
+  runAgentToolStartupInventory,
+} from "./AgentToolInventory";
 import { AgentToolOperationLog } from "./AgentToolOperationLog";
 import {
   AGENT_TOOL_REGISTRY,
@@ -25,7 +30,11 @@ import {
   agentToolUpdateView,
   requireUpdateTarget,
 } from "./AgentToolUpdateJobs";
-import { agentToolView } from "./AgentToolViews";
+import {
+  agentToolFailureDiagnostic,
+  agentToolView,
+  mergeAgentToolActivities,
+} from "./AgentToolViews";
 
 import type {
   CliToolLocation,
@@ -47,6 +56,10 @@ import type {
   AgentToolLocation,
   AgentToolStorage,
 } from "./AgentToolContracts";
+import type {
+  AgentToolInventoryScope,
+  AgentToolQueueMode,
+} from "./AgentToolInventory";
 import type { AgentToolUpdateSearch } from "./AgentToolUpdateSearch";
 
 interface ManagerDependencies {
@@ -77,11 +90,13 @@ export class AgentToolManagerService {
     AgentToolId,
     readonly AgentToolConnectionView[]
   >();
-  private readonly pending = new Map<AgentToolId, Promise<void>>();
+  private readonly queue = new AgentToolExclusiveQueue();
   private readonly shutdownController = new AbortController();
   private readonly requested = new Set<AgentToolId>();
   private readonly startupTools = new Set<AgentToolId>(["node", "bubblewrap"]);
-  private started: Promise<void> | null = null;
+  private readonly startupProbes = new Map<AgentToolId, "inspect" | "ensure">();
+  private initialized: Promise<void> | null = null;
+  private inventory: Promise<void> | null = null;
   private settingsFailure = false;
   private settingsQueue: Promise<void> = Promise.resolve();
 
@@ -103,8 +118,9 @@ export class AgentToolManagerService {
       ready: (id) => this.ready(id),
       dependenciesReady: (tool) => this.dependenciesReady(tool),
       exclusive: (id, operation, mustRun) =>
-        this.exclusive(id, operation, mustRun),
-      published: (tool, location) => this.published(tool, location),
+        this.exclusive(id, operation, mustRun ? "manage" : "ensure"),
+      published: (tool, location) =>
+        publishedAgentToolLocation(dependencies.files, tool, location),
     });
   }
 
@@ -113,10 +129,15 @@ export class AgentToolManagerService {
     return this.dependencies.files.root;
   }
 
+  /** Shared release search used by manual admin checks and the daily background schedule. */
+  public get updateSearch(): AgentToolUpdateSearch {
+    return this.dependencies.updates;
+  }
+
   /** Collects obsolete releases only while no installation, probe or native session uses the tool. */
   public async runMaintenance(): Promise<void> {
     for (const tool of AGENT_TOOL_REGISTRY) {
-      if (this.pending.has(tool.id)) continue;
+      if (this.queue.has(tool.id)) continue;
       await this.exclusive(tool.id, async () => {
         if (
           this.supervisor.activities(tool.id).length > 0 ||
@@ -137,12 +158,29 @@ export class AgentToolManagerService {
     );
   }
 
-  /** Reconstructs readiness after restart; optional failures never reject Pages startup. */
-  public start(providers: readonly CliProviderId[] = []): Promise<void> {
+  /**
+   * Restores the kept tool settings and starts the tool inventory in the background.
+   * @param providers - The CLI providers of active connections; their tools are made ready.
+   * @param scope - `all` also inspects the tools that are not enabled, for the Tools page.
+   * @remarks
+   * Only reading the kept settings is awaited, so service readiness, a session
+   * start and the Tools page never wait for a slow probe; each finished probe
+   * updates the cached state {@link list} returns.
+   */
+  public async start(
+    providers: readonly CliProviderId[] = [],
+    scope: AgentToolInventoryScope = "enabled",
+  ): Promise<void> {
     for (const provider of providers)
       for (const id of providerToolIds(provider)) this.startupTools.add(id);
-    this.started ??= this.restore();
-    return this.started;
+    this.initialized ??= this.restorePersisted();
+    await this.initialized;
+    this.launchStartupInventory(scope);
+  }
+
+  /** Resolves once the startup inventory begun so far ended; it never rejects. */
+  public whenInventoryReady(): Promise<void> {
+    return this.inventory ?? Promise.resolve();
   }
 
   /** Persists explicit optional integration access; enabled connection prerequisites remain required. */
@@ -216,7 +254,7 @@ export class AgentToolManagerService {
           return;
         await this.install(id, action === "update" ? "updating" : "repairing");
       },
-      true,
+      "manage",
     );
   }
 
@@ -342,7 +380,7 @@ export class AgentToolManagerService {
       ...providerToolIds(input.provider),
       ...(input.browser ? ["chromium" as const] : []),
     ];
-    const required = this.closure(ids);
+    const required = agentToolDependencyClosure(ids);
     this.supervisor.reserve(input.instanceId, [...required]);
     try {
       return await resolvePublishedCombination(
@@ -359,16 +397,20 @@ export class AgentToolManagerService {
   /** Cancels bounded installer/probe children through the existing runner before server exit. */
   public async shutdown(): Promise<void> {
     this.shutdownController.abort();
-    await Promise.allSettled([...this.pending.values()]);
+    await Promise.allSettled([
+      this.inventory ?? Promise.resolve(),
+      ...this.queue.values(),
+    ]);
     await this.settingsQueue;
   }
 
-  private async restore(): Promise<void> {
-    const { files } = this.dependencies;
+  private async restorePersisted(): Promise<void> {
+    const { files, updates } = this.dependencies;
     try {
       await files.initialize?.();
       for (const id of await files.readEnabled()) this.requested.add(id);
       await this.operations.restore(files);
+      await updates.restore();
     } catch {
       this.settingsFailure = true;
       for (const tool of AGENT_TOOL_REGISTRY)
@@ -376,58 +418,79 @@ export class AgentToolManagerService {
       console.warn(
         "[pages] Agent tool settings cannot be read; managed installation is blocked.",
       );
-      return;
     }
-    for (const id of this.enabled()) {
-      try {
-        await this.ensureTool(id);
-      } catch {
-        console.warn(
-          `[pages] Agent tool ${id} is unavailable (${this.states.get(id)?.health.diagnostic ?? "dependency_failed"}).`,
-        );
-      }
+  }
+
+  // A start probes each tool once; a tool enabled after its inspection is made ready behind it.
+  private launchStartupInventory(scope: AgentToolInventoryScope): void {
+    if (this.settingsFailure || this.shutdownController.signal.aborted) return;
+    const enabled = this.enabled();
+    const tools: AgentToolDefinition[] = [];
+    for (const tool of AGENT_TOOL_REGISTRY) {
+      const mode = enabled.has(tool.id) ? "ensure" : "inspect";
+      const taken = this.startupProbes.get(tool.id);
+      if (taken === "ensure" || taken === mode) continue;
+      if (mode === "inspect" && scope === "enabled") continue;
+      this.startupProbes.set(tool.id, mode);
+      tools.push(tool);
+    }
+    if (tools.length === 0) return;
+    this.inventory = (this.inventory ?? Promise.resolve()).then(() =>
+      runAgentToolStartupInventory({
+        tools,
+        enabled,
+        states: this.states,
+        files: this.dependencies.files,
+        signal: this.shutdownController.signal,
+        ensure: (id) => this.ensureStartupTool(id),
+        inspect: (id) => this.inspectStartupTool(id),
+      }),
+    );
+  }
+
+  private async ensureStartupTool(id: AgentToolId): Promise<void> {
+    try {
+      await this.ensureTool(id);
+    } catch {
+      console.warn(
+        `[pages] Agent tool ${id} is unavailable (${this.states.get(id)?.health.diagnostic ?? "dependency_failed"}).`,
+      );
+    }
+  }
+
+  private async inspectStartupTool(id: AgentToolId): Promise<void> {
+    try {
+      await this.exclusive(id, () => this.inspect(id), "inspect");
+    } catch {
+      console.warn(
+        `[pages] Agent tool ${id} could not be inspected (${this.states.get(id)?.health.diagnostic ?? "execution_failed"}).`,
+      );
     }
   }
 
   private enabled(): Set<AgentToolId> {
-    return this.closure([
+    return agentToolDependencyClosure([
       ...this.startupTools,
       ...this.requested,
       ...(this.requested.has("playwright_mcp") ? ["chromium" as const] : []),
     ]);
   }
 
-  private closure(ids: readonly AgentToolId[]): Set<AgentToolId> {
-    const result = new Set(ids);
-    for (const id of result)
-      for (const dependency of agentToolDefinition(id).dependencies)
-        result.add(dependency);
-    return result;
-  }
-
-  private async exclusive(
+  private exclusive(
     id: AgentToolId,
     operation: () => Promise<void>,
-    mustRun = false,
+    mode: AgentToolQueueMode = "ensure",
   ): Promise<void> {
-    const previous = this.pending.get(id);
-    if (previous) {
-      // A waiter reads the shared outcome from the state, as a refusal when it failed.
-      await previous.catch(() => undefined);
-      if (!mustRun) return;
-      return this.exclusive(id, operation, true);
-    }
-    const work = Promise.resolve().then(operation);
-    this.pending.set(id, work);
-    try {
-      await work;
-    } catch (error: unknown) {
-      if (!(error instanceof AgentToolReadinessError))
-        this.fail(id, this.failureReason(error));
-      throw error instanceof AgentToolReadinessError ? error : this.refusal(id);
-    } finally {
-      if (this.pending.get(id) === work) this.pending.delete(id);
-    }
+    return this.queue.run({
+      id,
+      mode,
+      states: this.states,
+      operation,
+      onError: (error) => {
+        this.fail(id, agentToolFailureDiagnostic(error));
+        return this.refusal(id);
+      },
+    });
   }
 
   private async dependenciesReady(tool: AgentToolDefinition): Promise<void> {
@@ -451,27 +514,16 @@ export class AgentToolManagerService {
   }
 
   private async inspect(id: AgentToolId): Promise<void> {
-    const tool = agentToolDefinition(id);
-    const location =
-      (await this.dependencies.files.current(tool)) ??
-      (await this.dependencies.system(tool));
-    const health = location
-      ? await this.dependencies.health.check(
-          tool,
-          location,
-          this.shutdownController.signal,
-        )
-      : {
-          status: "missing_dependency" as const,
-          diagnostic: "not_installed" as const,
-          version: null,
-        };
-    this.states.set(id, {
-      location: location ? { ...location, version: health.version } : null,
-      health,
-      dependency: null,
-      checkedAt: new Date().toISOString(),
-    });
+    this.states.set(
+      id,
+      await inspectAgentTool({
+        id,
+        files: this.dependencies.files,
+        system: this.dependencies.system,
+        health: this.dependencies.health,
+        signal: this.shutdownController.signal,
+      }),
+    );
   }
 
   private async ready(id: AgentToolId): Promise<void> {
@@ -527,7 +579,7 @@ export class AgentToolManagerService {
           diagnostic:
             error instanceof AgentToolReadinessError
               ? error.diagnostic
-              : this.failureReason(error),
+              : agentToolFailureDiagnostic(error),
           version: prior.health.version,
         },
         dependency: null,
@@ -554,56 +606,22 @@ export class AgentToolManagerService {
   }
 
   private async rollback(id: AgentToolId): Promise<void> {
-    const tool = agentToolDefinition(id);
-    const candidate = await this.dependencies.files.previous(tool);
-    if (!candidate)
-      throw new AgentToolReadinessError(id, "failed", "rollback_failed");
-    const health = await this.dependencies.health.check(
-      tool,
-      candidate,
-      this.shutdownController.signal,
-    );
-    if (health.status !== "ready") {
-      throw new AgentToolReadinessError(id, "failed", "rollback_failed");
-    }
-    await this.dependencies.files.activate(tool, candidate);
-    this.states.set(id, {
-      location: await this.published(tool, {
-        ...candidate,
-        version: health.version,
+    this.states.set(
+      id,
+      await rollbackAgentTool({
+        id,
+        files: this.dependencies.files,
+        health: this.dependencies.health,
+        signal: this.shutdownController.signal,
       }),
-      health,
-      dependency: null,
-      checkedAt: new Date().toISOString(),
-    });
-  }
-
-  // Re-reads the pointer for the rollback generation and terminal entry of a just activated location.
-  private async published(
-    tool: AgentToolDefinition,
-    location: AgentToolLocation,
-  ): Promise<AgentToolLocation> {
-    try {
-      const current = await this.dependencies.files.current(tool);
-      return current?.file === location.file
-        ? { ...current, version: location.version }
-        : location;
-    } catch {
-      // The activation already succeeded; only its secondary facts stay unknown until the next check.
-      return location;
-    }
+    );
   }
 
   private activities(id: AgentToolId): readonly AgentToolActivity[] {
-    const pinned = this.supervisor.activities(id);
-    const processes = this.dependencies.activities?.(id) ?? [];
-    return [
-      ...pinned,
-      ...processes.filter(
-        (activity) =>
-          !pinned.some((lease) => lease.processId === activity.processId),
-      ),
-    ];
+    return mergeAgentToolActivities(
+      this.supervisor.activities(id),
+      this.dependencies.activities?.(id) ?? [],
+    );
   }
 
   private fail(id: AgentToolId, diagnostic: AgentToolDiagnostic): void {
@@ -618,17 +636,6 @@ export class AgentToolManagerService {
       dependency: null,
       checkedAt: new Date().toISOString(),
     });
-  }
-
-  private failureReason(error: unknown): AgentToolDiagnostic {
-    if (error instanceof AgentAccessDeniedError) return "permission_denied";
-    if (
-      error instanceof Error &&
-      "code" in error &&
-      (error.code === "EACCES" || error.code === "EPERM")
-    )
-      return "permission_denied";
-    return "installation_failed";
   }
 
   private refusal(id: AgentToolId): AgentToolReadinessError {
@@ -654,6 +661,7 @@ export class AgentToolManagerService {
       ),
       lastSuccessfulCheck: this.states.lastSuccessfulCheck(tool.id),
       release: this.dependencies.updates.view(tool, {
+        installed: state.checkedAt === null ? null : state.location !== null,
         version: state.location?.version ?? state.health.version,
         source: state.location?.source ?? null,
       }),

@@ -9,6 +9,7 @@ import {
   ANTIGRAVITY_APP_DATA_DIRECTORY,
   requireAntigravityContext,
 } from "./antigravity-context.mjs";
+import { AntigravityPromptCalls } from "./antigravity-usage.mjs";
 import { OpenCodeAcpClient, classifyOpenCodeFailure } from "./opencode.mjs";
 
 // The official ACP entry point `agy acp` and its contract, as in
@@ -202,6 +203,13 @@ function decide(options, access, toolCall) {
 async function publish(event) {
   if (!process.stdout.write(`${JSON.stringify(event)}\n`))
     await once(process.stdout, "drain");
+}
+
+// The counts of the model calls the running prompt finished so far. A closed
+// output also fails the result that follows, so a lost reading is no error of
+// its own.
+function publishCalls(sessionId, usage) {
+  publish({ type: "pages.usage", sessionId, usage }).catch(() => null);
 }
 
 function start(environment, directory, options = {}) {
@@ -524,10 +532,24 @@ export async function executeAntigravity(job, prompt, base = process.env) {
       reasoningEffort: options.find((entry) => entry.id === EFFORT_OPTION)
         ?.currentValue,
     });
-    const turn = await client.call("session/prompt", {
-      sessionId: session.sessionId,
-      prompt: [{ type: "text", text: prompt }],
-    });
+    const calls = new AntigravityPromptCalls(
+      environment.GEMINI_HOME,
+      session.sessionId,
+      (usage) => publishCalls(session.sessionId, usage),
+    );
+    await calls.begin(Boolean(job.resumeSessionId));
+    let turn;
+    try {
+      turn = await client.call("session/prompt", {
+        sessionId: session.sessionId,
+        prompt: [{ type: "text", text: prompt }],
+      });
+    } finally {
+      // A failed prompt keeps the calls it finished; an answer with usage
+      // replaces them. A CLI that ended no longer holds its store open.
+      if (child.exitCode === null && child.signalCode === null) calls.finish();
+      else calls.stop();
+    }
     await client.flushMessage();
     return turnResult(job, session.sessionId, turn, running);
   } finally {

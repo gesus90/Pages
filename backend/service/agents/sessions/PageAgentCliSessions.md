@@ -206,7 +206,12 @@ Context occupancy and token counts are separate values:
   source `codex_token_count`: the occupancy and window of the latest
   `token_count` in the rollout of its thread, the model of its
   `turn_context` (see "Measured source of the context of a Codex CLI job").
-  The summed tokens of `turn.completed` stay token counters.
+  The summed tokens of `turn.completed` stay token counters; the same rollout
+  names them while the turn runs (see "Token counts of a Codex CLI job while
+  its turn runs").
+- The token counters of a Claude Code CLI job are the sum of the answers of
+  its turn, each answer counted once with its final counters (see "Token
+  counts of a Claude Code CLI job while its turn runs").
 - Except for the Codex plan path described below, token counts come from `PromptResponse.usage`, per turn. A missing
   count is `null`, never 0; nothing is derived from text length or from
   `used/size`.
@@ -219,17 +224,22 @@ Context occupancy and token counts are separate values:
 - OpenCode additionally reads its native SQLite session and child sessions.
   Each assistant message ID has one durable owner across turns and retries.
   Updated counters replace that message. Step and run projections use these
-  native message totals, including reasoning and cache.
+  native message totals, including reasoning and cache. A row whose model
+  step has reported nothing yet is no message: OpenCode writes it with every
+  count at 0 when the step starts and measures only at its end.
   Free models cost zero; other models use the saved daily OpenRouter catalogue,
   an administrator's model ID mapping where present, then native message cost.
   Each message keeps the catalogue timestamp used for its price.
 
-| Provider (adapter)               | Counting                                                   | `inputTokens` contains cache reads                    | Partial turns                     | Context (`used`/`size`)                | Cost                                | Load / resume                  |
-| -------------------------------- | ---------------------------------------------------------- | ----------------------------------------------------- | --------------------------------- | -------------------------------------- | ----------------------------------- | ------------------------------ |
-| Claude Code (`claude-agent-acp`) | per prompt                                                 | no; total = input + output + cache read + cache write | no                                | last top-level message, cache included | estimate, process total             | resume (transcript on disk)    |
-| Codex (`codex-acp`), plans       | native cumulative deltas reconciled with ACP prompt deltas | yes                                                   | missing reports marked incomplete | context only, never accounting         | OpenRouter equivalent, subscription | load (replays history), resume |
-| OpenCode (native ACP)            | per prompt                                                 | not verified (`null`)                                 | yes (last model step only)        | reported by the release source         | estimate, session total             | resume                         |
-| Antigravity (`agy acp`)          | per prompt, summed over the prompt's model calls           | no; total = input + cache read + output               | no                                | `used`/`size` of each `usage_update`   | none reported; OpenRouter estimate  | targeted session resume        |
+| Provider (adapter)               | Counting                                                   | `inputTokens` contains cache reads                    | Partial turns                      | Context (`used`/`size`)                | Cost                                | Load / resume                  |
+| -------------------------------- | ---------------------------------------------------------- | ----------------------------------------------------- | ---------------------------------- | -------------------------------------- | ----------------------------------- | ------------------------------ |
+| Claude Code (`claude-agent-acp`) | per prompt                                                 | no; total = input + output + cache read + cache write | no                                 | last top-level message, cache included | estimate, process total             | resume (transcript on disk)    |
+| Codex (`codex-acp`), plans       | native cumulative deltas reconciled with ACP prompt deltas | yes                                                   | missing reports marked incomplete  | context only, never accounting         | OpenRouter equivalent, subscription | load (replays history), resume |
+| Codex CLI job of a runner        | thread sum without the sum before the job                  | yes                                                   | interim reading of a running turn  | `token_count` of the rollout           | OpenRouter equivalent, subscription | `codex exec resume`            |
+| Claude Code CLI job of a runner  | answers of the turn; session totals of the result as delta | no; total = input + output + cache read + cache write | interim reading of a running turn  | last top-level answer, cache included  | OpenRouter equivalent, subscription | `claude -p --resume`           |
+| OpenCode (native ACP)            | per prompt; every model step as its own native message     | prompt: not verified (`null`); native message: no     | prompt: yes (last model step only) | `used`/`size` of `usage_update`        | free, catalog estimate or reported  | resume                         |
+| OpenCode job of a runner         | every model step as its own native message                 | no; total adds reasoning, cache read and cache write  | prompt: yes (last model step only) | `used`/`size` of `usage_update`        | cost OpenCode reported per step     | resume                         |
+| Antigravity (`agy acp`)          | per prompt, summed over the prompt's model calls           | no; total = input + cache read + output               | no                                 | `used`/`size` of each `usage_update`   | none reported; OpenRouter estimate  | targeted session resume        |
 
 A later surface can show `112k In (3.6m Cache Read) · 1.2k Out` from
 `inputTokens`, `cacheReadTokens` and `outputTokens`; for Claude the cache is
@@ -293,40 +303,105 @@ turn as the prompt's answer later. A history entry of kind `usage` follows each
 stored sum, so the open terminal reads the new count within its usual refresh
 while the prompt runs. The regular reading ends when the prompt answers, fails
 or its connection closes; a failed prompt keeps the calls read until then. The
-cache write and the total stay missing in a live count and the turn counts as
-partial, so no estimate is formed from it. When the prompt answers with
+cache write and the total stay missing in a live count, so its estimate covers
+only the reported counts and is marked as partial. When the prompt answers with
 `usage`, that sum replaces the live count, because both are stored under the
 same attempt and turn; a history entry says whether the answer matches the sum
 of the calls. Without `usage` in the answer the calls stand as the turn's
 count. Between prompts nothing is read, and the rows of earlier prompts,
-attempts and reconnections never count again. A runner job reports the counts
-only with the prompt's answer.
+attempts and reconnections never count again.
+
+A runner job reads the same store in the process that started `agy acp`
+(`scripts/runner/antigravity-usage.mjs`), with the Gemini folder and the
+session id of exactly that process. This covers a plan node that runs on a
+runner, also on the runner of the Pages host itself. A job sends one prompt.
+Before it does, the reader notes the last row: none for a new
+conversation, the rows of the earlier prompts for a resumed one. A resumed
+conversation whose store cannot be read then reports no live count, because
+its earlier rows could not be told apart. While the prompt is open the reader
+sums the later rows every second and writes each changed sum as a
+`pages.usage` event; the job history turns it into a `usage` event with input,
+output and cache reads, and without a cache write count or a total. Pages
+stores it under the attempt and turn of the job, where the usage of the
+prompt's answer replaces it. A Node.js without `node:sqlite` reads nothing, and
+the counts then come with the answer alone.
+
+Measured on a runner job of 24.11.2026 with `agy acp` 1.5.16 and
+`gemini-4-neon` (reasoning `xhigh`), one conversation over four prompts, the
+later three resumed: the rows of each prompt sum to exactly its answer. The
+first prompt reported input 432,944, cache read 15,226,170, output 142,465,
+cache write 0 and total 15,801,579, the sum of its 56 rows; the three resumed
+prompts reported 14,248 / 1,204,427 / 2,868, then 2,292 / 409,153 / 701 and
+2,371 / 411,446 / 407, the sums of the next three, one and one rows. The Neon
+input therefore leaves out the cache reads as well, and its total is input +
+cache reads + output.
 
 #### Terminal sidebar
 
-The block "Verbrauch" stands below "Kontext" with four fixed rows: Eingabe,
-Ausgabe, Cache gelesen and Cache geschrieben, each the attempt's sum over its
-turns. A count not reported yet reads "–", a reported 0 reads "0"; the rows
-stand from the start, so the block "Session" does not move when counts arrive.
-For a runner job the title reads "nach dem Zug" while the turn runs. A cost row
-stands from the start as well. With an estimate from the daily OpenRouter
-catalogue, which exists only when every turn of the attempt reported all four
-counts and the catalogue prices the model, including its cache reads and
-writes, it reads "Kosten · Schätzung". Without an estimate it reads "Kosten"
-and "unbekannt", never 0. The reported total stays stored for technical checks
-and is not shown. Antigravity reports no charged amount with a billing status,
-so the row never shows a provider amount.
+The todo list takes the height the other blocks leave, so they stay low. Every
+block has 12 px padding above and below and no further margin; a 1 px line
+separates two blocks. A row is 28 px high, a row whose value is a badge (model,
+reasoning, access, branch) 32 px, and the block "Kontext" 60 px with its
+padding, with or without a bar. A todo entry keeps its 28 px line, its 13 px
+text, its mark and its tooltip with the full text. A window too low for all
+blocks scrolls the whole sidebar, so "Kontext", "Verbrauch" and "Session"
+stay reachable. With one bound ticket, an activity line and the report time,
+the blocks outside the list take 619 px instead of 739 px before: a sidebar
+709 px high shows three entries instead of none, one 880 px high nine instead
+of five.
+
+The block "Verbrauch" stands below "Kontext" with three fixed rows of 28 px:
+Eingabe, Ausgabe and Cache, each the attempt's sum over its turns. An
+Antigravity, a Codex and a Claude Code attempt show it. The row
+"Cache" shows only the tokens read from the cache; its hint and its name for a
+screen reader read "Aus Cache gelesen". The cache write count has no row and
+stays a stored count for checks and the estimate. A count not reported yet
+reads "–", a reported 0 reads "0"; the rows stand from the start, so the block
+"Session" does not move when counts arrive. While a prompt runs, the rows show
+the sum of its finished model calls and follow each further call. Every token
+stands in one row only: Codex counts the cache reads within its input, so the
+row "Eingabe" of a Codex attempt shows the input without them
+(`inputIncludesCache`), while the stored counts stay as Codex reported them.
+A Codex attempt without a reported cache count keeps its input as it is and
+reads "–" in the row "Cache".
+
+A single cost row "Kosten" stands from the start as well and reads "–" until
+an amount can be calculated. The amount is an estimate from the daily
+OpenRouter catalogue for exactly the model of the turn. It prices each count a
+turn reported with the catalogue rate of that count. A count a turn lacks, as
+the cache writes of a running prompt, adds nothing and is never priced as 0;
+the estimate is then a partial estimate, and the estimate of the finished turn
+replaces it. A reported count above 0 without a catalogue rate, a model the
+catalogue does not list, an unverified cache counting or an attempt without
+any count leaves no amount, and the hint of the row names the reason. The
+reported total stays stored for technical checks and is not shown. Antigravity
+reports no charged amount with a billing status, so the row never shows a
+provider amount. A Codex attempt shows the amount stored with its turns: the
+subscription equivalent `CodexPlanUsageRepository` calculates at the price
+frozen for the attempt, cache reads at the cache rate and never twice. It is
+a partial estimate while a turn holds an interim reading, and there is no
+amount without a turn, with a turn that lacks input or output, or without a
+price for its model. A Claude Code attempt shows the amount `accountClaudeUsage`
+stored with its turns in the same way (`claudeAttemptUsage`): input, output,
+cache reads and cache writes of each model at the catalogue rates frozen for
+the attempt. Claude counts the three input kinds apart, so the rows show its
+counts unchanged and the cache writes enter only the amount. A turn that
+lacks a cache count still has an amount over the counts it reported, marked
+as a partial estimate.
 
 The estimate is shown in the currency the account chose under Settings →
 Sprache & Region: US dollars until a choice is saved, or euros converted with
 the ECB reference rate and marked "ca.". Without a valid rate the US dollar
-amount stands with its code "USD". A reported 0 stays 0. The hint of the value,
-shown after 1.5 s or at once on keyboard focus, names the source with model,
-price date and original amount on line 1, and the conversion with rate and ECB
-day on line 2. The server reads the ECB rate at most every six hours, an hour
-after a failed read, keeps the last valid rate with its working day in
-`ecb-reference-rate.json` of the Pages data directory and reuses it on weekends
-and after failed reads; a rate older than seven days counts as missing.
+amount stands with its code "USD". Every amount has exactly two decimals, a 0
+as "0,00"; the amount is rounded only for display, after the conversion. The
+hint of the value, shown after 1.5 s or at once on keyboard focus, names the
+source as "Geschätzt" or "Teilschätzung" with model, price date and original
+amount on line 1, and the conversion with rate and ECB day on line 2; a partial
+estimate adds that counts not reported yet are left out. The server reads the
+ECB rate at most every six hours, an hour after a failed read, keeps the last
+valid rate with its working day in `ecb-reference-rate.json` of the Pages data
+directory and reuses it on weekends and after failed reads; a rate older than
+seven days counts as missing.
 
 ### Measured source of the context of a Claude Code CLI job
 
@@ -476,6 +551,397 @@ constructed rollouts for resume, model switch, missing `info`, a line written
 in two parts, a line beyond 8 MiB and a job without rollout; the readings then
 went through `readRunnerSessionReading`, `persistRunnerSessionReading` and
 `attemptContext` with a stand-in database.
+
+### Token counts of a Codex CLI job while its turn runs
+
+Up to runner 1.25.1 a Codex job reported its tokens once, with
+`turn.completed`, so the plan terminal showed no counts while the turn ran.
+Runner 1.25.2 reads `info.total_token_usage` of every `token_count` with the
+rollout reader that reads the context, and sends each changed sum as a `usage`
+event with input, output, cache reads, cache writes and total, marked
+`"isInterim": true`. The occupancy stays the separate session reading of the
+same record; the two are stored apart and never mixed.
+
+- **Counting.** `total_token_usage` and the `usage` of `turn.completed` count
+  the whole thread, and `codex exec resume` keeps counting where the last turn
+  ended. Before the child starts, the reader keeps the last sum of a resumed
+  rollout as the baseline of the job and subtracts it from every later sum,
+  also from the counters of `turn.completed` in the `usage` event and in the
+  terminal receipt. A thread the job begins has no baseline. A resumed thread
+  whose rollout is not found reports no interim count, because its earlier
+  tokens could not be told apart, and Codex naming another thread than the
+  resumed one ends the baseline. A sum never falls: a sum below the baseline
+  started over and counts on its own, and counters of a turn end below the
+  latest sum of the rollout are the turn's own and stay as reported.
+- **Cache.** Codex counts the cache reads within the input and names the
+  cache writes `cache_write_input_tokens`, a reported 0 in every record
+  measured. Both are stored as reported, the cache writes as a count for
+  checks. A counter a record lacks stays `null` and never becomes 0.
+- **End of the turn.** `turn.completed` ends the interim readings; its
+  counters replace them under the same attempt and turn and clear the partial
+  mark. A turn that fails without `usage` keeps its last interim reading,
+  which stays partial. A sum equal to the baseline measured nothing of the
+  turn and is not sent. An ephemeral job writes no rollout and reports the
+  counters of its turn end alone.
+- **Storage and amount.** `persistRunnerStructuredProgress` stores an interim
+  reading as a partial turn, and `CodexPlanUsageRepository` values every
+  reading at the price frozen for the attempt. The terminal receipt takes the
+  same way (`persistRunnerSessionUsage`), so the amount stays after the end
+  of the turn; before, the receipt replaced the row without its valuation.
+- **View.** `codexAttemptUsage` of the session view sums the Codex turns of
+  the selected attempt alone, with the amount, its price date and model, and
+  the reason of a missing amount; another attempt of the node never adds to
+  it. Every stored reading writes a `usage` history entry, so the open
+  terminal reads the view again within its usual refresh, and reopening reads
+  the stored row.
+
+Measured on 25 November 2026 with the rollouts of a local test profile
+(Codex CLI 0.166.0): all 40,839 `token_count` records of its 2,353 rollouts
+name `cache_write_input_tokens`, and no sum falls within a rollout. Of the
+133 rollouts written by `codex exec`, seven hold two to five turns, each
+continuing the sum of the turn before. One of them, with four turns, was
+replayed turn by turn through the output sink of a job (`JobOutput`), the
+records before the turn as the existing rollout: the turn of the new thread
+sent 8 interim readings, from input 18,576, cache read 12,160 and output 184
+to 232,474, 212,608 and 2,070, the 8 sums of the rollout, and the counters of
+its end matched the last one. The third turn, resumed at a thread sum of
+1,769,197 input tokens, sent 23 interim readings from 79,959, 77,952 and 168
+to 2,158,230, 2,136,576 and 3,208; its turn end named the thread sum
+3,927,427 and was reported as 2,158,230 in the `usage` event and in the
+terminal receipt. Stored on a PostgreSQL test database with a catalogue
+price, each reading replaced the row of the turn with its amount, the turn
+end cleared the partial mark, and the terminal receipt kept the amount. A
+real model turn in the Pages terminal was not part of this check.
+
+### Token counts of a Claude Code CLI job while its turn runs
+
+Up to runner 1.25.2 a Claude job sent, with every `assistant` event, the sum
+of the `message.usage` of its answers. That usage is the one of
+`message_start`: input, cache reads and cache writes are final, but the output
+is the count of the moment the answer began. The session ledger also kept only
+the first of these sums: `accountClaudeUsage` ignored every further reading
+without an observation, so the plan terminal held the first reading until the
+result.
+
+- **Counting.** The CLI reports an answer three times in the output of a
+  runner job (`--include-partial-messages`): `stream_event` `message_start`
+  with the identity, the model and the counters of the start, `assistant`
+  events that repeat those counters for every finished content block, and
+  `stream_event` `message_delta` with the final counters and no identity.
+  Runner 1.25.3 keeps one reading per answer, takes the highest report of each
+  counter and assigns a `message_delta` to the answer its stream (the top
+  level, or the call of a subagent) began last. A counter no report named
+  stays `null`. Claude's own banners (`<synthetic>`) are not counted.
+- **Interim readings.** Every changed sum of the job is a `usage` event with
+  input, output, cache reads, cache writes and total, marked
+  `"isInterim": true`; an unchanged sum is not sent again. The answers of a
+  subagent arrive as `assistant` events only, so their output stays the count
+  of their start, and calls the CLI makes on its own are not streamed at all.
+  An interim reading therefore is a partial turn. The occupancy stays the
+  separate session reading of the same answers.
+- **Session ledger.** The job of a plan node adds the sum of one model to each
+  interim reading as an observation
+  `{kind: "message", id: "live:<job key>:<model>"}`. The ledger keeps one such
+  reading per job and model and replaces it with the next one, so the turn's
+  allocation follows
+  the sum and nothing is added twice. A job without this binding sends the
+  sum alone; it replaces the running sum stored for the same attempt and turn.
+- **End of the turn.** `result.modelUsage` names the totals per model,
+  including subagents and the CLI's own calls, for the whole native session:
+  a job that resumed a session with `--resume` reports the tokens of every
+  earlier job again. The runner therefore sends them as one observation of
+  kind `total`. The ledger takes them as the new total of the session, drops
+  the interim readings and gives the turn the difference to the total before,
+  so every turn and every attempt holds only its own tokens, also when several
+  nodes of a group share one native session. Readings of earlier runners,
+  which sent the same totals as readings of one answer, are taken as totals
+  as well. The counters without an observation, in the `usage` event and in
+  the terminal receipt, are `result.usage` for a resumed job: the job's own
+  turn without subagents. A turn that ends without a `result` keeps its last
+  interim reading, which stays partial.
+- **Further results of one job.** A job whose background task ends after its
+  result goes on and reports a further `result`. Its `usage` names only the
+  top-level answers since the result before, its `modelUsage` again the whole
+  session. With every result the runner settles the answers up to it: the
+  answers that follow start interim readings under a new name, and the
+  counters without an observation continue from the settled ones.
+- **Storage and amount.** `accountClaudeUsage` values every reading at the
+  OpenRouter rates frozen for the attempt and each model. A reading without
+  an observation never replaces counters the ledger allocated, and the first
+  observation replaces a running sum instead of adding to it. The terminal
+  receipt of a runner step takes the same way (`persistRunnerSessionUsage`),
+  so it no longer replaces the row without its valuation.
+- **View.** `claudeAttemptUsage` of the session view sums the Claude turns of
+  the selected attempt alone, with the amount, its price date and model, and
+  the reason of a missing amount. Every stored reading is a `usage` history
+  entry, so the open terminal reads the view again within its usual refresh,
+  and reopening reads the stored rows. A local ACP session marks the reading
+  of an answer (`_claude/sdkMessage`, `assistant`) as partial as well, until
+  the totals of its `result` replace it.
+
+Measured on 25 November 2026 with the job journals of the local runner
+(Claude Code 2.1.322, runner 1.25.1), 471 finished Claude jobs:
+
+- In 463 jobs `result.usage` equals the sum of the top-level answers with
+  their `message_delta` counters. The other 8 jobs reported a further result
+  after a background task had ended; each `usage` matched the top-level
+  answers since the result before, and `modelUsage` stayed the running total.
+  One of them named input 28, output 15,418, cache read 675,455 and cache
+  write 55,601 with its first result and 10, 2,679, 281,176 and 3,828 with
+  its second, beside `modelUsage` 38, 18,097, 956,631 and 59,429; replayed,
+  the turn stored the first total, followed the eight interim sums after it
+  and ended at the second total.
+- One turn of `claude-opus-5-5` with 81 answers: the `assistant` events sum
+  to input 166, output 1,634, cache read 10,052,567 and cache write 179,876;
+  with `message_delta` the output is 50,178, the value of the result.
+- Four nodes of one plan run shared a native session (`claude-haiku-5-5`),
+  three of them resumed. Their own turns counted input 34, 16, 32 and 26 and
+  output 16,677, 9,470, 21,871 and 12,160; `result.modelUsage` named 34, 50,
+  82 and 108 input tokens and 16,677, 26,147, 48,018 and 60,178 output
+  tokens, the running total of the session. Replayed through the journal of
+  1.25.1 and the earlier accounting on a PostgreSQL test database, the four
+  attempts stored input 36, 52, 84 and 110: each total again, plus the first
+  interim reading. With runner 1.25.3 and the accounting above they store 34,
+  16, 32 and 26 with the matching output, cache and amounts, and every interim
+  sum was stored on the way (35, 17, 33 and 27 states).
+- A turn with 41 answers of subagents (`claude-sonnet-5-5`) held input 156,
+  output 14,977, cache read 4,616,959 and cache write 213,026 as its last
+  interim reading; the result replaced it with 168, 70,961, 5,097,925 and
+  220,529. A turn with a `claude-haiku-5-5` subagent beside
+  `claude-opus-5-5` stored both models with their own prices.
+- A ticket node that was still running (`claude-fable-5-2`) sent 262 interim
+  readings for 131 answers, each stored under its attempt and turn; the last
+  one held input 262, output 198,209, cache read 37,304,627 and cache write
+  498,455 and a partial estimate of 20.38 USD. The deployed runner had
+  reported output 426 for the first 49 of these answers, where their final
+  counters sum to 31,902. A ticket node that had been cancelled kept its last
+  interim reading as a partial turn.
+
+The amount is an estimate, never a charge: a Claude connection signs in with
+a subscription, and the CLI names `total_cost_usd` only with the result, as
+its own calculation over the whole session. Two differences to that figure
+are known. The catalogue rate `input_cache_write` is the rate of a
+five-minute cache entry, while Claude Code 2.1.322 writes one-hour entries
+(`cache_creation.ephemeral_1h_input_tokens`), which the catalogue lists
+apart as `input_cache_write_1h`: for the turn of 81 answers the CLI named
+4.45 USD and the estimate 3.91 USD, the difference being exactly its 179,876
+cache writes at the higher rate. And a model with a second price tier for
+long prompts (`pricing.overrides`, as `claude-haiku-5-5` above 100,000 prompt
+tokens) is priced at its base rates. A real model turn in the Pages terminal
+of a deployed server was not part of this check.
+
+### Step usage of an OpenCode attempt while its turn runs
+
+OpenCode answers a prompt with the tokens of its last model step only, and
+its `usage_update` comes with the end of the turn. A runner job passed that
+answer on, so the plan terminal had no counts while the turn ran and a
+fraction of the turn afterwards: of a turn of four steps with input 8,999 the
+answer named 1,608. The capability record
+[OpenCode ACP](../../../agents/acp/OpenCodeAcpCapabilities.md) holds the
+observations.
+
+- **Source.** OpenCode's own session database holds one row per model step of
+  the session and of its sub-sessions. The row is written with zeros when the
+  step starts and with the measured input, output, reasoning, cache reads,
+  cache writes and cost when it ends. `readOpenCodeMessage` and the runner's
+  `readOpenCodeStep` return nothing for a row that has not reported, so a
+  running step adds no 0.
+- **Runner job.** From runner 1.25.4 `opencode-usage.mjs` reads the rows of
+  the job's session every second while the prompt is open, read only. The
+  database is the one below `XDG_DATA_HOME` of the started process. The rows
+  that exist before the prompt belong to earlier prompts of a resumed session
+  and are left out. Each finished step is one `usage` event
+  `{"openCodeMessage": {…}}` with the IDs of its native message and session,
+  the model, the five counts and the cost; a step is sent again only when its
+  row changed. The counts of the prompt's answer stay the `usage` event and
+  the receipt of the turn, as before.
+- **Pages host.** A plan session of the Pages host reads the same rows with
+  every update of the session and after the prompt
+  (`forwardOpenCodeSessionUsage`). `CliAcpSessionSetup.ts` hands it the
+  database of the connection, `opencode/opencode.db` below the connection's
+  OpenCode folder, and the data directory of the price list.
+- **Storage.** Both ways store a step in `agent_opencode_message_usage` under
+  its message ID, with the attempt that reported it first.
+  `persistRunnerStructuredProgress` takes the event apart from the token
+  counters, so a receipt of the turn never replaces it, drops a usage that
+  breaks the contract and leaves a message another attempt owns as it is. A
+  repeated batch, the end of the turn and a later attempt therefore never
+  count a step twice.
+- **Amount.** A step of a runner job keeps the cost OpenCode reported
+  (`nativeOpenCodePrice`): the provider amount, or a confirmed zero for a
+  model its provider names free (`opencode/…-free`, `openrouter/…:free`). A
+  session of the Pages host keeps its pricing: free model, price list, then
+  the reported cost.
+- **View.** `openCodeAttemptUsage` of the session view sums the steps of the
+  selected attempt for the block "Verbrauch": the input without the cache
+  reads, the output with the reasoning, the cache reads alone, and the
+  amount with `amountSource` (`provider`, `free`, `catalog` or `mixed`).
+  Without a finished step every count is `null`. A reported cost of 0 for a
+  model that is not free is no amount, because OpenCode also calculates 0
+  without a price. While the attempt runs the amount is marked as partial.
+  The sums of the turn rows (`totals`) keep the answer of the prompt and are
+  not added to it.
+
+Checked on 2026-11-25 with OpenCode 1.19.6 and the free models
+`opencode/nemotron-3.5-lightning-free` (three jobs of the runner script over
+ACP) and `openrouter/nvidia/nemotron-3.5-lightning:free` (pilot launcher).
+The journal events of these jobs were stored through
+`persistRunnerStructuredProgress` in an empty PostgreSQL 18 and read back
+through `openCodeUsageView`:
+
+| State                             | Eingabe | Ausgabe | Cache  | Kosten | Native sum of the finished steps    |
+| --------------------------------- | ------- | ------- | ------ | ------ | ----------------------------------- |
+| before the first step ended       | –       | –       | –      | –      | none                                |
+| after step 1 (3.0 s)              | 685     | 144     | 4,224  | 0.00   | 685, 53 + 91, 4,224, cost 0         |
+| after step 4 (5.0 s)              | 3,821   | 366     | 16,896 | 0.00   | 3,821, 237 + 129, 16,896, cost 0    |
+| after step 7, turn ended (7.2 s)  | 8,271   | 603     | 29,568 | 0.00   | 8,271, 387 + 216, 29,568, cost 0    |
+| the same events stored again      | 8,271   | 603     | 29,568 | 0.00   | unchanged                           |
+| second attempt, session resumed   | 1,552   | 142     | 4,224  | 0.00   | its one step; the first stays 8,271 |
+| read again after a new connection | 8,271   | 603     | 29,568 | 0.00   | unchanged                           |
+
+The answer of that prompt named input 1,625, output 35 and cache reads 4,224,
+which stayed in its turn row. With made-up steps a reported cost of 0.0123 and
+0.02 USD gave 0.01 and then 0.03 as the provider amount, and a cost of 0 or no
+cost for a model that is not free gave a dash. A step usage in the browser of
+a deployed server, a model with a price and a sub-session were not part of
+this check.
+
+### Step usage of an attempt of an OpenRouter connection
+
+A plan node of an OpenRouter connection runs on OpenCode as its private
+runtime. Its attempt is named `openrouter`, its model is stored without a
+prefix, and OpenCode writes the same rows per model step as for an OpenCode
+connection, with `providerID` `openrouter`. The step rows were stored only
+for an attempt named `opencode`, and the session view named the step sums
+only for that runner, so such an attempt had no counts while its turn ran.
+
+- **Recording.** `recordOpenCodeMessages` takes the steps of every attempt
+  that runs on OpenCode. `isOpenCodeRunner` names these runners: `opencode`,
+  `openrouter` and a retired provider, whose stored runs ran on OpenCode.
+- **View.** The session view names `openCode` and `openCodeAttemptUsage` for
+  the same runners, so the block "Verbrauch" of an OpenRouter attempt shows
+  the sums of its finished steps. The run sum expects the attempts of
+  OpenRouter nodes as well and marks a sum without them as incomplete.
+- **Amount.** A model its provider names free (`opencode/…-free`,
+  `openrouter/…:free`) is a confirmed zero on the host as in a runner job,
+  also without a price list at hand (`isNamedFreeModel`). A model of the
+  price list stays an estimate from its rates and the five counts, cache
+  writes included; otherwise the cost OpenCode reported stands as the
+  provider amount. OpenCode calculates that cost from its own model list; it
+  is no amount OpenRouter charged.
+- **Apart from it.** The occupancy of the context window stays the reading
+  of `usage_update`, and the credit of the OpenRouter account stays with its
+  connection. The answer of a prompt stays in the turn row and is no part of
+  the step sums.
+
+Checked on 2026-11-25 with OpenCode 1.19.6 and
+`openrouter/nvidia/nemotron-3.5-lightning:free`. A request through the pilot
+launcher gave one step: no reading while its row held the zeros of its start,
+then input 1,988, output 103, reasoning 327, cache reads 0 and cost 0. The
+rows of a stored session of 13 steps of the same model were then written into
+a session database in the order of their own start and end times and read
+through `forwardOpenCodeSessionUsage` into an attempt named `openrouter`,
+stored in an empty PostgreSQL 18 through `AgentSessionRepository` and read
+back through `openCodeUsageView`. The first attempt took the first eight
+steps and a second attempt in a new recorder the remaining five:
+
+| State                                    | Eingabe | Ausgabe | Cache  | Kosten | Native sum of the finished steps       |
+| ---------------------------------------- | ------- | ------- | ------ | ------ | -------------------------------------- |
+| step 1 started, nothing measured         | –       | –       | –      | –      | none                                   |
+| after step 1 (1.7 s)                     | 2,346   | 150     | 4,224  | 0.00   | 2,346, 40 + 110, 4,224, cost 0         |
+| after step 3 (4.7 s)                     | 3,405   | 627     | 16,896 | 0.00   | 3,405, 195 + 432, 16,896, cost 0       |
+| after step 6 (16.5 s)                    | 6,972   | 2,573   | 38,016 | 0.00   | 6,972, 1,227 + 1,346, 38,016, cost 0   |
+| after step 8, turn about to end (21.8 s) | 10,195  | 3,314   | 54,912 | 0.00   | 10,195, 1,686 + 1,628, 54,912, cost 0  |
+| the same rows read again                 | 10,195  | 3,314   | 54,912 | 0.00   | unchanged                              |
+| after the answer of the prompt           | 10,195  | 3,314   | 54,912 | 0.00   | unchanged                              |
+| read again over a new connection         | 10,195  | 3,314   | 54,912 | 0.00   | unchanged                              |
+| second attempt, session resumed          | 7,067   | 2,632   | 54,912 | 0.00   | its five steps; the first stays 10,195 |
+
+The answer of the first prompt was given the counts of its last step (input
+1,967, cache reads 8,448); it went into the turn row. The node sum over both
+attempts held 13 messages with input 17,262, output 2,556, reasoning 3,390
+and cache reads 109,824, the sums of the native rows. The three `todowrite`
+calls of that session gave the stored work list active, open, open, then
+done, done, active, then three times done. The public OpenRouter price list
+of that day names 0 for every rate of the model, as the reported cost. A
+listed model with a price gave the catalog amount of its five counts, a
+missing input count no amount, and a model the list does not name the
+reported cost. A step usage in the browser of a deployed server, a fixed
+agent node and a ticket node of a real plan run, an OpenRouter model with a
+price in a real turn and a sub-session were not part of this check.
+
+### Step usage of an attempt of a Z.AI Coding Plan connection
+
+A connection of the Z.AI Coding Plan is an OpenCode connection that stores a
+key of the subscription. Its attempt is named `opencode`, its model keeps the
+prefix `zai-coding-plan/`, and OpenCode writes the same rows per model step
+with `providerID` `zai-coding-plan`. The steps are stored and summed like
+those of every OpenCode attempt; what differs is the amount. The capability
+record [OpenCode ACP](../../../agents/acp/OpenCodeAcpCapabilities.md) holds
+the observations.
+
+- **Amount.** OpenCode's model list states a price of 0 for the plan because
+  the subscription pays for it, so every step reports a cost of 0. Pages
+  stores that cost and shows no amount for it: `openCodeAttemptUsage` names
+  the gap `subscription`, "Kosten" keeps the dash, and the hint says that the
+  model runs on the subscription of the connection, that the provider reports
+  no amount for it and that the usage counts against the quota of the
+  subscription. A reported cost above 0 stands as the provider amount.
+- **No other price.** `OpenRouterPriceCatalog.calculate` keeps the reported
+  cost of such a step and nothing else (`isSubscriptionModel`): a free mark
+  of the model catalog is no confirmed zero, and a price ID the connection
+  names for the model never prices the subscription at the rates of the
+  standard API.
+- **Sums of node and run.** `sumOpenCodeUsage` counts a reported cost of 0
+  only for a model that is confirmed free, as the attempt does. The sums of a
+  node or a run with a step of the plan hold no cost, state `unknown`,
+  instead of a known 0.
+- **One write per reading.** `recordOpenCodeMessages` stores the changed
+  steps of one reading as one write and one `usage` event. An attempt that
+  resumes a native session in a new process reads every earlier step at
+  once; with a write and an event per step, more than 32 steps overran the
+  write queue of the recorder and failed the turn with
+  `plan_history_unavailable`.
+- **Apart from it.** The quota of the subscription is read for its
+  connection and is part of neither block. The occupancy of the context
+  window stays the reading of `usage_update`.
+
+Checked on 2026-11-25 with the rows of a plan run of 2026-11-24 in the
+session database of this host (run `7847a701`, OpenCode 1.18.34,
+`zai-coding-plan/glm-5.3-flash`, effort `high`): two fixed agent nodes of one
+group in one native session, attempt `b22a8a2b` with 19 steps and attempt
+`0a7a7e91` with 16. The rows were written into a session database of its own
+in the order of their start and end times, read through
+`forwardOpenCodeSessionUsage` with every change, stored in an empty
+PostgreSQL 18.6 through `AgentSessionRepository` and read back through
+`openCodeUsageView`. The session was given the adverse settings: a free mark
+of the model catalog and a price ID for the model that the price list names.
+
+| State                                              | Eingabe | Ausgabe | Cache     | Kosten | Native sum of the finished steps              |
+| -------------------------------------------------- | ------- | ------- | --------- | ------ | --------------------------------------------- |
+| step 1 started, nothing measured                   | –       | –       | –         | –      | none                                          |
+| after step 1 (9.4 s)                               | 107,252 | 397     | 0         | –      | 107,252, 251 + 146, 0, cost 0                 |
+| after step 2 (11.5 s)                              | 116,518 | 480     | 107,200   | –      | 116,518, 303 + 177, 107,200, cost 0           |
+| after step 5 (21.2 s)                              | 122,481 | 1,247   | 460,224   | –      | 122,481, 626 + 621, 460,224, cost 0           |
+| after step 11 (299.2 s)                            | 126,061 | 3,484   | 1,203,264 | –      | 126,061, 1,509 + 1,975, 1,203,264, cost 0     |
+| after step 19, turn about to end (347.5 s)         | 133,943 | 8,072   | 2,240,512 | –      | 133,943, 2,983 + 5,089, 2,240,512, cost 0     |
+| after the answer of the prompt                     | 133,943 | 8,072   | 2,240,512 | –      | unchanged                                     |
+| next node, same session, after its step 1 (11.2 s) | 135,857 | 435     | 0         | –      | its one step; the first node stays 133,943    |
+| next node after step 16, turn ended (99.2 s)       | 177,016 | 5,925   | 2,412,480 | –      | 177,016, 2,371 + 3,554, 2,412,480, cost 0     |
+| the same rows read again                           | 177,016 | 5,925   | 2,412,480 | –      | unchanged                                     |
+| first node read again over a new connection        | 133,943 | 8,072   | 2,240,512 | –      | unchanged                                     |
+| new attempt of the first node, session resumed     | –       | –       | –         | –      | none of its own; 35 earlier steps read again  |
+| that attempt after its one step                    | 9,266   | 83      | 107,200   | –      | its one step; the first attempt stays 133,943 |
+
+The stored rows belong to the three attempts with 19, 16 and 1 steps, each
+with the reported cost 0. The step of the new attempt was made up from the
+counts of step 2, and the attempt ran in a new recorder, as a new process
+does. The sidebar rendered from these views in a DOM showed the same counts,
+the dash for "Kosten" with the hint of the subscription in German and
+English, and "ca. 0,02 €" with the hint of a provider amount for a made-up
+reported cost of 0.0246 USD. A request to a model of the plan, a ticket node
+with such a model, a step usage in the browser of a deployed server and a
+sub-session were not part of this check.
 
 ### Codex terminal events for the design reference
 
@@ -634,6 +1100,10 @@ owner import acknowledgement commit together. Every loop iteration and retry has
 its own attempt; run totals sum all those turns. Missing attempts or token
 categories mark a total incomplete.
 
+A Claude Code CLI job of a runner reaches the same ledger: the sum of its
+answers per model while the turn runs, the totals of its result at the end
+(see "Token counts of a Claude Code CLI job while its turn runs").
+
 The public OpenRouter model catalog is fetched without credentials at service
 startup and every 24 hours. The last validated catalog survives network failures
 in PostgreSQL. Claude IDs are matched by model/version, ignoring deployment dates
@@ -732,7 +1202,9 @@ QA-only tasks may be completed with `an die Abschluss-QA übergeben`.
 `usage_update` stores the context and the cost (`cost_amount`,
 `cost_currency`) of the attempt; the view sums the tokens per turn, attempt
 (`totals`) and node (`nodeTotals`). OpenCode's `openCode` view reports native
-message totals for the node and its full run as messages arrive.
+message totals for the node and its full run as messages arrive, and
+`openCodeAttemptUsage` those of the selected attempt for the block
+"Verbrauch".
 
 ### The TODO list of the CLI
 
@@ -767,7 +1239,12 @@ never see `update_step_progress`. Pages therefore marks the tools the run
 contract names (ticket and checklist tools, `set_ticket_status`,
 `update_step_progress`, `report_step_result` and the swarm tools) in every
 `tools/list` answer with `_meta` `antigravity/alwaysLoad`
-(`planStepTools`); the rest of the catalog stays on demand. OpenCode
+(`planStepTools`); the rest of the catalog stays on demand. Every choice of
+these tools names `type: "string"` beside its `enum` (`stringChoice`): a Gemini
+function declaration accepts `enum` only on a string property, and an
+Antigravity session had no declaration of `update_step_progress` and
+`report_step_result` while their choices were untyped, although it called
+marked tools without such a choice. OpenCode
 (1.18.34) sent its first list in this field with the names of its own `todowrite` tool, which
 Pages refused before it accepted them, so the list arrived one call later;
 the `todos` field accepts these names too, and a `priority` copied from
@@ -776,8 +1253,12 @@ the list in `todowrite` itself. Its ACP adapter reports that tool only as tool
 calls (title `todowrite`, then `N todos`, kind `other`, the list in `rawInput`
 and in the result metadata), so `AgentToolCallEvents` records such a call as
 a `plan` event of the attempt, and "Lesend" allows `todowrite`, which changes
-nothing on the host. A `done` report of an attempt that never sent a list is
-refused with the missing list named, so the agent can still send it; until
+nothing on the host. A runner job does the same from runner 1.25.4
+(`readOpenCodeTodoList` of `live.mjs`): the call becomes a `plan` event
+instead of tool lines, a list the call repeats is sent once, and its
+read-only mode allows `todowrite`. A `done` report of an attempt that never
+sent a list is refused with the missing list named, so the agent can still
+send it; until
 then a progress call without `plan` names it in `notice`, and every other
 Pages answer of the step carries the same `notice` beside its result
 (`PagesAgentApiService.withPendingNotice`), so a model that never calls the
@@ -834,7 +1315,15 @@ whether or not tool events were recorded.
 - Resume, load and reconstructed sessions, a recovery API for failed runs and
   turn-only cancellation (`session/cancel`) are not wired for plan nodes.
 - Codex's cache counting and OpenCode's are not verified against adapter
-  sources in this change.
+  sources in this change. OpenCode's native messages count the input without
+  the cache reads, as their `total` shows.
+- The step usage of an OpenCode attempt was not compared in the browser of a
+  deployed server, neither for a fixed agent node nor for a ticket node, and
+  not for a model with a price or a sub-session.
+- A model of the Z.AI Coding Plan was not requested for this check: the pilot
+  launcher admits no model of `zai-coding-plan`. Its step usage comes from
+  the stored rows of fixed agent nodes; a ticket node with such a model and
+  the browser of a deployed server are still open.
 
 ## Codex plan accounting (14 November 2026)
 

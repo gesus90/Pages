@@ -80,9 +80,10 @@ its next use. At startup, managed tools can automatically move to a newly
 reviewed registry target after a successful probe. An explicit rollback records
 that target and remains in place across restarts until a different target is
 reviewed. Compatible adopted system tools remain untouched by automatic updates.
-Admins can also trigger an update explicitly. There is no periodic registry
-polling; adding an approved target is a reviewed source change, with no
-uncontrolled major upgrade.
+Admins can also trigger an update or release search explicitly. Compatible
+release metadata is searched server-wide once per day in the background and
+persisted in `tools/update-search.json` under `tools/locks/update_search.lock`;
+the daily search never installs or activates anything.
 
 New calls resolve a CLI in one order: the activated managed generation
 (`tools/<tool>/active.json`, or `tools/pairs/<cli>.json` for a CLI and its
@@ -101,7 +102,22 @@ results of the check shown with its time, not a new call; see the [Claude tool
 generation notes](ManagedClaudeCli.md).
 
 After listening, Pages reconstructs required dependencies from active CLI
-connections and saved optional integrations in the background. It checks local
+connections and saved optional integrations in the background, in the process
+that owns the runs. The process that shows the Tools tab also inspects the
+installed version of every other registered tool and installs none of them.
+With a separate runs process, the API process takes this inventory alone: it
+makes only the runtime, the sandbox and the saved optional integrations ready
+and leaves the sign-in checks to the runs process, which alone knows the
+sessions that use a CLI's credential home. A session owner makes only the
+tools of its own session ready, as before.
+The probes run one after the other in registry order, so the Node.js runtime
+is bound first and the few check places of the process runner stay free for
+sign-in checks, installations and session starts. A tool that another Pages
+process repairs at the same start is probed once more when that change ended.
+Service readiness, a session start and opening the Tools tab do not wait for
+these probes; the tab displays the latest known state, distinguishes
+unchecked, missing and checked tools, and refreshes automatically as probes
+finish. After the inventory, Pages checks local
 sign-ins without a model request. Other Pages features remain available while
 optional checks fail. Native runs wait for readiness, including an executable
 CLI, approved adapter, workspace, functional bubblewrap and required browser
@@ -198,8 +214,19 @@ starts each of them at once, one update per CLI/adapter pair, with the same
 checked targets the rows show. Changes of operating system packages are not
 part of this function.
 
-**Sources.** "Updates suchen" reads only fixed official sources and installs
-nothing:
+**Sources.** Both the daily server-wide update search and the manual
+"Updates suchen" action read only fixed official sources and install or
+activate nothing. The last search timestamp and per-tool results survive
+restarts in `tools/update-search.json`, and `tools/locks/update_search.lock`
+prevents duplicate searches across restarts or concurrent manual searches. A
+manual search counts as the search of the day. A kept result is read again
+only when it names stable versions and an archive of the tool's own official
+source; any other entry is left out until the next search reads it anew. A
+failure of one source does not obscure results for other tools. While a tool's
+installed version is unknown or confirmed missing, it is never reported as an
+available update; external system installations stay labeled as external. A
+missing tool offers "Installieren" instead, a missing runtime once a search
+found its release:
 
 | Tool                                                | Source                                                 | Target                                                                                       | Integrity proof                                              |
 | --------------------------------------------------- | ------------------------------------------------------ | -------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |

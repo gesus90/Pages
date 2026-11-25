@@ -55,15 +55,20 @@ function targetVersions(
   }));
 }
 
+function activeVersionOf(state: AgentToolState): string | null {
+  return state.location?.version ?? state.health.version;
+}
+
 // Next to an external installation the target is compared with the version that installation reports.
 function isNewerTarget(facts: UpdateFacts): boolean {
   const { tool, state, updates } = facts;
+  if (state.checkedAt === null || state.location === null) return false;
   const target = updates.target(tool.id);
-  const active = state.location?.version ?? state.health.version;
+  const active = activeVersionOf(state);
   const next = target ? readStableVersion(target.version) : null;
   const current = active ? readStableVersion(active) : null;
-  if (!next) return false;
-  return current === null || compareStableVersions(next, current) > 0;
+  if (!next || !current) return false;
+  return compareStableVersions(next, current) > 0;
 }
 
 function blockerOf(facts: UpdateFacts): AgentToolDiagnostic | null {
@@ -71,12 +76,18 @@ function blockerOf(facts: UpdateFacts): AgentToolDiagnostic | null {
   if (operations.some((operation) => operation?.state === "running"))
     return "update_running";
   if (!updates.hasSearched(tool.id)) return "update_not_checked";
+  const active = activeVersionOf(state);
   const release = updates.view(tool, {
-    version: state.location?.version ?? state.health.version,
+    installed: state.checkedAt === null ? null : state.location !== null,
+    version: active,
     source: state.location?.source ?? null,
   });
   const fromSearch = SEARCH_BLOCKERS[release.state];
   if (fromSearch) return fromSearch;
+  if (state.checkedAt === null) return "not_checked";
+  if (state.location === null) return "not_installed";
+  if (active === null || readStableVersion(active) === null)
+    return "not_checked";
   return updates.target(tool.id) ? null : "release_unavailable";
 }
 

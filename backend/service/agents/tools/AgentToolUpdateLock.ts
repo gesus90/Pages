@@ -17,11 +17,16 @@ import type {
   AgentToolId,
   AgentToolOperationView,
 } from "@/definition/AgentTools";
+import type { AgentToolLockKey } from "./AgentToolContracts";
 
 /** The process that holds a lock: its ID and its start time, so a reused ID never counts. */
 interface LockOwner {
   readonly processId: number;
   readonly startedAt: string;
+}
+
+function lockErrorTarget(key: AgentToolLockKey): AgentToolId | "workspace" {
+  return key === "update_search" ? "workspace" : key;
 }
 
 function missing(error: unknown): boolean {
@@ -71,7 +76,7 @@ function isOperation(input: unknown): input is AgentToolOperationView {
  */
 export class AgentToolUpdateLock {
   private readonly root: string;
-  private readonly held = new Map<AgentToolId, number>();
+  private readonly held = new Map<AgentToolLockKey, number>();
   private readonly writes = new Map<AgentToolId, Promise<void>>();
   private owner: LockOwner | null = null;
 
@@ -80,11 +85,11 @@ export class AgentToolUpdateLock {
   }
 
   /**
-   * Takes the lock of a combination, named by its CLI.
+   * Takes the lock of a combination or the shared update search.
    * @returns The release of the lock.
    * @throws {AgentToolReadinessError} `update_running` while another live process holds it.
    */
-  public async acquire(key: AgentToolId): Promise<() => Promise<void>> {
+  public async acquire(key: AgentToolLockKey): Promise<() => Promise<void>> {
     const count = this.held.get(key) ?? 0;
     if (count === 0) await this.create(key);
     this.held.set(key, count + 1);
@@ -102,8 +107,8 @@ export class AgentToolUpdateLock {
     };
   }
 
-  /** Whether a live process, this one included, holds the lock of a combination. */
-  public async isHeld(key: AgentToolId): Promise<boolean> {
+  /** Whether a live process, this one included, holds the lock of a combination or update search. */
+  public async isHeld(key: AgentToolLockKey): Promise<boolean> {
     if (this.held.has(key)) return true;
     const owner = await this.readOwner(key);
     return owner !== null && (await this.isAlive(owner));
@@ -155,19 +160,27 @@ export class AgentToolUpdateLock {
     return operations;
   }
 
-  private async create(key: AgentToolId): Promise<void> {
+  private async create(key: AgentToolLockKey): Promise<void> {
     if (await this.tryCreate(key)) return;
     const owner = await this.readOwner(key);
     if (owner !== null && (await this.isAlive(owner)))
-      throw new AgentToolReadinessError(key, "updating", "update_running");
+      throw new AgentToolReadinessError(
+        lockErrorTarget(key),
+        "updating",
+        "update_running",
+      );
     // The holder ended without releasing it, for example by a crash.
     await rm(this.lockFile(key), { force: true });
     if (!(await this.tryCreate(key)))
-      throw new AgentToolReadinessError(key, "updating", "update_running");
+      throw new AgentToolReadinessError(
+        lockErrorTarget(key),
+        "updating",
+        "update_running",
+      );
   }
 
   // Exclusive creation decides between two processes that try at the same time.
-  private async tryCreate(key: AgentToolId): Promise<boolean> {
+  private async tryCreate(key: AgentToolLockKey): Promise<boolean> {
     const file = this.lockFile(key);
     await mkdir(path.dirname(file), { recursive: true, mode: 0o700 });
     try {
@@ -182,7 +195,7 @@ export class AgentToolUpdateLock {
     }
   }
 
-  private async readOwner(key: AgentToolId): Promise<LockOwner | null> {
+  private async readOwner(key: AgentToolLockKey): Promise<LockOwner | null> {
     try {
       const input: unknown = JSON.parse(
         await readFile(this.lockFile(key), "utf8"),
@@ -212,7 +225,7 @@ export class AgentToolUpdateLock {
     return this.owner;
   }
 
-  private lockFile(key: AgentToolId): string {
+  private lockFile(key: AgentToolLockKey): string {
     return path.join(this.root, "locks", `${key}.lock`);
   }
 

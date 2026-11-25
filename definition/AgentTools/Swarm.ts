@@ -12,7 +12,11 @@ import {
   PLAN_SWARM_MEMORY_LIMITS,
 } from "../AgentPlanSwarmMemory.js";
 
-import { ADDITIVE_ANNOTATIONS, READ_ANNOTATIONS } from "./ToolDefinition.js";
+import {
+  ADDITIVE_ANNOTATIONS,
+  READ_ANNOTATIONS,
+  stringChoice,
+} from "./ToolDefinition.js";
 
 import type { Tool } from "@modelcontextprotocol/server";
 
@@ -117,7 +121,7 @@ export const SWARM_TOOLS: readonly {
       "swarm_finish",
       "Main model: ends the swarm node with a summary, as succeeded or failed. Running subtasks are cancelled. Nothing else ends the node.",
       {
-        status: { enum: ["succeeded", "failed"] },
+        status: stringChoice(["succeeded", "failed"]),
         summary: {
           type: "string",
           minLength: 1,
@@ -169,7 +173,7 @@ export const SWARM_TOOLS: readonly {
       "swarm_memory_publish",
       `Main model and helpers: publishes one entry to the shared memory under the next revision. Helpers publish finding, blocker, handoff and proposal; decision, interface and status belong to the main model. A blocker or handoff wakes a waiting swarm_status. At most ${String(PLAN_SWARM_MEMORY_LIMITS.entryCharacters)} characters per entry, ${String(PLAN_SWARM_MEMORY_LIMITS.nodeEntries)} per run and ${String(PLAN_SWARM_MEMORY_LIMITS.workerEntries)} per helper; secrets are blacked out on a best-effort basis, never publish them. Repeating eventId with the same entry returns the stored one. The author comes from your session.`,
       {
-        kind: { enum: [...PLAN_SWARM_MEMORY_KINDS] },
+        kind: stringChoice(PLAN_SWARM_MEMORY_KINDS),
         text: {
           type: "string",
           minLength: 1,

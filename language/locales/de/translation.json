@@ -1830,7 +1830,7 @@
       },
       "openCodeLinkedHint": "auch über opencode nutzbar",
       "openRouterModelIds": "OpenRouter-Preis-IDs für OpenCode-Modelle",
-      "openRouterModelIdsHint": "JSON-Objekt, zum Beispiel {\"opencode/beispiel-modell\":\"hersteller/beispiel-modell\"}. Für automatische Zuordnung {} belassen.",
+      "openRouterModelIdsHint": "JSON-Objekt, zum Beispiel {\"opencode/beispiel-modell\":\"hersteller/beispiel-modell\"}. Für automatische Zuordnung {} belassen. Modelle des Z.AI Coding Plan erhalten daraus keinen Preis, weil das Abo nicht je Token abrechnet.",
       "antigravityHint": "Google-Anmeldung über den offiziellen ACP-Adapter im isolierten Pages-Kontext dieser Anbindung. Google leitet danach auf den Loopback-Callback des Adapters (127.0.0.1) am Pages-Server weiter: Ein Browser auf dem Server schließt die Anmeldung direkt ab, von einem anderen Gerät wird die Adresse aus dem Browser hier eingefügt. Pica kann diese Anbindung nutzen; dort stehen nur Picas autorisierte Pages-Werkzeuge zur Verfügung, keine eingebauten Antigravity-Werkzeuge.",
       "antigravityLoginHint": "Anmeldeseite öffnen, Google-Konto wählen und selbst zustimmen. Läuft dieser Browser auf dem Pages-Server, schließt die Anmeldung danach automatisch ab.",
       "antigravityRedirectLabel": "Adresse nach der Google-Zustimmung",
@@ -6176,25 +6176,31 @@
             "title": "Verbrauch",
             "inputTokens": "Eingabe",
             "outputTokens": "Ausgabe",
-            "cacheReadTokens": "Cache gelesen",
-            "cacheWriteTokens": "Cache geschrieben",
-            "afterTurn": "nach dem Zug",
-            "costEstimate": "Kosten · Schätzung",
+            "cacheReadTokens": "Cache",
+            "cacheReadHint": "Aus Cache gelesen",
             "cost": {
               "label": "Kosten",
-              "unknown": "unbekannt",
               "approximately": "ca. {{amount}}",
               "estimateLead": "Geschätzt",
               "estimateDetail": "aus Katalogpreis, Stand {{priceAsOf}}, {{model}}: {{amount}}",
+              "providerLead": "Anbieterbetrag",
+              "providerDetail": "vom Anbieter gemeldet, {{model}}: {{amount}}",
+              "freeLead": "Gratis-Modell",
+              "freeDetail": "Kosten 0 vom Anbieter gemeldet, {{model}}: {{amount}}",
+              "mixedDetail": "aus Anbieterbetrag und Katalogpreis, Stand {{priceAsOf}}, {{model}}: {{amount}}",
+              "partialLead": "Teilschätzung",
+              "partialNote": "Noch nicht gemeldete Zähler sind nicht enthalten. Der Abschlussstand des Zugs ersetzt diesen Betrag.",
               "noConversion": "Keine Umrechnung",
               "convertedLead": "Umgerechnet",
               "convertedDetail": "mit Kurs {{rate}} (EZB, {{date}})",
               "unconvertedLead": "Nicht umgerechnet:",
               "unconvertedDetail": "Es liegt kein gültiger Kurs vor.",
-              "unknownLead": "Unbekannt",
-              "unknownReason": {
+              "missingLead": "Kein Betrag",
+              "missingReason": {
+                "pending": "Der Anbieter meldet keinen Betrag, und es sind keine Zähler gemeldet.",
                 "incomplete": "Der Anbieter meldet keinen Betrag, und die Nutzungsdaten sind unvollständig.",
                 "cacheCounting": "Der Anbieter meldet keinen Betrag, und die Cache-Zählung ist nicht belegt.",
+                "subscription": "Das Modell läuft über das Abo der Verbindung. Der Anbieter meldet dafür keinen Betrag, und ein Preis je Token ist für das Abo nicht belegt. Der Verbrauch zählt gegen das Kontingent des Abos.",
                 "price": "Der Anbieter meldet keinen Betrag, und für dieses Modell ist kein Preisstand belegt."
               }
             }
@@ -8306,7 +8312,8 @@
       "managed": "Von Pages verwaltet",
       "system": "Systeminstallation",
       "bundled": "Pages-Bundle",
-      "none": "Nicht erkannt"
+      "none": "Nicht erkannt",
+      "unchecked": "Noch nicht geprüft"
     },
     "status": {
       "ready": "Betriebsbereit",
@@ -8333,7 +8340,7 @@
       "installManaged": "Verwaltet installieren"
     },
     "diagnostic": {
-      "not_checked": "Noch nicht geprüft. Deaktivierte Tools werden auf ausdrücklichen Aufruf geprüft.",
+      "not_checked": "Die installierte Version ist noch nicht ermittelt. Pages prüft alle Tools nach dem Start im Hintergrund; „Version prüfen“ wiederholt die Prüfung.",
       "ready": "Die lokale Funktionsprüfung war erfolgreich.",
       "not_installed": "Programm oder Bundle fehlt. Verwaltetes Tool installieren oder Systemabhängigkeit bereitstellen.",
       "version_unsupported": "Die erkannte Version ist keine unterstützte stabile Version oder stimmt nicht mit dem gewählten Ziel überein.",
@@ -8368,6 +8375,8 @@
     "release": {
       "state": {
         "not_checked": "Noch nicht gesucht",
+        "version_unknown": "Version unbekannt",
+        "not_installed": "Nicht installiert",
         "current": "Aktuell",
         "update_available": "Update verfügbar",
         "check_failed": "Prüfung fehlgeschlagen",

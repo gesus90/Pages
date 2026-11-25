@@ -32,7 +32,38 @@ function cost(input: unknown): number | null {
     : null;
 }
 
-/** Reads one native assistant row without trusting its JSON shape. */
+/**
+ * Whether a row still is the placeholder of a model step that reported nothing.
+ * @remarks
+ * OpenCode writes the row of an assistant message when its model step starts,
+ * with every count and the cost at 0. Only the end of the step replaces them
+ * with the measured counts, together with the finish reason and the total.
+ * Until then the zeros are no measurement, and a step that failed before its
+ * end keeps them for good.
+ */
+function isUnreportedStep(
+  details: Record<string, unknown>,
+  tokens: Record<string, unknown> | null,
+  cache: Record<string, unknown> | null,
+): boolean {
+  if (typeof details.finish === "string" || tokens?.total !== undefined)
+    return false;
+  return [
+    tokens?.input,
+    tokens?.output,
+    tokens?.reasoning,
+    cache?.read,
+    cache?.write,
+    details.cost,
+  ].every((reading) => reading === 0);
+}
+
+/**
+ * Reads one native assistant row without trusting its JSON shape.
+ * @param row - A row of OpenCode's `message` table.
+ * @returns The usage of the row; `null` for a row that is no assistant
+ * message and for a model step that has reported nothing yet.
+ */
 export function readOpenCodeMessage(
   row: Record<string, unknown>,
 ): OpenCodeMessageUsage | null {
@@ -48,6 +79,7 @@ export function readOpenCodeMessage(
   if (details?.role !== "assistant") return null;
   const tokens = record(details.tokens);
   const cache = record(tokens?.cache);
+  if (isUnreportedStep(details, tokens, cache)) return null;
   const provider = details.providerID;
   const modelId = details.modelID;
   const model =

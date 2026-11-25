@@ -121,7 +121,7 @@ export function ConsoleTodoList({
     <section
       aria-label={heading}
       data-console-todos=""
-      className="flex min-h-0 min-w-0 flex-col min-[680px]:min-h-[7.5rem] min-[680px]:flex-1"
+      className="flex min-h-0 min-w-0 flex-col py-3 min-[680px]:min-h-36 min-[680px]:flex-1"
     >
       <div className="flex items-baseline justify-between gap-2">
         <h3 className={SIDEBAR_TITLE_CLASS}>{heading}</h3>

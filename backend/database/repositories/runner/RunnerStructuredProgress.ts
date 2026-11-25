@@ -1,7 +1,10 @@
+import { z } from "zod";
+
 import { claudeObservationSchema } from "@/definition/ClaudeUsage";
 import { isAcpProvider } from "@/definition/AgentConfiguration";
 import { isAgentProvider } from "@/definition/AgentConnection";
 import { accountClaudeUsage } from "@/backend/service/agents/sessions/ClaudeUsageAccounting";
+import { nativeOpenCodePrice } from "@/backend/service/agents/sessions/OpenCodeUsage";
 import {
   readTextColumn,
   readNullableTextColumn,
@@ -12,13 +15,16 @@ import {
 } from "@/definition/AgentPlanAgentTodos";
 import { runnerTerminalSchema } from "@/definition/RunnerTerminal";
 import { runnerTurnTokens } from "@/definition/RunnerUsage";
+import { readRunnerOpenCodeMessage } from "@/definition/RunnerOpenCodeMessage";
 import { readRunnerSessionReading } from "@/definition/RunnerSessionReading";
 
 import { AgentPlanAgentTodoRepository } from "../agent/AgentPlanAgentTodoRepository";
 import { AgentSessionRepository } from "../agent/AgentSessionRepository";
+import { OpenCodeUsageRepository } from "../agent/OpenCodeUsageRepository";
 import { persistRunnerSessionReading } from "./RunnerSessionReadings";
 
 import type { AgentSessionTurnUsage } from "@/definition/AgentSessionJournal";
+import type { ClaudeUsageObservation } from "@/definition/ClaudeUsage";
 import type { DatabaseTransaction } from "@/backend/database/Database";
 import type { RunnerLiveEvent } from "@/definition/RunnerLiveHistory";
 
@@ -27,6 +33,35 @@ interface StructuredProgressInput {
   readonly turn?: number;
   readonly event: RunnerLiveEvent;
   readonly hasTerminalUsage: boolean;
+}
+
+/**
+ * The token counters of a `usage` event.
+ * @remarks
+ * `isInterim` marks the counters of a turn that still runs, as a Codex job
+ * reads them from its rollout and a Claude job from the answers of its turn:
+ * they count only part of the turn, and the counters of the turn's end
+ * replace them.
+ */
+const runnerUsageEventSchema = runnerTerminalSchema.shape.usage.extend({
+  claudeObservation: claudeObservationSchema.optional(),
+  isInterim: z.boolean().optional(),
+});
+
+/**
+ * The observation of a Claude job as the session ledger takes it.
+ * @remarks
+ * The result of a job names the totals of its whole native session, also
+ * across the jobs that resumed it. Runners before 1.25.3 sent them as the
+ * reading of one answer, which the ledger adds to the session; as totals the
+ * ledger gives the turn only the difference to the totals before.
+ */
+function ledgerObservation(
+  observation: ClaudeUsageObservation,
+): ClaudeUsageObservation {
+  return observation.kind === "message" && observation.id.startsWith("runner:")
+    ? { ...observation, kind: "total" }
+    : observation;
 }
 
 /**
@@ -49,6 +84,56 @@ async function persistSessionReading(
   return true;
 }
 
+/**
+ * Stores the usage of a model step an OpenCode job read from its session database.
+ * @returns Whether the event was such a usage, valid or dropped, and
+ * therefore no token counters.
+ * @remarks
+ * A step is one native message, stored once under its identity with the
+ * attempt that reported it first, like the messages a session on the Pages
+ * host reads itself. A job reports only the steps of its own prompt, so a
+ * message another attempt owns is left as it is. The price is the cost
+ * OpenCode reported for the step.
+ */
+async function persistOpenCodeMessage(
+  transaction: DatabaseTransaction,
+  input: StructuredProgressInput,
+): Promise<boolean> {
+  const message = readRunnerOpenCodeMessage(input.event.text);
+  if (message === undefined) return false;
+  if (message === null) return true;
+  const [attempt] = await transaction.query(
+    `
+    SELECT
+        agent_session_attempts.provider,
+        agent_opencode_message_usage.attempt_id
+    FROM agent_session_attempts
+    LEFT JOIN agent_opencode_message_usage
+        ON agent_opencode_message_usage.message_id = $message_id
+    WHERE agent_session_attempts.attempt_id = $attempt_id;
+  `,
+    { attempt_id: input.attemptId, message_id: message.id },
+  );
+  if (!attempt) return true;
+  const provider = readTextColumn(attempt, 0, "provider");
+  const owner = readNullableTextColumn(attempt, 1, "attempt_id");
+  if (provider !== "opencode" && provider !== "openrouter") return true;
+  if (owner !== null && owner !== input.attemptId) return true;
+  await new OpenCodeUsageRepository({
+    ...transaction,
+    transaction: async <Result>(
+      work: (access: DatabaseTransaction) => Promise<Result>,
+    ): Promise<Result> => work(transaction),
+  }).save({
+    ...message,
+    attemptId: input.attemptId,
+    turn: input.turn ?? 1,
+    price: nativeOpenCodePrice(message),
+    reportedAt: input.event.createdAt,
+  });
+  return true;
+}
+
 /** Projects structured runner updates into the same TODO, usage and session tables as local sessions. */
 export async function persistRunnerStructuredProgress(
   transaction: DatabaseTransaction,
@@ -59,6 +144,12 @@ export async function persistRunnerStructuredProgress(
   if (
     event.kind === "usage" &&
     (await persistSessionReading(transaction, input))
+  )
+    return;
+  // A model step is stored under its own identity, apart from the turn's counters and its receipt.
+  if (
+    event.kind === "usage" &&
+    (await persistOpenCodeMessage(transaction, input))
   )
     return;
   if (event.kind === "plan") {
@@ -81,10 +172,8 @@ async function persistRunnerUsage(
   input: StructuredProgressInput,
 ): Promise<void> {
   const { attemptId, event } = input;
-  const reading = runnerTerminalSchema.shape.usage
-    .extend({ claudeObservation: claudeObservationSchema.optional() })
-    .parse(JSON.parse(event.text));
-  const { claudeObservation, ...usage } = reading;
+  const reading = runnerUsageEventSchema.parse(JSON.parse(event.text));
+  const { claudeObservation, isInterim, ...usage } = reading;
   const [attempt] = await transaction.query(
     `
     SELECT provider, requested_model, state, connection_id, agent_id
@@ -103,7 +192,7 @@ async function persistRunnerUsage(
   if (!normalized) return;
   const stored: AgentSessionTurnUsage = {
     ...normalized,
-    isPartial: normalized.isPartial,
+    isPartial: normalized.isPartial || isInterim === true,
     attemptId,
     turn: input.turn ?? 1,
     provider,
@@ -119,7 +208,9 @@ async function persistRunnerUsage(
           },
         }
       : {}),
-    ...(claudeObservation ? { claudeObservation } : {}),
+    ...(claudeObservation
+      ? { claudeObservation: ledgerObservation(claudeObservation) }
+      : {}),
   };
   const database = {
     ...transaction,

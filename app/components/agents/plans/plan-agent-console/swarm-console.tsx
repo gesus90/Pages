@@ -113,7 +113,7 @@ function UnstartedDetails(props: {
   return (
     <aside
       aria-label={t("plans.console.details")}
-      className="flex min-w-0 shrink-0 flex-col overflow-y-auto border-t border-agent-console-border bg-agent-console-surface px-5 pt-5 pb-8 min-[680px]:w-[300px] min-[680px]:border-t-0 min-[680px]:border-l"
+      className="flex min-w-0 shrink-0 flex-col overflow-y-auto border-t border-agent-console-border bg-agent-console-surface px-5 min-[680px]:w-[300px] min-[680px]:border-t-0 min-[680px]:border-l"
     >
       <SidebarSection title={t(`${key}.session`)}>
         <dl className="mt-1">

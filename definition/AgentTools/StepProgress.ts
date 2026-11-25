@@ -10,7 +10,11 @@ import {
   AGENT_STEP_PROGRESS_STATUSES,
 } from "../AgentPlanStepProgress.js";
 
-import { ADDITIVE_ANNOTATIONS, IDENTIFIER_SCHEMA } from "./ToolDefinition.js";
+import {
+  ADDITIVE_ANNOTATIONS,
+  IDENTIFIER_SCHEMA,
+  stringChoice,
+} from "./ToolDefinition.js";
 
 import type { Tool } from "@modelcontextprotocol/server";
 
@@ -38,13 +42,11 @@ export const STEP_PROGRESS_TOOL = {
           type: "object",
           properties: {
             id: IDENTIFIER_SCHEMA,
-            status: {
-              enum: [
-                ...AGENT_STEP_PROGRESS_STATUSES,
-                ...AGENT_TODO_STATUS_ALIASES,
-              ],
-            },
-            priority: { enum: [...AGENT_TODO_PRIORITIES] },
+            status: stringChoice([
+              ...AGENT_STEP_PROGRESS_STATUSES,
+              ...AGENT_TODO_STATUS_ALIASES,
+            ]),
+            priority: stringChoice(AGENT_TODO_PRIORITIES),
           },
           required: ["id", "status"],
           additionalProperties: false,
@@ -62,10 +64,11 @@ export const STEP_PROGRESS_TOOL = {
               minLength: 1,
               maxLength: AGENT_TODO_TEXT_LENGTH,
             },
-            status: {
-              enum: [...AGENT_TODO_STATUSES, ...AGENT_TODO_STATUS_ALIASES],
-            },
-            priority: { enum: [...AGENT_TODO_PRIORITIES] },
+            status: stringChoice([
+              ...AGENT_TODO_STATUSES,
+              ...AGENT_TODO_STATUS_ALIASES,
+            ]),
+            priority: stringChoice(AGENT_TODO_PRIORITIES),
           },
           required: ["text", "status"],
           additionalProperties: false,

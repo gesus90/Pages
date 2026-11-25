@@ -1,3 +1,5 @@
+import path from "node:path";
+
 import { AcpSession } from "@/backend/agents/acp/AcpSession";
 import { AcpCleanupUnconfirmedError } from "@/backend/error/AcpCleanupUnconfirmedError";
 import { pinnedAgentToolDriver } from "@/backend/service/agents/tools/AgentToolSession";
@@ -17,6 +19,7 @@ import type {
 } from "@/backend/agents/AgentPlanExecution";
 import type { AcpDriver } from "@/backend/agents/acp/AcpDriver";
 import type { AcpLineChannel } from "@/backend/agents/acp/AcpLineChannel";
+import type { AcpSessionContext } from "@/backend/agents/acp/AcpSessionContracts";
 import type { AcpResourceScheduler } from "@/backend/service/agents/AcpResourceScheduler";
 import type { AcpStartLifecycle } from "@/backend/service/agents/resources/AcpStartLifecycle";
 import type { AgentToolManagerService } from "@/backend/service/agents/tools/AgentToolManagerService";
@@ -82,6 +85,34 @@ export interface OpenCliAcpSessionContext {
   readonly claudeQuota?: ClaudeQuotaSink;
 }
 
+/**
+ * Where a plan session of OpenCode reads the usage of its model steps, and
+ * what prices them.
+ * @remarks
+ * OpenCode keeps its sessions below the connection's own data folder, which
+ * Pages passes as `XDG_DATA_HOME`, so the database is the one the started
+ * process writes. The price list lies in the data directory, three levels
+ * above the provider folder of the connection. A chat reads no step usage.
+ */
+function openCodeUsageSource(
+  context: Pick<OpenCliAcpSessionContext, "driver" | "input" | "start">,
+): Pick<
+  AcpSessionContext,
+  | "openCodeUsagePath"
+  | "openCodePricingDirectory"
+  | "isFreeModel"
+  | "openRouterModelIds"
+> {
+  const { driver, input, start } = context;
+  if (driver.provider !== "opencode" || input.chat) return {};
+  return {
+    openCodeUsagePath: path.join(start.home.config, "opencode", "opencode.db"),
+    openCodePricingDirectory: path.resolve(start.home.config, "../../.."),
+    isFreeModel: input.agent.isFree === true,
+    openRouterModelIds: input.agent.connection.openRouterModelIds ?? {},
+  };
+}
+
 /** Builds an {@link AcpSession} over an already connected CLI worker channel. */
 export function openCliAcpSession(
   context: OpenCliAcpSessionContext,
@@ -133,6 +164,7 @@ export function openCliAcpSession(
     listener: input.chat?.listener ?? input.journal,
     openCodeDataHome:
       driver.provider === "opencode" ? start.home.config : undefined,
+    ...openCodeUsageSource(context),
     antigravityDataHome:
       driver.provider === "antigravity" && !input.chat
         ? start.home.config

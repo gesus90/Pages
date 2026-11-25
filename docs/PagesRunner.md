@@ -53,7 +53,7 @@ Der Worker läuft in einer getrennten Prozessgruppe weiter, wenn der Transport e
 
 ## OpenRouter auf dem Runner
 
-Ab Runner-Version `1.2.0` (aktuell `1.25.1`) unterstützt der Runner OpenRouter einschließlich der Modell-IDs mit `~`-Präfix; `node ~/.local/share/pages-runner/runner.mjs --version` zeigt die Version ohne Kopplung. Aktualisierungen erfolgen über den unten beschriebenen authentifizierten Paketvertrag; neue Installationen verwenden bereits dessen Startschicht.
+Ab Runner-Version `1.2.0` (aktuell `1.25.4`) unterstützt der Runner OpenRouter einschließlich der Modell-IDs mit `~`-Präfix; `node ~/.local/share/pages-runner/runner.mjs --version` zeigt die Version ohne Kopplung. Aktualisierungen erfolgen über den unten beschriebenen authentifizierten Paketvertrag; neue Installationen verwenden bereits dessen Startschicht.
 
 `POST /settings-api/runners` mit `intent=store-provider-key`, `connectionId`, `provider=openrouter` und `apiKey` verlangt eine aktive Administrator-Sitzung, Admin-Modus, denselben Origin sowie einen online gekoppelten Runner mit aktueller SSH-Revision. Pages übergibt den Schlüssel ausschließlich im authentifizierten Runner-Kanal, ohne ihn in DuckDB oder dem Jobjournal zu speichern. Pro Verbindung ist eine Provider-Anfrage gleichzeitig zulässig, mit 90 Sekunden Antwortfrist. Bei fehlendem Kanal erfolgt keine ersatzweise SSH-Übertragung.
 
@@ -504,8 +504,10 @@ abgebildet. Die Übernahme verwendet dieselbe TODO-Zusammenführung und dieselbe
 Tabelle wie lokale Sitzungen; abgeschlossene Einträge bleiben abgeschlossen.
 
 `usage`-Ereignisse enthalten ausschließlich gemeldete numerische Zähler für
-Eingabe, Ausgabe, Cache-Lesen, Cache-Schreiben und Gesamt-Tokens. Fehlende Zähler
-bleiben `null`. Claude-Meldungen werden nach nativer Nachrichten-ID ersetzt,
+Eingabe, Ausgabe, Cache-Lesen, Cache-Schreiben und Gesamt-Tokens; der
+Zwischenstand eines laufenden Codex- oder Claude-Zugs trägt zusätzlich
+`isInterim: true`.
+Fehlende Zähler bleiben `null`. Claude-Meldungen werden nach nativer Nachrichten-ID ersetzt,
 nicht bei jeder Aktualisierung erneut addiert; abschließende Modell-Summen
 schließen Unteragenten ein. Die gemeinsame Auswertung berücksichtigt die
 Cache-Semantik des Providers und kennzeichnet unvollständige OpenCode- und
@@ -513,9 +515,83 @@ Antigravity-Zahlen. Live-Zähler und der abschließende native Beleg aktualisier
 dieselbe Versuch-/Zug-Zeile. Eine verspätete Historie ersetzt keinen bereits
 gespeicherten Abschlussbeleg.
 
+Ein Antigravity-Job liest während des offenen Prompts jede Sekunde die
+abgeschlossenen Modellaufrufe aus dem eigenen Gesprächsspeicher von `agy acp`
+(`antigravity-usage.mjs`): nur lesend, nur Zahlen, nur die Sitzung dieses
+Prozesses und nur die Zeilen, die nach dem Absenden des Prompts entstanden sind.
+Jede geänderte Summe wird als `usage`-Ereignis mit Eingabe, Ausgabe und
+Cache-Lesen gemeldet; Cache-Schreiben und Gesamt-Tokens bleiben darin `null` und
+kommen erst mit der Antwort des Prompts, deren Zähler den Zwischenstand
+ersetzen.
+
+Ein OpenCode-Job liest ab Runner 1.25.4 während des offenen Prompts jede
+Sekunde die Modellschritte seiner Sitzung und ihrer Untersitzungen aus der
+eigenen Sitzungsdatenbank von OpenCode (`opencode-usage.mjs`): nur lesend, nur
+Zahlen und Kennungen, aus `opencode/opencode.db` unter dem `XDG_DATA_HOME` des
+gestarteten Prozesses. OpenCode legt die Zeile eines Schritts beim Start mit
+Nullen an und schreibt Eingabe, Ausgabe, Reasoning, Cache-Lesen,
+Cache-Schreiben und Kosten erst mit dem Ende des Schritts; eine Zeile ohne
+Messung wird nicht gemeldet. Jeder beendete Schritt ist ein `usage`-Ereignis
+`{"openCodeMessage": {…}}` mit der Kennung seiner nativen Nachricht und wird
+nur bei geänderter Zeile erneut gesendet. Zeilen, die vor dem Absenden des
+Prompts bestanden, gehören zu früheren Prompts einer fortgesetzten Sitzung und
+bleiben außen vor. Pages speichert jeden Schritt einmal unter seiner
+Nachrichtenkennung beim meldenden Versuch; die Summe der Schritte ist der
+Verbrauch des Versuchs im Plan-Terminal. Die Antwort des Prompts nennt
+weiterhin nur den letzten Modellschritt und bleibt als Zähler des Zugs und im
+Abschlussbeleg getrennt davon. Ohne lesbare Datenbank (Node.js ohne
+`node:sqlite`, fortgesetzte Sitzung ohne lesbaren Vorstand) meldet der Job
+keine Schritte.
+
+Eine Liste, die ein OpenCode-Modell in seinem eigenen Werkzeug `todowrite`
+führt, meldet der Job ab Runner 1.25.4 als `plan`-Ereignis statt als
+Werkzeugzeilen; der Lesemodus des Jobs erlaubt `todowrite`, weil es nichts am
+Host ändert.
+
+Ein Codex-Job mit Fortsetzung liest ab Runner 1.25.2 aus dem Rollout seines
+Threads (`codex-session.mjs`) neben Modell und Kontextbelegung auch
+`info.total_token_usage` jedes `token_count`: nur lesend und nur Zahlen. Jede
+geänderte Summe wird als `usage`-Ereignis mit Eingabe, Ausgabe, Cache-Lesen,
+Cache-Schreiben und Gesamt-Tokens gemeldet. Codex zählt je Thread, im Rollout
+wie in `turn.completed`. Bei einem fortgesetzten Thread zieht der Runner
+deshalb die Summe ab, die der Rollout vor dem Start des Jobs nannte, auch von
+den Zählern des Zugendes im `usage`-Ereignis und im Abschlussbeleg. Die Eingabe
+enthält das Cache-Lesen; `cache_write_input_tokens` wird als Cache-Schreiben
+übernommen, auch als gemeldete 0. Die Zähler des Zugendes ersetzen den
+Zwischenstand. Ein Job ohne Rollout (`--ephemeral`) und ein fortgesetzter
+Thread, dessen Rollout fehlt, melden nur die Zähler des Zugendes.
+
+Ein Claude-Job zählt ab Runner 1.25.3 jede Antwort seines Zugs vollständig
+(`usage.mjs`). Die CLI meldet eine Antwort dreimal: `message_start` nennt
+Eingabe, Cache-Lesen, Cache-Schreiben und die bis dahin gezählte Ausgabe, die
+`assistant`-Ereignisse wiederholen diese Zähler, und erst `message_delta` nennt
+die endgültige Ausgabe. Der Runner führt die Zähler je Nachrichten-ID
+zusammen, ordnet `message_delta` der zuletzt begonnenen Antwort seines Stroms
+zu und meldet jede geänderte Summe des Jobs als `usage`-Ereignis mit
+`isInterim: true`. Zuvor stand die Ausgabe eines laufenden Zugs auf dem Wert
+des Antwortbeginns. Antworten von Unteragenten erscheinen nur als
+`assistant`-Ereignis; ihre Ausgabe bleibt bis zum Zugende unvollständig, der
+Zwischenstand ist deshalb ein Teilstand. Banner der CLI (`<synthetic>`) zählen
+nicht.
+
+Der Job eines Plan-Knotens hängt an jeden Zwischenstand die Summe eines
+Modells als Beobachtung für das Sitzungsbuch von Pages an, je Job und Modell
+unter einem festen Namen: Die nächste Meldung ersetzt sie, nichts wird addiert. Das
+`result` des Zugs nennt in `modelUsage` die Summen der ganzen nativen Sitzung,
+auch über alle Jobs hinweg, die sie mit `--resume` fortgesetzt haben. Der
+Runner meldet sie deshalb als Sitzungsstand (`kind: "total"`); Pages rechnet
+dem Zug nur die Differenz zum Stand davor zu. Die einfachen Zähler eines
+fortgesetzten Jobs im `usage`-Ereignis und im Abschlussbeleg stammen aus
+`result.usage`, den Zählern des eigenen Zugs ohne Unteragenten, damit frühere
+Züge der Sitzung nicht erneut gezählt werden. Ein Zug ohne `result` behält
+seinen letzten Zwischenstand. Meldet ein Job nach dem Ende einer
+Hintergrundaufgabe ein weiteres `result`, zählt der Runner von dem bereits
+abgeschlossenen Stand aus weiter: Die folgenden Antworten bilden einen neuen
+Zwischenstand, und die einfachen Zähler setzen die Summe des Jobs fort.
+
 Das Setup-Artefakt enthält zusätzlich `cgroups.mjs`, `accounts.mjs`,
-`browser.mjs`, `usage.mjs`, `launch.mjs`, `ssh.mjs`, `worker-control.mjs` und
-`scripts.mjs`. Installation und Neustart
+`browser.mjs`, `usage.mjs`, `antigravity-usage.mjs`, `launch.mjs`, `ssh.mjs`,
+`worker-control.mjs` und `scripts.mjs`. Installation und Neustart
 bleiben ausdrückliche Administrationsschritte; die Quelländerung startet oder
 ändert keinen laufenden Dienst.
 
@@ -631,8 +707,8 @@ einem privaten Release, spätere Pages-Versionen bieten ihn über den lokalen,
 authentifizierten Kanal an. Der Installer startet einen bereits aktiven Runner
 nicht pauschal neu. Die lokale Loopback-Adresse bleibt unverändert.
 
-Unterstützt werden die aktuelle Version `1.25.1` und die vorherigen Versionen
-`1.25.0`, `1.24.1` und `1.24.0`, jeweils für ihre tatsächlich gemeldeten Fähigkeiten.
+Unterstützt werden die aktuelle Version `1.25.3` und die vorherigen Versionen
+`1.25.2`, `1.25.1`, `1.25.0`, `1.24.1` und `1.24.0`, jeweils für ihre tatsächlich gemeldeten Fähigkeiten.
 Noch ältere Runner können ihre vorhandenen Aufträge und Historien abgleichen,
 aber keine neue Arbeit erhalten. Ein Runner ohne den Updateempfänger benötigt
 einmal die aktuelle Installation mit Startschicht; die vorhandene Kopplung wird

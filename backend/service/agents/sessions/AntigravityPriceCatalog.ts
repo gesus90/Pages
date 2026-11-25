@@ -22,11 +22,18 @@ interface PriceSnapshot {
   readonly models: readonly ModelPrice[];
 }
 
+/** The counts of a turn as reported; `null` for a count the turn did not report. */
 interface PriceTokens {
-  readonly inputTokens: number;
-  readonly outputTokens: number;
-  readonly cacheReadTokens: number;
-  readonly cacheWriteTokens: number;
+  readonly inputTokens: number | null;
+  readonly outputTokens: number | null;
+  readonly cacheReadTokens: number | null;
+  readonly cacheWriteTokens: number | null;
+}
+
+/** One count of a turn with the rate of a single token; either may be missing. */
+interface PricedCount {
+  readonly tokens: number | null;
+  readonly rate: number | null;
 }
 
 function price(input: unknown): number | null {
@@ -77,60 +84,78 @@ function snapshot(input: unknown): PriceSnapshot | null {
   return models.length ? { fetchedAt: stored.fetchedAt, models } : null;
 }
 
+/** The counts a turn reported; `null` without any count or with a count that is no token count. */
 function priceTokens(usage: AgentSessionTurnUsage): PriceTokens | null {
   const { inputTokens, outputTokens, cacheReadTokens, cacheWriteTokens } =
     usage;
   const counts = [inputTokens, outputTokens, cacheReadTokens, cacheWriteTokens];
   if (
-    inputTokens === null ||
-    outputTokens === null ||
-    cacheReadTokens === null ||
-    cacheWriteTokens === null ||
+    counts.every((count) => count === null) ||
     counts.some(
-      (count) => count === null || !Number.isSafeInteger(count) || count < 0,
+      (count) => count !== null && (!Number.isSafeInteger(count) || count < 0),
     )
   )
     return null;
   return { inputTokens, outputTokens, cacheReadTokens, cacheWriteTokens };
 }
 
+/**
+ * The input that is priced at the prompt rate.
+ * @returns The input without cache reads, `null` for a turn that reported no
+ * input, and `undefined` when the counts cannot say what the input contains.
+ */
 function uncachedInput(
   usage: AgentSessionTurnUsage,
   tokens: PriceTokens,
-): number | null {
+): number | null | undefined {
   const { inputTokens, cacheReadTokens, cacheWriteTokens } = tokens;
-  if (
-    (usage.inputIncludesCache === null &&
-      (cacheReadTokens > 0 || cacheWriteTokens > 0)) ||
-    (usage.inputIncludesCache === true && cacheWriteTokens > 0)
-  )
-    return null;
-  const input = inputTokens - (usage.inputIncludesCache ? cacheReadTokens : 0);
-  return input < 0 ? null : input;
+  if (inputTokens === null) return null;
+  if (usage.inputIncludesCache === false) return inputTokens;
+  // A missing cache count may be part of the input, so it counts like a positive one.
+  const hasCacheReads = cacheReadTokens !== 0;
+  const hasCacheWrites = cacheWriteTokens !== 0;
+  if (usage.inputIncludesCache === null)
+    return hasCacheReads || hasCacheWrites ? undefined : inputTokens;
+  if (hasCacheWrites || cacheReadTokens === null) return undefined;
+  const input = inputTokens - cacheReadTokens;
+  return input < 0 ? undefined : input;
+}
+
+/** The amount of the reported counts; a count without a rate has no price. */
+function amountOf(counts: readonly PricedCount[]): number | null {
+  let amountUsd = 0;
+  for (const { tokens, rate } of counts) {
+    if (tokens === null || tokens === 0) continue;
+    if (rate === null) return null;
+    amountUsd += tokens * rate;
+  }
+  return Number.isFinite(amountUsd) ? amountUsd : null;
 }
 
 function estimate(
   usage: AgentSessionTurnUsage,
   model: ModelPrice,
-): Pick<AgentSessionEstimate, "amountUsd" | "gap"> {
+): Pick<AgentSessionEstimate, "amountUsd" | "gap" | "isPartial"> {
   const tokens = priceTokens(usage);
-  if (tokens === null) return { amountUsd: null, gap: "tokens" };
+  if (tokens === null)
+    return { amountUsd: null, gap: "tokens", isPartial: false };
   const input = uncachedInput(usage, tokens);
-  if (input === null) return { amountUsd: null, gap: "cache_semantics" };
-  const { outputTokens, cacheReadTokens, cacheWriteTokens } = tokens;
-  if (
-    (cacheReadTokens > 0 && model.inputCacheRead === null) ||
-    (cacheWriteTokens > 0 && model.inputCacheWrite === null)
-  )
-    return { amountUsd: null, gap: "price" };
-  const amountUsd =
-    input * model.prompt +
-    outputTokens * model.completion +
-    cacheReadTokens * (model.inputCacheRead ?? 0) +
-    cacheWriteTokens * (model.inputCacheWrite ?? 0);
-  return Number.isFinite(amountUsd)
-    ? { amountUsd, gap: null }
-    : { amountUsd: null, gap: "price" };
+  if (input === undefined)
+    return { amountUsd: null, gap: "cache_semantics", isPartial: false };
+  const counts: readonly PricedCount[] = [
+    { tokens: input, rate: model.prompt },
+    { tokens: tokens.outputTokens, rate: model.completion },
+    { tokens: tokens.cacheReadTokens, rate: model.inputCacheRead },
+    { tokens: tokens.cacheWriteTokens, rate: model.inputCacheWrite },
+  ];
+  const amountUsd = amountOf(counts);
+  if (amountUsd === null)
+    return { amountUsd: null, gap: "price", isPartial: false };
+  return {
+    amountUsd,
+    gap: null,
+    isPartial: counts.some((count) => count.tokens === null),
+  };
 }
 
 /**
@@ -158,14 +183,21 @@ export class AntigravityPriceCatalog {
     }
   }
 
-  /** Prices only captured counts; a Google selector needs an exact catalogue ID. */
+  /**
+   * Prices only captured counts; a Google selector needs an exact catalogue ID.
+   * @param usage - The counts of one turn; a count it lacks is left out and marks the amount as partial.
+   */
   public async calculate(
     usage: AgentSessionTurnUsage,
   ): Promise<AgentSessionEstimate> {
-    if (!usage.model)
-      return { amountUsd: null, modelId: null, priceAsOf: null, gap: "model" };
-    if (priceTokens(usage) === null)
-      return { amountUsd: null, modelId: null, priceAsOf: null, gap: "tokens" };
+    const unpriced = {
+      amountUsd: null,
+      isPartial: false,
+      modelId: null,
+      priceAsOf: null,
+    };
+    if (!usage.model) return { ...unpriced, gap: "model" };
+    if (priceTokens(usage) === null) return { ...unpriced, gap: "tokens" };
     await this.refresh();
     const direct = usage.model.replace(/^openrouter\//u, "");
     const model =
@@ -176,7 +208,7 @@ export class AntigravityPriceCatalog {
     return {
       ...(model
         ? estimate(usage, model)
-        : { amountUsd: null, gap: "model" as const }),
+        : { amountUsd: null, gap: "model" as const, isPartial: false }),
       modelId: model?.id ?? null,
       priceAsOf: this.current?.fetchedAt ?? null,
     };

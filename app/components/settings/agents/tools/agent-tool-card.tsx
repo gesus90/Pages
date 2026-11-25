@@ -179,8 +179,10 @@ function nameLine(
       ),
       isProblem: true,
     };
+  const sourceKey =
+    tool.source ?? (tool.installed === null ? "unchecked" : "none");
   return {
-    text: t(`agentTools.source.${tool.source ?? "none"}`),
+    text: t(`agentTools.source.${sourceKey}`),
     isProblem: false,
   };
 }

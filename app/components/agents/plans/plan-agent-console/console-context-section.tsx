@@ -81,12 +81,15 @@ function contextValue(
 }
 
 /**
- * The block "Kontext", fixed 76 px high: how much of the model's window the session occupies.
+ * The block "Kontext", fixed 60 px high: how much of the model's window the session occupies.
  * @remarks
  * The same block serves every provider. The session view holds the last
  * reported values of the selected attempt's model and takes a window the
  * adapter did not report from the model's catalog entry. The bar is shown
- * whenever the window is known, empty until the first reading.
+ * whenever the window is known, empty until the first reading. The height
+ * holds the 12 px padding of a sidebar block above and below, the title line
+ * and the bar, with no empty band below the bar; it stays the same without a
+ * bar, so the blocks below do not move when the window becomes known.
  */
 export function ConsoleContextSection({
   view,
@@ -102,7 +105,7 @@ export function ConsoleContextSection({
     <section
       aria-label={title}
       data-console-context=""
-      className="h-[76px] min-w-0 shrink-0"
+      className="h-15 min-w-0 shrink-0 py-3"
     >
       <div className="flex items-baseline justify-between gap-3">
         <h3 className={SIDEBAR_TITLE_CLASS}>{title}</h3>

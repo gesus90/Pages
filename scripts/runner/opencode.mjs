@@ -9,6 +9,7 @@ import { fileURLToPath } from "node:url";
 import { once } from "node:events";
 
 import { ProtocolLines } from "./lines.mjs";
+import { followOpenCodeSteps } from "./opencode-usage.mjs";
 
 /** The OpenCode release whose ACP contract Pages verified. */
 export const VERIFIED_OPENCODE_VERSION = "1.18.34";
@@ -462,6 +463,8 @@ function runPermission(job, read) {
     grep: "allow",
     webfetch: "allow",
     websearch: "allow",
+    // OpenCode's own task list changes nothing on the host; its list becomes the plan of the job.
+    todowrite: "allow",
     "pages_*": "allow",
   };
 }
@@ -569,10 +572,17 @@ async function executeJob(job, prompt) {
       model,
       reasoningEffort: job.reasoningEffort,
     });
-    const turn = await client.call("session/prompt", {
-      sessionId: session.sessionId,
-      prompt: [{ type: "text", text: prompt }],
-    });
+    const { sessionId } = session;
+    const isResumed = Boolean(job.resumeSessionId);
+    // The model steps the prompt finishes are reported while it runs.
+    const turn = await followOpenCodeSteps(
+      { environment, child, sessionId, isResumed, publish: writeOutput },
+      () =>
+        client.call("session/prompt", {
+          sessionId,
+          prompt: [{ type: "text", text: prompt }],
+        }),
+    );
     await client.flushMessage();
     const receipt = {
       type: "pages.result",

@@ -293,7 +293,13 @@ export class AgentSessionRecorder implements AcpSessionListener {
     );
   };
 
-  /** Allocates native Claude reports to the current step and turn while work is running. */
+  /**
+   * Allocates native Claude reports to the current step and turn while work is running.
+   * @remarks
+   * The reading of an answer names the output counted when the answer began,
+   * so a turn that rests on such readings is partial until the totals of its
+   * result replace them.
+   */
   public readonly claudeUsage = (observation: ClaudeUsageObservation): void => {
     if (this.attempt.provider !== "claude_code") return;
     this.hasClaudeObservation = true;
@@ -311,7 +317,7 @@ export class AgentSessionRecorder implements AcpSessionListener {
       cacheWriteTokens: null,
       totalTokens: null,
       inputIncludesCache: false,
-      isPartial: false,
+      isPartial: observation.kind === "message",
       reportedAt: this.clock(),
       claudeObservation: observation,
     };

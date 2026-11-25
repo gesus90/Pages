@@ -3,6 +3,12 @@ import path from "node:path";
 
 import { logCaughtError } from "@/backend/logging/Logger";
 
+import {
+  isNamedFreeModel,
+  isSubscriptionModel,
+  nativeOpenCodePrice,
+} from "./OpenCodeUsage";
+
 import type { OpenCodeMessageUsage } from "@/backend/agents/cli/OpenCodeSessionUsage";
 
 interface ModelPrice {
@@ -118,17 +124,27 @@ export class OpenRouterPriceCatalog {
     }
   }
 
-  /** Prices one OpenCode message from free status, catalogue, then native cost. */
+  /**
+   * Prices one OpenCode message from free status, catalogue, then native cost.
+   * @param message - The usage of one model step.
+   * @param mapping - Catalogue IDs the connection names for its models.
+   * @param isFreeModel - Whether the model catalog of Pages lists the model as free.
+   * @returns A confirmed zero for a free model, also for one its provider
+   * names free without a price list at hand; the catalogue amount for a
+   * listed model with every count; otherwise the cost OpenCode reported.
+   * @remarks
+   * A step of a subscription keeps the cost OpenCode reported and nothing
+   * else: a free mark of the model catalog is no proof that the subscription
+   * costs nothing, and a catalogue ID the connection names for the model
+   * would bill the subscription at the rates of the standard API.
+   */
   public async calculate(
     message: OpenCodeMessageUsage,
     mapping?: Readonly<Record<string, string>>,
     isFreeModel = false,
   ): Promise<OpenCodeMessagePrice> {
-    if (
-      isFreeModel ||
-      (message.model?.startsWith("opencode/") &&
-        message.model.endsWith("-free"))
-    )
+    if (isSubscriptionModel(message.model)) return nativeOpenCodePrice(message);
+    if (isFreeModel || isNamedFreeModel(message.model))
       return { amount: 0, state: "free", priceAsOf: null };
     await this.refresh();
     const model = this.match(message.model, mapping);

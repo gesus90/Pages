@@ -1830,7 +1830,7 @@
       },
       "openCodeLinkedHint": "also usable through opencode",
       "openRouterModelIds": "OpenRouter price IDs for OpenCode models",
-      "openRouterModelIdsHint": "JSON object, for example {\"opencode/example-model\":\"vendor/example-model\"}. Leave {} for automatic matching.",
+      "openRouterModelIdsHint": "JSON object, for example {\"opencode/example-model\":\"vendor/example-model\"}. Leave {} for automatic matching. Models of the Z.AI Coding Plan get no price from it, because the subscription does not bill per token.",
       "antigravityHint": "Google sign-in through the official ACP adapter in this connection's isolated Pages context. Google then redirects to the adapter's loopback callback (127.0.0.1) on the Pages server: a browser on the server completes sign-in directly; from another device, paste the browser's address here. Pica can use this connection; it gets only Pica’s authorized Pages tools there, no built-in Antigravity tools.",
       "antigravityLoginHint": "Open the sign-in page, choose the Google account and give consent yourself. If this browser runs on the Pages server, sign-in then completes automatically.",
       "antigravityRedirectLabel": "Address after Google's consent",
@@ -6176,25 +6176,31 @@
             "title": "Usage",
             "inputTokens": "Input",
             "outputTokens": "Output",
-            "cacheReadTokens": "Cache read",
-            "cacheWriteTokens": "Cache written",
-            "afterTurn": "after the turn",
-            "costEstimate": "Cost · estimate",
+            "cacheReadTokens": "Cache",
+            "cacheReadHint": "Read from cache",
             "cost": {
               "label": "Cost",
-              "unknown": "unknown",
               "approximately": "approx. {{amount}}",
               "estimateLead": "Estimated",
               "estimateDetail": "from the catalog price as of {{priceAsOf}}, {{model}}: {{amount}}",
+              "providerLead": "Provider amount",
+              "providerDetail": "reported by the provider, {{model}}: {{amount}}",
+              "freeLead": "Free model",
+              "freeDetail": "cost 0 reported by the provider, {{model}}: {{amount}}",
+              "mixedDetail": "from the provider amount and the catalog price as of {{priceAsOf}}, {{model}}: {{amount}}",
+              "partialLead": "Partial estimate",
+              "partialNote": "Counts not reported yet are not included. The final count of the turn replaces this amount.",
               "noConversion": "No conversion",
               "convertedLead": "Converted",
               "convertedDetail": "at {{rate}} (ECB, {{date}})",
               "unconvertedLead": "Not converted:",
               "unconvertedDetail": "No valid exchange rate is available.",
-              "unknownLead": "Unknown",
-              "unknownReason": {
+              "missingLead": "No amount",
+              "missingReason": {
+                "pending": "The provider reports no amount, and no counts have been reported.",
                 "incomplete": "The provider reports no amount, and the usage data is incomplete.",
                 "cacheCounting": "The provider reports no amount, and the cache counting is not verified.",
+                "subscription": "The model runs on the subscription of the connection. The provider reports no amount for it, and no price per token is on record for the subscription. The usage counts against the quota of the subscription.",
                 "price": "The provider reports no amount, and no price is on record for this model."
               }
             }
@@ -8306,7 +8312,8 @@
       "managed": "Pages-managed",
       "system": "System installation",
       "bundled": "Pages bundle",
-      "none": "Not detected"
+      "none": "Not detected",
+      "unchecked": "Not checked yet"
     },
     "status": {
       "ready": "Ready",
@@ -8333,7 +8340,7 @@
       "installManaged": "Install managed"
     },
     "diagnostic": {
-      "not_checked": "Not checked yet. Disabled tools are checked when explicitly requested.",
+      "not_checked": "The installed version is not determined yet. Pages checks every tool in the background after startup; “Check version” repeats the check.",
       "ready": "The local functionality check passed.",
       "not_installed": "The executable or bundle is missing. Install the managed tool or provision the host dependency.",
       "version_unsupported": "The detected version is not a supported stable release or does not match the chosen target.",
@@ -8368,6 +8375,8 @@
     "release": {
       "state": {
         "not_checked": "Not searched yet",
+        "version_unknown": "Version unknown",
+        "not_installed": "Not installed",
         "current": "Current",
         "update_available": "Update available",
         "check_failed": "Check failed",

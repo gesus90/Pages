@@ -183,6 +183,7 @@ class ContinuationTrace {
 export class CliTerminalResult {
   #command;
   #redact;
+  #turnUsage;
   #answer = "";
   #hasOversizedAnswer = false;
   #sessionId = null;
@@ -190,9 +191,15 @@ export class CliTerminalResult {
   #failureCode;
   #trace;
 
-  constructor(command, redact) {
+  /**
+   * Creates the receipt reader of one job.
+   * @param turnUsage - Reduces the counters of a Codex turn end, which count
+   * the whole thread, to the tokens of the job's own turn.
+   */
+  constructor(command, redact, turnUsage = (usage) => usage) {
     this.#command = command;
     this.#redact = redact;
+    this.#turnUsage = turnUsage;
     this.#trace = new ContinuationTrace(command.program.route.tool);
   }
 
@@ -259,7 +266,10 @@ export class CliTerminalResult {
             ? "completed"
             : "failed",
         event: "result",
-        usage: claudeResultUsage(event),
+        usage: claudeResultUsage(
+          event,
+          Boolean(this.#command.continuation?.resumeSessionId),
+        ),
       });
     }
     if (
@@ -365,7 +375,7 @@ export class CliTerminalResult {
         answer: this.#answer,
         status: event.type === "turn.completed" ? "completed" : "failed",
         event: event.type,
-        usage: nativeUsage(event.usage),
+        usage: nativeUsage(this.#turnUsage(event.usage)),
       });
     if (event.type === "error")
       throw Object.assign(new Error("CLI reported a terminal error"), {

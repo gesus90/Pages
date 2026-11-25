@@ -99,6 +99,22 @@ interface WriteToolOptions extends ToolOptions {
   readonly isOpenWorld?: boolean;
 }
 
+/**
+ * One of a fixed set of strings, with its type named.
+ * @param values - The accepted strings.
+ * @returns The schema of the argument.
+ * @remarks
+ * A Gemini function declaration accepts `enum` only on a property of type
+ * `string`, so a tool with an untyped `enum` cannot be declared to a Gemini
+ * model. An Antigravity session had no declaration of `update_step_progress`
+ * and `report_step_result` while their choices were untyped, although it
+ * called marked tools without such a property. The tools the run contract
+ * names therefore name the type of every choice.
+ */
+export function stringChoice(values: readonly string[]): PropertySchema {
+  return { type: "string", enum: [...values] };
+}
+
 /** Builds a static read contract without introducing client-side validation. */
 export function buildReadTool(options: ReadToolOptions): Tool {
   return {

@@ -152,7 +152,28 @@ contract and the swarm rules name (`planStepTools` in
 swarm tools. The HTTP bridge, the managed runner and the remote runner list
 their tools through that one function, so the key reaches `agy acp` through
 the stdio relay of the runner as well; the rest of the catalog of a `read` or
-`full` session stays on demand, and other clients ignore the key.
+`full` session stays on demand, and other clients ignore the key. The binaries
+of both managed generations found on the host, which report 1.5.11 and 1.5.16,
+contain the key.
+
+The key alone did not make every marked tool callable. In a ticket node with
+Gemini 4 Neon on 24.11.2026 the agent called `read_ticket` and
+`read_ticket_checklist` (and `read_ticket_work`, whose call failed), but
+reported that it had no declaration of `update_step_progress` and
+`report_step_result`; the step failed after three returns of the missing work
+list. The three tools it called take string arguments without an `enum`, while
+`update_step_progress`, `report_step_result` and `save_ticket_work` each held
+an `enum` without a `type`. Whether the other marked tools without an `enum`
+(`set_ticket_status` and the checklist writes) were callable is not recorded.
+A Gemini function declaration accepts `enum` only on a property of type
+`string`, so a tool with an untyped `enum` cannot be declared to a Gemini
+model. The tools the run contract and the
+swarm rules name therefore state `type: "string"` on every choice
+(`stringChoice` in `definition/AgentTools/ToolDefinition.ts`); the values Pages
+accepts are unchanged. Other tools of the on-demand catalog still hold untyped
+choices. The comparison is a reading of the `tools/list` answer against the
+calls of that run; a call of both tools by a real `agy acp` session after the
+change is still to be shown.
 
 The version of a managed generation names the release it was installed from;
 the binary decides what runs. A generation folder named 1.5.9 was found to
@@ -208,20 +229,24 @@ first report of the prompt. The token counts of the prompt response are the
 sum of the model calls of that prompt, not of the native session, and stay
 separate from the occupancy. Their input leaves out the cache reads, and
 `totalTokens` is input + cache reads + output; `usage_update` names no `cost`.
-While a prompt of a local plan session runs, Pages reads the finished model
-calls from the CLI's own conversation store of that session
+While a prompt runs, Pages reads the finished model calls from the CLI's own
+conversation store of that session
 (`antigravity-acp/conversations/<session id>.db`, table `gen_metadata`) every
 second and shows their sum as the turn's live count; the prompt response
-replaces it. The CLI writes a call's row just after the call's `usage_update`,
-so a reading at that update alone would always miss the latest call.
+replaces it. A local plan session reads the store in the Pages host, a runner
+job in the process that started `agy acp`. The CLI writes a call's row just
+after the call's `usage_update`, so a reading at that update alone would
+always miss the latest call.
 The measurement is described under "Session usage of an Antigravity attempt"
 in [the session notes](../../service/agents/sessions/PageAgentCliSessions.md).
 
 A separate mathematical OpenRouter comparison covers captured ACP usage, with
 explicit gaps and subscription charges kept separate. The plan terminal shows
-the attempt's counts in the block "Verbrauch" and an estimate only as the row
-"Kosten · Schätzung", in the account's display currency; without an estimate
-the row reads "unbekannt". The reduced implementation, targeted tests and deferred
+the attempt's counts in the block "Verbrauch" and an estimate in the row
+"Kosten", in the account's display currency with two decimals; without an
+estimate the row reads "–" and its hint names the reason. While a prompt runs
+the estimate covers the counts reported so far and its hint names it a partial
+estimate. The reduced implementation, targeted tests and deferred
 live/historical-price evidence are documented in
 [the accounting handoff](../../../docs/PAGE-368.md).
 

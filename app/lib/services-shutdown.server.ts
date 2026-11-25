@@ -45,6 +45,10 @@ export function registerShutdownHandler(
         work: () => agents.agentCatalogScheduler.shutdown(),
       },
       {
+        step: "tool_update_scheduler",
+        work: () => agents.agentToolUpdateScheduler.shutdown(),
+      },
+      {
         step: "tool_manager",
         work: () => agents.agentToolManagerService.shutdown(),
       },

@@ -1,7 +1,11 @@
 import path from "node:path";
 
 import { isLocalSessionOwner } from "@/backend/agents/local/LocalSessionMode";
-import { isPagesRunsProcess, canProcessRuns } from "@/backend/runtime/RunsMode";
+import {
+  canProcessApiWork,
+  canProcessRuns,
+  isPagesRunsProcess,
+} from "@/backend/runtime/RunsMode";
 import { AgentPlanRunRepository } from "@/backend/database/repositories/agent/AgentPlanRunRepository";
 import { interruptedAcpOwners } from "@/backend/service/agents/AgentPlanRecovery";
 import { AgentAssetRepository } from "@/backend/database/repositories/agents/AgentAssetRepository";
@@ -152,13 +156,41 @@ async function startAgents(
     )
       services.agentCatalogScheduler.start();
     if (!isLocalSessionOwner()) await services.acpResourceScheduler.recover();
+    if (!isLocalSessionOwner() && !isPagesRunsProcess())
+      startBackgroundToolServices(services);
     return services;
   }
   await recoverRunOwners(database, services, discovered);
   // The simulation contacts no model provider, not even for catalogs.
   if (!isPagesRunsProcess() && !services.agentSimulation?.isActive)
     services.agentCatalogScheduler.start();
+  startBackgroundToolServices(services);
   return services;
+}
+
+/**
+ * Starts the tool inventory and the daily release search without blocking readiness.
+ * @remarks
+ * The tool states are kept per process. The process that owns the runs makes
+ * the tools of its connections ready and checks their sign-ins, as before. A
+ * sign-in check shares the credential home of a CLI with its sessions, which
+ * only that process knows, so an API process beside it takes the inventory
+ * alone. The process that shows the Tools page inspects every registered
+ * tool. Only the elected API process searches for releases, and the
+ * simulation contacts no release registry.
+ */
+function startBackgroundToolServices(services: AgentApplicationServices): void {
+  const scope = isPagesRunsProcess() ? "enabled" : "all";
+  const startup = canProcessRuns()
+    ? services.agentToolStartupService.start(scope)
+    : services.agentToolManagerService.start([], scope);
+  void startup.catch(() => {
+    console.warn(
+      "[pages] Agent tool startup checks could not finish; other Pages functions remain available.",
+    );
+  });
+  if (canProcessApiWork() && !services.agentSimulation?.isActive)
+    services.agentToolUpdateScheduler.start();
 }
 
 /** Recovers GitHub credential leftovers, interrupted ACP owners and finished local sessions. */
@@ -185,11 +217,6 @@ async function recoverRunOwners(
     discovered?.uncertain,
   );
   await services.localSessions?.settleFinished();
-  void services.agentToolStartupService.start().catch(() => {
-    console.warn(
-      "[pages] Agent tool startup checks could not finish; other Pages functions remain available.",
-    );
-  });
 }
 
 function agentRecoveryScope(

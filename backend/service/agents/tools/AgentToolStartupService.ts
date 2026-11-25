@@ -4,9 +4,15 @@ import { AGENT_TOOL_IDS } from "@/definition/AgentTools";
 import type { AgentCliRuntime } from "@/backend/agents/cli/AgentCliRuntime";
 import type { AgentConnectionRepository } from "@/backend/database/repositories/AgentConnectionRepository";
 import type { AcpResourceScheduler } from "@/backend/service/agents/AcpResourceScheduler";
+import type { AgentToolInventoryScope } from "./AgentToolInventory";
 import type { AgentToolManagerService } from "./AgentToolManagerService";
 
-/** Startup checks reuse the saved connection's login flow without model requests or credential writes. */
+/**
+ * Startup checks reuse the saved connection's login flow without model requests or credential writes.
+ * @remarks
+ * The tool inventory runs in the background of the manager; this worker waits
+ * for it before it checks the sign-ins, so nothing else waits for either.
+ */
 export class AgentToolStartupService {
   private readonly dependencies: {
     readonly manager: AgentToolManagerService;
@@ -21,9 +27,12 @@ export class AgentToolStartupService {
     this.dependencies = dependencies;
   }
 
-  /** Runs after existing ACP recovery, conservatively pinning tools for uncertain leftovers. */
-  public start(): Promise<void> {
-    this.starting ??= this.run();
+  /**
+   * Runs after existing ACP recovery, conservatively pinning tools for uncertain leftovers.
+   * @param scope - `all` in the process that shows the Tools page, so it knows every tool.
+   */
+  public start(scope: AgentToolInventoryScope = "enabled"): Promise<void> {
+    this.starting ??= this.run(scope);
     return this.starting;
   }
 
@@ -32,7 +41,7 @@ export class AgentToolStartupService {
     await this.starting?.catch(() => undefined);
   }
 
-  private async run(): Promise<void> {
+  private async run(scope: AgentToolInventoryScope): Promise<void> {
     const { manager, connections, runtime, resources } = this.dependencies;
     for (const lease of resources.snapshot().active)
       manager.supervisor.reserve(lease.instanceId, AGENT_TOOL_IDS);
@@ -44,7 +53,11 @@ export class AgentToolStartupService {
       active.flatMap((connection) =>
         isApiProvider(connection.provider) ? [] : [connection.provider],
       ),
+      scope,
     );
+    // A sign-in check starts a probed tool and shares the few check places
+    // of the process runner with the probes, so it follows the inventory.
+    await manager.whenInventoryReady();
     for (const connection of active) {
       if (isApiProvider(connection.provider)) continue;
       try {

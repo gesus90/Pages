@@ -50,7 +50,7 @@ function distinct(values: readonly (string | null)[]): readonly string[] {
   return [...new Set(values.flatMap((value) => (value ? [value] : [])))];
 }
 
-/** Why the turns cannot carry an estimate; empty when every turn and attempt is fully priced. */
+/** Why the turns cannot carry an estimate; empty when every turn and attempt has a price. */
 function priceGaps(
   turns: readonly PricedTurn[],
   attempts: ReadonlySet<string>,
@@ -59,8 +59,6 @@ function priceGaps(
   const gaps = new Set<AgentPriceGap>(
     turns.flatMap((turn) => (turn.price.gap ? [turn.price.gap] : [])),
   );
-  // A turn the adapter counted only in part prices only part of the work.
-  if (usages.some((usage) => usage.isPartial)) gaps.add("tokens");
   if (
     !turns.length ||
     [...attempts].some(
@@ -71,18 +69,25 @@ function priceGaps(
   return gaps;
 }
 
+/** Whether a turn's amount leaves out a count it lacks or work the adapter did not count. */
+function isPartlyPriced(turn: PricedTurn): boolean {
+  return turn.price.isPartial || turn.usage.isPartial;
+}
+
 function total(
   turns: readonly PricedTurn[],
   attempts: ReadonlySet<string>,
 ): AntigravityUsageTotal {
   const tokens = sumTurnUsage(turns.map((turn) => turn.usage))[0];
   const gaps = priceGaps(turns, attempts);
+  const amountUsd = totalAmount(turns, gaps);
   return {
     ...tokenTotals(tokens),
     isPartial: (tokens?.isPartial ?? true) || gaps.size > 0,
     turns: turns.length,
     reasoningTokens: null,
-    amountUsd: totalAmount(turns, gaps),
+    amountUsd,
+    isAmountPartial: amountUsd !== null && turns.some(isPartlyPriced),
     priceAsOf: distinct(turns.map((turn) => turn.price.priceAsOf)),
     priceModels: distinct(turns.map((turn) => turn.price.modelId)),
     gaps: [...gaps],
@@ -93,8 +98,11 @@ function total(
  * Projects each ACP turn once into attempt, step and run totals, across loop attempts.
  * @remarks
  * Every turn counts once, however often its report was stored. Catalogue
- * estimates concern captured work only; a missing attempt or a partly
- * counted turn invalidates the amount.
+ * estimates concern captured work only. A turn that lacks a count, such as
+ * the cache writes of a running prompt, or that the adapter counted only in
+ * part is priced with what it reported and marks the amount as partial; the
+ * finished turn replaces it. A missing attempt, an unknown model or a count
+ * without a price leaves no amount.
  */
 export async function antigravityUsage(input: {
   readonly turns: readonly AgentSessionTurnUsage[];
@@ -119,6 +127,7 @@ export async function antigravityUsage(input: {
           usage.model ?? input.confirmedModels?.get(usage.attemptId) ?? null,
       })) ?? {
         amountUsd: null,
+        isPartial: false,
         modelId: null,
         priceAsOf: null,
         gap: "price",

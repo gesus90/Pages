@@ -351,6 +351,30 @@ export function isArchiveRelease(tool: AgentToolDefinition): boolean {
   return kind === "github" || kind === "node" || kind === "python";
 }
 
+/**
+ * Whether a kept archive address belongs to the fixed official source of a tool.
+ * @param tool - The tool whose release names the archive.
+ * @param archiveUrl - The address a kept search result names; `null` for an npm package.
+ * @remarks
+ * The address has to be written in its normal form, so no `..` segment leads
+ * out of the source's release folder.
+ */
+export function isOfficialArchiveUrl(
+  tool: AgentToolDefinition,
+  archiveUrl: string | null,
+): boolean {
+  const source = tool.release;
+  if (!source || source.kind === "npm") return archiveUrl === null;
+  if (archiveUrl === null || !URL.canParse(archiveUrl)) return false;
+  const folder =
+    source.kind === "node"
+      ? "https://nodejs.org/dist/"
+      : `https://github.com/${source.repository}/releases/download/`;
+  return (
+    new URL(archiveUrl).href === archiveUrl && archiveUrl.startsWith(folder)
+  );
+}
+
 /** The CLI and adapter that change and start only as one checked combination, or `null`. */
 export function agentToolPair(tool: AgentToolDefinition): {
   readonly cli: AgentToolDefinition;

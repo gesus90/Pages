@@ -5,7 +5,7 @@
  */
 
 /** Claude's own banners, such as a spend limit, carry no real usage. */
-const SYNTHETIC_MODEL = "<synthetic>";
+export const SYNTHETIC_MODEL = "<synthetic>";
 const MODEL_NAME = /^[A-Za-z0-9._:@/[\]-]{1,200}$/u;
 const WINDOW_REQUEST_ID = "pages-context-window";
 /** The CLI names this source when it assumed a default window for a model it does not know. */
@@ -28,7 +28,8 @@ function count(input) {
   return Number.isSafeInteger(input) && input >= 0 ? input : null;
 }
 
-function modelName(input) {
+/** The model an event names, or `null` for a banner and for a name outside the allowed characters. */
+export function claudeModelName(input) {
   return typeof input === "string" &&
     input !== SYNTHETIC_MODEL &&
     MODEL_NAME.test(input)
@@ -92,7 +93,7 @@ export function readClaudeWindow(stdout) {
       message.response?.request_id === WINDOW_REQUEST_ID,
   )?.response;
   if (answer?.subtype !== "success") return null;
-  const model = modelName(answer.response?.model);
+  const model = claudeModelName(answer.response?.model);
   const limit = positive(answer.response?.rawMaxTokens);
   if (
     model === null ||
@@ -132,7 +133,7 @@ function readAnswer(event, session) {
     event.parent_tool_use_id !== undefined
   )
     return false;
-  const model = modelName(event.message?.model);
+  const model = claudeModelName(event.message?.model);
   if (model === null) return false;
   observeModel(session, model);
   session.context = {
@@ -164,7 +165,7 @@ function readAnswerEnd(event, session) {
 
 function readSystem(event, session) {
   if (event.subtype === "init")
-    return observeModel(session, modelName(event.model));
+    return observeModel(session, claudeModelName(event.model));
   if (event.subtype !== "compact_boundary") return false;
   // A compaction frees context but keeps the window; without a retained count it is unknown.
   session.context = {

@@ -19,7 +19,10 @@ import type {
   AgentToolNpmSource,
 } from "./AgentToolRegistry";
 import type { StableVersion } from "@/definition/AgentToolVersion";
-import type { AgentToolRelease } from "./AgentToolContracts";
+import type {
+  AgentToolRelease,
+  AgentToolReleaseFailure,
+} from "./AgentToolContracts";
 
 const NPM_REGISTRY = "https://registry.npmjs.org";
 const GITHUB_API = "https://api.github.com";
@@ -28,8 +31,7 @@ const METADATA_TIMEOUT_MS = 15_000;
 // The abbreviated version list of a package with thousands of releases.
 const PACKUMENT_LIMIT = 16 * 1024 * 1024;
 
-/** Why release metadata did not name a usable release. */
-export type AgentToolReleaseFailure = "unreachable" | "failed" | "incompatible";
+export type { AgentToolReleaseFailure };
 
 /** The outcome of reading one fixed source; a failure never names a release. */
 export type AgentToolReleaseOutcome =

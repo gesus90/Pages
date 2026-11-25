@@ -173,8 +173,17 @@ export function requireSessionAttempt(
   return attempt;
 }
 
-// A stored run of a retired provider names it as its runner; it ran on OpenCode.
-function isOpenCodeRunner(runner: string): boolean {
+/**
+ * Whether the sessions of a runner are native OpenCode sessions.
+ * @param runner - The runner of a session record or the provider of an attempt.
+ * @returns `true` for OpenCode, for an OpenRouter connection, which runs its
+ * plan nodes on OpenCode as its private runtime, and for a retired provider,
+ * whose stored runs name it as their runner and ran on OpenCode.
+ * @remarks
+ * Such a session writes one row per model step into OpenCode's own session
+ * database, so its usage is read from there whatever the connection is called.
+ */
+export function isOpenCodeRunner(runner: string): boolean {
   const native = historicalRunnerOf(runner);
   return native === "opencode" || native === "openrouter";
 }

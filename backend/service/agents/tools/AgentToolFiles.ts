@@ -14,9 +14,14 @@ import {
 } from "node:fs/promises";
 import path from "node:path";
 
+import { readStableVersion } from "@/definition/AgentToolVersion";
 import { isAgentToolId } from "@/definition/AgentTools";
 
-import { agentToolPair } from "./AgentToolRegistry";
+import {
+  agentToolDefinition,
+  agentToolPair,
+  isOfficialArchiveUrl,
+} from "./AgentToolRegistry";
 import { AgentToolRunFiles } from "./AgentToolRunFiles";
 import { AgentToolUpdateLock } from "./AgentToolUpdateLock";
 
@@ -29,10 +34,21 @@ import type {
 import type {
   AgentToolActivationEntry,
   AgentToolLocation,
+  AgentToolLockKey,
   AgentToolPairLocations,
+  AgentToolRelease,
+  AgentToolReleaseFailure,
+  AgentToolReleaseRecord,
   AgentToolStorage,
+  AgentToolUpdateSearchSnapshot,
 } from "./AgentToolContracts";
 import type { AgentToolDefinition } from "./AgentToolRegistry";
+
+const RELEASE_FAILURES: readonly AgentToolReleaseFailure[] = [
+  "unreachable",
+  "failed",
+  "incompatible",
+];
 
 interface ReleasePointer {
   readonly current: string;
@@ -55,6 +71,95 @@ function releaseVersion(name: string): string {
     /-[\da-f]{8}-[\da-f]{4}-[\da-f]{4}-[\da-f]{4}-[\da-f]{12}$/iu,
     "",
   );
+}
+
+function isPlainRecord(input: unknown): input is Record<string, unknown> {
+  return typeof input === "object" && input !== null && !Array.isArray(input);
+}
+
+function isIsoTimestamp(input: unknown): input is string {
+  return typeof input === "string" && Number.isFinite(Date.parse(input));
+}
+
+function isStableVersionText(input: unknown): input is string {
+  return typeof input === "string" && readStableVersion(input) !== null;
+}
+
+function parseDependencies(input: unknown): Record<string, string> | null {
+  if (!isPlainRecord(input)) return null;
+  const dependencies: Record<string, string> = {};
+  for (const [name, range] of Object.entries(input)) {
+    if (typeof range !== "string") return null;
+    dependencies[name] = range;
+  }
+  return dependencies;
+}
+
+// A kept release is installed later, so it may only name stable versions and
+// an archive of the tool's own official source.
+function parseRelease(
+  tool: AgentToolDefinition,
+  input: unknown,
+): AgentToolRelease | null {
+  if (!isPlainRecord(input)) return null;
+  const { version, integrity, archiveUrl, cliVersion } = input;
+  const dependencies = parseDependencies(input.dependencies);
+  if (
+    !isStableVersionText(version) ||
+    (integrity !== null && typeof integrity !== "string") ||
+    (archiveUrl !== null && typeof archiveUrl !== "string") ||
+    (cliVersion !== undefined && !isStableVersionText(cliVersion)) ||
+    dependencies === null ||
+    !isOfficialArchiveUrl(tool, archiveUrl)
+  )
+    return null;
+  return {
+    version,
+    integrity,
+    archiveUrl,
+    dependencies,
+    ...(cliVersion === undefined ? {} : { cliVersion }),
+  };
+}
+
+function parseReleaseFailure(
+  input: unknown,
+): AgentToolReleaseFailure | null | undefined {
+  if (input === null) return null;
+  return RELEASE_FAILURES.find((failure) => failure === input);
+}
+
+function parseReleaseRecord(
+  tool: AgentToolDefinition,
+  input: unknown,
+): AgentToolReleaseRecord | null {
+  if (!isPlainRecord(input) || !isIsoTimestamp(input.checkedAt)) return null;
+  const failure = parseReleaseFailure(input.failure);
+  if (failure === undefined) return null;
+  const latest =
+    input.latest === null ? null : parseRelease(tool, input.latest);
+  const target =
+    input.target === null ? null : parseRelease(tool, input.target);
+  if ((input.latest !== null && !latest) || (input.target !== null && !target))
+    return null;
+  return { checkedAt: input.checkedAt, latest, target, failure };
+}
+
+// An entry that does not hold is left out, so the other tools keep their results.
+function parseUpdateSearchSnapshot(
+  input: unknown,
+): AgentToolUpdateSearchSnapshot | null {
+  if (!isPlainRecord(input) || input.version !== 1) return null;
+  if (input.searchedAt !== null && !isIsoTimestamp(input.searchedAt))
+    return null;
+  if (!isPlainRecord(input.records)) return null;
+  const records: Partial<Record<AgentToolId, AgentToolReleaseRecord>> = {};
+  for (const [id, entry] of Object.entries(input.records)) {
+    if (!isAgentToolId(id)) continue;
+    const parsed = parseReleaseRecord(agentToolDefinition(id), entry);
+    if (parsed !== null) records[id] = parsed;
+  }
+  return { version: 1, searchedAt: input.searchedAt, records };
 }
 
 /**
@@ -185,13 +290,13 @@ export class AgentToolFiles implements AgentToolStorage {
     };
   }
 
-  /** Takes the cross-process lock of a combination, named by its CLI. */
-  public lock(key: AgentToolId): Promise<() => Promise<void>> {
+  /** Takes the cross-process lock of a combination or the shared update search. */
+  public lock(key: AgentToolLockKey): Promise<() => Promise<void>> {
     return this.updateLock.acquire(key);
   }
 
-  /** Whether a live process holds the lock of a combination. */
-  public isLocked(key: AgentToolId): Promise<boolean> {
+  /** Whether a live process holds the lock of a combination or the shared update search. */
+  public isLocked(key: AgentToolLockKey): Promise<boolean> {
     return this.updateLock.isHeld(key);
   }
 
@@ -208,6 +313,34 @@ export class AgentToolFiles implements AgentToolStorage {
     ReadonlyMap<AgentToolId, AgentToolOperationView>
   > {
     return this.updateLock.readOperations();
+  }
+
+  /** Reads the kept result of the last update search, or `null` when it is missing or unreadable. */
+  public async readUpdateSearch(): Promise<AgentToolUpdateSearchSnapshot | null> {
+    try {
+      const input = await this.readJson(
+        path.join(this.root, "update-search.json"),
+      );
+      if (input === null) return null;
+      const snapshot = parseUpdateSearchSnapshot(input);
+      if (snapshot === null)
+        console.warn("[pages] Kept agent tool update search state is invalid.");
+      return snapshot;
+    } catch (error: unknown) {
+      const code =
+        error instanceof Error && "code" in error ? error.code : null;
+      console.warn(
+        `[pages] Kept agent tool update search state cannot be read (${String(code ?? "invalid")}).`,
+      );
+      return null;
+    }
+  }
+
+  /** Keeps the result of the last update search across restarts, replaced in one rename. */
+  public async writeUpdateSearch(
+    snapshot: AgentToolUpdateSearchSnapshot,
+  ): Promise<void> {
+    await this.writeJson(path.join(this.root, "update-search.json"), snapshot);
   }
 
   /** Resolves the retained generation without publishing it before its health check. */

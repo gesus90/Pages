@@ -6,6 +6,7 @@ import { canProcessRuns } from "@/backend/runtime/RunsMode";
 import { AgentToolStartupService } from "@/backend/service/agents/tools/AgentToolStartupService";
 import { AgentToolRebindService } from "@/backend/service/agents/tools/AgentToolRebindService";
 import { AgentToolUpdateJobs } from "@/backend/service/agents/tools/AgentToolUpdateJobs";
+import { AgentToolUpdateScheduler } from "@/backend/service/agents/tools/AgentToolUpdateScheduler";
 import { CatalogProviderClient } from "@/backend/agents/catalog/CatalogProviderClient";
 import { AgentCatalogRefresh } from "@/backend/service/agents/AgentCatalogRefresh";
 import { AgentCatalogService } from "@/backend/service/agents/AgentCatalogService";
@@ -94,6 +95,8 @@ export interface AgentApplicationServices
   readonly agentToolRebindService: AgentToolRebindService;
   /** Starts single tool updates bound to the target the Tools page showed. */
   readonly agentToolUpdateJobs: AgentToolUpdateJobs;
+  /** Searches compatible tool releases server-wide once per day in the background. */
+  readonly agentToolUpdateScheduler: AgentToolUpdateScheduler;
   readonly acpResourceScheduler: AcpResourceScheduler;
   readonly agentAssignmentService: AgentAssignmentService;
   readonly agentCatalogService: AgentCatalogService;
@@ -404,7 +407,10 @@ function createToolServices(input: {
   readonly checks: AgentCheckService;
 }): Pick<
   AgentApplicationServices,
-  "agentToolStartupService" | "agentToolRebindService" | "agentToolUpdateJobs"
+  | "agentToolStartupService"
+  | "agentToolRebindService"
+  | "agentToolUpdateJobs"
+  | "agentToolUpdateScheduler"
 > {
   const { manager, connections, runtime, resources, checks } = input;
   const rebind = new AgentToolRebindService({ manager, connections, checks });
@@ -417,6 +423,9 @@ function createToolServices(input: {
     }),
     agentToolRebindService: rebind,
     agentToolUpdateJobs: new AgentToolUpdateJobs({ manager, rebind }),
+    agentToolUpdateScheduler: new AgentToolUpdateScheduler(
+      manager.updateSearch,
+    ),
   };
 }
 

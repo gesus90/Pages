@@ -7,6 +7,10 @@ import type {
   AgentSessionUsageTotal,
 } from "@/definition/AgentSessionJournal";
 
+import type {
+  AgentPriceGap,
+  AgentSessionUsageEstimate,
+} from "@/definition/AgentSessionPricing";
 import type { AcpUsageCapability } from "@/definition/AgentSessionUsageCapabilities";
 import { summarizeClaudeUsage } from "@/definition/ClaudeUsageSummary";
 import type { ClaudeUsageSummary } from "@/definition/ClaudeUsage";
@@ -33,6 +37,35 @@ export interface TurnTokenDelta {
   readonly tokens: AgentSessionTokenUsage;
   readonly isReset: boolean;
 }
+
+/** The valuation stored with one turn, as the accounting of its provider wrote it. */
+export interface TurnValuation {
+  /** The amount of the turn in US dollars; `null` when none could be calculated. */
+  readonly amountUsd: number | null;
+  /** Why a turn that reported input and output has no amount. */
+  readonly missing: AgentPriceGap;
+  /** When the catalog prices of the amount were read. */
+  readonly priceAsOf: readonly string[];
+  /** The catalog entries the amount was priced with. */
+  readonly priceModels: readonly string[];
+}
+
+/** A turn with the valuation stored with it. */
+interface ValuedTurn {
+  readonly turn: AgentSessionTurnUsage;
+  readonly valuation: TurnValuation;
+}
+
+/** The counts of an attempt without a turn: nothing reported yet, never 0. */
+const NO_TOKENS = {
+  inputTokens: null,
+  outputTokens: null,
+  cacheReadTokens: null,
+  cacheWriteTokens: null,
+  totalTokens: null,
+  inputIncludesCache: null,
+  isPartial: true,
+} as const;
 
 function count(input: unknown): number | null {
   return typeof input === "number" && Number.isSafeInteger(input) && input >= 0
@@ -305,6 +338,108 @@ export function sumTurnUsage(
       provider,
       unique.filter((turn) => turn.provider === provider),
     ),
+  );
+}
+
+/** Why the turns of an attempt carry no amount; empty when every turn has one. */
+function attemptPriceGaps(
+  valued: readonly ValuedTurn[],
+): readonly AgentPriceGap[] {
+  const gaps = new Set<AgentPriceGap>();
+  if (valued.length === 0) gaps.add("attempt");
+  for (const { turn, valuation } of valued) {
+    if (turn.inputTokens === null || turn.outputTokens === null)
+      gaps.add("tokens");
+    else if (valuation.amountUsd === null) gaps.add(valuation.missing);
+  }
+  return [...gaps];
+}
+
+/**
+ * The tokens the turns of one attempt processed and their estimate, for the
+ * block "Verbrauch" of the plan terminal.
+ * @param turns - The turns of one attempt and one provider; another attempt never adds to them.
+ * @param valuate - Reads the valuation the provider's accounting stored with a turn.
+ * @returns The sums of the turns with the amount stored with them.
+ * @remarks
+ * The counts stay the provider's own. The amount is the sum of the stored
+ * valuations, at the price frozen for the attempt. A turn that still runs
+ * holds its latest interim reading and marks the amount as partial; the
+ * counts of its end replace it. Without a turn, with a turn that lacks input
+ * or output, or with a turn without a valuation there is no amount.
+ */
+export function attemptUsageEstimate(
+  turns: readonly AgentSessionTurnUsage[],
+  valuate: (turn: AgentSessionTurnUsage) => TurnValuation,
+): AgentSessionUsageEstimate {
+  const tokens = sumTurnUsage(turns)[0] ?? NO_TOKENS;
+  const valued = turns.map((turn) => ({ turn, valuation: valuate(turn) }));
+  const valuations = valued.map((entry) => entry.valuation);
+  const gaps = attemptPriceGaps(valued);
+  const amountUsd =
+    gaps.length > 0
+      ? null
+      : valuations.reduce(
+          (sum, valuation) => sum + (valuation.amountUsd ?? 0),
+          0,
+        );
+  return {
+    inputTokens: tokens.inputTokens,
+    outputTokens: tokens.outputTokens,
+    cacheReadTokens: tokens.cacheReadTokens,
+    cacheWriteTokens: tokens.cacheWriteTokens,
+    totalTokens: tokens.totalTokens,
+    inputIncludesCache: tokens.inputIncludesCache,
+    isPartial: tokens.isPartial || gaps.length > 0,
+    turns: turns.length,
+    amountUsd,
+    isAmountPartial: amountUsd !== null && turns.some((turn) => turn.isPartial),
+    priceAsOf: [
+      ...new Set(valuations.flatMap((valuation) => valuation.priceAsOf)),
+    ],
+    priceModels: [
+      ...new Set(valuations.flatMap((valuation) => valuation.priceModels)),
+    ],
+    gaps,
+  };
+}
+
+/** The valuation the Claude accounting stored with a turn: its amount and the frozen prices of its models. */
+function claudeTurnValuation(turn: AgentSessionTurnUsage): TurnValuation {
+  const prices = (turn.claudeAccounting?.models ?? []).flatMap((model) =>
+    model.price ? [model.price] : [],
+  );
+  return {
+    amountUsd: turn.claudeAccounting?.costUsd ?? null,
+    missing: "price",
+    priceAsOf: prices.map((price) => price.fetchedAt),
+    priceModels: prices.map((price) => price.modelId),
+  };
+}
+
+/**
+ * The tokens one Claude Code attempt processed and their estimate, for the
+ * block "Verbrauch" of the plan terminal.
+ * @param turns - Turns of any attempt; only the Claude Code turns of `attemptId` count.
+ * @param attemptId - The selected attempt; another attempt never adds to it.
+ * @returns The sums of the attempt's turns with the amount stored with them.
+ * @remarks
+ * Claude counts input, cache reads and cache writes apart, so no count
+ * contains another. The amount is the value the accounting stored with the
+ * turns at the catalog price frozen for the attempt and each model; it
+ * contains the cache writes a turn reported. A count a turn lacks adds
+ * nothing and marks the amount as partial, as an interim reading of a
+ * running turn does.
+ */
+export function claudeAttemptUsage(
+  turns: readonly AgentSessionTurnUsage[],
+  attemptId: string,
+): AgentSessionUsageEstimate {
+  return attemptUsageEstimate(
+    turns.filter(
+      (turn) => turn.provider === "claude_code" && turn.attemptId === attemptId,
+    ),
+    claudeTurnValuation,
   );
 }
 

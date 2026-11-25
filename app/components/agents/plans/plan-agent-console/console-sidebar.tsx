@@ -37,8 +37,8 @@ import type { DisplayedCost } from "@/app/lib/cost-currency";
 import type { AgentPlanStepResult } from "@/definition/AgentPlan";
 import type { AgentSessionView } from "@/definition/AgentSessionJournal";
 import type {
-  AgentPriceGap,
-  AntigravityUsageTotal,
+  AgentCostSource,
+  AgentSessionUsageEstimate,
   EuroDollarReferenceRate,
 } from "@/definition/AgentSessionPricing";
 
@@ -47,24 +47,62 @@ const USAGE_KEY = `${SIDEBAR_KEY}.usage`;
 const COST_KEY = `${USAGE_KEY}.cost`;
 
 /**
- * The rows of the block "Verbrauch" in their fixed order, one per count
- * Antigravity reports; cache reads and writes never merge into the input.
+ * The rows of the block "Verbrauch" in their fixed order. The cache row
+ * shows only the tokens read from the cache and never merges into the
+ * input; cache writes stay stored counts for checks and the estimate.
  */
-const USAGE_ROWS = [
-  "inputTokens",
-  "outputTokens",
-  "cacheReadTokens",
-  "cacheWriteTokens",
-] as const;
+const USAGE_ROWS = ["inputTokens", "outputTokens", "cacheReadTokens"] as const;
 
-/** The value of a count that has not been reported yet. */
+type UsageRowCounts = Readonly<
+  Record<(typeof USAGE_ROWS)[number], number | null>
+>;
+
+/** The value of a count or an amount that has not been reported yet. */
 const NOT_REPORTED = "–";
 
 /**
- * Why no cost is known, in the order the hint names it: missing counts
- * first, then an unverified cache counting, then a missing price.
+ * Why no cost can be calculated, in the order the hint names it: no counts
+ * yet, missing counts, an unverified cache counting, a subscription that
+ * covers the usage, then a missing price.
  */
-type UnknownCostReason = "incomplete" | "cacheCounting" | "price";
+type MissingCostReason =
+  "pending" | "incomplete" | "cacheCounting" | "subscription" | "price";
+
+/**
+ * The texts of the first hint line by where the amount comes from: the lead
+ * of a complete amount, the lead while a turn still runs, and the detail.
+ * @remarks
+ * Only an amount calculated from catalog prices is named an estimate or a
+ * partial estimate. An amount the provider reported keeps its name while the
+ * turn runs; the note of a partial amount follows it then.
+ */
+const SOURCE_HINTS: Readonly<
+  Record<
+    AgentCostSource,
+    {
+      readonly lead: string;
+      readonly partialLead: string;
+      readonly detail: string;
+    }
+  >
+> = {
+  catalog: {
+    lead: "estimateLead",
+    partialLead: "partialLead",
+    detail: "estimateDetail",
+  },
+  provider: {
+    lead: "providerLead",
+    partialLead: "providerLead",
+    detail: "providerDetail",
+  },
+  free: { lead: "freeLead", partialLead: "freeLead", detail: "freeDetail" },
+  mixed: {
+    lead: "estimateLead",
+    partialLead: "partialLead",
+    detail: "mixedDetail",
+  },
+};
 
 /** One line of the cost hint: a bold lead, its detail, or both. */
 interface CostHintLine {
@@ -81,13 +119,14 @@ interface CostFormat {
 
 /** What the cost row shows and what its hint says. */
 interface CostRowContent {
-  readonly label: string;
-  readonly text: string;
-  readonly isUnknown: boolean;
-  /** Line 1 of the hint: where the amount comes from, with the original amount. */
-  readonly source: CostHintLine;
-  /** Line 2 of the hint: the conversion with rate and day, or why there is none. */
-  readonly conversion: CostHintLine;
+  /** The amount in the chosen currency; `null` while none can be calculated. */
+  readonly text: string | null;
+  /**
+   * The lines of the hint: where the amount comes from with the original
+   * amount, the conversion with rate and day, and what a partial estimate
+   * leaves out; without an amount why there is none.
+   */
+  readonly hint: readonly CostHintLine[];
 }
 
 interface ConsoleSidebarProps {
@@ -241,34 +280,45 @@ function BranchValue({
 }
 
 /**
- * Whether the counts of the selected attempt come only with the end of its
- * running turn.
- * @remarks
- * A local session reads each finished model call from the conversation
- * store of `agy acp` while the prompt runs. A runner reports the counts of
- * a prompt only with its answer.
+ * A short row label whose full name is its hint and its name for a screen
+ * reader; the hint shows on hover and on keyboard focus.
  */
-function isWaitingForTurnEnd(
-  step: AgentPlanStepResult,
-  view: AgentSessionView,
-): boolean {
+function HintedLabel({
+  label,
+  hint,
+}: {
+  readonly label: string;
+  readonly hint: string;
+}): React.ReactElement {
   return (
-    step.execution?.target?.kind === "remote" &&
-    step.status === "running" &&
-    (view.state === "running" || view.state === "starting")
+    <Tooltip isFloating align="start" content={hint}>
+      {() => (
+        <span
+          tabIndex={0}
+          className="rounded-sm focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none"
+        >
+          <span aria-hidden="true">{label}</span>
+          <span className="sr-only">{hint}</span>
+        </span>
+      )}
+    </Tooltip>
   );
 }
 
 /** One row of the block "Verbrauch"; a value not reported yet stands as a muted dash. */
 function UsageRow({
   label,
+  hint,
   value,
 }: {
   readonly label: string;
+  readonly hint?: string;
   readonly value: string | null;
 }): React.ReactElement {
   return (
-    <SidebarRow label={label}>
+    <SidebarRow
+      label={hint ? <HintedLabel label={label} hint={hint} /> : label}
+    >
       <span
         className={cn(
           "min-w-0 truncate tabular-nums",
@@ -281,10 +331,38 @@ function UsageRow({
   );
 }
 
-/** The reason an unknown cost names; see {@link UnknownCostReason}. */
-function unknownCostReason(gaps: readonly AgentPriceGap[]): UnknownCostReason {
+/**
+ * The counts of the three rows, each token in one row only.
+ * @remarks
+ * Codex counts the cache reads within its input, so its row "Eingabe" shows
+ * the input without them and the row "Cache" the cache reads alone. A
+ * provider that counts both apart keeps its counts. A count not reported
+ * stays `null` and takes nothing off the input; a reported 0 stays 0.
+ */
+function usageRowCounts(usage: AgentSessionUsageEstimate): UsageRowCounts {
+  const { inputTokens, outputTokens, cacheReadTokens } = usage;
+  if (
+    usage.inputIncludesCache !== true ||
+    inputTokens === null ||
+    cacheReadTokens === null
+  )
+    return { inputTokens, outputTokens, cacheReadTokens };
+  return {
+    inputTokens: Math.max(0, inputTokens - cacheReadTokens),
+    outputTokens,
+    cacheReadTokens,
+  };
+}
+
+/** The reason a missing cost names; see {@link MissingCostReason}. */
+function missingCostReason(
+  usage: AgentSessionUsageEstimate,
+): MissingCostReason {
+  const { gaps } = usage;
+  if (usage.turns === 0) return "pending";
   if (gaps.includes("tokens") || gaps.includes("attempt")) return "incomplete";
   if (gaps.includes("cache_semantics")) return "cacheCounting";
+  if (gaps.includes("subscription")) return "subscription";
   return "price";
 }
 
@@ -324,15 +402,47 @@ function conversionLine(cost: DisplayedCost, format: CostFormat): CostHintLine {
   }
 }
 
+/** The hint of an amount: its source, its conversion and what a partial amount leaves out. */
+function estimateHint(
+  usage: AgentSessionUsageEstimate,
+  cost: DisplayedCost,
+  format: CostFormat,
+): readonly CostHintLine[] {
+  const { t, formatDate } = format;
+  const unknown = t(`${SIDEBAR_KEY}.unknown`);
+  const priceDays = new Set(usage.priceAsOf.map((day) => formatDate(day)));
+  const texts = SOURCE_HINTS[usage.amountSource ?? "catalog"];
+  const lead = usage.isAmountPartial ? texts.partialLead : texts.lead;
+  const source: CostHintLine = {
+    lead: t(`${COST_KEY}.${lead}`),
+    detail: t(`${COST_KEY}.${texts.detail}`, {
+      priceAsOf: [...priceDays].join(", ") || unknown,
+      model: usage.priceModels.join(", ") || unknown,
+      amount: formatCostAmount(cost.original, format.language, "code"),
+    }),
+  };
+  const lines = [source, conversionLine(cost, format)];
+  return usage.isAmountPartial
+    ? [...lines, { detail: t(`${COST_KEY}.partialNote`) }]
+    : lines;
+}
+
 /**
  * The content of the cost row in the currency the user chose.
  * @remarks
- * Antigravity reports no charged amount with a billing status, so the row
- * shows the catalog estimate in US dollars, converted where a valid ECB
- * rate exists, or „unbekannt“; a missing amount is never shown as 0.
+ * Antigravity, Codex and Claude Code report no charged amount with a billing
+ * status, so the row shows the catalog estimate in US dollars, converted
+ * where a valid ECB rate exists. OpenCode reports the cost of each model
+ * step; the row shows their sum and the hint names it the provider amount,
+ * a reported 0 of a free model stays 0. While a prompt runs, the amount
+ * covers the counts reported so far and its hint says so. Without an amount
+ * the row keeps the dash and the hint says why; a missing amount is never 0.
+ * A step of a subscription, as of the Z.AI Coding Plan, reports a cost of 0
+ * that is no amount: the row keeps the dash and the hint names the
+ * subscription, whose quota stands with its connection, instead of a price.
  */
 function useCostRowContent(
-  usage: AntigravityUsageTotal,
+  usage: AgentSessionUsageEstimate,
   referenceRate: EuroDollarReferenceRate | null,
 ): CostRowContent {
   const { t, i18n } = useTranslation();
@@ -340,13 +450,13 @@ function useCostRowContent(
   const { formatDate } = useRegionFormatter();
   if (usage.amountUsd === null)
     return {
-      label: t(`${COST_KEY}.label`),
-      text: t(`${COST_KEY}.unknown`),
-      isUnknown: true,
-      source: { lead: t(`${COST_KEY}.unknownLead`) },
-      conversion: {
-        detail: t(`${COST_KEY}.unknownReason.${unknownCostReason(usage.gaps)}`),
-      },
+      text: null,
+      hint: [
+        { lead: t(`${COST_KEY}.missingLead`) },
+        {
+          detail: t(`${COST_KEY}.missingReason.${missingCostReason(usage)}`),
+        },
+      ],
     };
   const format: CostFormat = { language: i18n.language, formatDate, t };
   const cost = displayCost(
@@ -354,21 +464,9 @@ function useCostRowContent(
     currency,
     referenceRate,
   );
-  const unknown = t(`${SIDEBAR_KEY}.unknown`);
-  const priceDays = new Set(usage.priceAsOf.map((day) => formatDate(day)));
   return {
-    label: t(`${USAGE_KEY}.costEstimate`),
     text: costText(cost, format),
-    isUnknown: false,
-    source: {
-      lead: t(`${COST_KEY}.estimateLead`),
-      detail: t(`${COST_KEY}.estimateDetail`, {
-        priceAsOf: [...priceDays].join(", ") || unknown,
-        model: usage.priceModels.join(", ") || unknown,
-        amount: formatCostAmount(cost.original, i18n.language, "code"),
-      }),
-    },
-    conversion: conversionLine(cost, format),
+    hint: estimateHint(usage, cost, format),
   };
 }
 
@@ -392,27 +490,29 @@ function CostHintText({
 /**
  * The row "Kosten" of the block "Verbrauch".
  * @remarks
- * The label names the source: „Kosten · Schätzung“ for a catalog estimate,
- * „Kosten“ while no amount is known. The hint shows after the pointer
- * rested 1.5 s on the value, or at once on keyboard focus.
+ * The row stands from the start with a dash until an amount can be
+ * calculated. The hint names the basis of the estimate; it shows after the
+ * pointer rested 1.5 s on the value, or at once on keyboard focus.
  */
 function CostRow({
   usage,
   referenceRate,
 }: {
-  readonly usage: AntigravityUsageTotal;
+  readonly usage: AgentSessionUsageEstimate;
   readonly referenceRate: EuroDollarReferenceRate | null;
 }): React.ReactElement {
+  const { t } = useTranslation();
   const content = useCostRowContent(usage, referenceRate);
   return (
-    <SidebarRow label={content.label}>
+    <SidebarRow label={t(`${COST_KEY}.label`)}>
       <Tooltip
         className="min-w-0 shrink"
         isFloating
         content={
           <span className="flex flex-col gap-1 whitespace-normal wrap-anywhere">
-            <CostHintText line={content.source} />
-            <CostHintText line={content.conversion} />
+            {content.hint.map((line) => (
+              <CostHintText key={`${line.lead}:${line.detail}`} line={line} />
+            ))}
           </span>
         }
       >
@@ -423,10 +523,10 @@ function CostRow({
             data-console-cost=""
             className={cn(
               "block min-w-0 truncate rounded-sm tabular-nums focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none",
-              content.isUnknown && "text-agent-console-muted",
+              content.text === null && "text-agent-console-muted",
             )}
           >
-            {content.text}
+            {content.text ?? NOT_REPORTED}
           </span>
         )}
       </Tooltip>
@@ -438,39 +538,38 @@ function CostRow({
  * The block "Verbrauch": the tokens the selected attempt's session
  * processed, summed over its turns, and their cost.
  * @remarks
- * The four count rows and the cost row stand from the start, so the session
- * block below does not move when the counts arrive. A reported 0 stays 0.
- * The counts are the adapter's own; Pages adds no cache count to the input.
+ * The three count rows and the cost row stand from the start, so the session
+ * block below does not move when the counts arrive. A count not reported yet
+ * reads as a dash, a reported 0 stays 0. The counts are the adapter's own;
+ * Pages adds no cache count to the input and shows the cache reads an input
+ * contains in the cache row alone.
  */
 function UsageSection({
   usage,
-  isAfterTurn,
   referenceRate,
 }: {
-  readonly usage: AntigravityUsageTotal;
-  readonly isAfterTurn: boolean;
+  readonly usage: AgentSessionUsageEstimate;
   readonly referenceRate: EuroDollarReferenceRate | null;
 }): React.ReactElement {
   const { t, i18n } = useTranslation();
   const title = t(`${USAGE_KEY}.title`);
   const numbers = new Intl.NumberFormat(i18n.language);
+  const counts = usageRowCounts(usage);
   return (
-    <section aria-label={title} data-console-usage="" className="min-w-0">
-      <div className="flex items-baseline justify-between gap-3">
-        <h3 className={SIDEBAR_TITLE_CLASS}>{title}</h3>
-        {isAfterTurn ? (
-          <span className="min-w-0 truncate text-[13px] text-agent-console-muted">
-            {t(`${USAGE_KEY}.afterTurn`)}
-          </span>
-        ) : null}
-      </div>
+    <section aria-label={title} data-console-usage="" className="min-w-0 py-3">
+      <h3 className={SIDEBAR_TITLE_CLASS}>{title}</h3>
       <dl className="mt-1">
         {USAGE_ROWS.map((field) => {
-          const count = usage[field];
+          const count = counts[field];
           return (
             <UsageRow
               key={field}
               label={t(`${USAGE_KEY}.${field}`)}
+              hint={
+                field === "cacheReadTokens"
+                  ? t(`${USAGE_KEY}.cacheReadHint`)
+                  : undefined
+              }
               value={count === null ? null : numbers.format(count)}
             />
           );
@@ -495,13 +594,13 @@ function SessionSection(props: ConsoleSidebarProps): React.ReactElement {
         <SidebarRow label={t(`${SIDEBAR_KEY}.runtime`)}>
           <RuntimeValue {...props} unknown={unknown} />
         </SidebarRow>
-        <SidebarRow label={t(`${SIDEBAR_KEY}.model`)}>
+        <SidebarRow hasBadge label={t(`${SIDEBAR_KEY}.model`)}>
           <ModelValue {...props} unknown={unknown} />
         </SidebarRow>
-        <SidebarRow label={t(`${SIDEBAR_KEY}.reasoning`)}>
+        <SidebarRow hasBadge label={t(`${SIDEBAR_KEY}.reasoning`)}>
           <ReasoningValue view={view} unknown={unknown} />
         </SidebarRow>
-        <SidebarRow label={t(`${SIDEBAR_KEY}.access`)}>
+        <SidebarRow hasBadge label={t(`${SIDEBAR_KEY}.access`)}>
           {access ? (
             <RowBadge>
               <AccessBadge access={access} />
@@ -510,7 +609,7 @@ function SessionSection(props: ConsoleSidebarProps): React.ReactElement {
             unknown
           )}
         </SidebarRow>
-        <SidebarRow label={t(`${SIDEBAR_KEY}.branch`)}>
+        <SidebarRow hasBadge label={t(`${SIDEBAR_KEY}.branch`)}>
           <BranchValue view={view} unknown={unknown} />
         </SidebarRow>
         <Fact
@@ -530,28 +629,34 @@ function SessionSection(props: ConsoleSidebarProps): React.ReactElement {
  * The attempt's progress, context and session facts in the plan terminal.
  * @remarks
  * Every provider shows the todo list first, then the context, then the
- * session. An Antigravity attempt shows its summed usage between context
- * and session, so the occupancy of the window and the tokens the session
- * processed stand apart. The todo list takes the remaining room. A
- * short window scrolls the whole sidebar so the context and session rows
- * remain reachable.
+ * session. An Antigravity, Codex, Claude Code, OpenCode or OpenRouter attempt
+ * shows its summed usage between context and session, so the occupancy of the
+ * window and the tokens the session processed stand apart. The todo list
+ * takes the remaining room, so the blocks keep their height small: each has
+ * 12 px padding above and below and no further margin, and a 1 px divider
+ * separates two blocks. A short window scrolls the whole sidebar so the
+ * context, usage and session rows remain reachable.
  */
 export function ConsoleSidebar(props: ConsoleSidebarProps): React.ReactElement {
   const { t } = useTranslation();
+  const usage =
+    props.view.antigravity?.attempt ??
+    props.view.codexAttemptUsage ??
+    props.view.claudeAttemptUsage ??
+    props.view.openCodeAttemptUsage;
   return (
     <aside
       aria-label={t("plans.console.details")}
-      className="flex min-w-0 shrink-0 flex-col overflow-y-auto border-t border-agent-console-border bg-agent-console-surface px-5 pt-5 pb-8 [&>*+*]:mt-3.5 [&>*+*]:border-t [&>*+*]:border-agent-console-border [&>*+*]:pt-3.5 min-[680px]:w-[300px] min-[680px]:border-t-0 min-[680px]:border-l"
+      className="flex min-w-0 shrink-0 flex-col overflow-y-auto border-t border-agent-console-border bg-agent-console-surface px-5 [&>*+*]:border-t [&>*+*]:border-agent-console-border min-[680px]:w-[300px] min-[680px]:border-t-0 min-[680px]:border-l"
     >
       <ConsoleTodoList
         step={props.step}
         activity={activityText(props.step, t)}
       />
       <ConsoleContextSection view={props.view} />
-      {props.view.antigravity ? (
+      {usage ? (
         <UsageSection
-          usage={props.view.antigravity.attempt}
-          isAfterTurn={isWaitingForTurnEnd(props.step, props.view)}
+          usage={usage}
           referenceRate={props.view.referenceRate ?? null}
         />
       ) : null}

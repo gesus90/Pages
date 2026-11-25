@@ -62,6 +62,30 @@ export interface AgentToolPairLocations {
   readonly adapter: AgentToolLocation | null;
 }
 
+/** Why release metadata did not name a usable release. */
+export type AgentToolReleaseFailure = "unreachable" | "failed" | "incompatible";
+
+/** One cross-process lock scope below the tools directory. */
+export type AgentToolLockKey = AgentToolId | "update_search";
+
+/** What one update search found for one tool, persisted across restarts. */
+export interface AgentToolReleaseRecord {
+  readonly checkedAt: string;
+  readonly latest: AgentToolRelease | null;
+  /** What an update installs; older than `latest` when the adapter limits its CLI. */
+  readonly target: AgentToolRelease | null;
+  readonly failure: AgentToolReleaseFailure | null;
+}
+
+/** Last completed server-wide update search and per-tool outcomes, kept across restarts. */
+export interface AgentToolUpdateSearchSnapshot {
+  readonly version: 1;
+  readonly searchedAt: string | null;
+  readonly records: Readonly<
+    Partial<Record<AgentToolId, AgentToolReleaseRecord>>
+  >;
+}
+
 /** Persistence boundary kept separate from credentials and the connection store. */
 export interface AgentToolStorage {
   readonly root: string;
@@ -85,11 +109,13 @@ export interface AgentToolStorage {
   currentPair?(
     cli: AgentToolDefinition,
   ): Promise<AgentToolPairLocations | null>;
-  /** Takes the cross-process lock of a combination and returns its release. */
-  lock?(key: AgentToolId): Promise<() => Promise<void>>;
-  isLocked?(key: AgentToolId): Promise<boolean>;
+  /** Takes the cross-process lock of a combination or the shared update search and returns its release. */
+  lock?(key: AgentToolLockKey): Promise<() => Promise<void>>;
+  isLocked?(key: AgentToolLockKey): Promise<boolean>;
   saveOperation?(id: AgentToolId, operation: AgentToolOperationView): void;
   readOperations?(): Promise<ReadonlyMap<AgentToolId, AgentToolOperationView>>;
+  readUpdateSearch?(): Promise<AgentToolUpdateSearchSnapshot | null>;
+  writeUpdateSearch?(snapshot: AgentToolUpdateSearchSnapshot): Promise<void>;
   previous(tool: AgentToolDefinition): Promise<AgentToolLocation | null>;
   discard(location: AgentToolLocation): Promise<void>;
   remove(tool: AgentToolDefinition): Promise<void>;

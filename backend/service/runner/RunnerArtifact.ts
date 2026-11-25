@@ -12,7 +12,9 @@ import runnerPages from "@/scripts/runner/pages.mjs?raw";
 import runnerAssetReturn from "@/scripts/runner/asset-return.mjs?raw";
 import runnerAntigravity from "@/scripts/runner/antigravity.mjs?raw";
 import runnerAntigravityContext from "@/scripts/runner/antigravity-context.mjs?raw";
+import runnerAntigravityUsage from "@/scripts/runner/antigravity-usage.mjs?raw";
 import runnerOpenCode from "@/scripts/runner/opencode.mjs?raw";
+import runnerOpenCodeUsage from "@/scripts/runner/opencode-usage.mjs?raw";
 import runnerLive from "@/scripts/runner/live.mjs?raw";
 import runnerSchedule from "@/scripts/runner/schedule.mjs?raw";
 import runnerJournal from "@/scripts/runner/journal.mjs?raw";
@@ -62,11 +64,13 @@ export const setupScript = setupTemplate
   .replace("__PAGES_RUNNER_PAGES__", () => runnerPages)
   .replace("__PAGES_RUNNER_ASSET_RETURN__", () => runnerAssetReturn)
   .replace("__PAGES_RUNNER_OPENCODE__", () => runnerOpenCode)
+  .replace("__PAGES_RUNNER_OPENCODE_USAGE__", () => runnerOpenCodeUsage)
   .replace("__PAGES_RUNNER_ANTIGRAVITY__", () => runnerAntigravity)
   .replace(
     "__PAGES_RUNNER_ANTIGRAVITY_CONTEXT__",
     () => runnerAntigravityContext,
   )
+  .replace("__PAGES_RUNNER_ANTIGRAVITY_USAGE__", () => runnerAntigravityUsage)
   .replace("__PAGES_RUNNER_LIVE__", () => runnerLive)
   .replace("__PAGES_RUNNER_SCHEDULE__", () => runnerSchedule)
   .replace("__PAGES_RUNNER_JOURNAL__", () => runnerJournal)
@@ -107,7 +111,9 @@ const files = {
   "asset-return.mjs": runnerAssetReturn,
   "antigravity.mjs": runnerAntigravity,
   "antigravity-context.mjs": runnerAntigravityContext,
+  "antigravity-usage.mjs": runnerAntigravityUsage,
   "opencode.mjs": runnerOpenCode,
+  "opencode-usage.mjs": runnerOpenCodeUsage,
   "live.mjs": runnerLive,
   "schedule.mjs": runnerSchedule,
   "journal.mjs": runnerJournal,

@@ -56,7 +56,9 @@ export function createAgentToolManager(input: {
   return new AgentToolManagerService({
     files,
     system,
-    updates: new AgentToolUpdateSearch(new AgentToolReleaseCheck()),
+    updates: new AgentToolUpdateSearch(new AgentToolReleaseCheck(), {
+      storage: files,
+    }),
     activities: (id) => input.runner.toolActivities(path.join(files.root, id)),
     installer: new AgentToolInstaller({
       files,

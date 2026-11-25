@@ -1,11 +1,14 @@
 import type { EuroDollarReferenceRate } from "@/definition/AgentSessionPricing";
 import type { UserCurrency } from "@/definition/Settings";
 
-/**
- * A cost keeps up to four decimals, so a cent fraction of a short session
- * stays visible.
- */
+/** Every amount shows exactly two decimals, a 0 as well. */
 const COST_FRACTION_DIGITS = {
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+} as const;
+
+/** A conversion rate keeps the four decimals the ECB publishes. */
+const RATE_FRACTION_DIGITS = {
   minimumFractionDigits: 2,
   maximumFractionDigits: 4,
 } as const;
@@ -94,8 +97,8 @@ export function displayCost(
 }
 
 /**
- * Formats a cost in the app language with two to four decimals.
- * @param cost - The amount and its currency.
+ * Formats a cost in the app language with exactly two decimals.
+ * @param cost - The amount and its currency; it is rounded only here, after any conversion.
  * @param language - The app language, such as `de`.
  * @param display - `symbol` for `0,42 $`, `code` for `0,42 USD`.
  */
@@ -121,7 +124,7 @@ export function formatConversionRate(
   rate: CostConversionRate,
   language: string,
 ): string {
-  const factor = new Intl.NumberFormat(language, COST_FRACTION_DIGITS).format(
+  const factor = new Intl.NumberFormat(language, RATE_FRACTION_DIGITS).format(
     rate.factor,
   );
   return `1 ${rate.from} = ${factor} ${rate.to}`;

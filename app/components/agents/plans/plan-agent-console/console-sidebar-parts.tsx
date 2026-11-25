@@ -9,15 +9,15 @@ export const SIDEBAR_TITLE_CLASS =
 /**
  * One block of the console sidebar with its title.
  * @remarks
- * Blocks stand 14 px apart with a 1 px divider between them, drawn by the
- * sidebar; a block only lays out its own title and rows.
+ * A block has 12 px padding above and below, the only space between two
+ * blocks; the sidebar draws the 1 px divider between them.
  */
 export function SidebarSection(props: {
   readonly title: string;
   readonly children: React.ReactNode;
 }): React.ReactElement {
   return (
-    <section className="min-w-0">
+    <section className="min-w-0 py-3">
       <h3 className={SIDEBAR_TITLE_CLASS}>{props.title}</h3>
       {props.children}
     </section>
@@ -25,20 +25,27 @@ export function SidebarSection(props: {
 }
 
 /**
- * One row of the session facts: 36 px high, the label 13/400 in the muted
- * color, one value right aligned and centered to the label.
+ * One row of the sidebar: the label 13/400 in the muted color, one value
+ * right aligned and centered to the label.
  * @remarks
- * Label and value keep at least 12 px apart; a value wider than its column
- * is cut by the value itself, never wrapped into a second line.
+ * A row is 28 px high, a row whose value is a badge 32 px, so the todo list
+ * above keeps as much of the height as possible. Label and value keep at
+ * least 12 px apart; a value wider than its column is cut by the value itself,
+ * never wrapped into a second line.
  */
 export function SidebarRow(props: {
-  readonly label: string;
+  readonly label: React.ReactNode;
   readonly children: React.ReactNode;
+  /** Whether the value is a badge, which needs the higher row. */
+  readonly hasBadge?: boolean;
 }): React.ReactElement {
   return (
     <div
       data-sidebar-row=""
-      className="flex h-9 min-w-0 items-center justify-between gap-3 text-[13px]"
+      className={cn(
+        "flex min-w-0 items-center justify-between gap-3 text-[13px]",
+        props.hasBadge ? "h-8" : "h-7",
+      )}
     >
       <dt className="shrink-0 text-agent-console-muted">{props.label}</dt>
       <dd className="flex min-w-0 justify-end text-right text-agent-console-foreground">

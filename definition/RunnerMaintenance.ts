@@ -1,13 +1,16 @@
 import { z } from "zod";
 
 /** The shipped release. */
-export const RUNNER_RELEASE = "1.25.1";
+export const RUNNER_RELEASE = "1.25.4";
 export const RUNNER_PREVIOUS_RELEASE = "1.24.0";
 /** Patch release also supported while runners update to the current release. */
 export const RUNNER_PREVIOUS_PATCH_RELEASE = "1.24.1";
 /** Releases admitted for new runner work during the update window. */
 export const SUPPORTED_RUNNER_RELEASES: readonly string[] = [
   RUNNER_RELEASE,
+  "1.25.3",
+  "1.25.2",
+  "1.25.1",
   "1.25.0",
   RUNNER_PREVIOUS_RELEASE,
   RUNNER_PREVIOUS_PATCH_RELEASE,

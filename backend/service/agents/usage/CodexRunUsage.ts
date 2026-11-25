@@ -1,13 +1,58 @@
 import { allPlanRunResults } from "@/definition/AgentPlanLoopResults";
 import { sessionAttemptId } from "@/definition/AgentSessionJournal";
 
+import { attemptUsageEstimate } from "../sessions/AgentSessionUsage";
+
 import type { AgentPlanRun } from "@/definition/AgentPlan";
 import type { AgentSessionTurnUsage } from "@/definition/AgentSessionJournal";
+import type { AgentSessionUsageEstimate } from "@/definition/AgentSessionPricing";
+import type { TurnValuation } from "../sessions/AgentSessionUsage";
 import type {
   CodexRunUsage,
   CodexUsageSummary,
   CodexTokenCounts,
 } from "@/definition/CodexPlanUsage";
+
+/**
+ * The valuation the Codex accounting stored with a turn.
+ * @remarks
+ * A turn without a model has no price, whatever its record says.
+ */
+function codexTurnValuation(turn: AgentSessionTurnUsage): TurnValuation {
+  const price = turn.accounting?.price;
+  return {
+    amountUsd: turn.model === null ? null : (turn.accounting?.costUsd ?? null),
+    missing: turn.model === null ? "model" : "price",
+    priceAsOf: price ? [price.catalogAt] : [],
+    priceModels: price ? [price.modelId] : [],
+  };
+}
+
+/**
+ * The tokens one Codex attempt processed and their estimate, for the block
+ * "Verbrauch" of the plan terminal.
+ * @param turns - Turns of any attempt; only the Codex turns of `attemptId` count.
+ * @param attemptId - The selected attempt; another attempt never adds to it.
+ * @returns The sums of the attempt's turns with the amount stored with them.
+ * @remarks
+ * The counts stay Codex's own, so the input contains the cache reads. The
+ * amount is the sum of the valuations stored with the turns, at the price
+ * frozen for the attempt. A turn that still runs holds its latest interim
+ * reading and marks the amount as partial; the counts of its end replace it.
+ * Without a turn, with a turn that lacks input or output, or without a price
+ * for its model there is no amount.
+ */
+export function codexAttemptUsage(
+  turns: readonly AgentSessionTurnUsage[],
+  attemptId: string,
+): AgentSessionUsageEstimate {
+  return attemptUsageEstimate(
+    turns.filter(
+      (turn) => turn.provider === "codex_cli" && turn.attemptId === attemptId,
+    ),
+    codexTurnValuation,
+  );
+}
 
 /** Adds normalized counters; unknown reports remain visible as incomplete sums. */
 export function sumCodexUsage(

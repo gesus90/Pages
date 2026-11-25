@@ -72,13 +72,17 @@ export const AGENT_TOOL_CHECK_UPDATES = "check_updates";
 export const AGENT_TOOL_UPDATE_TARGET_FIELD = "target";
 
 /**
- * What "Updates suchen" found for one tool.
+ * What an automatic or manual update search found for one tool.
  * @remarks
- * A failed or unreachable source never reads as `current`; a system
- * installation is `external` because Pages does not change it.
+ * A failed or unreachable source never reads as `current`. While the installed
+ * version is unknown (`version_unknown`) or the tool is confirmed missing
+ * (`not_installed`), it never reads as `update_available`; a system
+ * installation stays `external` because Pages does not modify it.
  */
 export type AgentToolUpdateState =
   | "not_checked"
+  | "version_unknown"
+  | "not_installed"
   | "current"
   | "update_available"
   | "check_failed"
@@ -86,7 +90,7 @@ export type AgentToolUpdateState =
   | "external"
   | "incompatible";
 
-/** Release metadata of one tool, read only on an explicit update search. */
+/** Release metadata of one tool from the last daily or manual update search. */
 export interface AgentToolReleaseView {
   readonly state: AgentToolUpdateState;
   /** The newest stable release the official source publishes. */

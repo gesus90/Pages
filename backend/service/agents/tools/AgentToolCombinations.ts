@@ -399,6 +399,7 @@ export class AgentToolCombinations {
         "update_not_checked",
       );
     const release = updates.view(tool, {
+      installed: location !== null,
       version: location?.version ?? null,
       source: location?.source ?? null,
     });

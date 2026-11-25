@@ -1,6 +1,10 @@
 import { AGENT_STEP_REPORT_STATUSES } from "../AgentPlanStepReport.js";
 
-import { ADDITIVE_ANNOTATIONS, IDENTIFIER_SCHEMA } from "./ToolDefinition.js";
+import {
+  ADDITIVE_ANNOTATIONS,
+  IDENTIFIER_SCHEMA,
+  stringChoice,
+} from "./ToolDefinition.js";
 
 import type { Tool } from "@modelcontextprotocol/server";
 
@@ -21,7 +25,7 @@ export const STEP_REPORT_TOOL = {
   inputSchema: {
     type: "object",
     properties: {
-      status: { enum: [...AGENT_STEP_REPORT_STATUSES] },
+      status: stringChoice(AGENT_STEP_REPORT_STATUSES),
       message: text,
       todos: {
         type: "array",
@@ -30,7 +34,7 @@ export const STEP_REPORT_TOOL = {
           type: "object",
           properties: {
             id: IDENTIFIER_SCHEMA,
-            status: { enum: ["done", "open"] },
+            status: stringChoice(["done", "open"]),
           },
           required: ["id", "status"],
           additionalProperties: false,

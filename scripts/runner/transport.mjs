@@ -24,7 +24,7 @@ import { sendRunnerPacket, MAXIMUM_RUNNER_PACKET_BYTES } from "./wire.mjs";
 import { runnerEndpoint } from "./address.mjs";
 import { RunnerMaintenance } from "./maintenance.mjs";
 
-const RUNNER_VERSION = "1.25.1";
+const RUNNER_VERSION = "1.25.4";
 if (process.argv.includes("--version")) {
   console.info(`pages-runner ${RUNNER_VERSION}`);
   process.exit(0);
