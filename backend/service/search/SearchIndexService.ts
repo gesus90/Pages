@@ -145,7 +145,7 @@ function splitLongParagraph(paragraph: string): string[] {
     parts.push(rest.slice(0, cut).trim());
     rest = rest.slice(cut).trim();
   }
-  if (rest) parts.push(rest);
+  parts.push(rest);
   return parts.filter((part) => part.length > 0);
 }
 

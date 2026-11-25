@@ -131,6 +131,12 @@ interface VectorCandidates {
   readonly hits: readonly SearchEmbeddingHit[];
 }
 
+/** The vector state of a search whose vector part failed. */
+type UnavailableVectorState = Extract<
+  AgentVectorSearchState,
+  { status: "unavailable" }
+>;
+
 /** A section on its way to the ranking. */
 interface RankedSection {
   readonly source: ResolvedSource;
@@ -198,7 +204,7 @@ async function withTimeout<T>(
 }
 
 /** Names the reason the vector part failed, for the agent and the log. */
-function unavailableReason(error: unknown): AgentVectorSearchState {
+function unavailableReason(error: unknown): UnavailableVectorState {
   if (error instanceof VectorSearchUnavailableError)
     return { status: "unavailable", reason: "vectorSearchUnavailable" };
   if (error instanceof VectorSearchTimeoutError)
@@ -601,7 +607,7 @@ export class HybridSearchService {
           "The vector search is unavailable; the keyword search answers alone",
         metadata: {
           kind: "search",
-          reason: state.status === "unavailable" ? state.reason : null,
+          reason: state.reason,
         },
         error,
       });

@@ -57,13 +57,14 @@ export class ManagementUserWrite {
           email: request.email,
         });
     } else {
+      const { email = null } = request;
       await this.administration.createUser(
         this.context.actor.userId,
         {
           username: request.username,
           firstName: request.displayName,
           lastName: "",
-          email: request.email ?? null,
+          email,
           roleId: request.role,
           isAdmin: false,
           departments: request.departmentIds,

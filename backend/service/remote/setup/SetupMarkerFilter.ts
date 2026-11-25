@@ -36,12 +36,15 @@ function partialIntroducer(text: string): number {
 
 function parseMarker(body: string): SetupMarker | null {
   const match = BODY.exec(body);
-  if (!match) return null;
-  const [, phase, state, step] = match;
-  const markerState = MARKER_STATES.find((candidate) => candidate === state);
-  if (phase === undefined || markerState === undefined || step === undefined)
-    return null;
-  return { phase: Number(phase), state: markerState, step };
+  const markerState = MARKER_STATES.find(
+    (candidate) => candidate === match?.[2],
+  );
+  if (!match || markerState === undefined) return null;
+  return {
+    phase: Number(match[1]),
+    state: markerState,
+    step: String(match[3]),
+  };
 }
 
 /**

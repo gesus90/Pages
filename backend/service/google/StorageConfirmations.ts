@@ -123,14 +123,12 @@ export class StorageConfirmations {
       }
     }
 
-    while (this.open.size >= MAXIMUM_OPEN_CONFIRMATIONS) {
-      const oldest = this.open.keys().next();
-
-      if (oldest.done === true) {
+    for (const token of this.open.keys()) {
+      if (this.open.size < MAXIMUM_OPEN_CONFIRMATIONS) {
         return;
       }
 
-      this.open.delete(oldest.value);
+      this.open.delete(token);
     }
   }
 }

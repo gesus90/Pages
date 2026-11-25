@@ -111,7 +111,7 @@ function pageSizeOf(requested: number | null): number {
 }
 
 function isTextType(mimeType: string): boolean {
-  const base = mimeType.split(";")[0]?.trim() ?? "";
+  const base = mimeType.replace(/;.*$/su, "").trim();
 
   return base.startsWith("text/") || TEXT_TYPES.includes(base);
 }

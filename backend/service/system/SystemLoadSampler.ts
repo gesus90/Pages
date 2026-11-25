@@ -62,7 +62,7 @@ function readProcessorCounters(stat: string | null): ProcessorCounters | null {
     .map(Number);
   if (fields?.length !== 8 || !fields.every(Number.isFinite)) return null;
   const total = sum(fields);
-  const idle = (fields[3] ?? 0) + (fields[4] ?? 0);
+  const idle = sum(fields.slice(3, 5));
   return {
     busy: total - idle,
     total,

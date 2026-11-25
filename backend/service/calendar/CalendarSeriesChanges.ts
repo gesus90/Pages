@@ -128,9 +128,11 @@ function shiftSeries(
     const endDate = addDays(startDate, spanDays(next.startDate, next.endDate));
     return { allDay: true, startAt: startDate, endAt: endDate, startDate };
   }
-  const time = toLocal(next.startMs ?? 0, event.timeZone).time;
+  const targetStartMs = Date.parse(target.startAt);
+  const targetEndMs = Date.parse(target.endAt);
+  const time = toLocal(targetStartMs, event.timeZone).time;
   const startMs = fromLocal({ date: startDate, time }, event.timeZone);
-  const endMs = startMs + ((next.endMs ?? 0) - (next.startMs ?? 0));
+  const endMs = startMs + (targetEndMs - targetStartMs);
   return {
     allDay: false,
     startAt: toUtcText(startMs),

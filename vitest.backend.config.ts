@@ -139,6 +139,46 @@ export const BACKEND_COVERAGE_SECTIONS = [
     include: `backend/database/repositories/{AdministrationActivityRepository,AuthorizationRepository,InstanceSettingsRepository,LegacyAccountProvisioning,ManagementAuditRepository,ManagementRepository,SessionRepository,User{,BoardPreferences,Group,Settings}Repository}${SOURCE_FILE_PATTERN}`,
     minimum: 100,
   },
+  {
+    name: "service-wiki",
+    include: `backend/service/wiki/**/${SOURCE_FILE_PATTERN}`,
+    minimum: 100,
+  },
+  {
+    name: "service-task",
+    include: `backend/service/task/**/${SOURCE_FILE_PATTERN}`,
+    minimum: 100,
+  },
+  {
+    name: "service-project",
+    include: `backend/service/project/**/${SOURCE_FILE_PATTERN}`,
+    minimum: 100,
+  },
+  {
+    name: "service-calendar-events",
+    include: `backend/service/{calendar,events}/**/${SOURCE_FILE_PATTERN}`,
+    minimum: 100,
+  },
+  {
+    name: "service-automation",
+    include: `backend/service/automation/**/${SOURCE_FILE_PATTERN}`,
+    minimum: 100,
+  },
+  {
+    name: "service-external-providers",
+    include: `backend/service/{github,google,discord}/**/${SOURCE_FILE_PATTERN}`,
+    minimum: 100,
+  },
+  {
+    name: "service-remote-integrations",
+    include: `backend/service/{remote,integrations}/**/${SOURCE_FILE_PATTERN}`,
+    minimum: 100,
+  },
+  {
+    name: "service-management-system-search",
+    include: `backend/service/{management,system,interpreters,search}/**/${SOURCE_FILE_PATTERN}`,
+    minimum: 100,
+  },
 ] as const;
 
 export const BACKEND_TEST_SECTIONS = [
@@ -146,38 +186,6 @@ export const BACKEND_TEST_SECTIONS = [
     name,
     include: include.replace(SOURCE_FILE_PATTERN, TEST_FILE_PATTERN),
   })),
-  {
-    name: "service-wiki",
-    include: `backend/service/wiki/**/${TEST_FILE_PATTERN}`,
-  },
-  {
-    name: "service-task",
-    include: `backend/service/task/**/${TEST_FILE_PATTERN}`,
-  },
-  {
-    name: "service-project",
-    include: `backend/service/project/**/${TEST_FILE_PATTERN}`,
-  },
-  {
-    name: "service-calendar-events",
-    include: `backend/service/{calendar,events}/**/${TEST_FILE_PATTERN}`,
-  },
-  {
-    name: "service-automation",
-    include: `backend/service/automation/**/${TEST_FILE_PATTERN}`,
-  },
-  {
-    name: "service-external-providers",
-    include: `backend/service/{github,google,discord}/**/${TEST_FILE_PATTERN}`,
-  },
-  {
-    name: "service-remote-integrations",
-    include: `backend/service/{remote,integrations}/**/${TEST_FILE_PATTERN}`,
-  },
-  {
-    name: "service-management-system-search",
-    include: `backend/service/{management,system,interpreters,search}/**/${TEST_FILE_PATTERN}`,
-  },
 ] as const;
 
 const thresholds = Object.fromEntries(

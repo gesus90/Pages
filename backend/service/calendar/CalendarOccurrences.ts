@@ -42,6 +42,12 @@ export interface CalendarWindow {
   readonly toDate: string;
 }
 
+function storedInstant(value: string, timeZone: string): number {
+  return isCalendarDate(value)
+    ? fromLocal({ date: value, time: "00:00:00" }, timeZone)
+    : Date.parse(value);
+}
+
 /**
  * Reads the stored time of an event or an exception.
  * @param fields - Stored start, end and whether the event is all-day.
@@ -60,12 +66,8 @@ export function readStoredTime(
     const endDate = fields.endAt.slice(0, 10);
     return { allDay: true, startMs: null, endMs: null, startDate, endDate };
   }
-  const startMs = isCalendarDate(fields.startAt)
-    ? fromLocal({ date: fields.startAt, time: "00:00:00" }, timeZone)
-    : Date.parse(fields.startAt);
-  const endMs = isCalendarDate(fields.endAt)
-    ? fromLocal({ date: fields.endAt, time: "00:00:00" }, timeZone)
-    : Date.parse(fields.endAt);
+  const startMs = storedInstant(fields.startAt, timeZone);
+  const endMs = storedInstant(fields.endAt, timeZone);
   return {
     allDay: false,
     startMs,
@@ -86,8 +88,10 @@ export function occurrenceKeyOn(
   date: string,
 ): string {
   if (event.allDay) return date;
-  const base = readStoredTime(event, event.timeZone);
-  const time = toLocal(base.startMs ?? 0, event.timeZone).time;
+  const time = toLocal(
+    storedInstant(event.startAt, event.timeZone),
+    event.timeZone,
+  ).time;
   return toUtcText(fromLocal({ date, time }, event.timeZone));
 }
 
@@ -134,9 +138,11 @@ function occurrenceAt(
       endDate: addDays(date, spanDays(base.startDate, base.endDate)),
     };
   }
-  const time = toLocal(base.startMs ?? 0, event.timeZone).time;
+  const baseStartMs = storedInstant(event.startAt, event.timeZone);
+  const baseEndMs = storedInstant(event.endAt, event.timeZone);
+  const time = toLocal(baseStartMs, event.timeZone).time;
   const startMs = fromLocal({ date, time }, event.timeZone);
-  const endMs = startMs + ((base.endMs ?? 0) - (base.startMs ?? 0));
+  const endMs = startMs + (baseEndMs - baseStartMs);
   return {
     key: toUtcText(startMs),
     allDay: false,

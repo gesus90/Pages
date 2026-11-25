@@ -278,12 +278,13 @@ export class RemoteConsoleSession {
   private emit(event: RemoteConsoleEvent): void {
     this.history.push(event);
     this.historyLength += event.kind === "output" ? event.chunk.length : 256;
-    while (this.historyLength > MAXIMUM_HISTORY) {
-      const removed = this.history.shift();
-      if (removed)
-        this.historyLength -=
-          removed.kind === "output" ? removed.chunk.length : 256;
+    let dropped = 0;
+    for (const old of this.history) {
+      if (this.historyLength <= MAXIMUM_HISTORY) break;
+      this.historyLength -= old.kind === "output" ? old.chunk.length : 256;
+      dropped += 1;
     }
+    this.history.splice(0, dropped);
     for (const listener of this.listeners) listener(event);
   }
 
@@ -472,7 +473,6 @@ export class RemoteConsoleSession {
   private scheduleRetry(message: string | null): boolean {
     // A conducted command is not repeated after the transport was lost.
     if (this.conductor) return false;
-    if (this.retryTimer) return true;
     if (this.state.attempts >= CONSOLE_MAXIMUM_RETRIES) return false;
     this.update({ ...this.state, status: "reconnecting", message });
     this.retryTimer = setTimeout(() => {

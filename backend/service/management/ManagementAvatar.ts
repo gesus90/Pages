@@ -77,16 +77,14 @@ export function sanitizeManagementSvg(source: string): string {
     "",
   );
   return withoutExecutable.replace(/<[^>]*>/gu, (tag) => {
-    const match = /^<(\/?)([A-Za-z][A-Za-z0-9]*)\b/u.exec(tag);
-    if (!match || !SVG_TAGS.has(match[2] ?? "")) return "";
-    const [, closing, name] = match;
+    const [, closing, name] =
+      /^<(\/?)([A-Za-z][A-Za-z0-9]*)\b/u.exec(tag) ?? [];
+    if (!name || !SVG_TAGS.has(name)) return "";
     if (closing) return `</${name}>`;
     const attributes: string[] = [];
-    for (const attribute of tag.matchAll(
+    for (const [, key = "", , content = ""] of tag.matchAll(
       /([A-Za-z][\w:-]*)\s*=\s*(["'])(.*?)\2/gu,
     )) {
-      const key = attribute[1] ?? "";
-      const content = attribute[3] ?? "";
       if (!SVG_ATTRIBUTES.has(key) || /[<>&]/u.test(content)) continue;
       if (key === "xmlns" && content !== "http://www.w3.org/2000/svg") continue;
       if (
@@ -131,9 +129,8 @@ export async function renderManagementAvatar(
   if (dataBase64.length > Math.ceil(MAXIMUM_AVATAR_BYTES / 3) * 4)
     throw new AgentOperationError("PAYLOAD_TOO_LARGE");
   if (
-    !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/u.test(
-      dataBase64,
-    )
+    dataBase64.length % 4 !== 0 ||
+    !/^[A-Za-z0-9+/]*={0,2}$/u.test(dataBase64)
   )
     throw new AgentOperationError("INVALID_REQUEST", { reason: "avatar" });
   const bytes = Buffer.from(dataBase64, "base64");

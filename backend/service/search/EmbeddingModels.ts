@@ -121,7 +121,8 @@ export class DeterministicEmbeddingModel implements EmbeddingModel {
     for (const token of tokensOf(text)) {
       const digest = createHash("sha256").update(token, "utf8").digest();
       const index = digest.readUInt32BE(0) % this.dimensions;
-      vector[index] = (vector[index] ?? 0) + ((digest[4] ?? 0) % 2 ? -1 : 1);
+      vector[index] =
+        Number(vector[index]) + (digest.readUInt8(4) % 2 ? -1 : 1);
     }
     // A text without words, or whose words cancel out, still needs a direction.
     if (!vector.some((component) => component !== 0)) vector[0] = 1;

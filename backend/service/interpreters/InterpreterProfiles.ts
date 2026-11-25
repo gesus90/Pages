@@ -129,17 +129,19 @@ export class InterpreterProfiles {
           (saved) => JSON.stringify(saved) === JSON.stringify(profile),
         ),
     );
-    const checks = await Promise.all(
-      changed.map((profile) => this.check(profile.path)),
+    const checked = await Promise.all(
+      changed.map(async (profile) => ({
+        profile,
+        check: await this.check(profile.path),
+      })),
     );
-    if (checks.some((check) => check.status !== "ok")) {
-      const observations: Record<string, InterpreterCheck> = {};
-      changed.forEach((profile, index) => {
-        const observation = checks[index];
-        if (observation) observations[profile.id] = observation;
-      });
-      throw new InterpreterSettingsError("unchecked", observations);
-    }
+    if (checked.some(({ check }) => check.status !== "ok"))
+      throw new InterpreterSettingsError(
+        "unchecked",
+        Object.fromEntries(
+          checked.map(({ profile, check }) => [profile.id, check]),
+        ),
+      );
     await this.configFile.update((config) => {
       if (
         revision(config.interpreterProfiles ?? this.defaults) !==

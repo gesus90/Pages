@@ -12,7 +12,7 @@ function yoloSelections(input: unknown): ReadonlySet<string> {
   ];
   while (pending.length > 0) {
     const current = pending.pop();
-    if (!current || !isRecord(current.input)) continue;
+    if (!isRecord(current?.input)) continue;
     for (const [key, entry] of Object.entries(current.input)) {
       const identity =
         typeof entry === "object" &&

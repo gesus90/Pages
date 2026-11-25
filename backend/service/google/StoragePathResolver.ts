@@ -57,14 +57,8 @@ export class StoragePathResolver {
   public async resolve(
     folder: DriveFolderMetadata,
   ): Promise<StoragePathEntry[]> {
-    const chain = await this.readAncestors(folder);
-    const top = chain[0];
-
-    if (!top) {
-      return [];
-    }
-
-    const rest = chain.slice(1).map(folderEntry);
+    const [top, ...ancestors] = await this.readAncestors(folder);
+    const rest = ancestors.map(folderEntry);
 
     if (top.parentId !== null) {
       return [DETACHED_ENTRY, folderEntry(top), ...rest];
@@ -107,8 +101,8 @@ export class StoragePathResolver {
 
   private async readAncestors(
     folder: DriveFolderMetadata,
-  ): Promise<DriveFolderMetadata[]> {
-    const chain: DriveFolderMetadata[] = [folder];
+  ): Promise<[DriveFolderMetadata, ...DriveFolderMetadata[]]> {
+    const chain: [DriveFolderMetadata, ...DriveFolderMetadata[]] = [folder];
     let current = folder;
 
     while (current.parentId !== null && chain.length < MAXIMUM_PATH_DEPTH) {

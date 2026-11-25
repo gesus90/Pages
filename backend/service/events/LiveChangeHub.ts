@@ -55,7 +55,6 @@ class LiveConnection {
   private version: string;
   private isResyncDue = false;
   private isChecking = false;
-  private isAccountDue = true;
   private isClosed = false;
 
   public constructor(
@@ -71,7 +70,6 @@ class LiveConnection {
     this.version = input.version;
     this.heartbeat = setInterval(() => {
       this.write(encoder.encode(": keep-alive\n\n"));
-      this.isAccountDue = true;
       this.schedule();
     }, HEARTBEAT_MILLISECONDS);
     input.signal.addEventListener("abort", () => this.close(), { once: true });
@@ -108,7 +106,6 @@ class LiveConnection {
    * for those who lost it, so its event becomes a `resync`, which names nothing.
    */
   public receive(event: PagesEvent): void {
-    if (this.isClosed) return;
     if (
       isResyncEvent(event.type) ||
       this.pending.size >= MAXIMUM_PENDING_EVENTS
@@ -120,7 +117,6 @@ class LiveConnection {
 
   /** Sends `resync` in the next round, because events may have been missed. */
   public resync(): void {
-    if (this.isClosed) return;
     this.isResyncDue = true;
     this.schedule();
   }
@@ -151,11 +147,8 @@ class LiveConnection {
   private async deliver(): Promise<void> {
     const events = [...this.pending.values()];
     const isResyncDue = this.isResyncDue;
-    const isAccountDue = this.isAccountDue;
     this.pending.clear();
     this.isResyncDue = false;
-    this.isAccountDue = false;
-    if (events.length === 0 && !isResyncDue && !isAccountDue) return;
     const account = await this.input.account();
     if (!account) {
       this.close();

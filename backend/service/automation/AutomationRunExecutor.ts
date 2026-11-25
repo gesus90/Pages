@@ -19,7 +19,10 @@ import {
 import type { Database } from "@/backend/database/Database";
 import type { StoredAutomation } from "@/backend/database/repositories/automation/AutomationRepository";
 import type { StoredAutomationRun } from "@/backend/database/repositories/automation/AutomationRunRepository";
-import type { AutomationScriptAction } from "@/definition/Automation";
+import type {
+  AutomationScriptAction,
+  AutomationScriptForward,
+} from "@/definition/Automation";
 import type { AutomationAccess } from "./AutomationAccess";
 import type { AutomationAccount } from "./AutomationDirectory";
 import type {
@@ -97,12 +100,11 @@ function scriptOutput(result: AutomationScriptResult): string {
 }
 
 function shouldForward(
-  action: AutomationScriptAction,
+  forward: AutomationScriptForward,
   exitCode: number | null,
 ): boolean {
-  if (!action.forward) return false;
-  if (action.forward.when === "always") return true;
-  return action.forward.when === "zero" ? exitCode === 0 : exitCode !== 0;
+  if (forward.when === "always") return true;
+  return forward.when === "zero" ? exitCode === 0 : exitCode !== 0;
 }
 
 /**
@@ -280,7 +282,7 @@ export class AutomationRunExecutor {
     result: { readonly exitCode: number | null; readonly output: string },
   ): Promise<"woken" | "not_woken" | null> {
     if (!action.forward) return null;
-    if (!shouldForward(action, result.exitCode)) return "not_woken";
+    if (!shouldForward(action.forward, result.exitCode)) return "not_woken";
     const creator = await this.creator(automation);
     if (
       !(await this.dependencies.rules.canUseAgent(
