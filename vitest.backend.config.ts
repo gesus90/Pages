@@ -141,12 +141,44 @@ export const BACKEND_COVERAGE_SECTIONS = [
   },
 ] as const;
 
-export const BACKEND_TEST_SECTIONS = BACKEND_COVERAGE_SECTIONS.map(
-  ({ name, include }) => ({
+export const BACKEND_TEST_SECTIONS = [
+  ...BACKEND_COVERAGE_SECTIONS.map(({ name, include }) => ({
     name,
     include: include.replace(SOURCE_FILE_PATTERN, TEST_FILE_PATTERN),
-  }),
-);
+  })),
+  {
+    name: "service-wiki",
+    include: `backend/service/wiki/**/${TEST_FILE_PATTERN}`,
+  },
+  {
+    name: "service-task",
+    include: `backend/service/task/**/${TEST_FILE_PATTERN}`,
+  },
+  {
+    name: "service-project",
+    include: `backend/service/project/**/${TEST_FILE_PATTERN}`,
+  },
+  {
+    name: "service-calendar-events",
+    include: `backend/service/{calendar,events}/**/${TEST_FILE_PATTERN}`,
+  },
+  {
+    name: "service-automation",
+    include: `backend/service/automation/**/${TEST_FILE_PATTERN}`,
+  },
+  {
+    name: "service-external-providers",
+    include: `backend/service/{github,google,discord}/**/${TEST_FILE_PATTERN}`,
+  },
+  {
+    name: "service-remote-integrations",
+    include: `backend/service/{remote,integrations}/**/${TEST_FILE_PATTERN}`,
+  },
+  {
+    name: "service-management-system-search",
+    include: `backend/service/{management,system,interpreters,search}/**/${TEST_FILE_PATTERN}`,
+  },
+] as const;
 
 const thresholds = Object.fromEntries(
   BACKEND_COVERAGE_SECTIONS.map(

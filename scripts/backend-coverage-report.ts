@@ -43,10 +43,11 @@ const testResultsSchema = z.object({
 
 type BackendCoverageSection =
   (typeof BACKEND_COVERAGE_SECTIONS)[number]["name"];
+type BackendTestSection = (typeof BACKEND_TEST_SECTIONS)[number]["name"];
 type ModuleCoverage = z.infer<typeof summarySchema>[string];
 
 interface BackendSectionTestCounts {
-  readonly section: BackendCoverageSection;
+  readonly section: BackendTestSection;
   files: number;
   total: number;
   passed: number;
@@ -135,10 +136,10 @@ function emptyClassReason(
     : undefined;
 }
 
-function sectionForFile(
+function sectionForFile<Section extends string>(
   file: string,
-  sections: readonly { name: BackendCoverageSection; include: string }[],
-): BackendCoverageSection {
+  sections: readonly { name: Section; include: string }[],
+): Section {
   const section = sections.find((entry) =>
     path.matchesGlob(file, entry.include),
   );
@@ -188,7 +189,7 @@ export function countBackendTests(
   report: unknown,
 ): BackendSectionTestCounts[] {
   const { testResults } = testResultsSchema.parse(report);
-  const counts = new Map<BackendCoverageSection, BackendSectionTestCounts>(
+  const counts = new Map<BackendTestSection, BackendSectionTestCounts>(
     BACKEND_TEST_SECTIONS.map(({ name }) => [
       name,
       { section: name, files: 0, total: 0, passed: 0, failed: 0, notRun: 0 },
