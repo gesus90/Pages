@@ -28,6 +28,29 @@ scope. Test discovery uses the same section boundaries for `*.test.ts` and
 | Database search, diagnosis, storage   | `database/repositories/{search,diagnosis,storage}/`, `StoredTextForm.ts`, `SystemMetricsRepository.ts`                                                                                                                                                                                                        |
 | Database remaining repositories       | `database/repositories/` root: `AdministrationActivityRepository.ts`, `AuthorizationRepository.ts`, `InstanceSettingsRepository.ts`, `LegacyAccountProvisioning.ts`, `ManagementAuditRepository.ts`, `ManagementRepository.ts`, `SessionRepository.ts`, `User{,BoardPreferences,Group,Settings}Repository.ts` |
 
+## Registered packages without required coverage
+
+`BACKEND_REGISTERED_PACKAGES` in `vitest.backend.config.ts` registers further
+service packages. Their `*.test.ts` and `*.spec.ts` files run with
+`pnpm run test:backend` and appear in the per-section test counts. Their source
+modules are not measured and have no threshold until a package moves into
+`BACKEND_COVERAGE_SECTIONS`. A package without test files shows zero files.
+
+| Package                                         | Selection under `backend/service/`                                                                        |
+| ----------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| `service-chat`                                  | `chat/`                                                                                                   |
+| `service-conversation`                          | `conversation/`                                                                                           |
+| `service-employee`                              | `employee/`                                                                                               |
+| `service-mcp`                                   | `mcp/`                                                                                                    |
+| `service-mobile`                                | `mobile/`                                                                                                 |
+| `service-runner`                                | `runner/`                                                                                                 |
+| `service-design`                                | `design/`                                                                                                 |
+| `service-speech`                                | `speech/`                                                                                                 |
+| `service-root-before-m`                         | Files directly in `backend/service/` whose names sort before `M`                                          |
+| `service-root-from-m-and-remaining-directories` | Files directly in `backend/service/` from `M` on, and every subdirectory not listed above or in `agents/` |
+
+The `agents/` subdirectory of `backend/service/` is not part of any section.
+
 Coverage includes unimported source modules and excludes test and TypeScript
 declaration files.
 

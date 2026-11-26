@@ -181,10 +181,93 @@ export const BACKEND_COVERAGE_SECTIONS = [
   },
 ] as const;
 
+// Service subdirectories that belong to another package: the agents area and
+// the packages with their own directory.
+const SERVICE_DIRECTORIES_WITH_OTHER_PACKAGES = [
+  "agents",
+  "automation",
+  "calendar",
+  "chat",
+  "conversation",
+  "design",
+  "discord",
+  "employee",
+  "events",
+  "github",
+  "google",
+  "integrations",
+  "interpreters",
+  "management",
+  "mcp",
+  "mobile",
+  "project",
+  "remote",
+  "runner",
+  "search",
+  "speech",
+  "system",
+  "task",
+  "wiki",
+] as const;
+
+// Registered packages select their tests and are counted in the section
+// report. Their sources are not measured and carry no threshold until the
+// package moves into BACKEND_COVERAGE_SECTIONS.
+export const BACKEND_REGISTERED_PACKAGES = [
+  {
+    name: "service-chat",
+    include: `backend/service/chat/**/${SOURCE_FILE_PATTERN}`,
+  },
+  {
+    name: "service-conversation",
+    include: `backend/service/conversation/**/${SOURCE_FILE_PATTERN}`,
+  },
+  {
+    name: "service-employee",
+    include: `backend/service/employee/**/${SOURCE_FILE_PATTERN}`,
+  },
+  {
+    name: "service-mcp",
+    include: `backend/service/mcp/**/${SOURCE_FILE_PATTERN}`,
+  },
+  {
+    name: "service-mobile",
+    include: `backend/service/mobile/**/${SOURCE_FILE_PATTERN}`,
+  },
+  {
+    name: "service-runner",
+    include: `backend/service/runner/**/${SOURCE_FILE_PATTERN}`,
+  },
+  {
+    name: "service-design",
+    include: `backend/service/design/**/${SOURCE_FILE_PATTERN}`,
+  },
+  {
+    name: "service-speech",
+    include: `backend/service/speech/**/${SOURCE_FILE_PATTERN}`,
+  },
+  {
+    name: "service-root-before-m",
+    include: `backend/service/[0-9A-L]${SOURCE_FILE_PATTERN}`,
+  },
+  {
+    name: "service-root-from-m-and-remaining-directories",
+    include: `backend/service/{[!0-9A-L],!(${SERVICE_DIRECTORIES_WITH_OTHER_PACKAGES.join("|")})/**/}${SOURCE_FILE_PATTERN}`,
+  },
+] as const;
+
+function testGlob(include: string): string {
+  return include.replace(SOURCE_FILE_PATTERN, TEST_FILE_PATTERN);
+}
+
 export const BACKEND_TEST_SECTIONS = [
   ...BACKEND_COVERAGE_SECTIONS.map(({ name, include }) => ({
     name,
-    include: include.replace(SOURCE_FILE_PATTERN, TEST_FILE_PATTERN),
+    include: testGlob(include),
+  })),
+  ...BACKEND_REGISTERED_PACKAGES.map(({ name, include }) => ({
+    name,
+    include: testGlob(include),
   })),
 ] as const;
 
