@@ -48,8 +48,17 @@ modules are not measured and have no threshold until a package moves into
 | `service-speech`                                | `speech/`                                                                                                 |
 | `service-root-before-m`                         | Files directly in `backend/service/` whose names sort before `M`                                          |
 | `service-root-from-m-and-remaining-directories` | Files directly in `backend/service/` from `M` on, and every subdirectory not listed above or in `agents/` |
+| `service-agent-assets-branching-bridge`         | `agents/{assets,branching,bridge}/`                                                                       |
+| `service-agent-diagnosis-invocation`            | `agents/{diagnosis,invocation}/`                                                                          |
+| `service-agent-loop-recovery`                   | `agents/{loop,recovery}/`                                                                                 |
+| `service-agent-resources`                       | `agents/resources/`                                                                                       |
+| `service-agent-runs`                            | `agents/runs/`                                                                                            |
+| `service-agent-sessions`                        | `agents/sessions/`                                                                                        |
+| `service-agent-stack-swarm`                     | `agents/{stack,swarm}/`                                                                                   |
+| `service-agent-tools-usage`                     | `agents/{tools,usage}/`                                                                                   |
 
-The `agents/` subdirectory of `backend/service/` is not part of any section.
+Files directly in `backend/service/agents/` and any other subdirectories
+belong to the remaining inventory.
 
 Coverage includes unimported source modules and excludes test and TypeScript
 declaration files.

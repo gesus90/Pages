@@ -254,6 +254,38 @@ export const BACKEND_REGISTERED_PACKAGES = [
     name: "service-root-from-m-and-remaining-directories",
     include: `backend/service/{[!0-9A-L],!(${SERVICE_DIRECTORIES_WITH_OTHER_PACKAGES.join("|")})/**/}${SOURCE_FILE_PATTERN}`,
   },
+  {
+    name: "service-agent-assets-branching-bridge",
+    include: `backend/service/agents/{assets,branching,bridge}/**/${SOURCE_FILE_PATTERN}`,
+  },
+  {
+    name: "service-agent-diagnosis-invocation",
+    include: `backend/service/agents/{diagnosis,invocation}/**/${SOURCE_FILE_PATTERN}`,
+  },
+  {
+    name: "service-agent-loop-recovery",
+    include: `backend/service/agents/{loop,recovery}/**/${SOURCE_FILE_PATTERN}`,
+  },
+  {
+    name: "service-agent-resources",
+    include: `backend/service/agents/resources/**/${SOURCE_FILE_PATTERN}`,
+  },
+  {
+    name: "service-agent-runs",
+    include: `backend/service/agents/runs/**/${SOURCE_FILE_PATTERN}`,
+  },
+  {
+    name: "service-agent-sessions",
+    include: `backend/service/agents/sessions/**/${SOURCE_FILE_PATTERN}`,
+  },
+  {
+    name: "service-agent-stack-swarm",
+    include: `backend/service/agents/{stack,swarm}/**/${SOURCE_FILE_PATTERN}`,
+  },
+  {
+    name: "service-agent-tools-usage",
+    include: `backend/service/agents/{tools,usage}/**/${SOURCE_FILE_PATTERN}`,
+  },
 ] as const;
 
 function testGlob(include: string): string {
